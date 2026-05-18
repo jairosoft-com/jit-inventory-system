@@ -1,0 +1,477 @@
+// ============================================
+// JIT Inventory & Equipment Management System
+// Prisma Schema — v3.1
+// Single source of truth for DB schema
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────
+
+enum ItemType {
+  EQUIPMENT
+  CONSUMABLE
+}
+
+enum ItemStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  UNDER_MAINTENANCE
+  DAMAGED
+  LOST
+  BORROWED
+  RETIRED
+}
+
+enum BorrowStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BORROWED
+  RETURNED
+  OVERDUE
+  CANCELLED
+}
+
+enum ConditionStatus {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+enum AssignmentType {
+  PHYSICAL
+  DIGITAL
+}
+
+enum DisposalReason {
+  DAMAGED_BEYOND_REPAIR
+  OUTDATED
+  LOST
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+enum LogAction {
+  CREATED
+  UPDATED
+  DELETED
+  APPROVED
+  REJECTED
+  BORROWED
+  RETURNED
+  DISPOSED
+}
+
+// ────────────────────────────────────────────
+// 1. Roles — RBAC system roles
+// ────────────────────────────────────────────
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+// ────────────────────────────────────────────
+// 2. Permissions — resource:action convention
+// ────────────────────────────────────────────
+
+model Permission {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique @db.VarChar(100)
+  resource    String  @db.VarChar(50)
+  action      String  @db.VarChar(50)
+  description String? @db.Text
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+// ────────────────────────────────────────────
+// 3. Role-Permission Junction — RBAC mapping
+// ────────────────────────────────────────────
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ────────────────────────────────────────────
+// 4. Users — company personnel
+// ────────────────────────────────────────────
+
+model User {
+  id        Int       @id @default(autoincrement())
+  firstName String    @map("first_name") @db.VarChar(100)
+  lastName  String    @map("last_name") @db.VarChar(100)
+  email     String    @unique @db.VarChar(255)
+  password  String    @db.VarChar(255)
+  roleId    Int       @map("role_id")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relations
+  role            Role             @relation(fields: [roleId], references: [id])
+  refreshTokens   RefreshToken[]
+  inventoryLogs   InventoryLog[]
+  stockIns        StockIn[]        @relation("ReceivedBy")
+  stockOuts       StockOut[]       @relation("ReleasedBy")
+  borrowsAsStaff  BorrowRecord[]   @relation("BorrowedBy")
+  borrowsApproved BorrowRecord[]   @relation("ApprovedBy")
+  disposals       Disposal[]
+  purchaseOrders  PurchaseOrder[]
+  maintenanceLogs MaintenanceLog[]
+  registeredItems Item[]           @relation("RegisteredBy")
+
+  @@map("users")
+}
+
+// ────────────────────────────────────────────
+// 5. Refresh Tokens — session management
+// ────────────────────────────────────────────
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ────────────────────────────────────────────
+// 6. Categories — item categorization
+// ────────────────────────────────────────────
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  type        ItemType
+  description String?  @db.Text
+
+  // Relations
+  items Item[]
+
+  @@map("categories")
+}
+
+// ────────────────────────────────────────────
+// 7. Items — inventory items
+// ────────────────────────────────────────────
+
+model Item {
+  id           Int        @id @default(autoincrement())
+  itemName     String     @map("item_name") @db.VarChar(255)
+  description  String?    @db.Text
+  categoryId   Int        @map("category_id")
+  unit         String     @db.VarChar(50)
+  quantity     Int        @default(0)
+  reorderPoint Int        @default(0) @map("reorder_point")
+  status       ItemStatus @default(IN_STOCK)
+  isConsumable Boolean    @default(false) @map("is_consumable")
+  barcode      String?    @unique @db.VarChar(255)
+  imageUrl     String?    @map("image_url") @db.VarChar(500)
+  poId         Int?       @map("purchase_order_id")
+  registeredBy Int?       @map("registered_by")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  // Relations
+  category           Category            @relation(fields: [categoryId], references: [id])
+  purchaseOrder      PurchaseOrder?       @relation(fields: [poId], references: [id])
+  registeredByUser   User?               @relation("RegisteredBy", fields: [registeredBy], references: [id])
+  equipment          Equipment?
+  stockIns           StockIn[]
+  stockOuts          StockOut[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@map("items")
+}
+
+// ────────────────────────────────────────────
+// 8. Equipment — trackable assets (1:1 with Item)
+// ────────────────────────────────────────────
+
+model Equipment {
+  id              Int             @id @default(autoincrement())
+  itemId          Int             @unique @map("item_id")
+  assetId         String          @unique @map("asset_id") @db.VarChar(100)
+  serialNumber    String?         @unique @map("serial_number") @db.VarChar(100)
+  brand           String?         @db.VarChar(255)
+  model           String?         @db.VarChar(255)
+  assignmentType  AssignmentType  @default(PHYSICAL) @map("assignment_type")
+  condition       ConditionStatus @default(NEW)
+  status          EquipmentStatus @default(AVAILABLE)
+  location        String?         @db.VarChar(255)
+  acquisitionDate DateTime?       @map("acquisition_date") @db.Date
+  purchasePrice   Decimal?        @map("purchase_price") @db.Decimal(10, 2)
+  warrantyStart   DateTime?       @map("warranty_start") @db.Date
+  warrantyEnd     DateTime?       @map("warranty_end") @db.Date
+  warrantyProvider String?        @map("warranty_provider") @db.VarChar(255)
+  warrantyDocUrl  String?         @map("warranty_doc_url") @db.VarChar(500)
+  replacementNeeded Boolean       @default(false) @map("replacement_needed")
+  isBorrowed      Boolean         @default(false) @map("is_borrowed")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  item            Item             @relation(fields: [itemId], references: [id])
+  borrowRecords   BorrowRecord[]
+  maintenanceLogs MaintenanceLog[]
+  disposal        Disposal?
+
+  @@map("equipment")
+}
+
+// ────────────────────────────────────────────
+// 9. Suppliers — supplier contact records
+// ────────────────────────────────────────────
+
+model Supplier {
+  id            Int     @id @default(autoincrement())
+  supplierName  String  @map("supplier_name") @db.VarChar(255)
+  contactPerson String? @map("contact_person") @db.VarChar(255)
+  email         String? @db.VarChar(255)
+  phone         String? @db.VarChar(50)
+  address       String? @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+// ────────────────────────────────────────────
+// 10. Purchase Orders — procurement records
+// ────────────────────────────────────────────
+
+model PurchaseOrder {
+  id            Int                 @id @default(autoincrement())
+  supplierId    Int                 @map("supplier_id")
+  invoiceNumber String?             @unique @map("invoice_number") @db.VarChar(100)
+  status        PurchaseOrderStatus @default(DRAFT)
+  totalAmount   Decimal             @map("total_amount") @db.Decimal(10, 2)
+  receiptUrl    String?             @map("receipt_url") @db.VarChar(500)
+  createdById   Int                 @map("created_by_id")
+  orderDate     DateTime            @default(now()) @map("order_date")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy User                @relation(fields: [createdById], references: [id])
+  lineItems PurchaseOrderItem[]
+  items     Item[]
+  stockIns  StockIn[]
+
+  @@map("purchase_orders")
+}
+
+// ────────────────────────────────────────────
+// 11. Purchase Order Items — PO line items
+// ────────────────────────────────────────────
+
+model PurchaseOrderItem {
+  id              Int     @id @default(autoincrement())
+  purchaseOrderId Int     @map("purchase_order_id")
+  itemId          Int     @map("item_id")
+  quantity        Int
+  unitCost        Decimal @map("unit_cost") @db.Decimal(10, 2)
+
+  // Relations
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  item          Item          @relation(fields: [itemId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+// ────────────────────────────────────────────
+// 12. Stock In — inbound stock movement
+// ────────────────────────────────────────────
+
+model StockIn {
+  id              Int      @id @default(autoincrement())
+  itemId          Int      @map("item_id")
+  quantityAdded   Int      @map("quantity_added")
+  purchaseOrderId Int?     @map("purchase_order_id")
+  receivedById    Int      @map("received_by_id")
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  item          Item           @relation(fields: [itemId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy    User           @relation("ReceivedBy", fields: [receivedById], references: [id])
+
+  @@map("stock_in")
+}
+
+// ────────────────────────────────────────────
+// 13. Stock Out — outbound stock movement
+// ────────────────────────────────────────────
+
+model StockOut {
+  id              Int      @id @default(autoincrement())
+  itemId          Int      @map("item_id")
+  quantityRemoved Int      @map("quantity_removed")
+  purpose         String   @db.Text
+  releasedById    Int      @map("released_by_id")
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  item       Item @relation(fields: [itemId], references: [id])
+  releasedBy User @relation("ReleasedBy", fields: [releasedById], references: [id])
+
+  @@map("stock_out")
+}
+
+// ────────────────────────────────────────────
+// 14. Borrow Records — equipment borrowing lifecycle
+// ────────────────────────────────────────────
+
+model BorrowRecord {
+  id              Int            @id @default(autoincrement())
+  equipmentId     Int            @map("equipment_id")
+  borrowedById    Int            @map("borrowed_by_id")
+  approvedById    Int?           @map("approved_by_id")
+  borrowDate      DateTime?      @map("borrow_date")
+  expectedReturn  DateTime       @map("expected_return") @db.Date
+  actualReturn    DateTime?      @map("actual_return")
+  returnCondition ConditionStatus? @map("return_condition")
+  status          BorrowStatus   @default(PENDING)
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  equipment  Equipment @relation(fields: [equipmentId], references: [id])
+  borrowedBy User      @relation("BorrowedBy", fields: [borrowedById], references: [id])
+  approvedBy User?     @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  @@map("borrow_records")
+}
+
+// ────────────────────────────────────────────
+// 15. Maintenance Logs — equipment maintenance
+// ────────────────────────────────────────────
+
+model MaintenanceLog {
+  id           Int               @id @default(autoincrement())
+  equipmentId  Int               @map("equipment_id")
+  description  String            @db.Text
+  status       MaintenanceStatus @default(SCHEDULED)
+  scheduledDate DateTime?        @map("scheduled_date") @db.Date
+  completedDate DateTime?        @map("completed_date") @db.Date
+  cost         Decimal?          @db.Decimal(10, 2)
+  performedById Int              @map("performed_by_id")
+  notes        String?           @db.Text
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  performedBy User      @relation(fields: [performedById], references: [id])
+
+  @@map("maintenance_logs")
+}
+
+// ────────────────────────────────────────────
+// 16. Disposals — equipment retirement
+// ────────────────────────────────────────────
+
+model Disposal {
+  id                Int             @id @default(autoincrement())
+  equipmentId       Int             @unique @map("equipment_id")
+  approvedById      Int             @map("approved_by_id")
+  disposalDate      DateTime        @default(now()) @map("disposal_date")
+  reason            DisposalReason
+  condition         ConditionStatus
+  replacementNeeded Boolean         @default(false) @map("replacement_needed")
+  notes             String?         @db.Text
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  equipment  Equipment @relation(fields: [equipmentId], references: [id])
+  approvedBy User      @relation(fields: [approvedById], references: [id])
+
+  @@map("disposals")
+}
+
+// ────────────────────────────────────────────
+// 17. Inventory Logs — immutable audit trail
+// ────────────────────────────────────────────
+
+model InventoryLog {
+  id          Int       @id @default(autoincrement())
+  entityType  String    @map("entity_type") @db.VarChar(50)
+  entityId    Int       @map("entity_id")
+  action      LogAction
+  changes     Json?
+  performedBy Int       @map("performed_by")
+  performedAt DateTime  @default(now()) @map("performed_at")
+  ipAddress   String?   @map("ip_address") @db.VarChar(45)
+
+  // Relations
+  user User @relation(fields: [performedBy], references: [id])
+
+  @@map("inventory_logs")
+}

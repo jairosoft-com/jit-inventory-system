@@ -33,4 +33,6 @@ async function bootstrap() {
   await app.listen(port);
   console.warn(`🚀 JIT IMS Backend running on http://localhost:${port}/api`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Error starting backend:', err);
+});

@@ -1,6 +1,6 @@
 # JIT Inventory & Equipment Management System
 
-A web-based internal tool for managing the full lifecycle of company assets — from procurement through disposal — and handling equipment borrowing through a structured digital workflow.
+A web-based internal tool for managing the full lifecycle of Jairosoft Inc. / LLC assets — from procurement through disposal — and handling equipment borrowing through a structured digital workflow.
 
 ## Tech Stack
 
@@ -48,7 +48,7 @@ jit-inventory-system/
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/jairosoft-com/jit-inventory-system.git
 cd jit-inventory-system
 ```
 

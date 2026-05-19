@@ -234,7 +234,7 @@ model Item {
 
   // Relations
   category           Category            @relation(fields: [categoryId], references: [id])
-  purchaseOrder      PurchaseOrder?       @relation(fields: [poId], references: [id])
+  purchaseOrder      PurchaseOrder?      @relation(fields: [poId], references: [id])
   registeredByUser   User?               @relation("RegisteredBy", fields: [registeredBy], references: [id])
   equipment          Equipment?
   stockIns           StockIn[]
@@ -249,26 +249,26 @@ model Item {
 // ────────────────────────────────────────────
 
 model Equipment {
-  id              Int             @id @default(autoincrement())
-  itemId          Int             @unique @map("item_id")
-  assetId         String          @unique @map("asset_id") @db.VarChar(100)
-  serialNumber    String?         @unique @map("serial_number") @db.VarChar(100)
-  brand           String?         @db.VarChar(255)
-  model           String?         @db.VarChar(255)
-  assignmentType  AssignmentType  @default(PHYSICAL) @map("assignment_type")
-  condition       ConditionStatus @default(NEW)
-  status          EquipmentStatus @default(AVAILABLE)
-  location        String?         @db.VarChar(255)
-  acquisitionDate DateTime?       @map("acquisition_date") @db.Date
-  purchasePrice   Decimal?        @map("purchase_price") @db.Decimal(10, 2)
-  warrantyStart   DateTime?       @map("warranty_start") @db.Date
-  warrantyEnd     DateTime?       @map("warranty_end") @db.Date
-  warrantyProvider String?        @map("warranty_provider") @db.VarChar(255)
-  warrantyDocUrl  String?         @map("warranty_doc_url") @db.VarChar(500)
-  replacementNeeded Boolean       @default(false) @map("replacement_needed")
-  isBorrowed      Boolean         @default(false) @map("is_borrowed")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id                Int             @id @default(autoincrement())
+  itemId            Int             @unique @map("item_id")
+  assetId           String          @unique @map("asset_id") @db.VarChar(100)
+  serialNumber      String?         @unique @map("serial_number") @db.VarChar(100)
+  brand             String?         @db.VarChar(255)
+  model             String?         @db.VarChar(255)
+  assignmentType    AssignmentType  @default(PHYSICAL) @map("assignment_type")
+  condition         ConditionStatus @default(NEW)
+  status            EquipmentStatus @default(AVAILABLE)
+  location          String?         @db.VarChar(255)
+  acquisitionDate   DateTime?       @map("acquisition_date") @db.Date
+  purchasePrice     Decimal?        @map("purchase_price") @db.Decimal(10, 2)
+  warrantyStart     DateTime?       @map("warranty_start") @db.Date
+  warrantyEnd       DateTime?       @map("warranty_end") @db.Date
+  warrantyProvider  String?         @map("warranty_provider") @db.VarChar(255)
+  warrantyDocUrl    String?         @map("warranty_doc_url") @db.VarChar(500)
+  replacementNeeded Boolean         @default(false) @map("replacement_needed")
+  isBorrowed        Boolean         @default(false) @map("is_borrowed")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
   // Relations
   item            Item             @relation(fields: [itemId], references: [id])
@@ -284,13 +284,13 @@ model Equipment {
 // ────────────────────────────────────────────
 
 model Supplier {
-  id            Int     @id @default(autoincrement())
-  supplierName  String  @map("supplier_name") @db.VarChar(255)
-  contactPerson String? @map("contact_person") @db.VarChar(255)
-  email         String? @db.VarChar(255)
-  phone         String? @db.VarChar(50)
-  address       String? @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
+  id            Int       @id @default(autoincrement())
+  supplierName  String    @map("supplier_name") @db.VarChar(255)
+  contactPerson String?   @map("contact_person") @db.VarChar(255)
+  email         String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(50)
+  address       String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
   deletedAt     DateTime? @map("deleted_at")
 
   // Relations
@@ -389,18 +389,18 @@ model StockOut {
 // ────────────────────────────────────────────
 
 model BorrowRecord {
-  id              Int            @id @default(autoincrement())
-  equipmentId     Int            @map("equipment_id")
-  borrowedById    Int            @map("borrowed_by_id")
-  approvedById    Int?           @map("approved_by_id")
-  borrowDate      DateTime?      @map("borrow_date")
-  expectedReturn  DateTime       @map("expected_return") @db.Date
-  actualReturn    DateTime?      @map("actual_return")
+  id              Int              @id @default(autoincrement())
+  equipmentId     Int              @map("equipment_id")
+  borrowedById    Int              @map("borrowed_by_id")
+  approvedById    Int?             @map("approved_by_id")
+  borrowDate      DateTime?        @map("borrow_date")
+  expectedReturn  DateTime         @map("expected_return") @db.Date
+  actualReturn    DateTime?        @map("actual_return")
   returnCondition ConditionStatus? @map("return_condition")
-  status          BorrowStatus   @default(PENDING)
-  notes           String?        @db.Text
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  status          BorrowStatus     @default(PENDING)
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
   // Relations
   equipment  Equipment @relation(fields: [equipmentId], references: [id])
@@ -415,17 +415,17 @@ model BorrowRecord {
 // ────────────────────────────────────────────
 
 model MaintenanceLog {
-  id           Int               @id @default(autoincrement())
-  equipmentId  Int               @map("equipment_id")
-  description  String            @db.Text
-  status       MaintenanceStatus @default(SCHEDULED)
-  scheduledDate DateTime?        @map("scheduled_date") @db.Date
-  completedDate DateTime?        @map("completed_date") @db.Date
-  cost         Decimal?          @db.Decimal(10, 2)
-  performedById Int              @map("performed_by_id")
-  notes        String?           @db.Text
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  id            Int               @id @default(autoincrement())
+  equipmentId   Int               @map("equipment_id")
+  description   String            @db.Text
+  status        MaintenanceStatus @default(SCHEDULED)
+  scheduledDate DateTime?         @map("scheduled_date") @db.Date
+  completedDate DateTime?         @map("completed_date") @db.Date
+  cost          Decimal?          @db.Decimal(10, 2)
+  performedById Int               @map("performed_by_id")
+  notes         String?           @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   // Relations
   equipment   Equipment @relation(fields: [equipmentId], references: [id])

@@ -23,19 +23,22 @@
     "db:validate": "npx prisma validate --schema=prisma/schema.prisma",
     "prepare": "echo 'Ready'"
   },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "devDependencies": {
-    "turbo": "^2.9.0",
-    "typescript": "^5.7.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.0.0",
     "prettier": "^3.4.0",
-    "prisma": "^6.8.0",
-    "ts-node": "^10.9.0"
+    "prisma": "^6.19.3",
+    "ts-node": "^10.9.0",
+    "turbo": "^2.9.0",
+    "typescript": "^5.7.0"
   },
   "dependencies": {
-    "@prisma/client": "^6.8.0"
+    "@prisma/client": "^6.19.3"
   },
   "engines": {
     "node": ">=20.0.0",

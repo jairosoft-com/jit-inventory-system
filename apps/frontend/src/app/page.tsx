@@ -1,31 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "../store/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, checkAuth, user, isLoading: storeLoading } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (user && !storeLoading) {
+      router.push("/dashboard");
+    }
+  }, [user, storeLoading, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    // Simulate login loading flow
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-
-    if (email && password) {
-      router.push("/dashboard");
-    } else {
-      setError("Please enter your email and password.");
+    try {
+      await login(email, password);
+    } catch (err: any) {
+      setError(err.message || "Please check your credentials and try again.");
       setIsLoading(false);
     }
   };
+
+  if (storeLoading) {
+    return (
+      <div className="login-page">
+        <div className="login-bg-grid" />
+        <span className="login-spinner" style={{ width: "40px", height: "40px", borderColor: "rgba(37,99,235,0.1)", borderTopColor: "#2563eb" }} />
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">

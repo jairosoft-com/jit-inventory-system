@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useAuthStore } from "../../store/authStore";
 
 /* ── SVG Icon Components (inline for skeleton) ── */
 
@@ -152,10 +153,41 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, isLoading, checkAuth, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/");
+    }
+  }, [user, isLoading, router]);
+
+  const handleLogout = async () => {
+    await logout();
     router.push("/");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="dash-layout" style={{ justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+        <span className="login-spinner" style={{ width: "40px", height: "40px", borderColor: "rgba(37,99,235,0.1)", borderTopColor: "#2563eb" }} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const getInitials = () => {
+    if (!user) return "";
+    const f = user.firstName?.[0] || "";
+    const l = user.lastName?.[0] || "";
+    return (f + l).toUpperCase();
   };
 
   return (
@@ -227,10 +259,10 @@ export default function DashboardLayout({
         <div className="dash-sidebar-footer">
           {!collapsed && (
             <div className="dash-user-info">
-              <div className="dash-avatar">AD</div>
+              <div className="dash-avatar">{getInitials()}</div>
               <div className="dash-user-meta">
-                <span className="dash-user-name">Admin User</span>
-                <span className="dash-user-role">Administrator</span>
+                <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
+                <span className="dash-user-role">{user.role?.description || user.role?.name || "User"}</span>
               </div>
             </div>
           )}

@@ -41,9 +41,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { accessToken, user } = response.data;
       set({ accessToken, user, isLoading: false });
       return user;
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
-      throw new Error(error.response?.data?.message || 'Login failed');
+      const err = error as { response?: { data?: { message?: string } } };
+      throw new Error(err.response?.data?.message || 'Login failed');
     }
   },
 
@@ -67,10 +68,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await api.get('/auth/me');
       const { user } = response.data;
       set({ user, isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Quietly set unauthenticated state if the request returns a standard 401
-      if (error.response?.status !== 401) {
-        console.warn('CheckAuth failed:', error.message || error);
+      const err = error as { response?: { status?: number }; message?: string };
+      if (err.response?.status !== 401) {
+        console.warn('CheckAuth failed:', err.message || error);
       }
       set({ accessToken: null, user: null, isLoading: false });
     }

@@ -30,8 +30,12 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-    } catch (err: any) {
-      setError(err.message || "Please check your credentials and try again.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Please check your credentials and try again.");
+      }
       setIsLoading(false);
     }
   };

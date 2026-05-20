@@ -34,7 +34,8 @@ export class AuthController {
       loginDto.email,
       loginDto.password,
     );
-    const { accessToken, refreshToken, user } = await this.authService.login(validatedUser);
+    const { accessToken, refreshToken, user } =
+      await this.authService.login(validatedUser);
 
     // Set refresh token in httpOnly cookie
     response.cookie('jit_refresh_token', refreshToken, {
@@ -58,12 +59,18 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const refreshToken = request.cookies['jit_refresh_token'];
+    const refreshToken = request.cookies['jit_refresh_token'] as
+      | string
+      | undefined;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
 
-    const { accessToken, refreshToken: newRefreshToken, user } = await this.authService.refresh(refreshToken);
+    const {
+      accessToken,
+      refreshToken: newRefreshToken,
+      user,
+    } = await this.authService.refresh(refreshToken);
 
     // Set new refresh token in httpOnly cookie
     response.cookie('jit_refresh_token', newRefreshToken, {
@@ -87,7 +94,9 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const refreshToken = request.cookies['jit_refresh_token'];
+    const refreshToken = request.cookies['jit_refresh_token'] as
+      | string
+      | undefined;
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
@@ -117,7 +126,7 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userResult } = user;
     return {

@@ -5,6 +5,9 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import type { User } from '@prisma/client';
+
+export type UserWithoutPassword = Omit<User, 'password'>;
 
 @Injectable()
 export class AuthService {
@@ -25,7 +28,10 @@ export class AuthService {
   /**
    * Validates user credentials.
    */
-  async validateUser(email: string, pass: string): Promise<any> {
+  async validateUser(
+    email: string,
+    pass: string,
+  ): Promise<UserWithoutPassword> {
     const user = await this.usersService.findOneByEmail(email);
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
@@ -48,7 +54,7 @@ export class AuthService {
   /**
    * Signs Access and Refresh tokens for a given user.
    */
-  async generateTokens(user: any) {
+  generateTokens(user: Pick<User, 'id' | 'email' | 'roleId'>) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -56,15 +62,21 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_ACCESS_SECRET') || 'default-access-secret',
-      expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRY') || '15m') as any,
+      secret:
+        this.configService.get<string>('JWT_ACCESS_SECRET') ||
+        'default-access-secret',
+      expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRY') ||
+        '15m') as `${number}m`,
     });
 
     const refreshToken = this.jwtService.sign(
       { sub: user.id },
       {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
-        expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d') as any,
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          'default-refresh-secret',
+        expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRY') ||
+          '7d') as `${number}d`,
       },
     );
 
@@ -77,11 +89,12 @@ export class AuthService {
   /**
    * Performs login flow: generates tokens and stores refresh token hash.
    */
-  async login(user: any) {
-    const { accessToken, refreshToken } = await this.generateTokens(user);
+  async login(user: UserWithoutPassword) {
+    const { accessToken, refreshToken } = this.generateTokens(user);
 
     // Compute expiry date for refresh token
-    const expiryString = this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
+    const expiryString =
+      this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
     const days = parseInt(expiryString) || 7;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
@@ -107,10 +120,11 @@ export class AuthService {
    * Performs refresh token rotation: validates old token, generates new set, updates DB hash.
    */
   async refresh(token: string) {
-    let payload: any;
     try {
-      payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
+      this.jwtService.verify(token, {
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          'default-refresh-secret',
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -122,7 +136,11 @@ export class AuthService {
       include: { user: { include: { role: true } } },
     });
 
-    if (!storedToken || storedToken.revokedAt || storedToken.expiresAt < new Date()) {
+    if (
+      !storedToken ||
+      storedToken.revokedAt ||
+      storedToken.expiresAt < new Date()
+    ) {
       // Invalidate all tokens for user if reuse or revoked token is detected
       if (storedToken) {
         await this.prisma.refreshToken.deleteMany({
@@ -143,10 +161,12 @@ export class AuthService {
     }
 
     // Generate new tokens
-    const { accessToken, refreshToken: newRefreshToken } = await this.generateTokens(user);
+    const { accessToken, refreshToken: newRefreshToken } =
+      this.generateTokens(user);
 
     // Save the new refresh token
-    const expiryString = this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
+    const expiryString =
+      this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
     const days = parseInt(expiryString) || 7;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);

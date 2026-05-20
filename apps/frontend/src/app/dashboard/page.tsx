@@ -37,7 +37,7 @@ export default function DashboardPage() {
           { label: "Active Equipment", color: "#8b5cf6" },
           { label: "Low Stock Alerts", color: "#d97706" },
           { label: "Pending Borrows", color: "#0891b2" },
-        ].map((stat, i) => (
+        ].map((stat) => (
           <div key={stat.label} className="dash-stat-card">
             <div className="dash-stat-header">
               <span className="dash-stat-label">{stat.label}</span>

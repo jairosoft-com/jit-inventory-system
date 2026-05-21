@@ -168,9 +168,16 @@ export class UsersService {
             },
           },
         },
+        users: {
+          where: {
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+          },
+        },
         _count: {
           select: {
-            users: true,
             rolePermissions: true,
           },
         },
@@ -182,7 +189,7 @@ export class UsersService {
       name: role.name,
       description: role.description,
       isSystem: role.isSystem,
-      userCount: role._count.users,
+      userCount: role.users.length,
       permissionCount: role._count.rolePermissions,
       permissions: role.rolePermissions.map((rolePermission) => ({
         id: rolePermission.permission.id,
@@ -283,16 +290,37 @@ export class UsersService {
     return this.mapUser(user);
   }
 
-  async updateAccess(id: number, updateUserAccessDto: UpdateUserAccessDto) {
+  async updateAccess(
+    id: number,
+    updateUserAccessDto: UpdateUserAccessDto,
+    currentUserId?: number,
+  ) {
+    const hasRoleUpdate = updateUserAccessDto.roleId !== undefined;
+    const hasStatusUpdate = updateUserAccessDto.isActive !== undefined;
+
+    if (!hasRoleUpdate && !hasStatusUpdate) {
+      throw new BadRequestException(
+        'Provide at least one field to update: roleId or isActive',
+      );
+    }
+
     await this.findOne(id);
+
+    if (currentUserId === id && updateUserAccessDto.isActive === false) {
+      throw new BadRequestException('You cannot deactivate your own account');
+    }
+
+    if (currentUserId === id && hasRoleUpdate) {
+      throw new BadRequestException('You cannot change your own role');
+    }
 
     const data: Prisma.UserUpdateInput = {};
 
-    if (updateUserAccessDto.isActive !== undefined) {
+    if (hasStatusUpdate) {
       data.isActive = updateUserAccessDto.isActive;
     }
 
-    if (updateUserAccessDto.roleId !== undefined) {
+    if (hasRoleUpdate) {
       const role = await this.prisma.role.findUnique({
         where: {
           id: updateUserAccessDto.roleId,

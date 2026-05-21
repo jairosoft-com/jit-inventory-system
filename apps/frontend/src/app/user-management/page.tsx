@@ -34,7 +34,7 @@ type User = {
     id: number;
     name: string;
     description: string | null;
-  };
+  } | null;
   status: string;
   isActive: boolean;
   createdAt: string;
@@ -67,6 +67,22 @@ type NewUserForm = {
   isActive: boolean;
 };
 
+type CurrentUser = {
+  id?: number;
+  email?: string;
+  role?: string | { name?: string };
+  roleName?: string;
+  permissions?: Array<string | { name?: string }>;
+};
+
+type AuthState = {
+  isChecking: boolean;
+  isAuthorized: boolean;
+  token: string;
+  user: CurrentUser | null;
+  message: string;
+};
+
 const emptySummary: UserSummary = {
   totalUsers: 0,
   activeUsers: 0,
@@ -83,11 +99,154 @@ const emptyNewUserForm: NewUserForm = {
   isActive: true,
 };
 
-async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+const initialAuthState: AuthState = {
+  isChecking: true,
+  isAuthorized: false,
+  token: "",
+  user: null,
+  message: "",
+};
+
+function getStoredToken() {
+  const tokenKeys = [
+    "accessToken",
+    "access_token",
+    "token",
+    "jwt",
+    "jit_access_token",
+  ];
+
+  for (const key of tokenKeys) {
+    const token = window.localStorage.getItem(key);
+
+    if (token) {
+      return token;
+    }
+  }
+
+  return "";
+}
+
+function getStoredUser() {
+  const userKeys = ["currentUser", "authUser", "user"];
+
+  for (const key of userKeys) {
+    const storedUser = window.localStorage.getItem(key);
+
+    if (!storedUser) {
+      continue;
+    }
+
+    try {
+      return JSON.parse(storedUser) as CurrentUser;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+function decodeJwtPayload(token: string): CurrentUser | null {
+  try {
+    const payload = token.split(".")[1];
+
+    if (!payload) {
+      return null;
+    }
+
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "=",
+    );
+
+    return JSON.parse(window.atob(paddedPayload)) as CurrentUser;
+  } catch {
+    return null;
+  }
+}
+
+function getPermissionNames(user: CurrentUser) {
+  return (user.permissions ?? []).map((permission) => {
+    if (typeof permission === "string") {
+      return permission;
+    }
+
+    return permission.name ?? "";
+  });
+}
+
+function hasUserManagementAccess(user: CurrentUser | null) {
+  if (!user) {
+    return false;
+  }
+
+  const roleName =
+    typeof user.role === "string"
+      ? user.role
+      : user.role?.name ?? user.roleName ?? "";
+
+  const normalizedRole = roleName.toLowerCase();
+  const permissions = getPermissionNames(user);
+
+  return (
+    normalizedRole.includes("admin") ||
+    permissions.includes("users:read") ||
+    permissions.includes("users:manage") ||
+    permissions.includes("roles:read")
+  );
+}
+
+function getClientAuth(): AuthState {
+  const token = getStoredToken();
+
+  if (!token) {
+    return {
+      isChecking: false,
+      isAuthorized: false,
+      token: "",
+      user: null,
+      message: "Please sign in with an administrator account.",
+    };
+  }
+
+  const storedUser = getStoredUser();
+  const tokenUser = decodeJwtPayload(token);
+  const user = {
+    ...(tokenUser ?? {}),
+    ...(storedUser ?? {}),
+  };
+
+  if (!hasUserManagementAccess(user)) {
+    return {
+      isChecking: false,
+      isAuthorized: false,
+      token,
+      user,
+      message: "You do not have permission to access User Management.",
+    };
+  }
+
+  return {
+    isChecking: false,
+    isAuthorized: true,
+    token,
+    user,
+    message: "",
+  };
+}
+
+async function requestJson<T>(
+  url: string,
+  token: string,
+  init?: RequestInit,
+): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
       ...(init?.headers ?? {}),
     },
   });
@@ -108,6 +267,8 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function UserManagementPage() {
+  const [authState, setAuthState] = useState<AuthState>(initialAuthState);
+
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [summary, setSummary] = useState<UserSummary>(emptySummary);
@@ -123,22 +284,22 @@ export default function UserManagementPage() {
   const [editRoleId, setEditRoleId] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (token: string) => {
     setIsLoading(true);
     setErrorMessage("");
 
     try {
       const [usersResponse, summaryResponse, rolesResponse] = await Promise.all([
-        requestJson<UsersResponse>(`${API_BASE_URL}/users`),
-        requestJson<UserSummary>(`${API_BASE_URL}/users/summary`),
-        requestJson<Role[]>(`${API_BASE_URL}/users/roles`),
+        requestJson<UsersResponse>(`${API_BASE_URL}/users`, token),
+        requestJson<UserSummary>(`${API_BASE_URL}/users/summary`, token),
+        requestJson<Role[]>(`${API_BASE_URL}/users/roles`, token),
       ]);
 
       setUsers(usersResponse.data);
@@ -168,24 +329,36 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-        void loadData();
+      const auth = getClientAuth();
+
+      setAuthState(auth);
+
+      if (!auth.isAuthorized) {
+        setIsLoading(false);
+        return;
+      }
+
+      void loadData(auth.token);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-}, [loadData]);
+  }, [loadData]);
 
   const filteredUsers = useMemo(() => {
-    const normalizedSearch = searchTerm.toLowerCase().trim();
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
     return users.filter((user) => {
+      const fullName = getUserFullName(user).toLowerCase();
+
       const matchesSearch =
-        user.fullName.toLowerCase().includes(normalizedSearch) ||
+        fullName.includes(normalizedSearch) ||
         user.firstName.toLowerCase().includes(normalizedSearch) ||
         user.lastName.toLowerCase().includes(normalizedSearch) ||
         user.email.toLowerCase().includes(normalizedSearch);
 
       const matchesRole =
-        selectedRoleId === "all" || String(user.role.id) === selectedRoleId;
+        selectedRoleId === "all" ||
+        String(user.role?.id ?? "") === selectedRoleId;
 
       const matchesStatus =
         selectedStatus === "all" ||
@@ -196,11 +369,59 @@ export default function UserManagementPage() {
     });
   }, [searchTerm, selectedRoleId, selectedStatus, users]);
 
+  function getDefaultRoleId() {
+    return roles[0] ? String(roles[0].id) : "";
+  }
+
+  function resetAddUserForm() {
+    setNewUser({
+      ...emptyNewUserForm,
+      roleId: getDefaultRoleId(),
+    });
+  }
+
+  function openAddUserForm() {
+    resetAddUserForm();
+    setEditingUser(null);
+    setIsAddUserOpen(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
+
+  function cancelAddUser() {
+    resetAddUserForm();
+    setIsAddUserOpen(false);
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
+
+  function openEditAccess(user: User) {
+    setEditingUser(user);
+    setEditRoleId(user.role ? String(user.role.id) : "");
+    setEditIsActive(user.isActive);
+    setIsAddUserOpen(false);
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
+
+  function closeEditAccess() {
+    setEditingUser(null);
+    setEditRoleId("");
+    setEditIsActive(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
+
   async function handleAddUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setErrorMessage("");
     setSuccessMessage("");
+
+    if (!authState.isAuthorized) {
+      setErrorMessage("You are not authorized to create users.");
+      return;
+    }
 
     if (!newUser.roleId) {
       setErrorMessage("Please select a role before saving.");
@@ -215,7 +436,7 @@ export default function UserManagementPage() {
     setIsSaving(true);
 
     try {
-      await requestJson<User>(`${API_BASE_URL}/users`, {
+      await requestJson<User>(`${API_BASE_URL}/users`, authState.token, {
         method: "POST",
         body: JSON.stringify({
           firstName: newUser.firstName.trim(),
@@ -229,12 +450,9 @@ export default function UserManagementPage() {
 
       setSuccessMessage("User added successfully.");
       setIsAddUserOpen(false);
-      setNewUser({
-        ...emptyNewUserForm,
-        roleId: roles[0] ? String(roles[0].id) : "",
-      });
+      resetAddUserForm();
 
-      await loadData();
+      await loadData(authState.token);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to add user.",
@@ -244,19 +462,15 @@ export default function UserManagementPage() {
     }
   }
 
-  function openEditAccess(user: User) {
-    setEditingUser(user);
-    setEditRoleId(String(user.role.id));
-    setEditIsActive(user.isActive);
-    setErrorMessage("");
-    setSuccessMessage("");
-    setIsAddUserOpen(false);
-  }
-
   async function handleUpdateAccess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!editingUser) {
+      return;
+    }
+
+    if (!authState.isAuthorized) {
+      setErrorMessage("You are not authorized to update user access.");
       return;
     }
 
@@ -270,17 +484,22 @@ export default function UserManagementPage() {
     setSuccessMessage("");
 
     try {
-      await requestJson<User>(`${API_BASE_URL}/users/${editingUser.id}/access`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          roleId: Number(editRoleId),
-          isActive: editIsActive,
-        }),
-      });
+      await requestJson<User>(
+        `${API_BASE_URL}/users/${editingUser.id}/access`,
+        authState.token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            roleId: Number(editRoleId),
+            isActive: editIsActive,
+          }),
+        },
+      );
 
       setSuccessMessage("User access updated successfully.");
-      setEditingUser(null);
-      await loadData();
+      closeEditAccess();
+
+      await loadData(authState.token);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -290,6 +509,37 @@ export default function UserManagementPage() {
     } finally {
       setIsUpdatingAccess(false);
     }
+  }
+
+  if (authState.isChecking) {
+    return (
+      <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
+        <section className="mx-auto max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
+          <h1 className="text-xl font-semibold">Checking access...</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            Verifying whether you can access User Management.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!authState.isAuthorized) {
+    return (
+      <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
+        <section className="mx-auto max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
+          <p className="text-sm font-medium text-[var(--accent)]">
+            Access Restricted
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold">
+            User Management is admin-only
+          </h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            {authState.message}
+          </p>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -304,15 +554,15 @@ export default function UserManagementPage() {
               User and Role Access Management
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Display and monitor system users, assigned roles, account statuses,
-              and permission visibility across the inventory system.
+              Display and monitor system users, assigned roles, account
+              statuses, and permission visibility across the inventory system.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => void loadData()}
+              onClick={() => void loadData(authState.token)}
               className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             >
               Refresh
@@ -320,12 +570,7 @@ export default function UserManagementPage() {
 
             <button
               type="button"
-              onClick={() => {
-                setIsAddUserOpen(true);
-                setEditingUser(null);
-                setErrorMessage("");
-                setSuccessMessage("");
-              }}
+              onClick={openAddUserForm}
               className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
             >
               Add User
@@ -456,7 +701,7 @@ export default function UserManagementPage() {
 
                 <button
                   type="button"
-                  onClick={() => setIsAddUserOpen(false)}
+                  onClick={cancelAddUser}
                   className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
                 >
                   Cancel
@@ -477,7 +722,8 @@ export default function UserManagementPage() {
             <div className="mb-4">
               <h2 className="text-lg font-semibold">Edit User Access</h2>
               <p className="text-sm text-[var(--text-secondary)]">
-                Update the role and account status for {editingUser.fullName}.
+                Update the role and account status for{" "}
+                {getUserFullName(editingUser)}.
               </p>
             </div>
 
@@ -523,7 +769,7 @@ export default function UserManagementPage() {
 
                 <button
                   type="button"
-                  onClick={() => setEditingUser(null)}
+                  onClick={closeEditAccess}
                   className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
                 >
                   Cancel
@@ -612,14 +858,14 @@ export default function UserManagementPage() {
                         className="transition hover:bg-[var(--surface-hover)]"
                       >
                         <td className="px-4 py-3 font-medium">
-                          {user.fullName}
+                          {getUserFullName(user)}
                         </td>
                         <td className="px-4 py-3 text-[var(--text-secondary)]">
                           {user.email}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={user.role.name}>
-                            {user.role.name}
+                          <Badge variant={getUserRoleName(user)}>
+                            {getUserRoleName(user)}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
@@ -651,7 +897,9 @@ export default function UserManagementPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold">{user.fullName}</h3>
+                        <h3 className="font-semibold">
+                          {getUserFullName(user)}
+                        </h3>
                         <p className="text-sm text-[var(--text-secondary)]">
                           {user.email}
                         </p>
@@ -661,7 +909,9 @@ export default function UserManagementPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <Badge variant={user.role.name}>{user.role.name}</Badge>
+                      <Badge variant={getUserRoleName(user)}>
+                        {getUserRoleName(user)}
+                      </Badge>
                       <span className="text-sm text-[var(--text-tertiary)]">
                         Created: {formatDate(user.createdAt)}
                       </span>
@@ -781,6 +1031,20 @@ function Badge({
   );
 }
 
+function getUserFullName(user: User) {
+  const fullName = user.fullName?.trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  return `${user.firstName} ${user.lastName}`.trim() || "Unnamed User";
+}
+
+function getUserRoleName(user: User) {
+  return user.role?.name ?? "No role assigned";
+}
+
 function getBadgeClass(variant: string) {
   const normalizedVariant = variant.toLowerCase();
 
@@ -792,12 +1056,12 @@ function getBadgeClass(variant: string) {
     return "bg-[var(--info-muted)] text-[var(--info)]";
   }
 
-  if (normalizedVariant.includes("active")) {
-    return "bg-[var(--success-muted)] text-[var(--success)]";
-  }
-
   if (normalizedVariant.includes("inactive")) {
     return "bg-[var(--background-tertiary)] text-[var(--text-secondary)]";
+  }
+
+  if (normalizedVariant.includes("active")) {
+    return "bg-[var(--success-muted)] text-[var(--success)]";
   }
 
   return "bg-[var(--background-tertiary)] text-[var(--text-secondary)]";

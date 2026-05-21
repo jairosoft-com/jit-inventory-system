@@ -10,19 +10,32 @@ import {
 } from 'class-validator';
 
 function parseBoolean({ value }: TransformFnParams): unknown {
-  if (value === true || value === 'true') {
+  const fieldValue: unknown = value;
+
+  if (fieldValue === true || fieldValue === 'true') {
     return true;
   }
 
-  if (value === false || value === 'false') {
+  if (fieldValue === false || fieldValue === 'false') {
     return false;
   }
 
-  return value;
+  return fieldValue;
+}
+
+function trimString({ value }: TransformFnParams): unknown {
+  const fieldValue: unknown = value;
+
+  if (typeof fieldValue === 'string') {
+    return fieldValue.trim();
+  }
+
+  return fieldValue;
 }
 
 export class QueryUsersDto {
   @IsOptional()
+  @Transform(trimString)
   @IsString()
   search?: string;
 

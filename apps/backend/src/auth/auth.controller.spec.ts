@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
 
 describe('AuthController', () => {
@@ -48,12 +49,22 @@ describe('AuthController', () => {
     user: { email: 'test@example.com', sub: 1, roleId: 1 },
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string, fallback?: string) => {
+      const config: Record<string, string> = {
+        JWT_REFRESH_EXPIRY: '7d',
+      };
+      return config[key] ?? fallback;
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: mockAuthService },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -72,10 +83,7 @@ describe('AuthController', () => {
         password: 'password123',
       };
 
-      const result = await controller.login(
-        loginDto,
-        mockResponse as never,
-      );
+      const result = await controller.login(loginDto, mockResponse as never);
 
       expect(mockAuthService.validateUser).toHaveBeenCalledWith(
         loginDto.email,
@@ -113,7 +121,9 @@ describe('AuthController', () => {
         mockResponse as never,
       );
 
-      expect(mockAuthService.refresh).toHaveBeenCalledWith('mock-refresh-token');
+      expect(mockAuthService.refresh).toHaveBeenCalledWith(
+        'mock-refresh-token',
+      );
       expect(result).toHaveProperty('accessToken', 'new-access-token');
     });
   });

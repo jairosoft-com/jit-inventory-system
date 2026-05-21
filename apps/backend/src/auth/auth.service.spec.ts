@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -108,8 +106,12 @@ describe('AuthService', () => {
     it('should call getOrThrow for JWT_ACCESS_SECRET (no fallback)', () => {
       service.generateTokens({ id: 1, email: 'test@example.com', roleId: 1 });
 
-      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith('JWT_ACCESS_SECRET');
-      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith('JWT_REFRESH_SECRET');
+      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith(
+        'JWT_ACCESS_SECRET',
+      );
+      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith(
+        'JWT_REFRESH_SECRET',
+      );
     });
 
     it('should throw if JWT_ACCESS_SECRET is not configured', () => {

@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -22,7 +23,18 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * Parses JWT_REFRESH_EXPIRY (e.g. '7d', '30d') into milliseconds
+   * so that the cookie maxAge always stays in sync with the token expiry.
+   */
+  private get refreshTokenMaxAge(): number {
+    const expiry = this.configService.get<string>('JWT_REFRESH_EXPIRY', '7d');
+    const days = parseInt(expiry, 10) || 7;
+    return days * 24 * 60 * 60 * 1000;
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -43,7 +55,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/api/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: this.refreshTokenMaxAge,
     });
 
     return {
@@ -78,7 +90,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/api/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: this.refreshTokenMaxAge,
     });
 
     return {

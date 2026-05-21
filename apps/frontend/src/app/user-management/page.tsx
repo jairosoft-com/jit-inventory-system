@@ -167,8 +167,12 @@ export default function UserManagementPage() {
   }, []);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    const timeoutId = window.setTimeout(() => {
+        void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+}, [loadData]);
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.toLowerCase().trim();

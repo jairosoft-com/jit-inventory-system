@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { UpdateUserAccessDto } from './dto/update-user-access.dto';
 
@@ -42,6 +48,61 @@ type UserWithAccess = Prisma.UserGetPayload<{
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async create(createUserDto: CreateUserDto) {
+    const normalizedEmail = createUserDto.email.trim().toLowerCase();
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: {
+        email: normalizedEmail,
+      },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Email is already in use');
+    }
+
+    const role = await this.prisma.role.findUnique({
+      where: {
+        id: createUserDto.roleId,
+      },
+    });
+
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          firstName: createUserDto.firstName.trim(),
+          lastName: createUserDto.lastName.trim(),
+          email: normalizedEmail,
+          password: hashedPassword,
+          isActive: createUserDto.isActive ?? true,
+          role: {
+            connect: {
+              id: createUserDto.roleId,
+            },
+          },
+        },
+        select: userSelect,
+      });
+
+      return this.mapUser(user);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BadRequestException('Email is already in use');
+      }
+
+      throw error;
+    }
+  }
 
   async getSummary() {
     const [totalUsers, activeUsers, inactiveUsers, administratorUsers] =

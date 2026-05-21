@@ -1,145 +1,301 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 
-type UserRole = "Administrator" | "Staff" | "Viewer";
-type UserStatus = "Active" | "Inactive" | "Pending";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+
+type Permission = {
+  id: number;
+  name: string;
+  resource: string;
+  action: string;
+  description: string | null;
+};
+
+type Role = {
+  id: number;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  userCount: number;
+  permissionCount: number;
+  permissions: Permission[];
+};
 
 type User = {
   id: number;
-  name: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
   email: string;
-  role: UserRole;
-  status: UserStatus;
-  lastUpdated: string;
+  role: {
+    id: number;
+    name: string;
+    description: string | null;
+  };
+  status: string;
+  isActive: boolean;
+  createdAt: string;
+  permissions: Permission[];
 };
 
-type PermissionGroup = {
-  role: UserRole;
-  description: string;
-  permissions: string[];
+type UsersResponse = {
+  data: User[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
-const users: User[] = [
-  {
-    id: 1,
-    name: "Noah Philippe Ibay",
-    email: "noah.ibay@jairosoft.com",
-    role: "Administrator",
-    status: "Active",
-    lastUpdated: "May 21, 2026",
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    email: "maria.santos@jairosoft.com",
-    role: "Staff",
-    status: "Active",
-    lastUpdated: "May 20, 2026",
-  },
-  {
-    id: 3,
-    name: "Juan Dela Cruz",
-    email: "juan.delacruz@jairosoft.com",
-    role: "Viewer",
-    status: "Inactive",
-    lastUpdated: "May 18, 2026",
-  },
-  {
-    id: 4,
-    name: "Carlo Reyes",
-    email: "carlo.reyes@jairosoft.com",
-    role: "Staff",
-    status: "Pending",
-    lastUpdated: "May 17, 2026",
-  },
-];
+type UserSummary = {
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  administratorUsers: number;
+};
 
-const permissionGroups: PermissionGroup[] = [
-  {
-    role: "Administrator",
-    description: "Full access to user monitoring and system management.",
-    permissions: [
-      "Manage user accounts",
-      "Review role access",
-      "View inventory records",
-      "Update system records",
-    ],
-  },
-  {
-    role: "Staff",
-    description: "Operational access for inventory-related tasks.",
-    permissions: [
-      "View inventory records",
-      "Update stock records",
-      "Monitor inventory movement",
-      "Submit record changes",
-    ],
-  },
-  {
-    role: "Viewer",
-    description: "Limited access for viewing assigned system records.",
-    permissions: [
-      "View assigned records",
-      "Review item information",
-      "Cannot manage users",
-      "Cannot modify records",
-    ],
-  },
-];
+type NewUserForm = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  roleId: string;
+  isActive: boolean;
+};
 
-const roleOptions: Array<"All Roles" | UserRole> = [
-  "All Roles",
-  "Administrator",
-  "Staff",
-  "Viewer",
-];
+const emptySummary: UserSummary = {
+  totalUsers: 0,
+  activeUsers: 0,
+  inactiveUsers: 0,
+  administratorUsers: 0,
+};
 
-const statusOptions: Array<"All Statuses" | UserStatus> = [
-  "All Statuses",
-  "Active",
-  "Inactive",
-  "Pending",
-];
+const emptyNewUserForm: NewUserForm = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  roleId: "",
+  isActive: true,
+};
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => null)) as {
+      message?: string | string[];
+    } | null;
+
+    const message = Array.isArray(errorBody?.message)
+      ? errorBody.message.join(", ")
+      : errorBody?.message ?? "Request failed.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<T>;
+}
 
 export default function UserManagementPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [summary, setSummary] = useState<UserSummary>(emptySummary);
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRole, setSelectedRole] =
-    useState<(typeof roleOptions)[number]>("All Roles");
-  const [selectedStatus, setSelectedStatus] =
-    useState<(typeof statusOptions)[number]>("All Statuses");
+  const [selectedRoleId, setSelectedRoleId] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [newUser, setNewUser] = useState<NewUserForm>(emptyNewUserForm);
+
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editRoleId, setEditRoleId] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
+
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const [usersResponse, summaryResponse, rolesResponse] = await Promise.all([
+        requestJson<UsersResponse>(`${API_BASE_URL}/users`),
+        requestJson<UserSummary>(`${API_BASE_URL}/users/summary`),
+        requestJson<Role[]>(`${API_BASE_URL}/users/roles`),
+      ]);
+
+      setUsers(usersResponse.data);
+      setSummary(summaryResponse);
+      setRoles(rolesResponse);
+
+      setNewUser((currentUser) => {
+        if (currentUser.roleId || rolesResponse.length === 0) {
+          return currentUser;
+        }
+
+        return {
+          ...currentUser,
+          roleId: String(rolesResponse[0].id),
+        };
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load user management data.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.toLowerCase().trim();
 
     return users.filter((user) => {
       const matchesSearch =
-        user.name.toLowerCase().includes(normalizedSearch) ||
+        user.fullName.toLowerCase().includes(normalizedSearch) ||
+        user.firstName.toLowerCase().includes(normalizedSearch) ||
+        user.lastName.toLowerCase().includes(normalizedSearch) ||
         user.email.toLowerCase().includes(normalizedSearch);
 
       const matchesRole =
-        selectedRole === "All Roles" || user.role === selectedRole;
+        selectedRoleId === "all" || String(user.role.id) === selectedRoleId;
 
       const matchesStatus =
-        selectedStatus === "All Statuses" || user.status === selectedStatus;
+        selectedStatus === "all" ||
+        (selectedStatus === "active" && user.isActive) ||
+        (selectedStatus === "inactive" && !user.isActive);
 
       return matchesSearch && matchesRole && matchesStatus;
     });
-  }, [searchTerm, selectedRole, selectedStatus]);
+  }, [searchTerm, selectedRoleId, selectedStatus, users]);
 
-  const totalUsers = users.length;
-  const activeUsers = users.filter((user) => user.status === "Active").length;
-  const inactiveUsers = users.filter((user) => user.status === "Inactive").length;
-  const adminUsers = users.filter(
-    (user) => user.role === "Administrator"
-  ).length;
+  async function handleAddUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!newUser.roleId) {
+      setErrorMessage("Please select a role before saving.");
+      return;
+    }
+
+    if (newUser.password.length < 8) {
+      setErrorMessage("Password must be at least 8 characters.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await requestJson<User>(`${API_BASE_URL}/users`, {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: newUser.firstName.trim(),
+          lastName: newUser.lastName.trim(),
+          email: newUser.email.trim().toLowerCase(),
+          password: newUser.password,
+          roleId: Number(newUser.roleId),
+          isActive: newUser.isActive,
+        }),
+      });
+
+      setSuccessMessage("User added successfully.");
+      setIsAddUserOpen(false);
+      setNewUser({
+        ...emptyNewUserForm,
+        roleId: roles[0] ? String(roles[0].id) : "",
+      });
+
+      await loadData();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to add user.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function openEditAccess(user: User) {
+    setEditingUser(user);
+    setEditRoleId(String(user.role.id));
+    setEditIsActive(user.isActive);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsAddUserOpen(false);
+  }
+
+  async function handleUpdateAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!editingUser) {
+      return;
+    }
+
+    if (!editRoleId) {
+      setErrorMessage("Please select a role before saving.");
+      return;
+    }
+
+    setIsUpdatingAccess(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await requestJson<User>(`${API_BASE_URL}/users/${editingUser.id}/access`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          roleId: Number(editRoleId),
+          isActive: editIsActive,
+        }),
+      });
+
+      setSuccessMessage("User access updated successfully.");
+      setEditingUser(null);
+      await loadData();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update user access.",
+      );
+    } finally {
+      setIsUpdatingAccess(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
       <section className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <p className="text-sm font-medium text-[var(--accent)]">
+              User Story 204748
+            </p>
             <h1 className="mt-1 text-2xl font-semibold">
               User and Role Access Management
             </h1>
@@ -149,16 +305,238 @@ export default function UserManagementPage() {
             </p>
           </div>
 
-          <button className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]">
-            Add User
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+            >
+              Refresh
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddUserOpen(true);
+                setEditingUser(null);
+                setErrorMessage("");
+                setSuccessMessage("");
+              }}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              Add User
+            </button>
+          </div>
         </header>
 
+        {errorMessage && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {successMessage}
+          </div>
+        )}
+
+        {isAddUserOpen && (
+          <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Add User</h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Add a new user account and save it to the backend database.
+              </p>
+            </div>
+
+            <form onSubmit={handleAddUser} className="grid gap-3 md:grid-cols-2">
+              <input
+                required
+                value={newUser.firstName}
+                onChange={(event) =>
+                  setNewUser((currentUser) => ({
+                    ...currentUser,
+                    firstName: event.target.value,
+                  }))
+                }
+                placeholder="First name"
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              />
+
+              <input
+                required
+                value={newUser.lastName}
+                onChange={(event) =>
+                  setNewUser((currentUser) => ({
+                    ...currentUser,
+                    lastName: event.target.value,
+                  }))
+                }
+                placeholder="Last name"
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              />
+
+              <input
+                required
+                type="email"
+                value={newUser.email}
+                onChange={(event) =>
+                  setNewUser((currentUser) => ({
+                    ...currentUser,
+                    email: event.target.value,
+                  }))
+                }
+                placeholder="Email address"
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              />
+
+              <input
+                required
+                minLength={8}
+                type="password"
+                value={newUser.password}
+                onChange={(event) =>
+                  setNewUser((currentUser) => ({
+                    ...currentUser,
+                    password: event.target.value,
+                  }))
+                }
+                placeholder="Temporary password"
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              />
+
+              <select
+                required
+                value={newUser.roleId}
+                onChange={(event) =>
+                  setNewUser((currentUser) => ({
+                    ...currentUser,
+                    roleId: event.target.value,
+                  }))
+                }
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              >
+                <option value="" disabled>
+                  Select role
+                </option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={newUser.isActive ? "active" : "inactive"}
+                onChange={(event) =>
+                  setNewUser((currentUser) => ({
+                    ...currentUser,
+                    isActive: event.target.value === "active",
+                  }))
+                }
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+
+              <div className="flex flex-wrap gap-3 md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isSaving || roles.length === 0}
+                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? "Saving..." : "Save User"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserOpen(false)}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+
+            {roles.length === 0 && (
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                No roles found. Add roles to the database before creating users.
+              </p>
+            )}
+          </section>
+        )}
+
+        {editingUser && (
+          <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Edit User Access</h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Update the role and account status for {editingUser.fullName}.
+              </p>
+            </div>
+
+            <form
+              onSubmit={handleUpdateAccess}
+              className="grid gap-3 md:grid-cols-2"
+            >
+              <select
+                required
+                value={editRoleId}
+                onChange={(event) => setEditRoleId(event.target.value)}
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              >
+                <option value="" disabled>
+                  Select role
+                </option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={editIsActive ? "active" : "inactive"}
+                onChange={(event) =>
+                  setEditIsActive(event.target.value === "active")
+                }
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+
+              <div className="flex flex-wrap gap-3 md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isUpdatingAccess || roles.length === 0}
+                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isUpdatingAccess ? "Updating..." : "Save Changes"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Total Users" value={totalUsers} />
-          <SummaryCard title="Active Users" value={activeUsers} />
-          <SummaryCard title="Inactive Users" value={inactiveUsers} />
-          <SummaryCard title="Administrators" value={adminUsers} />
+          <SummaryCard title="Total Users" value={summary.totalUsers} />
+          <SummaryCard title="Active Users" value={summary.activeUsers} />
+          <SummaryCard title="Inactive Users" value={summary.inactiveUsers} />
+          <SummaryCard
+            title="Administrators"
+            value={summary.administratorUsers}
+          />
         </section>
 
         <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
@@ -178,113 +556,133 @@ export default function UserManagementPage() {
             />
 
             <select
-              value={selectedRole}
-              onChange={(event) =>
-                setSelectedRole(event.target.value as (typeof roleOptions)[number])
-              }
+              value={selectedRoleId}
+              onChange={(event) => setSelectedRoleId(event.target.value)}
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
             >
-              {roleOptions.map((role) => (
-                <option key={role}>{role}</option>
+              <option value="all">All Roles</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
               ))}
             </select>
 
             <select
               value={selectedStatus}
-              onChange={(event) =>
-                setSelectedStatus(
-                  event.target.value as (typeof statusOptions)[number]
-                )
-              }
+              onChange={(event) => setSelectedStatus(event.target.value)}
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
             >
-              {statusOptions.map((status) => (
-                <option key={status}>{status}</option>
-              ))}
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
 
-          <div className="mt-5 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium">Role</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Last Updated</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-[var(--surface-border)]">
-                {filteredUsers.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="transition hover:bg-[var(--surface-hover)]"
-                  >
-                    <td className="px-4 py-3 font-medium">{user.name}</td>
-                    <td className="px-4 py-3 text-[var(--text-secondary)]">
-                      {user.email}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={user.role}>{user.role}</Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={user.status}>{user.status}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-[var(--text-secondary)]">
-                      {user.lastUpdated}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-medium transition hover:bg-[var(--surface-hover)]">
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:hidden">
-            {filteredUsers.map((user) => (
-              <article
-                key={user.id}
-                className="rounded-xl border border-[var(--surface-border)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold">{user.name}</h3>
-                    <p className="text-sm text-[var(--text-secondary)]">
-                      {user.email}
-                    </p>
-                  </div>
-
-                  <Badge variant={user.status}>{user.status}</Badge>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Badge variant={user.role}>{user.role}</Badge>
-                  <span className="text-sm text-[var(--text-tertiary)]">
-                    Updated: {user.lastUpdated}
-                  </span>
-                </div>
-
-                <button className="mt-4 w-full rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]">
-                  View Details
-                </button>
-              </article>
-            ))}
-          </div>
-
-          {filteredUsers.length === 0 && (
+          {isLoading ? (
             <div className="mt-5 rounded-xl border border-dashed border-[var(--surface-border)] p-8 text-center">
-              <h3 className="font-medium">No users found</h3>
+              <h3 className="font-medium">Loading users...</h3>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Try changing your search term or selected filters.
+                Fetching user data from the backend.
               </p>
             </div>
+          ) : (
+            <>
+              <div className="mt-5 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Name</th>
+                      <th className="px-4 py-3 font-medium">Email</th>
+                      <th className="px-4 py-3 font-medium">Role</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Created At</th>
+                      <th className="px-4 py-3 font-medium">Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-[var(--surface-border)]">
+                    {filteredUsers.map((user) => (
+                      <tr
+                        key={user.id}
+                        className="transition hover:bg-[var(--surface-hover)]"
+                      >
+                        <td className="px-4 py-3 font-medium">
+                          {user.fullName}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                          {user.email}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={user.role.name}>
+                            {user.role.name}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={user.status}>{user.status}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                          {formatDate(user.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => openEditAccess(user)}
+                            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                          >
+                            Edit Role
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:hidden">
+                {filteredUsers.map((user) => (
+                  <article
+                    key={user.id}
+                    className="rounded-xl border border-[var(--surface-border)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold">{user.fullName}</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">
+                          {user.email}
+                        </p>
+                      </div>
+
+                      <Badge variant={user.status}>{user.status}</Badge>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Badge variant={user.role.name}>{user.role.name}</Badge>
+                      <span className="text-sm text-[var(--text-tertiary)]">
+                        Created: {formatDate(user.createdAt)}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openEditAccess(user)}
+                      className="mt-4 w-full rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                    >
+                      Edit Role
+                    </button>
+                  </article>
+                ))}
+              </div>
+
+              {filteredUsers.length === 0 && (
+                <div className="mt-5 rounded-xl border border-dashed border-[var(--surface-border)] p-8 text-center">
+                  <h3 className="font-medium">No users found</h3>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Try changing your search term or selected filters.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -297,32 +695,55 @@ export default function UserManagementPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            {permissionGroups.map((group) => (
-              <article
-                key={group.role}
-                className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">{group.role}</h3>
-                  <Badge variant={group.role}>{group.role}</Badge>
-                </div>
+          {roles.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-8 text-center">
+              <h3 className="font-medium">No roles found</h3>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Role and permission data will appear here once available.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {roles.map((role) => (
+                <article
+                  key={role.id}
+                  className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-semibold">{role.name}</h3>
+                    <Badge variant={role.name}>{role.name}</Badge>
+                  </div>
 
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  {group.description}
-                </p>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                    {role.description ?? "No role description available."}
+                  </p>
 
-                <ul className="mt-4 space-y-2 text-sm text-[var(--text-secondary)]">
-                  {group.permissions.map((permission) => (
-                    <li key={permission} className="flex gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-                      <span>{permission}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
+                  <p className="mt-3 text-xs font-medium text-[var(--text-tertiary)]">
+                    {role.userCount} user/s • {role.permissionCount}{" "}
+                    permission/s
+                  </p>
+
+                  <ul className="mt-4 space-y-2 text-sm text-[var(--text-secondary)]">
+                    {role.permissions.length === 0 ? (
+                      <li>No permissions assigned.</li>
+                    ) : (
+                      role.permissions.map((permission) => (
+                        <li key={permission.id} className="flex gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                          <span>
+                            {permission.name}{" "}
+                            <span className="text-[var(--text-tertiary)]">
+                              ({permission.action} {permission.resource})
+                            </span>
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </section>
     </main>
@@ -343,22 +764,45 @@ function Badge({
   variant,
 }: {
   children: ReactNode;
-  variant: UserRole | UserStatus;
+  variant: string;
 }) {
-  const styles: Record<UserRole | UserStatus, string> = {
-    Administrator: "bg-[var(--accent-muted)] text-[var(--accent)]",
-    Staff: "bg-[var(--info-muted)] text-[var(--info)]",
-    Viewer: "bg-[var(--background-tertiary)] text-[var(--text-secondary)]",
-    Active: "bg-[var(--success-muted)] text-[var(--success)]",
-    Inactive: "bg-[var(--background-tertiary)] text-[var(--text-secondary)]",
-    Pending: "bg-[var(--warning-muted)] text-[var(--warning)]",
-  };
-
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[variant]}`}
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getBadgeClass(
+        variant,
+      )}`}
     >
       {children}
     </span>
   );
+}
+
+function getBadgeClass(variant: string) {
+  const normalizedVariant = variant.toLowerCase();
+
+  if (normalizedVariant.includes("admin")) {
+    return "bg-[var(--accent-muted)] text-[var(--accent)]";
+  }
+
+  if (normalizedVariant.includes("staff")) {
+    return "bg-[var(--info-muted)] text-[var(--info)]";
+  }
+
+  if (normalizedVariant.includes("active")) {
+    return "bg-[var(--success-muted)] text-[var(--success)]";
+  }
+
+  if (normalizedVariant.includes("inactive")) {
+    return "bg-[var(--background-tertiary)] text-[var(--text-secondary)]";
+  }
+
+  return "bg-[var(--background-tertiary)] text-[var(--text-secondary)]";
+}
+
+function formatDate(dateValue: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(dateValue));
 }

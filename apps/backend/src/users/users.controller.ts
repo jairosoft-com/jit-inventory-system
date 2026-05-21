@@ -6,10 +6,12 @@ import {
   ParseIntPipe,
   Patch,
   Query,
+  Post,
 } from '@nestjs/common';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { UpdateUserAccessDto } from './dto/update-user-access.dto';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('users')
 export class UsersController {
@@ -41,5 +43,10 @@ export class UsersController {
     @Body() updateUserAccessDto: UpdateUserAccessDto,
   ) {
     return this.usersService.updateAccess(id, updateUserAccessDto);
+  }
+
+  @Post()
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
   }
 }

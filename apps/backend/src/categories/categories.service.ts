@@ -32,8 +32,9 @@ export class CategoriesService {
           where: { id: existing.id },
           data: {
             ...data,
+            name,
             deletedAt: null, // unarchive
-          },
+          }
         });
       }
  

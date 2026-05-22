@@ -271,6 +271,15 @@ export class UsersService {
     };
   }
 
+  async findOneByEmail(email: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        email: email.trim().toLowerCase(),
+        deletedAt: null,
+      },
+    });
+  }
+
   async findOne(id: number) {
     const user = await this.prisma.user.findFirst({
       where: {

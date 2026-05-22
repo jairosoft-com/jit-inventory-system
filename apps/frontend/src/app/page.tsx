@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "../store/authStore";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '../store/authStore';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, checkAuth, user, isLoading: storeLoading } = useAuthStore();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   useEffect(() => {
     checkAuth();
@@ -19,13 +19,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user && !storeLoading) {
-      router.push("/dashboard");
+      router.push('/dashboard');
     }
   }, [user, storeLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setIsLoading(true);
 
     try {
@@ -34,7 +34,7 @@ export default function LoginPage() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Please check your credentials and try again.");
+        setError('Please check your credentials and try again.');
       }
     } finally {
       setIsLoading(false);
@@ -45,7 +45,15 @@ export default function LoginPage() {
     return (
       <div className="login-page">
         <div className="login-bg-grid" />
-        <span className="login-spinner" style={{ width: "40px", height: "40px", borderColor: "rgba(37,99,235,0.1)", borderTopColor: "#2563eb" }} />
+        <span
+          className="login-spinner"
+          style={{
+            width: '40px',
+            height: '40px',
+            borderColor: 'rgba(37,99,235,0.1)',
+            borderTopColor: '#2563eb',
+          }}
+        />
       </div>
     );
   }
@@ -63,19 +71,9 @@ export default function LoginPage() {
           <div className="login-logo">
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
               <rect width="40" height="40" rx="10" fill="url(#logo-grad)" />
-              <path
-                d="M12 14h16v2H12zm0 5h12v2H12zm0 5h14v2H12z"
-                fill="white"
-                opacity="0.95"
-              />
+              <path d="M12 14h16v2H12zm0 5h12v2H12zm0 5h14v2H12z" fill="white" opacity="0.95" />
               <defs>
-                <linearGradient
-                  id="logo-grad"
-                  x1="0"
-                  y1="0"
-                  x2="40"
-                  y2="40"
-                >
+                <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40">
                   <stop stopColor="#2563eb" />
                   <stop offset="1" stopColor="#3b82f6" />
                 </linearGradient>
@@ -84,9 +82,7 @@ export default function LoginPage() {
           </div>
           <div>
             <h1 className="login-title">JIT Inventory</h1>
-            <p className="login-subtitle">
-              Equipment &amp; Asset Management
-            </p>
+            <p className="login-subtitle">Equipment &amp; Asset Management</p>
           </div>
         </div>
 
@@ -99,12 +95,7 @@ export default function LoginPage() {
 
           {error && (
             <div className="login-error" role="alert">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="currentColor"
-              >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zm.75 6.5a.75.75 0 100-1.5.75.75 0 000 1.5z" />
               </svg>
               <span>{error}</span>
@@ -167,7 +158,7 @@ export default function LoginPage() {
               </svg>
               <input
                 id="login-password"
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -180,7 +171,7 @@ export default function LoginPage() {
                 className="login-toggle-pw"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? (
                   <svg
@@ -212,12 +203,7 @@ export default function LoginPage() {
           </div>
 
           {/* Submit */}
-          <button
-            id="login-submit"
-            type="submit"
-            className="login-btn"
-            disabled={isLoading}
-          >
+          <button id="login-submit" type="submit" className="login-btn" disabled={isLoading}>
             {isLoading ? (
               <span className="login-spinner" />
             ) : (
@@ -239,9 +225,7 @@ export default function LoginPage() {
         </form>
 
         {/* Footer */}
-        <p className="login-footer">
-          © {new Date().getFullYear()} JIT IMS — All rights reserved.
-        </p>
+        <p className="login-footer">© {new Date().getFullYear()} JIT IMS — All rights reserved.</p>
       </div>
 
       <style>{`

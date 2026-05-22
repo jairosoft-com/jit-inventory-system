@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
 export default function DashboardPage() {
   // Skeleton states
@@ -18,10 +18,17 @@ export default function DashboardPage() {
         </div>
         <div className="dash-page-actions">
           <button className="dash-btn dash-btn--secondary" onClick={() => setIsLoading(!isLoading)}>
-            {isLoading ? "Loaded State" : "Simulate Loading"}
+            {isLoading ? 'Loaded State' : 'Simulate Loading'}
           </button>
           <button className="dash-btn dash-btn--primary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -33,10 +40,10 @@ export default function DashboardPage() {
       {/* KPI Cards — Pure Visual Skeletons */}
       <div className="dash-stats">
         {[
-          { label: "Total Items", color: "#2563eb" },
-          { label: "Active Equipment", color: "#8b5cf6" },
-          { label: "Low Stock Alerts", color: "#d97706" },
-          { label: "Pending Borrows", color: "#0891b2" },
+          { label: 'Total Items', color: '#2563eb' },
+          { label: 'Active Equipment', color: '#8b5cf6' },
+          { label: 'Low Stock Alerts', color: '#d97706' },
+          { label: 'Pending Borrows', color: '#0891b2' },
         ].map((stat) => (
           <div key={stat.label} className="dash-stat-card">
             <div className="dash-stat-header">
@@ -68,9 +75,11 @@ export default function DashboardPage() {
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">Recent Activity</h2>
-            <button className="dash-card-action" disabled>View All</button>
+            <button className="dash-card-action" disabled>
+              View All
+            </button>
           </div>
-          
+
           <div className="dash-card-content-empty">
             {isLoading ? (
               <div className="dash-skeleton-list">
@@ -85,12 +94,21 @@ export default function DashboardPage() {
             ) : (
               <div className="dash-empty-state">
                 <div className="dash-empty-icon">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
                   </svg>
                 </div>
                 <h3 className="dash-empty-heading">No Recent Activities</h3>
-                <p className="dash-empty-text">Real-time audit log entries will display here as operational changes occur.</p>
+                <p className="dash-empty-text">
+                  Real-time audit log entries will display here as operational changes occur.
+                </p>
               </div>
             )}
           </div>
@@ -101,7 +119,7 @@ export default function DashboardPage() {
           <div className="dash-card-header">
             <h2 className="dash-card-title">Equipment Status</h2>
           </div>
-          
+
           <div className="dash-card-content-empty">
             {isLoading ? (
               <div className="dash-skeleton-eq-breakdown">
@@ -115,12 +133,21 @@ export default function DashboardPage() {
             ) : (
               <div className="dash-empty-state">
                 <div className="dash-empty-icon">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
                     <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
                   </svg>
                 </div>
                 <h3 className="dash-empty-heading">No Registered Assets</h3>
-                <p className="dash-empty-text">Register trackable equipment units to begin tracking operational status.</p>
+                <p className="dash-empty-text">
+                  Register trackable equipment units to begin tracking operational status.
+                </p>
               </div>
             )}
           </div>
@@ -130,14 +157,23 @@ export default function DashboardPage() {
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#d97706"
+                strokeWidth="2"
+              >
                 <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
               Low Stock Items
             </h2>
-            <button className="dash-card-action" disabled>Manage</button>
+            <button className="dash-card-action" disabled>
+              Manage
+            </button>
           </div>
 
           <div className="dash-card-content-empty">
@@ -153,13 +189,22 @@ export default function DashboardPage() {
             ) : (
               <div className="dash-empty-state">
                 <div className="dash-empty-icon">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
                     <path d="M20 7H4a1 1 0 00-1 1v12a2 2 0 002 2h14a2 2 0 002-2V8a1 1 0 00-1-1z" />
                     <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
                   </svg>
                 </div>
                 <h3 className="dash-empty-heading">All Items Fully Stocked</h3>
-                <p className="dash-empty-text">Low stock warnings and reorder targets will display here when stock drops.</p>
+                <p className="dash-empty-text">
+                  Low stock warnings and reorder targets will display here when stock drops.
+                </p>
               </div>
             )}
           </div>
@@ -172,12 +217,12 @@ export default function DashboardPage() {
           </div>
           <div className="dash-quick-actions">
             {[
-              { label: "Register Item", color: "#2563eb", icon: "+" },
-              { label: "Stock In", color: "#16a34a", icon: "↓" },
-              { label: "Stock Out", color: "#dc2626", icon: "↑" },
-              { label: "New PO", color: "#8b5cf6", icon: "📋" },
-              { label: "Borrow Request", color: "#d97706", icon: "🔄" },
-              { label: "Run Report", color: "#0891b2", icon: "📊" },
+              { label: 'Register Item', color: '#2563eb', icon: '+' },
+              { label: 'Stock In', color: '#16a34a', icon: '↓' },
+              { label: 'Stock Out', color: '#dc2626', icon: '↑' },
+              { label: 'New PO', color: '#8b5cf6', icon: '📋' },
+              { label: 'Borrow Request', color: '#d97706', icon: '🔄' },
+              { label: 'Run Report', color: '#0891b2', icon: '📊' },
             ].map((action) => (
               <button key={action.label} className="dash-qa-btn">
                 <span

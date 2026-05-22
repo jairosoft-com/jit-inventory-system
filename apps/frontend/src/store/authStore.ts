@@ -82,4 +82,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 authActions.getToken = () => useAuthStore.getState().accessToken;
 authActions.setAuth = (token, user) => useAuthStore.getState().setAuth(token, user as User | null);
 authActions.logoutStateOnly = () => useAuthStore.getState().logoutStateOnly();
-

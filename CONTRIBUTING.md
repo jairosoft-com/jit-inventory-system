@@ -6,13 +6,13 @@ Thank you for contributing! This document outlines the development workflow and 
 
 Use the following prefixes for branch names:
 
-| Prefix | Purpose | Example |
-|---|---|---|
-| `feature/` | New features or functionality | `feature/borrow-workflow` |
-| `bugfix/` | Bug fixes | `bugfix/stock-quantity-race-condition` |
-| `hotfix/` | Critical production fixes | `hotfix/auth-token-refresh` |
-| `chore/` | Non-code changes (CI, docs, configs) | `chore/update-ci-pipeline` |
-| `refactor/` | Code refactoring without behavior change | `refactor/prisma-service-cleanup` |
+| Prefix      | Purpose                                  | Example                                |
+| ----------- | ---------------------------------------- | -------------------------------------- |
+| `feature/`  | New features or functionality            | `feature/borrow-workflow`              |
+| `bugfix/`   | Bug fixes                                | `bugfix/stock-quantity-race-condition` |
+| `hotfix/`   | Critical production fixes                | `hotfix/auth-token-refresh`            |
+| `chore/`    | Non-code changes (CI, docs, configs)     | `chore/update-ci-pipeline`             |
+| `refactor/` | Code refactoring without behavior change | `refactor/prisma-service-cleanup`      |
 
 ### Branch Flow
 
@@ -38,16 +38,16 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ### Types
 
-| Type | Description |
-|---|---|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation changes |
-| `style` | Code style changes (formatting, semicolons, etc.) |
-| `refactor` | Code refactoring |
-| `test` | Adding or updating tests |
-| `chore` | Build process, CI, or tooling changes |
-| `perf` | Performance improvements |
+| Type       | Description                                       |
+| ---------- | ------------------------------------------------- |
+| `feat`     | New feature                                       |
+| `fix`      | Bug fix                                           |
+| `docs`     | Documentation changes                             |
+| `style`    | Code style changes (formatting, semicolons, etc.) |
+| `refactor` | Code refactoring                                  |
+| `test`     | Adding or updating tests                          |
+| `chore`    | Build process, CI, or tooling changes             |
+| `perf`     | Performance improvements                          |
 
 ### Scopes
 

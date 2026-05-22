@@ -6,7 +6,7 @@ export const authActions = {
     void token;
     void user;
   },
-  logoutStateOnly: () => {}
+  logoutStateOnly: () => {},
 };
 
 const api = axios.create({
@@ -23,7 +23,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 let isRefreshing = false;
@@ -50,7 +50,10 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // Avoid infinite loop if refreshing or login fails
-    if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
+    if (
+      originalRequest.url?.includes('/auth/refresh') ||
+      originalRequest.url?.includes('/auth/login')
+    ) {
       return Promise.reject(error);
     }
 
@@ -74,7 +77,7 @@ api.interceptors.response.use(
         const response = await axios.post(
           `${api.defaults.baseURL}/auth/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true },
         );
 
         const { accessToken, user } = response.data;
@@ -97,7 +100,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

@@ -104,7 +104,8 @@ describe('AuthController', () => {
 
       await controller.login(loginDto, mockResponse);
 
-      expect(mockResponse.cookie).toHaveBeenCalledWith(
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie as jest.Mock).toHaveBeenCalledWith(
         'jit_refresh_token',
         'mock-refresh-token',
         expect.objectContaining({
@@ -120,10 +121,14 @@ describe('AuthController', () => {
         email: 'test@example.com',
         password: 'wrongpassword',
       };
-      
-      mockAuthService.validateUser.mockRejectedValueOnce(new UnauthorizedException());
 
-      await expect(controller.login(loginDto, mockResponse)).rejects.toThrow(UnauthorizedException);
+      mockAuthService.validateUser.mockRejectedValueOnce(
+        new UnauthorizedException(),
+      );
+
+      await expect(controller.login(loginDto, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException when email is non-existent', async () => {
@@ -131,19 +136,20 @@ describe('AuthController', () => {
         email: 'nonexistent@example.com',
         password: 'password123',
       };
-      
-      mockAuthService.validateUser.mockRejectedValueOnce(new UnauthorizedException());
 
-      await expect(controller.login(loginDto, mockResponse)).rejects.toThrow(UnauthorizedException);
+      mockAuthService.validateUser.mockRejectedValueOnce(
+        new UnauthorizedException(),
+      );
+
+      await expect(controller.login(loginDto, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
   describe('POST /auth/refresh', () => {
     it('should exchange a valid refresh token cookie for new tokens', async () => {
-      const result = await controller.refresh(
-        mockRequest,
-        mockResponse,
-      );
+      const result = await controller.refresh(mockRequest, mockResponse);
 
       expect(mockAuthService.refresh).toHaveBeenCalledWith(
         'mock-refresh-token',
@@ -156,29 +162,29 @@ describe('AuthController', () => {
         cookies: {},
       } as unknown as Request;
 
-      await expect(controller.refresh(requestWithoutCookie, mockResponse)).rejects.toThrow(
-        new UnauthorizedException('No refresh token provided'),
-      );
+      await expect(
+        controller.refresh(requestWithoutCookie, mockResponse),
+      ).rejects.toThrow(new UnauthorizedException('No refresh token provided'));
     });
 
     it('should throw UnauthorizedException when refresh token is expired or invalid', async () => {
-      mockAuthService.refresh.mockRejectedValueOnce(new UnauthorizedException());
-
-      await expect(controller.refresh(mockRequest, mockResponse)).rejects.toThrow(
-        UnauthorizedException,
+      mockAuthService.refresh.mockRejectedValueOnce(
+        new UnauthorizedException(),
       );
+
+      await expect(
+        controller.refresh(mockRequest, mockResponse),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
   describe('POST /auth/logout', () => {
     it('should revoke the refresh token and clear the cookie', async () => {
-      const result = await controller.logout(
-        mockRequest,
-        mockResponse,
-      );
+      const result = await controller.logout(mockRequest, mockResponse);
 
       expect(mockAuthService.logout).toHaveBeenCalledWith('mock-refresh-token');
-      expect(mockResponse.clearCookie).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.clearCookie as jest.Mock).toHaveBeenCalled();
       expect(result).toHaveProperty('success', true);
     });
 
@@ -187,10 +193,14 @@ describe('AuthController', () => {
         cookies: {},
       } as unknown as Request;
 
-      const result = await controller.logout(requestWithoutCookie, mockResponse);
+      const result = await controller.logout(
+        requestWithoutCookie,
+        mockResponse,
+      );
 
       expect(mockAuthService.logout).not.toHaveBeenCalled();
-      expect(mockResponse.clearCookie).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.clearCookie as jest.Mock).toHaveBeenCalled();
       expect(result).toHaveProperty('success', true);
     });
   });

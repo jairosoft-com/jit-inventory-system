@@ -32,7 +32,7 @@ export class CategoriesService {
       throw new ConflictException('Category name already exists');
     }
  
-    return this.prisma.category.create({ data });
+    return this.prisma.category.create({ data: { ...data, name } });
   }
  
   async findAll() {

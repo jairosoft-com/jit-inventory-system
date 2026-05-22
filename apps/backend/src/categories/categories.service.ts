@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
-  ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 
@@ -12,7 +13,6 @@ export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateCategoryDto) {
-    // Case-insensitive lookup (including archived)
     const existing = await this.prisma.category.findFirst({
       where: {
         name: {
@@ -26,20 +26,27 @@ export class CategoriesService {
       throw new ConflictException('Category name already exists');
     }
 
-    return this.prisma.category.create({ data });
+    return this.prisma.category.create({
+      data,
+    });
   }
 
   async findAll() {
     return this.prisma.category.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: 'asc' },
+      orderBy: {
+        name: 'asc',
+      },
     });
   }
 
   async findOne(id: number) {
-    const category = await this.prisma.category.findUnique({ where: { id } });
+    const category = await this.prisma.category.findUnique({
+      where: {
+        id,
+      },
+    });
 
-    if (!category || category.deletedAt) {
+    if (!category) {
       throw new NotFoundException('Category not found');
     }
 
@@ -65,7 +72,9 @@ export class CategoriesService {
     }
 
     return this.prisma.category.update({
-      where: { id },
+      where: {
+        id,
+      },
       data,
     });
   }
@@ -86,9 +95,23 @@ export class CategoriesService {
       );
     }
 
-    return this.prisma.category.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    try {
+      return await this.prisma.category.delete({
+        where: {
+          id,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new BadRequestException(
+          'Cannot archive category because it is still referenced by existing records.',
+        );
+      }
+
+      throw error;
+    }
   }
 }

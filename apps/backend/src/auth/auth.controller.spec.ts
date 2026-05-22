@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -42,12 +44,12 @@ describe('AuthController', () => {
   const mockResponse = {
     cookie: jest.fn(),
     clearCookie: jest.fn(),
-  };
+  } as unknown as Response;
 
   const mockRequest = {
     cookies: { jit_refresh_token: 'mock-refresh-token' },
     user: { email: 'test@example.com', sub: 1, roleId: 1 },
-  };
+  } as unknown as Request;
 
   const mockConfigService = {
     get: jest.fn((key: string, fallback?: string) => {
@@ -83,7 +85,7 @@ describe('AuthController', () => {
         password: 'password123',
       };
 
-      const result = await controller.login(loginDto, mockResponse as never);
+      const result = await controller.login(loginDto, mockResponse);
 
       expect(mockAuthService.validateUser).toHaveBeenCalledWith(
         loginDto.email,
@@ -100,7 +102,7 @@ describe('AuthController', () => {
         password: 'password123',
       };
 
-      await controller.login(loginDto, mockResponse as never);
+      await controller.login(loginDto, mockResponse);
 
       expect(mockResponse.cookie).toHaveBeenCalledWith(
         'jit_refresh_token',
@@ -112,13 +114,35 @@ describe('AuthController', () => {
         }),
       );
     });
+
+    it('should throw UnauthorizedException when password is invalid', async () => {
+      const loginDto: LoginDto = {
+        email: 'test@example.com',
+        password: 'wrongpassword',
+      };
+      
+      mockAuthService.validateUser.mockRejectedValueOnce(new UnauthorizedException());
+
+      await expect(controller.login(loginDto, mockResponse)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException when email is non-existent', async () => {
+      const loginDto: LoginDto = {
+        email: 'nonexistent@example.com',
+        password: 'password123',
+      };
+      
+      mockAuthService.validateUser.mockRejectedValueOnce(new UnauthorizedException());
+
+      await expect(controller.login(loginDto, mockResponse)).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   describe('POST /auth/refresh', () => {
     it('should exchange a valid refresh token cookie for new tokens', async () => {
       const result = await controller.refresh(
-        mockRequest as never,
-        mockResponse as never,
+        mockRequest,
+        mockResponse,
       );
 
       expect(mockAuthService.refresh).toHaveBeenCalledWith(
@@ -126,16 +150,46 @@ describe('AuthController', () => {
       );
       expect(result).toHaveProperty('accessToken', 'new-access-token');
     });
+
+    it('should throw UnauthorizedException when refresh token is missing', async () => {
+      const requestWithoutCookie = {
+        cookies: {},
+      } as unknown as Request;
+
+      await expect(controller.refresh(requestWithoutCookie, mockResponse)).rejects.toThrow(
+        new UnauthorizedException('No refresh token provided'),
+      );
+    });
+
+    it('should throw UnauthorizedException when refresh token is expired or invalid', async () => {
+      mockAuthService.refresh.mockRejectedValueOnce(new UnauthorizedException());
+
+      await expect(controller.refresh(mockRequest, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
   });
 
   describe('POST /auth/logout', () => {
     it('should revoke the refresh token and clear the cookie', async () => {
       const result = await controller.logout(
-        mockRequest as never,
-        mockResponse as never,
+        mockRequest,
+        mockResponse,
       );
 
       expect(mockAuthService.logout).toHaveBeenCalledWith('mock-refresh-token');
+      expect(mockResponse.clearCookie).toHaveBeenCalled();
+      expect(result).toHaveProperty('success', true);
+    });
+
+    it('should clear the cookie even if no refresh token is present', async () => {
+      const requestWithoutCookie = {
+        cookies: {},
+      } as unknown as Request;
+
+      const result = await controller.logout(requestWithoutCookie, mockResponse);
+
+      expect(mockAuthService.logout).not.toHaveBeenCalled();
       expect(mockResponse.clearCookie).toHaveBeenCalled();
       expect(result).toHaveProperty('success', true);
     });

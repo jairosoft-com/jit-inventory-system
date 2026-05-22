@@ -18,13 +18,13 @@
     "db:generate": "npx prisma generate --schema=prisma/schema.prisma",
     "db:migrate": "npx prisma migrate dev --schema=prisma/schema.prisma",
     "db:push": "npx prisma db push --schema=prisma/schema.prisma",
-    "db:seed": "npx ts-node prisma/seed.ts",
+    "db:seed": "npx prisma db seed",
     "db:studio": "npx prisma studio --schema=prisma/schema.prisma",
     "db:validate": "npx prisma validate --schema=prisma/schema.prisma",
     "prepare": "echo 'Ready'"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "npx tsx prisma/seed.ts"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",

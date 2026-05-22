@@ -26,6 +26,22 @@ export class AuthService {
   }
 
   /**
+   * Helper to compute expiry Date from a duration string (e.g., "7d", "14d", "15m").
+   */
+  private getExpiryDate(expiryString: string): Date {
+    const match = expiryString.match(/^(\d+)([smhd])$/);
+    const value = match ? parseInt(match[1], 10) : 7;
+    const unit = match ? match[2] : 'd';
+
+    let multiplier = 24 * 60 * 60 * 1000; // default to days
+    if (unit === 's') multiplier = 1000;
+    else if (unit === 'm') multiplier = 60 * 1000;
+    else if (unit === 'h') multiplier = 60 * 60 * 1000;
+
+    return new Date(Date.now() + value * multiplier);
+  }
+
+  /**
    * Validates user credentials.
    */
   async validateUser(
@@ -91,9 +107,7 @@ export class AuthService {
     // Compute expiry date for refresh token
     const expiryString =
       this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
-    const days = parseInt(expiryString) || 7;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + days);
+    const expiresAt = this.getExpiryDate(expiryString);
 
     // Hash refresh token and save to database
     const tokenHash = this.hashToken(refreshToken);
@@ -161,9 +175,7 @@ export class AuthService {
     // Save the new refresh token
     const expiryString =
       this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
-    const days = parseInt(expiryString) || 7;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + days);
+    const expiresAt = this.getExpiryDate(expiryString);
 
     const newTokenHash = this.hashToken(newRefreshToken);
     await this.prisma.refreshToken.create({

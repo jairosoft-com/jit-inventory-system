@@ -75,7 +75,7 @@ model RefreshToken {
   tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
   expiresAt  DateTime  @map("expires_at")
   revokedAt  DateTime? @map("revoked_at")
-  created_at DateTime  @default(now())
+  createdAt  DateTime  @default(now()) @map("created_at")
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -108,7 +108,7 @@ model Item {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
   deletedAt          DateTime?           @map("deleted_at")
-  digital_assets     digital_assets?
+  digitalAsset       DigitalAsset?
   equipment          Equipment?
   category           Category            @relation(fields: [categoryId], references: [id])
   registeredByUser   User?               @relation("RegisteredBy", fields: [registeredBy], references: [id])
@@ -161,7 +161,7 @@ model Supplier {
   phone          String?         @db.VarChar(50)
   address        String?
   createdAt      DateTime        @default(now()) @map("created_at")
-  updated_at     DateTime
+  updatedAt      DateTime        @updatedAt @map("updated_at")
   deletedAt      DateTime?       @map("deleted_at")
   purchaseOrders PurchaseOrder[]
 
@@ -310,27 +310,28 @@ model InventoryLog {
   @@map("inventory_logs")
 }
 
-model digital_assets {
+model DigitalAsset {
   id              Int              @id @default(autoincrement())
-  item_id         Int              @unique
-  asset_type      DigitalAssetType
+  itemId          Int              @unique @map("item_id")
+  assetType       DigitalAssetType @map("asset_type")
   url             String?          @db.VarChar(500)
   vendor          String?          @db.VarChar(255)
-  license_key     String?
-  credentials_ref String?          @db.VarChar(255)
+  licenseKey      String?          @map("license_key")
+  credentialsRef  String?          @map("credentials_ref") @db.VarChar(255)
   seats           Int?
-  expiry_date     DateTime?        @db.Date
+  expiryDate      DateTime?        @map("expiry_date") @db.Date
   cost            Decimal?         @db.Decimal(10, 2)
-  billing_cycle   BillingCycle?
+  billingCycle    BillingCycle?    @map("billing_cycle")
   status          DigitalStatus    @default(ACTIVE)
   notes           String?
-  created_at      DateTime         @default(now())
-  updated_at      DateTime
-  items           Item             @relation(fields: [item_id], references: [id])
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  item            Item             @relation(fields: [itemId], references: [id])
 
-  @@index([asset_type])
-  @@index([expiry_date])
+  @@index([assetType])
+  @@index([expiryDate])
   @@index([status])
+  @@map("digital_assets")
 }
 
 enum ItemType {

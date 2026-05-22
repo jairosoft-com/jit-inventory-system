@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../lib/api';
+import api, { authActions } from '../lib/api';
 
 export interface User {
   id: number;
@@ -78,3 +78,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+authActions.getToken = () => useAuthStore.getState().accessToken;
+authActions.setAuth = (token, user) => useAuthStore.getState().setAuth(token, user as User | null);
+authActions.logoutStateOnly = () => useAuthStore.getState().logoutStateOnly();
+

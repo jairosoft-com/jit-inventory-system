@@ -178,27 +178,31 @@ async function main() {
   console.warn(`   ✓ ${mappingCount} role-permission mappings seeded\n`);
 
   // Seed default admin user
-  console.warn('👤 Seeding default admin user...');
-  const adminRole = await prisma.role.findUnique({ where: { name: 'ADMIN' } });
-  if (adminRole) {
-    const adminEmail = 'admin@jitims.com';
-    const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-    if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      await prisma.user.create({
-        data: {
-          email: adminEmail,
-          password: hashedPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          roleId: adminRole.id,
-          isActive: true,
-        },
-      });
-      console.warn('   ✓ Default admin user (admin@jitims.com / admin123) seeded\n');
-    } else {
-      console.warn('   ✓ Admin user already exists\n');
+  if (process.env.NODE_ENV !== 'production' || process.env.SEED_DEFAULT_ADMIN === 'true') {
+    console.warn('👤 Seeding default admin user...');
+    const adminRole = await prisma.role.findUnique({ where: { name: 'ADMIN' } });
+    if (adminRole) {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@jitims.com';
+      const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+      if (!existingAdmin) {
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
+        await prisma.user.create({
+          data: {
+            email: adminEmail,
+            password: hashedPassword,
+            firstName: 'Admin',
+            lastName: 'User',
+            roleId: adminRole.id,
+            isActive: true,
+          },
+        });
+        console.warn('   ✓ Default admin user seeded\n');
+      } else {
+        console.warn('   ✓ Admin user already exists\n');
+      }
     }
+  } else {
+    console.warn('   ○ Skipping default admin user in production. Use environment variables if needed.\n');
   }
 
   console.warn('✅ Database seeding completed successfully!');

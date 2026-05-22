@@ -36,6 +36,7 @@ export default function LoginPage() {
       } else {
         setError("Please check your credentials and try again.");
       }
+    } finally {
       setIsLoading(false);
     }
   };

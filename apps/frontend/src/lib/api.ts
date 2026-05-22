@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { useAuthStore } from '../store/authStore';
+
+export const authActions = {
+  getToken: () => null as string | null,
+  setAuth: (token: string, user: unknown) => {
+    void token;
+    void user;
+  },
+  logoutStateOnly: () => {}
+};
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
@@ -9,7 +17,7 @@ const api = axios.create({
 // Request Interceptor: Attach access token if present in Zustand store
 api.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().accessToken;
+    const token = authActions.getToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -70,7 +78,7 @@ api.interceptors.response.use(
         );
 
         const { accessToken, user } = response.data;
-        useAuthStore.getState().setAuth(accessToken, user);
+        authActions.setAuth(accessToken, user);
 
         processQueue(null, accessToken);
 
@@ -78,7 +86,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        useAuthStore.getState().logoutStateOnly();
+        authActions.logoutStateOnly();
         if (typeof window !== 'undefined' && window.location.pathname !== '/') {
           window.location.href = '/';
         }

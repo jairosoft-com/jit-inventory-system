@@ -9,8 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ────────────────────────────────────────────
@@ -20,7 +20,7 @@ datasource db {
 enum ItemType {
   EQUIPMENT
   CONSUMABLE
-  DIGITAL        // ← added: third core item type
+  DIGITAL // ← added: third core item type
 }
 
 enum ItemStatus {
@@ -89,8 +89,8 @@ enum DisposalReason {
   DAMAGED_BEYOND_REPAIR
   OUTDATED
   LOST
-  STOLEN    // ← added: common real-world case
-  DONATED   // ← added: common real-world case
+  STOLEN // ← added: common real-world case
+  DONATED // ← added: common real-world case
 }
 
 enum MaintenanceStatus {
@@ -117,10 +117,10 @@ enum LogAction {
   BORROWED
   RETURNED
   DISPOSED
-  TRANSFERRED        // ← added: equipment reassignment
-  MAINTENANCE_STARTED   // ← added: richer audit trail
+  TRANSFERRED // ← added: equipment reassignment
+  MAINTENANCE_STARTED // ← added: richer audit trail
   MAINTENANCE_COMPLETED // ← added: richer audit trail
-  RENEWED            // ← added: digital asset renewal
+  RENEWED // ← added: digital asset renewal
 }
 
 // ────────────────────────────────────────────
@@ -228,17 +228,16 @@ model RefreshToken {
 // ────────────────────────────────────────────
 
 model Category {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique @db.VarChar(100)
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
   type        ItemType // EQUIPMENT | CONSUMABLE | DIGITAL
-  description String?  @db.Text
-    deletedAt   DateTime? @map("deleted_at")  // ← add this
-
+  description String?   @db.Text
+  deletedAt   DateTime? @map("deleted_at")
 
   items Item[]
 
   @@index([type])
-  @@index([deletedAt])   
+  @@index([deletedAt])
   @@map("categories")
 }
 
@@ -268,7 +267,7 @@ model Item {
   category           Category            @relation(fields: [categoryId], references: [id])
   registeredByUser   User?               @relation("RegisteredBy", fields: [registeredBy], references: [id])
   equipment          Equipment?
-  digitalAsset       DigitalAsset?       // ← added: 1:1 extension for digital items
+  digitalAsset       DigitalAsset? // ← added: 1:1 extension for digital items
   stockIns           StockIn[]
   stockOuts          StockOut[]
   purchaseOrderItems PurchaseOrderItem[]
@@ -324,21 +323,21 @@ model Equipment {
 // ────────────────────────────────────────────
 
 model DigitalAsset {
-  id              Int              @id @default(autoincrement())
-  itemId          Int              @unique @map("item_id")
-  assetType       DigitalAssetType @map("asset_type")
-  url             String?          @db.VarChar(500)
-  vendor          String?          @db.VarChar(255)
-  licenseKey      String?          @map("license_key") @db.Text // ⚠ encrypt at rest with pgcrypto
-  credentialsRef  String?          @map("credentials_ref") @db.VarChar(255) // vault path, not raw password
-  seats           Int?             // number of licensed users; null = unlimited
-  expiryDate      DateTime?        @map("expiry_date") @db.Date
-  cost            Decimal?         @db.Decimal(10, 2)
-  billingCycle    BillingCycle?    @map("billing_cycle")
-  status          DigitalStatus    @default(ACTIVE)
-  notes           String?          @db.Text
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  id             Int              @id @default(autoincrement())
+  itemId         Int              @unique @map("item_id")
+  assetType      DigitalAssetType @map("asset_type")
+  url            String?          @db.VarChar(500)
+  vendor         String?          @db.VarChar(255)
+  licenseKey     String?          @map("license_key") @db.Text // ⚠ encrypt at rest with pgcrypto
+  credentialsRef String?          @map("credentials_ref") @db.VarChar(255) // vault path, not raw password
+  seats          Int? // number of licensed users; null = unlimited
+  expiryDate     DateTime?        @map("expiry_date") @db.Date
+  cost           Decimal?         @db.Decimal(10, 2)
+  billingCycle   BillingCycle?    @map("billing_cycle")
+  status         DigitalStatus    @default(ACTIVE)
+  notes          String?          @db.Text
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
   item Item @relation(fields: [itemId], references: [id])
 

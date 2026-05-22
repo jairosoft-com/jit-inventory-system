@@ -9,14 +9,14 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
-import { ItemType } from '@prisma/client';
+import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  create(@Body() data: { name: string; type: ItemType; description?: string }) {
+  create(@Body() data: CreateCategoryDto) {
     return this.categoriesService.create(data);
   }
 
@@ -33,7 +33,7 @@ export class CategoriesController {
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: { name?: string; type?: ItemType; description?: string },
+    @Body() data: UpdateCategoryDto,
   ) {
     return this.categoriesService.update(id, data);
   }

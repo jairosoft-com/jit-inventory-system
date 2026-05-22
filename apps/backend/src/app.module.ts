@@ -1,22 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { InventoryModule } from './inventory/inventory.module';
-import { EquipmentModule } from './equipment/equipment.module';
+// import { EquipmentModule } from './equipment/equipment.module';  // ← COMMENT THIS OUT
 
 @Module({
   imports: [
-    // Global configuration
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '../../.env',
     }),
-
-    // Rate limiting: 10 requests per 15 minutes for auth endpoints
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -25,14 +23,13 @@ import { EquipmentModule } from './equipment/equipment.module';
         },
       ],
     }),
-
-    // Core modules
     PrismaModule,
     AuthModule,
     UsersModule,
     CategoriesModule,
     InventoryModule,
-    EquipmentModule,
+    // EquipmentModule,  // ← COMMENT THIS OUT
   ],
+  controllers: [AppController],
 })
 export class AppModule {}

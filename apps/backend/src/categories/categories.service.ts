@@ -7,11 +7,19 @@ export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
  
   async create(data: { name: string; type: ItemType; description?: string }) {
+    const name = data?.name?.trim();
+    if (!name) {
+      throw new BadRequestException('Category name is required');
+    }
+    if (!data?.type || !Object.values(ItemType).includes(data.type)) {
+      throw new BadRequestException('Category type is invalid');
+    }
+
     // Case-insensitive lookup
     const existing = await this.prisma.category.findFirst({
       where: {
         name: {
-          equals: data.name,
+          equals: name,
           mode: 'insensitive',
         },
       },

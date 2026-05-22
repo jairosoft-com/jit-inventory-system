@@ -54,7 +54,14 @@ export class CategoriesService {
  
   async update(id: number, data: { name?: string; type?: ItemType; description?: string }) {
     await this.findOne(id); // ensures category exists and is not archived
- 
+
+    if (data.name !== undefined && !data.name.trim()) {
+      throw new BadRequestException('Category name cannot be empty');
+    }
+    if (data.type !== undefined && !Object.values(ItemType).includes(data.type)) {
+      throw new BadRequestException('Category type is invalid');
+    }
+
     if (data.name) {
       // Case-insensitive lookup
       const existing = await this.prisma.category.findFirst({

@@ -129,7 +129,7 @@ export class UsersService {
             deletedAt: null,
             role: {
               name: {
-                equals: 'Administrator',
+                equals: 'ADMIN',
                 mode: 'insensitive',
               },
             },
@@ -168,16 +168,13 @@ export class UsersService {
             },
           },
         },
-        users: {
-          where: {
-            deletedAt: null,
-          },
-          select: {
-            id: true,
-          },
-        },
         _count: {
           select: {
+            users: {
+              where: {
+                deletedAt: null,
+              },
+            },
             rolePermissions: true,
           },
         },
@@ -189,7 +186,7 @@ export class UsersService {
       name: role.name,
       description: role.description,
       isSystem: role.isSystem,
-      userCount: role.users.length,
+      userCount: role._count.users,
       permissionCount: role._count.rolePermissions,
       permissions: role.rolePermissions.map((rolePermission) => ({
         id: rolePermission.permission.id,

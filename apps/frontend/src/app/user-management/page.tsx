@@ -6,6 +6,8 @@ import type { FormEvent, ReactNode } from "react";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
+const USER_DIRECTORY_PAGE_SIZE = 1000;
+
 type Permission = {
   id: number;
   name: string;
@@ -140,7 +142,7 @@ function getStoredUser() {
     try {
       return JSON.parse(storedUser) as CurrentUser;
     } catch {
-      return null;
+      continue;
     }
   }
 
@@ -190,12 +192,12 @@ function hasUserManagementAccess(user: CurrentUser | null) {
   const normalizedRole = roleName.toLowerCase();
   const permissions = getPermissionNames(user);
 
-  return (
-    normalizedRole.includes("admin") ||
-    permissions.includes("users:read") ||
-    permissions.includes("users:manage") ||
-    permissions.includes("roles:read")
-  );
+  const hasUserAccess =
+    permissions.includes("users:read") || permissions.includes("users:manage");
+  const hasRoleAccess =
+    permissions.includes("roles:read") || permissions.includes("roles:manage");
+
+  return normalizedRole.includes("admin") || (hasUserAccess && hasRoleAccess);
 }
 
 function getClientAuth(): AuthState {
@@ -296,8 +298,12 @@ export default function UserManagementPage() {
     setErrorMessage("");
 
     try {
+      const usersUrl = new URL(`${API_BASE_URL}/users`);
+      usersUrl.searchParams.set("page", "1");
+      usersUrl.searchParams.set("limit", String(USER_DIRECTORY_PAGE_SIZE));
+
       const [usersResponse, summaryResponse, rolesResponse] = await Promise.all([
-        requestJson<UsersResponse>(`${API_BASE_URL}/users`, token),
+        requestJson<UsersResponse>(usersUrl.toString(), token),
         requestJson<UserSummary>(`${API_BASE_URL}/users/summary`, token),
         requestJson<Role[]>(`${API_BASE_URL}/users/roles`, token),
       ]);

@@ -1,41 +1,9 @@
 import { Transform, Type } from 'class-transformer';
-import type { TransformFnParams } from 'class-transformer';
-import {
-  IsBoolean,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
-
-function parseBoolean({ value }: TransformFnParams): unknown {
-  const fieldValue: unknown = value;
-
-  if (fieldValue === true || fieldValue === 'true') {
-    return true;
-  }
-
-  if (fieldValue === false || fieldValue === 'false') {
-    return false;
-  }
-
-  return fieldValue;
-}
-
-function trimString({ value }: TransformFnParams): unknown {
-  const fieldValue: unknown = value;
-
-  if (typeof fieldValue === 'string') {
-    return fieldValue.trim();
-  }
-
-  return fieldValue;
-}
+import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { parseBoolean } from '../../common/transforms/parse-boolean';
 
 export class QueryUsersDto {
   @IsOptional()
-  @Transform(trimString)
   @IsString()
   search?: string;
 
@@ -60,6 +28,5 @@ export class QueryUsersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
   limit?: number;
 }

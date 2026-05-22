@@ -230,7 +230,7 @@ model RefreshToken {
 model Category {
   id          Int       @id @default(autoincrement())
   name        String    @unique @db.VarChar(100)
-  type        ItemType // EQUIPMENT | CONSUMABLE | DIGITAL
+  type        ItemType 
   description String?   @db.Text
   deletedAt   DateTime? @map("deleted_at")
 

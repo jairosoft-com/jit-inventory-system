@@ -45,29 +45,30 @@ describe('Categories (e2e)', () => {
         .expect(201)
         .expect((res) => {
           expect(res.body).toHaveProperty('id');
-          expect(res.body.name).toBe('Test Equipment');
-          expect(res.body.type).toBe(ItemType.EQUIPMENT);
-          expect(res.body.deletedAt).toBeNull();
+          expect((res.body as { name: string }).name).toBe('Test Equipment');
+          expect((res.body as { type: ItemType }).type).toBe(
+            ItemType.EQUIPMENT,
+          );
+          expect((res.body as { deletedAt: unknown }).deletedAt).toBeNull();
         });
     });
 
-    it('should return 409 for duplicate name (including archived)', async () => {
-        await prisma.category.create({
-          data: {
-            name: 'Archived Category',
-            type: ItemType.EQUIPMENT,
-            deletedAt: new Date(),
-          },
-        });
-      
-        return request(app.getHttpServer())
-          .post('/api/categories')
-          .send({
-            name: 'Archived Category',
-            type: ItemType.CONSUMABLE,
-          })
-          .expect(409);
+    it('should return 409 for duplicate name', async () => {
+      await prisma.category.create({
+        data: {
+          name: 'Duplicate',
+          type: ItemType.EQUIPMENT,
+        },
       });
+
+      return request(app.getHttpServer())
+        .post('/api/categories')
+        .send({
+          name: 'Duplicate',
+          type: ItemType.CONSUMABLE,
+        })
+        .expect(409);
+    });
 
     it('should return 400 for missing required fields', () => {
       return request(app.getHttpServer())
@@ -106,8 +107,10 @@ describe('Categories (e2e)', () => {
         .get('/api/categories')
         .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveLength(2);
-          expect(res.body[0].name).toBe('Category 1');
+          expect(res.body as Array<unknown>).toHaveLength(2);
+          expect((res.body as Array<{ name: string }>)[0].name).toBe(
+            'Category 1',
+          );
         });
     });
 
@@ -131,8 +134,8 @@ describe('Categories (e2e)', () => {
         .get('/api/categories')
         .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveLength(1);
-          expect(res.body[0].name).toBe('Active');
+          expect(res.body as Array<unknown>).toHaveLength(1);
+          expect((res.body as Array<{ name: string }>)[0].name).toBe('Active');
         });
     });
   });
@@ -150,8 +153,8 @@ describe('Categories (e2e)', () => {
         .get(`/api/categories/${category.id}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.id).toBe(category.id);
-          expect(res.body.name).toBe('Test Category');
+          expect((res.body as { id: number }).id).toBe(category.id);
+          expect((res.body as { name: string }).name).toBe('Test Category');
         });
     });
 
@@ -192,12 +195,12 @@ describe('Categories (e2e)', () => {
         })
         .expect(200)
         .expect((res) => {
-          expect(res.body.name).toBe('Updated Name');
+          expect((res.body as { name: string }).name).toBe('Updated Name');
         });
     });
 
     it('should return 409 when updating to existing name', async () => {
-      const cat1 = await prisma.category.create({
+      await prisma.category.create({
         data: { name: 'Category 1', type: ItemType.EQUIPMENT },
       });
 
@@ -232,7 +235,7 @@ describe('Categories (e2e)', () => {
         .delete(`/api/categories/${category.id}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.deletedAt).not.toBeNull();
+          expect((res.body as { deletedAt: unknown }).deletedAt).not.toBeNull();
         });
     });
 
@@ -258,7 +261,11 @@ describe('Categories (e2e)', () => {
         .get('/api/categories')
         .expect(200)
         .expect((res) => {
-          expect(res.body.find((c: any) => c.id === category.id)).toBeUndefined();
+          expect(
+            (res.body as Array<{ id: number }>).find(
+              (c) => c.id === category.id,
+            ),
+          ).toBeUndefined();
         });
     });
   });

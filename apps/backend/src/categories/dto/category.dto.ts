@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsOptional, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { ItemType } from '@prisma/client';
 

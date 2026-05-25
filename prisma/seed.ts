@@ -382,7 +382,7 @@ async function main() {
       const adminEmail = process.env.ADMIN_EMAIL || 'admin@jitims.com';
       const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
       if (!existingAdmin) {
-        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 12);
         await prisma.user.create({
           data: {
             email: adminEmail,

@@ -1,6 +1,6 @@
 // ============================================
 // JIT Inventory & Equipment Management System
-// Prisma Schema — v4.0
+// Prisma Schema — v4.2
 // Single source of truth for DB schema
 // ============================================
 
@@ -51,7 +51,6 @@ enum DigitalAssetType {
   SOFTWARE
   SUBSCRIPTION
   DOMAIN
-  ACCOUNT
   LICENSE
   API_KEY
 }
@@ -169,31 +168,31 @@ model RolePermission {
 // 4. Users
 // ────────────────────────────────────────────
 model User {
-  id        Int       @id @default(autoincrement())
-  firstName String    @map("first_name") @db.VarChar(100)
-  lastName  String    @map("last_name") @db.VarChar(100)
-  email     String    @unique @db.VarChar(255)
-  password  String    @db.VarChar(255)
-  roleId    Int       @map("role_id")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  deletedAt DateTime? @map("deleted_at")
+  id                 Int              @id @default(autoincrement())
+  firstName          String           @map("first_name") @db.VarChar(100)
+  lastName           String           @map("last_name") @db.VarChar(100)
+  email              String           @unique @db.VarChar(255)
+  password           String           @db.VarChar(255)
+  roleId             Int              @map("role_id")
+  isActive           Boolean          @default(true) @map("is_active")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  deletedAt          DateTime?        @map("deleted_at")
 
-  role              Role             @relation(fields: [roleId], references: [id])
-  refreshTokens     RefreshToken[]
-  inventoryLogs     InventoryLog[]
-  stockIns          StockIn[]        @relation("ReceivedBy")
-  stockOuts         StockOut[]       @relation("ReleasedBy")
-  borrowsAsStaff    BorrowRecord[]   @relation("BorrowedBy")
-  borrowsApproved   BorrowRecord[]   @relation("ApprovedBy")
-  disposals         Disposal[]
-  purchaseOrders    PurchaseOrder[]
-  maintenanceLogs   MaintenanceLog[]
-  registeredItems   Item[]           @relation("RegisteredBy")
-  assignedEquipment Equipment[]      @relation("AssignedTo")
+  role               Role             @relation(fields: [roleId], references: [id])
+  refreshTokens      RefreshToken[]
+  itemsRegistered    Item[]           @relation("RegisteredBy")
+  equipmentAssigned  Equipment[]      @relation("AssignedTo")
+  purchaseOrders     PurchaseOrder[]  @relation("CreatedByUser")
+  stockInReceived    StockIn[]        @relation("ReceivedByUser")
+  stockOutReleased   StockOut[]       @relation("ReleasedByUser")
+  borrowRequests     BorrowRecord[]   @relation("BorrowedByUser")
+  borrowApprovals    BorrowRecord[]   @relation("ApprovedByUser")
+  maintenanceJobs    MaintenanceLog[] @relation("PerformedByUser")
+  disposalsApproved  Disposal[]       @relation("DisposalApprovedBy")
+  activityLogs       InventoryLog[]
 
-  @@index([roleId])
   @@index([isActive])
+  @@index([roleId])
   @@map("users")
 }
 
@@ -268,30 +267,31 @@ model Item {
 // 8. Equipment
 // ────────────────────────────────────────────
 model Equipment {
-  id               Int             @id @default(autoincrement())
-  itemId           Int             @unique @map("item_id")
-  assetId          String          @unique @map("asset_id") @db.VarChar(100)
-  serialNumber     String?         @unique @map("serial_number") @db.VarChar(100)
-  brand            String?         @db.VarChar(255)
-  model            String?         @db.VarChar(255)
-  condition        ConditionStatus @default(NEW)
-  status           EquipmentStatus @default(AVAILABLE)
-  location         String?         @db.VarChar(255)
-  assignedTo       Int?            @map("assigned_to")
-  acquisitionDate  DateTime?       @map("acquisition_date") @db.Date
-  purchasePrice    Decimal?        @map("purchase_price") @db.Decimal(10, 2)
-  warrantyStart    DateTime?       @map("warranty_start") @db.Date
-  warrantyEnd      DateTime?       @map("warranty_end") @db.Date
-  warrantyProvider String?         @map("warranty_provider") @db.VarChar(255)
-  warrantyDocUrl   String?         @map("warranty_doc_url") @db.VarChar(500)
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  id               Int              @id @default(autoincrement())
+  itemId           Int              @unique @map("item_id")
+  assetId          String           @unique @map("asset_id") @db.VarChar(100)
+  serialNumber     String?          @unique @map("serial_number") @db.VarChar(100)
+  brand            String?          @db.VarChar(255)
+  model            String?          @db.VarChar(255)
+  condition        ConditionStatus  @default(NEW)
+  status           EquipmentStatus  @default(AVAILABLE)
+  location         String?          @db.VarChar(255)
+  assignedTo       Int?             @map("assigned_to")
+  acquisitionDate  DateTime?        @map("acquisition_date") @db.Date
+  purchasePrice    Decimal?         @map("purchase_price") @db.Decimal(10, 2)
+  warrantyStart    DateTime?        @map("warranty_start") @db.Date
+  warrantyEnd      DateTime?        @map("warranty_end") @db.Date
+  warrantyProvider String?          @map("warranty_provider") @db.VarChar(255)
+  warrantyDocUrl   String?          @map("warranty_doc_url") @db.VarChar(500)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  deletedAt        DateTime?        @map("deleted_at")
 
-  item            Item             @relation(fields: [itemId], references: [id])
-  assignedToUser  User?            @relation("AssignedTo", fields: [assignedTo], references: [id])
-  borrowRecords   BorrowRecord[]
-  maintenanceLogs MaintenanceLog[]
-  disposal        Disposal?
+  item             Item             @relation(fields: [itemId], references: [id])
+  assignedToUser   User?            @relation("AssignedTo", fields: [assignedTo], references: [id])
+  borrowRecords    BorrowRecord[]
+  maintenanceLogs  MaintenanceLog[]
+  disposal         Disposal?
 
   @@index([status])
   @@index([assignedTo])
@@ -318,8 +318,10 @@ model DigitalAsset {
   notes          String?          @db.Text
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+  renewalCount   Int              @default(0) @map("renewal_count")
 
-  item Item @relation(fields: [itemId], references: [id])
+  item           Item             @relation(fields: [itemId], references: [id])
 
   @@index([status])
   @@index([expiryDate])
@@ -360,14 +362,14 @@ model PurchaseOrder {
   orderDate     DateTime            @default(now()) @map("order_date")
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @updatedAt @map("updated_at")
-  
-  supplier  Supplier            @relation(fields: [supplierId], references: [id])
-  createdBy User                @relation(fields: [createdById], references: [id])
-  lineItems PurchaseOrderItem[]
-  stockIns  StockIn[]
 
-  @@index([supplierId])
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy     User                @relation("CreatedByUser", fields: [createdById], references: [id])
+  lineItems     PurchaseOrderItem[]
+  stockIns      StockIn[]
+
   @@index([status])
+  @@index([supplierId])
   @@map("purchase_orders")
 }
 
@@ -392,17 +394,17 @@ model PurchaseOrderItem {
 // 13. Stock In
 // ────────────────────────────────────────────
 model StockIn {
-  id              Int      @id @default(autoincrement())
-  itemId          Int      @map("item_id")
-  quantityAdded   Int      @map("quantity_added")
-  purchaseOrderId Int?     @map("purchase_order_id")
-  receivedById    Int      @map("received_by_id")
-  notes           String?  @db.Text
-  createdAt       DateTime @default(now()) @map("created_at")
+  id              Int            @id @default(autoincrement())
+  itemId          Int            @map("item_id")
+  quantityAdded   Int            @map("quantity_added")
+  purchaseOrderId Int?           @map("purchase_order_id")
+  receivedById    Int            @map("received_by_id")
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
 
-  item          Item           @relation(fields: [itemId], references: [id])
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-  receivedBy    User           @relation("ReceivedBy", fields: [receivedById], references: [id])
+  item            Item           @relation(fields: [itemId], references: [id])
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy      User           @relation("ReceivedByUser", fields: [receivedById], references: [id])
 
   @@index([itemId])
   @@map("stock_in")
@@ -415,13 +417,13 @@ model StockOut {
   id              Int      @id @default(autoincrement())
   itemId          Int      @map("item_id")
   quantityRemoved Int      @map("quantity_removed")
-  purpose         String
+  purpose         String   @db.Text
   releasedById    Int      @map("released_by_id")
-  notes           String?
+  notes           String?  @db.Text
   createdAt       DateTime @default(now()) @map("created_at")
 
-  item       Item @relation(fields: [itemId], references: [id])
-  releasedBy User @relation("ReleasedBy", fields: [releasedById], references: [id])
+  item            Item     @relation(fields: [itemId], references: [id])
+  releasedBy      User     @relation("ReleasedByUser", fields: [releasedById], references: [id])
 
   @@index([itemId])
   @@map("stock_out")
@@ -440,17 +442,17 @@ model BorrowRecord {
   actualReturn    DateTime?        @map("actual_return")
   returnCondition ConditionStatus? @map("return_condition")
   status          BorrowStatus     @default(PENDING)
-  notes           String?
+  notes           String?          @db.Text
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
-  equipment  Equipment @relation(fields: [equipmentId], references: [id])
-  borrowedBy User      @relation("BorrowedBy", fields: [borrowedById], references: [id])
-  approvedBy User?     @relation("ApprovedBy", fields: [approvedById], references: [id])
+  equipment       Equipment        @relation(fields: [equipmentId], references: [id])
+  borrowedBy      User             @relation("BorrowedByUser", fields: [borrowedById], references: [id])
+  approvedBy      User?            @relation("ApprovedByUser", fields: [approvedById], references: [id])
 
   @@index([equipmentId])
-  @@index([status])
   @@index([expectedReturn])
+  @@index([status])
   @@map("borrow_records")
 }
 
@@ -458,22 +460,24 @@ model BorrowRecord {
 // 16. Maintenance Logs
 // ────────────────────────────────────────────
 model MaintenanceLog {
-  id                  Int               @id @default(autoincrement())
-  equipmentId         Int               @map("equipment_id")
-  description         String            @db.Text
-  status              MaintenanceStatus @default(SCHEDULED)
-  scheduledDate       DateTime?         @map("scheduled_date") @db.Date
-  completedDate       DateTime?         @map("completed_date") @db.Date
-  cost                Decimal?          @db.Decimal(10, 2)
-  performedById       Int?              @map("performed_by_id")
-  performedByVendor   String?           @map("performed_by_vendor") @db.VarChar(255)
-  notes               String?           @db.Text
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  
-  equipment           Equipment         @relation(fields: [equipmentId], references: [id])
-  performedBy         User?             @relation(fields: [performedById], references: [id])
+  id                 Int               @id @default(autoincrement())
+  equipmentId        Int               @map("equipment_id")
+  description        String            @db.Text
+  status             MaintenanceStatus @default(SCHEDULED)
+  scheduledDate      DateTime?         @map("scheduled_date") @db.Date
+  completedDate      DateTime?         @map("completed_date") @db.Date
+  cost               Decimal?          @db.Decimal(10, 2)
+  performedById      Int?              @map("performed_by_id")
+  performedByVendor  String?           @map("performed_by_vendor") @db.VarChar(255)
+  notes              String?           @db.Text
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
 
+  equipment          Equipment         @relation(fields: [equipmentId], references: [id])
+  performedBy        User?             @relation("PerformedByUser", fields: [performedById], references: [id])
+
+  @@index([equipmentId])
+  @@index([status])
   @@map("maintenance_logs")
 }
 
@@ -481,17 +485,17 @@ model MaintenanceLog {
 // 17. Disposals
 // ────────────────────────────────────────────
 model Disposal {
-  id                Int             @id @default(autoincrement())
-  equipmentId       Int             @unique @map("equipment_id")
-  approvedById      Int             @map("approved_by_id")
-  disposalDate      DateTime        @default(now()) @map("disposal_date")
-  reason            DisposalReason
-  method            String          @db.VarChar(100)
-  notes             String?
-  createdAt         DateTime        @default(now()) @map("created_at")
+  id               Int            @id @default(autoincrement())
+  equipmentId      Int            @unique @map("equipment_id")
+  approvedById     Int            @map("approved_by_id")
+  disposalDate     DateTime       @default(now()) @map("disposal_date")
+  reason           DisposalReason
+  method           String         @db.VarChar(100)
+  notes            String?        @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
 
-  equipment         Equipment       @relation(fields: [equipmentId], references: [id])
-  approvedBy        User            @relation(fields: [approvedById], references: [id])
+  equipment        Equipment      @relation(fields: [equipmentId], references: [id])
+  approvedBy       User           @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
 
   @@map("disposals")
 }

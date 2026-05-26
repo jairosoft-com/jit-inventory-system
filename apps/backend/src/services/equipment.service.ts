@@ -32,9 +32,10 @@ const equipmentInclude = Prisma.validator<Prisma.EquipmentInclude>()({
     select: { id: true, invoiceNumber: true, orderDate: true },
   },
   images: {
+    where: { deletedAt: null },
     orderBy: [
-      { isPrimary: 'desc' as const },
-      { uploadedAt: 'asc' as const },
+      { isPrimary: 'desc' },
+      { uploadedAt: 'asc' },
     ],
   },
 });
@@ -300,7 +301,7 @@ export class EquipmentService {
     });
   }
 
-  static async archive(id: number) {
+  static async softDelete(id: number) {
     await this.findActiveOrThrow(id);
 
     return prisma.equipment.update({
@@ -309,6 +310,7 @@ export class EquipmentService {
         deletedAt: new Date(),
         item: { update: { deletedAt: new Date() } },
       },
+      include: equipmentInclude,
     });
   }
 
@@ -319,7 +321,7 @@ export class EquipmentService {
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
-        where: { equipmentId, isPrimary: true },
+        where: { equipmentId, isPrimary: true, deletedAt: null },
         data: { isPrimary: false },
       });
     }
@@ -342,13 +344,13 @@ export class EquipmentService {
     await this.findActiveOrThrow(equipmentId);
 
     const image = await prisma.equipmentImage.findFirst({
-      where: { id: imageId, equipmentId },
+      where: { id: imageId, equipmentId, deletedAt: null },
     });
     if (!image) throw new Error('Image not found');
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
-        where: { equipmentId, isPrimary: true },
+        where: { equipmentId, isPrimary: true, deletedAt: null },
         data: { isPrimary: false },
       });
     }
@@ -363,12 +365,15 @@ export class EquipmentService {
     await this.findActiveOrThrow(equipmentId);
 
     const image = await prisma.equipmentImage.findFirst({
-      where: { id: imageId, equipmentId },
+      where: { id: imageId, equipmentId, deletedAt: null },
     });
     if (!image) throw new Error('Image not found');
 
-    await prisma.equipmentImage.delete({ where: { id: imageId } });
+    await prisma.equipmentImage.update({ 
+      where: { id: imageId },
+      data: { deletedAt: new Date() }
+    });
 
-    return { message: 'Image deleted successfully' };
+    return { message: 'Image soft deleted successfully' };
   }
 }

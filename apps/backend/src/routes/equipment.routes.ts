@@ -140,7 +140,7 @@ router.patch(
   },
 );
 
-// DELETE /equipment/:id  (soft delete / archive)
+// DELETE /equipment/:id  (soft delete)
 router.delete(
   '/:id',
   authorize('equipment:delete'),
@@ -151,7 +151,7 @@ router.delete(
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
-      const result = await EquipmentService.archive(id);
+      const result = await EquipmentService.softDelete(id);
       res.status(200).json(result);
     } catch (error) {
       const message =

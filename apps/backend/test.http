@@ -29,6 +29,10 @@ Content-Type: application/json
 GET {{baseUrl}}/equipment
 Authorization: Bearer {{token}}
 
+### Get All Equipment (with filters)
+GET {{baseUrl}}/equipment?status=AVAILABLE&search=Dell&page=1&limit=10
+Authorization: Bearer {{token}}
+
 ### Get Single Equipment
 GET {{baseUrl}}/equipment/1
 Authorization: Bearer {{token}}
@@ -42,6 +46,43 @@ Content-Type: application/json
   "serialNumber": "SN789012"
 }
 
-### Delete Equipment
+### Delete Equipment (soft delete)
 DELETE {{baseUrl}}/equipment/1
+Authorization: Bearer {{token}}
+
+###
+
+### Add Image to Equipment
+POST {{baseUrl}}/equipment/1/images
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "url": "https://example.com/images/dell-xps-front.jpg",
+  "label": "front",
+  "isPrimary": true
+}
+
+### Add Second Image
+POST {{baseUrl}}/equipment/1/images
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "url": "https://example.com/images/dell-xps-serial.jpg",
+  "label": "serial tag",
+  "isPrimary": false
+}
+
+### Update Image (promote to primary)
+PATCH {{baseUrl}}/equipment/1/images/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "isPrimary": true
+}
+
+### Delete Image
+DELETE {{baseUrl}}/equipment/1/images/1
 Authorization: Bearer {{token}}

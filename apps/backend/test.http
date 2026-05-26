@@ -1,0 +1,47 @@
+@baseUrl = http://localhost:3001/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc3OTc4MzU5NiwiZXhwIjoxNzc5Nzg0NDk2fQ.iGWZiYsiWgJkBwDJqC9HgLhYw22JF0buPoz3SnMXpuU
+
+### Login (get token first)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "sam@jitims.com",
+  "password": "admin123"
+}
+
+###
+
+### Create Equipment
+POST {{baseUrl}}/equipment
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "itemName": "Dell XPS 15",
+  "assetId": "ASSET001",
+  "serialNumber": "SN123456",
+  "categoryId": 115,
+  "assignedTo": 1
+}
+
+### Get All Equipment
+GET {{baseUrl}}/equipment
+Authorization: Bearer {{token}}
+
+### Get Single Equipment
+GET {{baseUrl}}/equipment/1
+Authorization: Bearer {{token}}
+
+### Update Equipment
+PATCH {{baseUrl}}/equipment/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "serialNumber": "SN789012"
+}
+
+### Delete Equipment
+DELETE {{baseUrl}}/equipment/1
+Authorization: Bearer {{token}}

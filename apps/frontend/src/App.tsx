@@ -18,13 +18,8 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="users" element={<UserManagementPage />} />
-<<<<<<< feature/204714-inventory-frontend-pages
-          <Route path="inventory" element={<InventoryManagementPage />} />
-          <Route path="equipment" element={<PlaceholderPage />} />
-=======
           <Route path="inventory" element={<PlaceholderPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
->>>>>>> develop
           <Route path="borrow" element={<PlaceholderPage />} />
           <Route path="orders" element={<PlaceholderPage />} />
           <Route path="suppliers" element={<PlaceholderPage />} />

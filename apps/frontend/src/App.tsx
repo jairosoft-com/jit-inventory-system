@@ -4,6 +4,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
+import EquipmentPage from './pages/EquipmentPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 export default function App() {
@@ -19,7 +20,7 @@ export default function App() {
           <Route path="users" element={<UserManagementPage />} />
           <Route path="categories" element={<CategoryManagementPage />} />
           <Route path="inventory" element={<PlaceholderPage />} />
-          <Route path="equipment" element={<PlaceholderPage />} />
+          <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<PlaceholderPage />} />
           <Route path="orders" element={<PlaceholderPage />} />
           <Route path="suppliers" element={<PlaceholderPage />} />

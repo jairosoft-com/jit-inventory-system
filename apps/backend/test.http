@@ -48,7 +48,7 @@ GET {{baseUrl}}/equipment/1
 Authorization: Bearer {{token}}
 
 ### Update Equipment
-PATCH {{baseUrl}}/equipment/1
+PATCH {{baseUrl}}/equipment/2
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -75,8 +75,8 @@ Content-Type: application/json
   "isPrimary": false
 }
 
-### Update Image (Change '1' to Equipment ID, '2' to Image ID)
-PATCH {{baseUrl}}/equipment/1/images/2
+### Update Image 
+PATCH {{baseUrl}}/equipment/2/images/1
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

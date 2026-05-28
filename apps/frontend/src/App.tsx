@@ -6,6 +6,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
 import EquipmentPage from './pages/EquipmentPage';
 import PlaceholderPage from './pages/PlaceholderPage';
+import InventoryManagementPage from './pages/InventoryManagementPage';
 
 export default function App() {
   return (
@@ -19,7 +20,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="users" element={<UserManagementPage />} />
           <Route path="categories" element={<CategoryManagementPage />} />
-          <Route path="inventory" element={<PlaceholderPage />} />
+          <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<PlaceholderPage />} />
           <Route path="orders" element={<PlaceholderPage />} />

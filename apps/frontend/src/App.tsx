@@ -18,7 +18,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="users" element={<UserManagementPage />} />
-          <Route path="inventory" element={<PlaceholderPage />} />
+          <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<PlaceholderPage />} />
           <Route path="orders" element={<PlaceholderPage />} />

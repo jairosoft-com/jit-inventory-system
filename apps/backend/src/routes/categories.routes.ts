@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { CategoriesService } from '../services/categories.service.js';
+import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import {
   createCategorySchema,
@@ -10,9 +12,13 @@ import {
 
 const router = Router();
 
+// All category routes require authentication
+router.use(authenticate);
+
 // POST /categories
 router.post(
   '/',
+  authorize('categories:create'),
   validate(createCategorySchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -32,7 +38,7 @@ router.post(
 );
 
 // GET /categories
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', authorize('categories:read'), async (req: Request, res: Response): Promise<void> => {
   try {
     const categories = await CategoriesService.findAll();
     res.status(200).json(categories);
@@ -44,7 +50,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 // GET /categories/:id
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.get('/:id', authorize('categories:read'), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -67,6 +73,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 // PATCH /categories/:id
 router.patch(
   '/:id',
+  authorize('categories:update'),
   validate(updateCategorySchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -96,7 +103,7 @@ router.patch(
 );
 
 // DELETE /categories/:id
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', authorize('categories:delete'), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {

@@ -56,7 +56,7 @@ export default function CategoryManagementPage() {
         cat.name.toLowerCase().includes(term) ||
         (cat.description && cat.description.toLowerCase().includes(term));
       const matchesType = selectedType === 'all' || cat.type === selectedType;
-      
+
       // Note: Backend currently only returns active categories (deletedAt === null)
       // So if the tab is set to archived, the list will be empty.
       const matchesTab = filterTab === 'active' ? !cat.deletedAt : !!cat.deletedAt;
@@ -216,15 +216,14 @@ export default function CategoryManagementPage() {
               <button
                 type="button"
                 onClick={() => setFilterTab('active')}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'active'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'active'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
               >
                 Active
               </button>
-              
+
               <button
                 type="button"
                 disabled

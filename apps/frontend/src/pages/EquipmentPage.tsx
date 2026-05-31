@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 
 type EquipmentStatus = 
@@ -76,6 +76,8 @@ export default function EquipmentPage() {
   const [equipmentList, setEquipmentList] = useState<Equipment[]>(MOCK_EQUIPMENT);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEquipmentId, setEditingEquipmentId] = useState<string | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   // Form State
   const initialFormState = {
@@ -135,18 +137,21 @@ export default function EquipmentPage() {
     setFormData(initialFormState);
     setEditingEquipmentId(null);
     setShowAddForm(true);
+    setImageError(null);
   };
 
   const openEditModal = (equipment: Equipment) => {
     setFormData({ ...equipment });
     setEditingEquipmentId(equipment.id);
     setShowAddForm(true);
+    setImageError(null);
   };
 
   const closeModal = () => {
     setShowAddForm(false);
     setEditingEquipmentId(null);
     setFormData(initialFormState);
+    setImageError(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -155,11 +160,35 @@ export default function EquipmentPage() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+
+      // Validation 1: Size check (max 5MB)
+      const MAX_SIZE_MB = 5;
+      const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+      if (file.size > MAX_SIZE_BYTES) {
+        setImageError(`Image size must be less than ${MAX_SIZE_MB}MB.`);
+        e.target.value = '';
+        return;
+      }
+
+      // Validation 2: Format check (allowed types: JPG, PNG, GIF, WEBP)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setImageError('Invalid image format. Allowed formats: JPG, PNG, GIF, WEBP.');
+        e.target.value = '';
+        return;
+      }
+
       const imageUrl = URL.createObjectURL(file); // Local mock URL
       setFormData(prev => ({ ...prev, imageUrl }));
     }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: null }));
+    setImageError(null);
   };
 
   const showModal = showAddForm;
@@ -199,18 +228,43 @@ export default function EquipmentPage() {
                   <label className="block text-sm font-medium text-gray-700">Equipment Image</label>
                   <div className="mt-1 flex items-center mb-4 gap-4">
                     {formData.imageUrl ? (
-                      <img src={formData.imageUrl} alt="Equipment preview" className="h-24 w-24 object-cover rounded shadow" />
+                      <div className="relative group flex-shrink-0">
+                        <img 
+                          src={formData.imageUrl} 
+                          alt="Equipment preview" 
+                          className="h-24 w-24 object-cover rounded shadow cursor-pointer hover:opacity-80 transition hover:scale-105 duration-200" 
+                          onClick={() => setPreviewImageUrl(formData.imageUrl)}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition rounded pointer-events-none">
+                          <span className="text-white text-xs font-semibold">Preview</span>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400">
+                      <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 flex-shrink-0">
                         No Image
                       </div>
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                    />
+                    <div className="flex flex-col gap-2 w-full">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                      />
+                      {formData.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="self-start text-xs font-medium text-red-600 hover:text-red-800 transition cursor-pointer"
+                        >
+                          Remove Image
+                        </button>
+                      )}
+                      {imageError && (
+                        <p className="text-xs text-red-600 font-medium">{imageError}</p>
+                      )}
+                      <p className="text-xs text-gray-400">Max size: 5MB. Formats: JPG, PNG, GIF, WEBP</p>
+                    </div>
                   </div>
                 </div>
 
@@ -363,7 +417,12 @@ export default function EquipmentPage() {
               <tr key={equipment.id}>
                 <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                   {equipment.imageUrl ? (
-                    <img src={equipment.imageUrl} alt={equipment.name} className="h-10 w-10 rounded-md object-cover" />
+                    <img 
+                      src={equipment.imageUrl} 
+                      alt={equipment.name} 
+                      className="h-10 w-10 rounded-md object-cover cursor-pointer hover:scale-110 transition-transform duration-200 hover:shadow" 
+                      onClick={() => setPreviewImageUrl(equipment.imageUrl)}
+                    />
                   ) : (
                     <div className="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500 text-xs text-center border">
                       No img
@@ -428,6 +487,34 @@ export default function EquipmentPage() {
           </tbody>
         </table>
       </div>
+      {/* Lightbox Preview Modal */}
+      {previewImageUrl && (
+        <div 
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none transition p-2 bg-gray-800/50 hover:bg-gray-800 rounded-full cursor-pointer"
+            >
+              <span className="sr-only">Close Preview</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {/* Image */}
+            <img 
+              src={previewImageUrl} 
+              alt="Full-size preview" 
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-gray-700 bg-gray-900"
+              onClick={(e) => e.stopPropagation()} // prevent closing when clicking the image itself
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

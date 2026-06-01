@@ -20,7 +20,10 @@ export const createEquipmentSchema = z.object({
   // Item fields
   itemName: z.string().trim().min(1, 'Item name is required').max(255),
   description: z.string().trim().optional().nullable(),
-  categoryId: z.number().int().positive('Category ID must be a positive integer'),
+  categoryId: z
+    .number()
+    .int()
+    .positive('Category ID must be a positive integer'),
   barcode: z.string().trim().max(255).optional().nullable(),
 
   // Equipment fields

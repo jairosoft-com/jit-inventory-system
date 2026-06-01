@@ -324,7 +324,7 @@ model Equipment {
 model EquipmentImage {
   id          Int       @id @default(autoincrement())
   equipmentId Int       @map("equipment_id")
-  url         String    @db.VarChar(500)
+  url         String    @db.Text
   label       String?   @db.VarChar(100)
   isPrimary   Boolean   @default(false) @map("is_primary")
   uploadedAt  DateTime  @default(now()) @map("uploaded_at")

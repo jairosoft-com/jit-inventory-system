@@ -97,9 +97,10 @@ export const useCategoryStore = create<CategoryState>((set) => ({
   archiveCategory: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await api.delete(`/categories/${id}`);
+      const response = await api.delete<Category>(`/categories/${id}`);
+      const updatedCategory = response.data;
       set((state) => ({
-        categories: state.categories.filter((cat) => cat.id !== id),
+        categories: state.categories.map((cat) => (cat.id === id ? updatedCategory : cat)),
         isLoading: false,
       }));
     } catch (error: unknown) {

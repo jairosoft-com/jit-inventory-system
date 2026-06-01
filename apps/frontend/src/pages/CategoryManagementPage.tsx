@@ -33,10 +33,10 @@ export default function CategoryManagementPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch categories on mount or when filterTab changes
+  // Fetch categories on mount
   useEffect(() => {
-    fetchCategories(filterTab === 'archived');
-  }, [fetchCategories, filterTab]);
+    fetchCategories(true);
+  }, [fetchCategories]);
 
   // Resolve user permissions
   const permissions = useMemo(() => {
@@ -172,7 +172,7 @@ export default function CategoryManagementPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => fetchCategories()}
+              onClick={() => fetchCategories(true)}
               className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             >
               Refresh

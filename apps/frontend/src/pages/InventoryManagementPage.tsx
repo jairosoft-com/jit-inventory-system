@@ -182,7 +182,8 @@ export default function InventoryManagementPage() {
         <div>
           <h1 className="dash-page-title">Inventory Management</h1>
           <p className="dash-page-desc">
-            Skeleton page for viewing inventory records, submitting inventory forms, and displaying stock status.
+            Skeleton page for viewing inventory records, submitting inventory forms, and displaying
+            stock status.
           </p>
         </div>
       </div>
@@ -245,12 +246,18 @@ export default function InventoryManagementPage() {
                     <td>{item.location}</td>
                     <td>{item.quantity}</td>
                     <td>
-                      <span className={`inventory-status inventory-status-${item.status.toLowerCase().replaceAll(' ', '-')}`}>
+                      <span
+                        className={`inventory-status inventory-status-${item.status.toLowerCase().replaceAll(' ', '-')}`}
+                      >
                         {item.status}
                       </span>
                     </td>
                     <td>
-                      <button className="inventory-link-button" type="button" onClick={() => handleEdit(item)}>
+                      <button
+                        className="inventory-link-button"
+                        type="button"
+                        onClick={() => handleEdit(item)}
+                      >
                         Edit
                       </button>
                     </td>
@@ -342,7 +349,11 @@ export default function InventoryManagementPage() {
               </button>
 
               {editingItemId && (
-                <button className="inventory-secondary-button" type="button" onClick={handleCancelEdit}>
+                <button
+                  className="inventory-secondary-button"
+                  type="button"
+                  onClick={handleCancelEdit}
+                >
                   Cancel
                 </button>
               )}

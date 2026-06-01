@@ -490,3 +490,38 @@ body {
     width: 100%;
   }
 }
+
+/* ── Inventory Form QA Feedback Fixes ─────── */
+
+.inventory-input-readonly {
+  background: var(--background-tertiary);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.inventory-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inventory-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: help;
+}
+
+.inventory-help-text {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+}

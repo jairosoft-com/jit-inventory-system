@@ -20,6 +20,8 @@ type InventoryFormState = {
   reorderLevel: string;
 };
 
+const mockCategories = ['Accessories', 'Cables', 'Peripherals', 'Equipment', 'Office Supplies'];
+
 const initialInventoryItems: InventoryItem[] = [
   {
     id: 1,
@@ -74,11 +76,24 @@ function getStockStatus(quantity: number, reorderLevel: number): InventoryItem['
   return 'In Stock';
 }
 
+function generateItemCode(items: InventoryItem[]) {
+  const highestNumber = items.reduce((highest, item) => {
+    const match = item.itemCode.match(/^INV-(\d+)$/);
+    const itemNumber = match ? Number(match[1]) : 0;
+
+    return itemNumber > highest ? itemNumber : highest;
+  }, 0);
+
+  return `INV-${String(highestNumber + 1).padStart(3, '0')}`;
+}
+
 export default function InventoryManagementPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(initialInventoryItems);
   const [form, setForm] = useState<InventoryFormState>(emptyForm);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const generatedItemCode = useMemo(() => generateItemCode(inventoryItems), [inventoryItems]);
 
   const filteredInventoryItems = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
@@ -112,7 +127,6 @@ export default function InventoryManagementPage() {
     const reorderLevel = Number(form.reorderLevel);
 
     if (
-      !form.itemCode.trim() ||
       !form.itemName.trim() ||
       !form.category.trim() ||
       !form.location.trim() ||
@@ -124,8 +138,10 @@ export default function InventoryManagementPage() {
       return;
     }
 
+    const existingItem = inventoryItems.find((item) => item.id === editingItemId);
+
     const itemPayload: Omit<InventoryItem, 'id'> = {
-      itemCode: form.itemCode.trim(),
+      itemCode: existingItem?.itemCode ?? generateItemCode(inventoryItems),
       itemName: form.itemName.trim(),
       category: form.category.trim(),
       location: form.location.trim(),
@@ -134,7 +150,7 @@ export default function InventoryManagementPage() {
       status: getStockStatus(quantity, reorderLevel),
     };
 
-    if (editingItemId) {
+    if (editingItemId !== null) {
       setInventoryItems((currentItems) =>
         currentItems.map((item) =>
           item.id === editingItemId
@@ -275,11 +291,12 @@ export default function InventoryManagementPage() {
             <label>
               Item Code
               <input
-                className="inventory-input"
-                value={form.itemCode}
-                onChange={(event) => handleInputChange('itemCode', event.target.value)}
-                required
+                aria-readonly="true"
+                className="inventory-input inventory-input-readonly"
+                readOnly
+                value={editingItemId ? form.itemCode : generatedItemCode}
               />
+              <span className="inventory-help-text">Item codes are generated automatically and cannot be edited.</span>
             </label>
 
             <label>
@@ -294,12 +311,22 @@ export default function InventoryManagementPage() {
 
             <label>
               Category
-              <input
+              <select
                 className="inventory-input"
                 value={form.category}
                 onChange={(event) => handleInputChange('category', event.target.value)}
                 required
-              />
+              >
+                <option value="">Select category</option>
+                {mockCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <span className="inventory-help-text">
+                Temporary category options are shown until Categories page integration is available.
+              </span>
             </label>
 
             <label>
@@ -325,7 +352,16 @@ export default function InventoryManagementPage() {
             </label>
 
             <label>
-              Reorder Level
+              <span className="inventory-label-row">
+                Reorder Level
+                <span
+                  className="inventory-help-icon"
+                  title="Minimum stock quantity before the item is marked as low stock."
+                  aria-label="Reorder level help"
+                >
+                  ?
+                </span>
+              </span>
               <input
                 className="inventory-input"
                 type="number"
@@ -334,6 +370,9 @@ export default function InventoryManagementPage() {
                 onChange={(event) => handleInputChange('reorderLevel', event.target.value)}
                 required
               />
+              <span className="inventory-help-text">
+                Minimum stock quantity before the item is marked as low stock.
+              </span>
             </label>
 
             <div className="inventory-form-actions">

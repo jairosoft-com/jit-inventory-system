@@ -33,10 +33,7 @@ const equipmentInclude = Prisma.validator<Prisma.EquipmentInclude>()({
   },
   images: {
     where: { deletedAt: null },
-    orderBy: [
-      { isPrimary: 'desc' },
-      { uploadedAt: 'asc' },
-    ],
+    orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
   },
 });
 
@@ -57,7 +54,10 @@ export class EquipmentService {
     }
   }
 
-  private static async assertUniqueAssetId(assetId: string, excludeId?: number) {
+  private static async assertUniqueAssetId(
+    assetId: string,
+    excludeId?: number,
+  ) {
     const existing = await prisma.equipment.findUnique({ where: { assetId } });
     if (existing && existing.id !== excludeId) {
       throw new Error(`Asset ID '${assetId}' is already in use`);
@@ -130,7 +130,10 @@ export class EquipmentService {
         status: data.status,
         location: data.location ?? null,
         acquisitionDate: data.acquisitionDate ?? null,
-        purchasePrice: data.purchasePrice != null ? new Prisma.Decimal(data.purchasePrice) : null,
+        purchasePrice:
+          data.purchasePrice != null
+            ? new Prisma.Decimal(data.purchasePrice)
+            : null,
         warrantyStart: data.warrantyStart ?? null,
         warrantyEnd: data.warrantyEnd ?? null,
         warrantyProvider: data.warrantyProvider ?? null,
@@ -166,7 +169,8 @@ export class EquipmentService {
   }
 
   static async findAll(query: ListEquipmentQuery) {
-    const { status, condition, categoryId, assignedTo, search, page, limit } = query;
+    const { status, condition, categoryId, assignedTo, search, page, limit } =
+      query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.EquipmentWhereInput = {
@@ -369,9 +373,9 @@ export class EquipmentService {
     });
     if (!image) throw new Error('Image not found');
 
-    await prisma.equipmentImage.update({ 
+    await prisma.equipmentImage.update({
       where: { id: imageId },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date() },
     });
 
     return { message: 'Image soft deleted successfully' };

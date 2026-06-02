@@ -28,9 +28,9 @@ export class CategoriesService {
     });
   }
 
-  static async findAll() {
+  static async findAll(includeArchived = false) {
     return prisma.category.findMany({
-      where: { deletedAt: null },
+      where: includeArchived ? {} : { deletedAt: null },
       orderBy: { name: 'asc' },
     });
   }

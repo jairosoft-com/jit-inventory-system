@@ -2,13 +2,13 @@
 
 **Technical Specification & Implementation Blueprint**
 
-| Field | Value |
-|---|---|
-| Document version | 4.2 (decisions resolved) |
-| Status | Draft — for team review |
-| Audience | Engineering, Product, Operations |
-| Owner | _TBD — assign before sign-off_ |
-| Last updated | _TBD on publish_ |
+| Field            | Value                            |
+| ---------------- | -------------------------------- |
+| Document version | 4.2 (decisions resolved)         |
+| Status           | Draft — for team review          |
+| Audience         | Engineering, Product, Operations |
+| Owner            | _TBD — assign before sign-off_   |
+| Last updated     | _TBD on publish_                 |
 
 > **About this revision.** This document is a cleanup of the v4.0 spec. Source-citation artifacts have been removed, the schema reference tables in Section 7 have been reconstructed (they were collapsed into a single line in the source), the architecture diagram has been redrawn, and unclear language has been rewritten. Substantive open questions are collected in Section 11 rather than buried in prose — please review that section before the kickoff meeting.
 
@@ -52,18 +52,18 @@ See [Section 10](#10-out-of-scope-v1) for the full out-of-scope list.
 
 ## 2. Glossary
 
-| Term | Meaning |
-|---|---|
-| **JIT** | Just-In-Time. The internal codename for this system. Not the inventory methodology in the academic sense. |
-| **Asset** | Any tracked item: equipment, consumable, or digital asset. |
-| **Equipment** | A physical, individually trackable hardware unit (laptop, monitor, camera). One row in `equipment` per physical unit, with a system-generated Asset ID. |
-| **Consumable** | A bulk item tracked by quantity, not by individual unit (cables, paper, batteries). |
-| **Digital Asset** | A software license, subscription seat, domain, or API key. |
-| **Asset ID** | Human-readable system-generated tag for a single equipment unit (e.g., `JIT-EQ-0042`). Distinct from the manufacturer serial number. |
-| **PO** | Purchase Order. |
-| **RBAC** | Role-Based Access Control. |
-| **AT / RT** | Access Token / Refresh Token (see Section 5.2). |
-| **Soft delete** | Marking a row with `deleted_at` instead of removing it, preserving history. |
+| Term              | Meaning                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **JIT**           | Just-In-Time. The internal codename for this system. Not the inventory methodology in the academic sense.                                               |
+| **Asset**         | Any tracked item: equipment, consumable, or digital asset.                                                                                              |
+| **Equipment**     | A physical, individually trackable hardware unit (laptop, monitor, camera). One row in `equipment` per physical unit, with a system-generated Asset ID. |
+| **Consumable**    | A bulk item tracked by quantity, not by individual unit (cables, paper, batteries).                                                                     |
+| **Digital Asset** | A software license, subscription seat, domain, or API key.                                                                                              |
+| **Asset ID**      | Human-readable system-generated tag for a single equipment unit (e.g., `JIT-EQ-0042`). Distinct from the manufacturer serial number.                    |
+| **PO**            | Purchase Order.                                                                                                                                         |
+| **RBAC**          | Role-Based Access Control.                                                                                                                              |
+| **AT / RT**       | Access Token / Refresh Token (see Section 5.2).                                                                                                         |
+| **Soft delete**   | Marking a row with `deleted_at` instead of removing it, preserving history.                                                                             |
 
 ---
 
@@ -186,11 +186,11 @@ Ends an asset's lifecycle.
 
 ### 5.1 Roles
 
-| Role | Scope |
-|---|---|
-| **Admin** | Full data access and configuration. Manages users, roles, and permissions. Approves disposals. Can override or correct historical records. |
+| Role        | Scope                                                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Admin**   | Full data access and configuration. Manages users, roles, and permissions. Approves disposals. Can override or correct historical records.           |
 | **Manager** | Day-to-day operations. Creates categories, suppliers, items, equipment, and POs. Approves borrow requests. Records maintenance, stock-in, stock-out. |
-| **Staff** | Browses the catalog, submits and cancels their own borrow requests, views their own transaction history. |
+| **Staff**   | Browses the catalog, submits and cancels their own borrow requests, views their own transaction history.                                             |
 
 Roles and permissions live in `roles`, `permissions`, and `role_permissions`. Permissions follow a `resource:action` naming convention (e.g., `purchase_order:approve`, `borrow:request`). The default permission set is created by a seed script at deploy time.
 
@@ -199,12 +199,14 @@ Roles and permissions live in `roles`, `permissions`, and `role_permissions`. Pe
 To mitigate XSS token theft and CSRF, the API uses two tokens:
 
 **Access Token (AT)**
+
 - JWT, 15-minute lifespan.
 - Held only in JavaScript memory (Zustand store).
 - Sent as `Authorization: Bearer <AT>` on every API request.
 - Never written to `localStorage` or `sessionStorage`.
 
 **Refresh Token (RT)**
+
 - JWT, 7-day lifespan.
 - Delivered in an `httpOnly; Secure; SameSite=Strict` cookie scoped to the API origin.
 - Invisible to JavaScript, so it cannot be exfiltrated by an XSS payload.
@@ -698,287 +700,287 @@ The tables below describe each entity. They mirror the Prisma schema above and a
 
 Defines system-wide role identities. Seeded at deploy; system roles cannot be deleted.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| name | VARCHAR(50) | UNIQUE, NOT NULL | Seeded: `ADMIN`, `MANAGER`, `STAFF` |
-| description | TEXT | nullable | |
-| is_system | BOOLEAN | NOT NULL, default `false` | Blocks deletion of seeded roles |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
+| Field       | Type        | Constraints               | Notes                               |
+| ----------- | ----------- | ------------------------- | ----------------------------------- |
+| id          | INT         | PK, auto-increment        |                                     |
+| name        | VARCHAR(50) | UNIQUE, NOT NULL          | Seeded: `ADMIN`, `MANAGER`, `STAFF` |
+| description | TEXT        | nullable                  |                                     |
+| is_system   | BOOLEAN     | NOT NULL, default `false` | Blocks deletion of seeded roles     |
+| created_at  | TIMESTAMP   | NOT NULL, default `now()` |                                     |
 
 ### 7.2 `permissions`
 
 String-keyed feature flags evaluated by the route middleware.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| name | VARCHAR(100) | UNIQUE, NOT NULL | e.g., `inventory:create` |
-| resource | VARCHAR(50) | NOT NULL | e.g., `inventory`, `orders` |
-| action | VARCHAR(50) | NOT NULL | e.g., `create`, `read`, `update`, `approve` |
-| description | TEXT | nullable | |
+| Field       | Type         | Constraints        | Notes                                       |
+| ----------- | ------------ | ------------------ | ------------------------------------------- |
+| id          | INT          | PK, auto-increment |                                             |
+| name        | VARCHAR(100) | UNIQUE, NOT NULL   | e.g., `inventory:create`                    |
+| resource    | VARCHAR(50)  | NOT NULL           | e.g., `inventory`, `orders`                 |
+| action      | VARCHAR(50)  | NOT NULL           | e.g., `create`, `read`, `update`, `approve` |
+| description | TEXT         | nullable           |                                             |
 
 ### 7.3 `role_permissions`
 
 Join table mapping roles to permissions.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| role_id | INT | FK → `roles.id`, ON DELETE CASCADE | |
-| permission_id | INT | FK → `permissions.id`, ON DELETE CASCADE | |
-| (composite) | | UNIQUE(role_id, permission_id) | Prevents duplicate grants |
+| Field         | Type | Constraints                              | Notes                     |
+| ------------- | ---- | ---------------------------------------- | ------------------------- |
+| id            | INT  | PK, auto-increment                       |                           |
+| role_id       | INT  | FK → `roles.id`, ON DELETE CASCADE       |                           |
+| permission_id | INT  | FK → `permissions.id`, ON DELETE CASCADE |                           |
+| (composite)   |      | UNIQUE(role_id, permission_id)           | Prevents duplicate grants |
 
 ### 7.4 `users`
 
 Authentication and identity. Soft-deleted via `deleted_at`.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| first_name | VARCHAR(100) | NOT NULL | |
-| last_name | VARCHAR(100) | NOT NULL | |
-| email | VARCHAR(255) | UNIQUE, NOT NULL | Login identifier |
-| password | VARCHAR(255) | NOT NULL | bcrypt hash |
-| role_id | INT | FK → `roles.id` | |
-| is_active | BOOLEAN | NOT NULL, default `true` | Lock flag for compromised accounts |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| deleted_at | TIMESTAMP | nullable | Soft-delete marker |
+| Field      | Type         | Constraints               | Notes                              |
+| ---------- | ------------ | ------------------------- | ---------------------------------- |
+| id         | INT          | PK, auto-increment        |                                    |
+| first_name | VARCHAR(100) | NOT NULL                  |                                    |
+| last_name  | VARCHAR(100) | NOT NULL                  |                                    |
+| email      | VARCHAR(255) | UNIQUE, NOT NULL          | Login identifier                   |
+| password   | VARCHAR(255) | NOT NULL                  | bcrypt hash                        |
+| role_id    | INT          | FK → `roles.id`           |                                    |
+| is_active  | BOOLEAN      | NOT NULL, default `true`  | Lock flag for compromised accounts |
+| created_at | TIMESTAMP    | NOT NULL, default `now()` |                                    |
+| deleted_at | TIMESTAMP    | nullable                  | Soft-delete marker                 |
 
 ### 7.5 `refresh_tokens`
 
 Active refresh-token registry. Allows per-session revocation.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| user_id | INT | FK → `users.id`, ON DELETE CASCADE | |
-| token_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA-256 of the raw token |
-| expires_at | TIMESTAMP | NOT NULL | Typically `now() + 7 days` |
-| revoked_at | TIMESTAMP | nullable | Logout or forced kill |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
+| Field      | Type         | Constraints                        | Notes                      |
+| ---------- | ------------ | ---------------------------------- | -------------------------- |
+| id         | INT          | PK, auto-increment                 |                            |
+| user_id    | INT          | FK → `users.id`, ON DELETE CASCADE |                            |
+| token_hash | VARCHAR(255) | UNIQUE, NOT NULL                   | SHA-256 of the raw token   |
+| expires_at | TIMESTAMP    | NOT NULL                           | Typically `now() + 7 days` |
+| revoked_at | TIMESTAMP    | nullable                           | Logout or forced kill      |
+| created_at | TIMESTAMP    | NOT NULL, default `now()`          |                            |
 
 ### 7.6 `categories`
 
 Groups items by type.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| name | VARCHAR(100) | UNIQUE, NOT NULL | |
-| type | `ItemType` enum | NOT NULL | `EQUIPMENT`, `CONSUMABLE`, `DIGITAL` |
-| description | TEXT | nullable | |
-| deleted_at | TIMESTAMP | nullable | Soft-delete marker |
+| Field       | Type            | Constraints        | Notes                                |
+| ----------- | --------------- | ------------------ | ------------------------------------ |
+| id          | INT             | PK, auto-increment |                                      |
+| name        | VARCHAR(100)    | UNIQUE, NOT NULL   |                                      |
+| type        | `ItemType` enum | NOT NULL           | `EQUIPMENT`, `CONSUMABLE`, `DIGITAL` |
+| description | TEXT            | nullable           |                                      |
+| deleted_at  | TIMESTAMP       | nullable           | Soft-delete marker                   |
 
 ### 7.7 `items`
 
 Master catalog. Extended 1:1 by `equipment` or `digital_assets` depending on type.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| item_name | VARCHAR(255) | NOT NULL | |
-| description | TEXT | nullable | |
-| category_id | INT | FK → `categories.id` | |
-| unit | VARCHAR(50) | NOT NULL | e.g., `pcs`, `ream` |
-| quantity | INT | NOT NULL, default 0 | Must be ≥ 0 (enforce in app) |
-| reorder_point | INT | NOT NULL, default 0 | Threshold for `LOW_STOCK` |
-| status | `ItemStatus` enum | NOT NULL, default `IN_STOCK` | |
-| barcode | VARCHAR(255) | UNIQUE, nullable | QR / barcode reference |
-| image_url | VARCHAR(500) | nullable | S3 URL |
-| registered_by | INT | FK → `users.id`, nullable | Audit reference |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
-| deleted_at | TIMESTAMP | nullable | Soft-delete marker |
+| Field         | Type              | Constraints                  | Notes                        |
+| ------------- | ----------------- | ---------------------------- | ---------------------------- |
+| id            | INT               | PK, auto-increment           |                              |
+| item_name     | VARCHAR(255)      | NOT NULL                     |                              |
+| description   | TEXT              | nullable                     |                              |
+| category_id   | INT               | FK → `categories.id`         |                              |
+| unit          | VARCHAR(50)       | NOT NULL                     | e.g., `pcs`, `ream`          |
+| quantity      | INT               | NOT NULL, default 0          | Must be ≥ 0 (enforce in app) |
+| reorder_point | INT               | NOT NULL, default 0          | Threshold for `LOW_STOCK`    |
+| status        | `ItemStatus` enum | NOT NULL, default `IN_STOCK` |                              |
+| barcode       | VARCHAR(255)      | UNIQUE, nullable             | QR / barcode reference       |
+| image_url     | VARCHAR(500)      | nullable                     | S3 URL                       |
+| registered_by | INT               | FK → `users.id`, nullable    | Audit reference              |
+| created_at    | TIMESTAMP         | NOT NULL, default `now()`    |                              |
+| updated_at    | TIMESTAMP         | NOT NULL, ON UPDATE          |                              |
+| deleted_at    | TIMESTAMP         | nullable                     | Soft-delete marker           |
 
 ### 7.8 `equipment`
 
 One row per physical unit. Extends `items` 1:1.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| item_id | INT | FK → `items.id`, UNIQUE | Strict 1:1 |
-| asset_id | VARCHAR(100) | UNIQUE, NOT NULL | System-generated (e.g., `JIT-EQ-0042`) |
-| serial_number | VARCHAR(100) | UNIQUE, nullable | Manufacturer serial |
-| brand | VARCHAR(255) | nullable | |
-| model | VARCHAR(255) | nullable | |
-| condition | `ConditionStatus` enum | NOT NULL, default `NEW` | |
-| status | `EquipmentStatus` enum | NOT NULL, default `AVAILABLE` | |
-| location | VARCHAR(255) | nullable | Storage location |
-| assigned_to | INT | FK → `users.id`, nullable | Long-term assignment (not borrow) |
-| acquisition_date | DATE | nullable | |
-| purchase_price | DECIMAL(10,2) | nullable | |
-| warranty_start | DATE | nullable | |
-| warranty_end | DATE | nullable | Drives expiry notifications |
-| warranty_provider | VARCHAR(255) | nullable | |
-| warranty_doc_url | VARCHAR(500) | nullable | S3 URL |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
+| Field             | Type                   | Constraints                   | Notes                                  |
+| ----------------- | ---------------------- | ----------------------------- | -------------------------------------- |
+| id                | INT                    | PK, auto-increment            |                                        |
+| item_id           | INT                    | FK → `items.id`, UNIQUE       | Strict 1:1                             |
+| asset_id          | VARCHAR(100)           | UNIQUE, NOT NULL              | System-generated (e.g., `JIT-EQ-0042`) |
+| serial_number     | VARCHAR(100)           | UNIQUE, nullable              | Manufacturer serial                    |
+| brand             | VARCHAR(255)           | nullable                      |                                        |
+| model             | VARCHAR(255)           | nullable                      |                                        |
+| condition         | `ConditionStatus` enum | NOT NULL, default `NEW`       |                                        |
+| status            | `EquipmentStatus` enum | NOT NULL, default `AVAILABLE` |                                        |
+| location          | VARCHAR(255)           | nullable                      | Storage location                       |
+| assigned_to       | INT                    | FK → `users.id`, nullable     | Long-term assignment (not borrow)      |
+| acquisition_date  | DATE                   | nullable                      |                                        |
+| purchase_price    | DECIMAL(10,2)          | nullable                      |                                        |
+| warranty_start    | DATE                   | nullable                      |                                        |
+| warranty_end      | DATE                   | nullable                      | Drives expiry notifications            |
+| warranty_provider | VARCHAR(255)           | nullable                      |                                        |
+| warranty_doc_url  | VARCHAR(500)           | nullable                      | S3 URL                                 |
+| created_at        | TIMESTAMP              | NOT NULL, default `now()`     |                                        |
+| updated_at        | TIMESTAMP              | NOT NULL, ON UPDATE           |                                        |
 
 ### 7.9 `digital_assets`
 
 Software licenses, subscriptions, domains, API keys. Extends `items` 1:1.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| item_id | INT | FK → `items.id`, UNIQUE | |
-| asset_type | `DigitalAssetType` enum | NOT NULL | |
-| url | VARCHAR(500) | nullable | Admin console URL |
-| vendor | VARCHAR(255) | nullable | |
-| license_key | TEXT | nullable | **Must be encrypted at rest — see [Section 11](#11-open-questions--decisions-needed)** |
-| credentials_ref | VARCHAR(255) | nullable | Pointer to a secrets-manager entry; no passwords stored here |
-| seats | INT | nullable | `NULL` = unlimited |
-| expiry_date | DATE | nullable | Drives renewal notifications |
-| cost | DECIMAL(10,2) | nullable | |
-| billing_cycle | `BillingCycle` enum | nullable | |
-| status | `DigitalStatus` enum | NOT NULL, default `ACTIVE` | |
-| notes | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
+| Field           | Type                    | Constraints                | Notes                                                                                  |
+| --------------- | ----------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| id              | INT                     | PK, auto-increment         |                                                                                        |
+| item_id         | INT                     | FK → `items.id`, UNIQUE    |                                                                                        |
+| asset_type      | `DigitalAssetType` enum | NOT NULL                   |                                                                                        |
+| url             | VARCHAR(500)            | nullable                   | Admin console URL                                                                      |
+| vendor          | VARCHAR(255)            | nullable                   |                                                                                        |
+| license_key     | TEXT                    | nullable                   | **Must be encrypted at rest — see [Section 11](#11-open-questions--decisions-needed)** |
+| credentials_ref | VARCHAR(255)            | nullable                   | Pointer to a secrets-manager entry; no passwords stored here                           |
+| seats           | INT                     | nullable                   | `NULL` = unlimited                                                                     |
+| expiry_date     | DATE                    | nullable                   | Drives renewal notifications                                                           |
+| cost            | DECIMAL(10,2)           | nullable                   |                                                                                        |
+| billing_cycle   | `BillingCycle` enum     | nullable                   |                                                                                        |
+| status          | `DigitalStatus` enum    | NOT NULL, default `ACTIVE` |                                                                                        |
+| notes           | TEXT                    | nullable                   |                                                                                        |
+| created_at      | TIMESTAMP               | NOT NULL, default `now()`  |                                                                                        |
+| updated_at      | TIMESTAMP               | NOT NULL, ON UPDATE        |                                                                                        |
 
 ### 7.10 `suppliers`
 
 External vendor profiles.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| supplier_name | VARCHAR(255) | NOT NULL | |
-| contact_person | VARCHAR(255) | nullable | |
-| email | VARCHAR(255) | nullable | |
-| phone | VARCHAR(50) | nullable | |
-| address | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
-| deleted_at | TIMESTAMP | nullable | Soft-delete marker |
+| Field          | Type         | Constraints               | Notes              |
+| -------------- | ------------ | ------------------------- | ------------------ |
+| id             | INT          | PK, auto-increment        |                    |
+| supplier_name  | VARCHAR(255) | NOT NULL                  |                    |
+| contact_person | VARCHAR(255) | nullable                  |                    |
+| email          | VARCHAR(255) | nullable                  |                    |
+| phone          | VARCHAR(50)  | nullable                  |                    |
+| address        | TEXT         | nullable                  |                    |
+| created_at     | TIMESTAMP    | NOT NULL, default `now()` |                    |
+| updated_at     | TIMESTAMP    | NOT NULL, ON UPDATE       |                    |
+| deleted_at     | TIMESTAMP    | nullable                  | Soft-delete marker |
 
 ### 7.11 `purchase_orders`
 
 Vendor transaction agreements.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| supplier_id | INT | FK → `suppliers.id` | |
-| invoice_number | VARCHAR(100) | UNIQUE, nullable | Vendor's invoice reference |
-| status | `PurchaseOrderStatus` enum | default `DRAFT` | |
-| total_amount | DECIMAL(10,2) | NOT NULL | Sum of line items; sync strategy: see [Section 11](#11-open-questions--decisions-needed) |
-| receipt_url | VARCHAR(500) | nullable | S3 URL for invoice PDF |
-| created_by_id | INT | FK → `users.id` | |
-| order_date | TIMESTAMP | NOT NULL, default `now()` | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
+| Field          | Type                       | Constraints               | Notes                                                                                    |
+| -------------- | -------------------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| id             | INT                        | PK, auto-increment        |                                                                                          |
+| supplier_id    | INT                        | FK → `suppliers.id`       |                                                                                          |
+| invoice_number | VARCHAR(100)               | UNIQUE, nullable          | Vendor's invoice reference                                                               |
+| status         | `PurchaseOrderStatus` enum | default `DRAFT`           |                                                                                          |
+| total_amount   | DECIMAL(10,2)              | NOT NULL                  | Sum of line items; sync strategy: see [Section 11](#11-open-questions--decisions-needed) |
+| receipt_url    | VARCHAR(500)               | nullable                  | S3 URL for invoice PDF                                                                   |
+| created_by_id  | INT                        | FK → `users.id`           |                                                                                          |
+| order_date     | TIMESTAMP                  | NOT NULL, default `now()` |                                                                                          |
+| created_at     | TIMESTAMP                  | NOT NULL, default `now()` |                                                                                          |
+| updated_at     | TIMESTAMP                  | NOT NULL, ON UPDATE       |                                                                                          |
 
 ### 7.12 `purchase_order_items`
 
 Line items inside a PO.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| purchase_order_id | INT | FK → `purchase_orders.id`, ON DELETE CASCADE | |
-| item_id | INT | FK → `items.id` | |
-| quantity | INT | NOT NULL | |
-| unit_cost | DECIMAL(10,2) | NOT NULL | |
-| (composite) | | UNIQUE(purchase_order_id, item_id) | One line per item per PO |
+| Field             | Type          | Constraints                                  | Notes                    |
+| ----------------- | ------------- | -------------------------------------------- | ------------------------ |
+| id                | INT           | PK, auto-increment                           |                          |
+| purchase_order_id | INT           | FK → `purchase_orders.id`, ON DELETE CASCADE |                          |
+| item_id           | INT           | FK → `items.id`                              |                          |
+| quantity          | INT           | NOT NULL                                     |                          |
+| unit_cost         | DECIMAL(10,2) | NOT NULL                                     |                          |
+| (composite)       |               | UNIQUE(purchase_order_id, item_id)           | One line per item per PO |
 
 ### 7.13 `stock_in`
 
 Inbound stock transactions.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| item_id | INT | FK → `items.id` | |
-| quantity_added | INT | NOT NULL | |
-| purchase_order_id | INT | FK → `purchase_orders.id`, nullable | `NULL` for non-PO seeding |
-| received_by_id | INT | FK → `users.id` | |
-| notes | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
+| Field             | Type      | Constraints                         | Notes                     |
+| ----------------- | --------- | ----------------------------------- | ------------------------- |
+| id                | INT       | PK, auto-increment                  |                           |
+| item_id           | INT       | FK → `items.id`                     |                           |
+| quantity_added    | INT       | NOT NULL                            |                           |
+| purchase_order_id | INT       | FK → `purchase_orders.id`, nullable | `NULL` for non-PO seeding |
+| received_by_id    | INT       | FK → `users.id`                     |                           |
+| notes             | TEXT      | nullable                            |                           |
+| created_at        | TIMESTAMP | NOT NULL, default `now()`           |                           |
 
 ### 7.14 `stock_out`
 
 Outbound stock transactions for consumables.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| item_id | INT | FK → `items.id` | |
-| quantity_removed | INT | NOT NULL | |
-| purpose | TEXT | NOT NULL | Required justification |
-| released_by_id | INT | FK → `users.id` | |
-| notes | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
+| Field            | Type      | Constraints               | Notes                  |
+| ---------------- | --------- | ------------------------- | ---------------------- |
+| id               | INT       | PK, auto-increment        |                        |
+| item_id          | INT       | FK → `items.id`           |                        |
+| quantity_removed | INT       | NOT NULL                  |                        |
+| purpose          | TEXT      | NOT NULL                  | Required justification |
+| released_by_id   | INT       | FK → `users.id`           |                        |
+| notes            | TEXT      | nullable                  |                        |
+| created_at       | TIMESTAMP | NOT NULL, default `now()` |                        |
 
 ### 7.15 `borrow_records`
 
 Equipment lending lifecycle.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| equipment_id | INT | FK → `equipment.id` | |
-| borrowed_by_id | INT | FK → `users.id` | |
-| approved_by_id | INT | FK → `users.id`, nullable | |
-| borrow_date | TIMESTAMP | nullable | Set when approval flips to `BORROWED` |
-| expected_return | DATE | NOT NULL | |
-| actual_return | TIMESTAMP | nullable | |
-| return_condition | `ConditionStatus` enum | nullable | Set at return |
-| status | `BorrowStatus` enum | default `PENDING` | |
-| notes | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
+| Field            | Type                   | Constraints               | Notes                                 |
+| ---------------- | ---------------------- | ------------------------- | ------------------------------------- |
+| id               | INT                    | PK, auto-increment        |                                       |
+| equipment_id     | INT                    | FK → `equipment.id`       |                                       |
+| borrowed_by_id   | INT                    | FK → `users.id`           |                                       |
+| approved_by_id   | INT                    | FK → `users.id`, nullable |                                       |
+| borrow_date      | TIMESTAMP              | nullable                  | Set when approval flips to `BORROWED` |
+| expected_return  | DATE                   | NOT NULL                  |                                       |
+| actual_return    | TIMESTAMP              | nullable                  |                                       |
+| return_condition | `ConditionStatus` enum | nullable                  | Set at return                         |
+| status           | `BorrowStatus` enum    | default `PENDING`         |                                       |
+| notes            | TEXT                   | nullable                  |                                       |
+| created_at       | TIMESTAMP              | NOT NULL, default `now()` |                                       |
+| updated_at       | TIMESTAMP              | NOT NULL, ON UPDATE       |                                       |
 
 ### 7.16 `maintenance_logs`
 
 Repair, inspection, and service history per equipment unit.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| equipment_id | INT | FK → `equipment.id` | |
-| description | TEXT | NOT NULL | |
-| status | `MaintenanceStatus` enum | default `SCHEDULED` | |
-| scheduled_date | DATE | nullable | |
-| completed_date | DATE | nullable | |
-| cost | DECIMAL(10,2) | nullable | |
-| performed_by_id | INT | FK → `users.id`, nullable | Internal technician |
-| performed_by_vendor | VARCHAR(255) | nullable | External vendor name |
-| notes | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
-| updated_at | TIMESTAMP | NOT NULL, ON UPDATE | |
+| Field               | Type                     | Constraints               | Notes                |
+| ------------------- | ------------------------ | ------------------------- | -------------------- |
+| id                  | INT                      | PK, auto-increment        |                      |
+| equipment_id        | INT                      | FK → `equipment.id`       |                      |
+| description         | TEXT                     | NOT NULL                  |                      |
+| status              | `MaintenanceStatus` enum | default `SCHEDULED`       |                      |
+| scheduled_date      | DATE                     | nullable                  |                      |
+| completed_date      | DATE                     | nullable                  |                      |
+| cost                | DECIMAL(10,2)            | nullable                  |                      |
+| performed_by_id     | INT                      | FK → `users.id`, nullable | Internal technician  |
+| performed_by_vendor | VARCHAR(255)             | nullable                  | External vendor name |
+| notes               | TEXT                     | nullable                  |                      |
+| created_at          | TIMESTAMP                | NOT NULL, default `now()` |                      |
+| updated_at          | TIMESTAMP                | NOT NULL, ON UPDATE       |                      |
 
 ### 7.17 `disposals`
 
 Asset write-off records. Exactly one row per retired equipment unit.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| equipment_id | INT | FK → `equipment.id`, UNIQUE | One disposal per unit |
-| approved_by_id | INT | FK → `users.id` | Must be an Admin |
-| disposal_date | TIMESTAMP | NOT NULL, default `now()` | |
-| reason | `DisposalReason` enum | NOT NULL | |
-| method | VARCHAR(100) | NOT NULL | e.g., `e-waste recycler`, `donation` |
-| notes | TEXT | nullable | |
-| created_at | TIMESTAMP | NOT NULL, default `now()` | |
+| Field          | Type                  | Constraints                 | Notes                                |
+| -------------- | --------------------- | --------------------------- | ------------------------------------ |
+| id             | INT                   | PK, auto-increment          |                                      |
+| equipment_id   | INT                   | FK → `equipment.id`, UNIQUE | One disposal per unit                |
+| approved_by_id | INT                   | FK → `users.id`             | Must be an Admin                     |
+| disposal_date  | TIMESTAMP             | NOT NULL, default `now()`   |                                      |
+| reason         | `DisposalReason` enum | NOT NULL                    |                                      |
+| method         | VARCHAR(100)          | NOT NULL                    | e.g., `e-waste recycler`, `donation` |
+| notes          | TEXT                  | nullable                    |                                      |
+| created_at     | TIMESTAMP             | NOT NULL, default `now()`   |                                      |
 
 ### 7.18 `inventory_logs`
 
 Append-only audit log for tracked-table mutations.
 
-| Field | Type | Constraints | Notes |
-|---|---|---|---|
-| id | INT | PK, auto-increment | |
-| entity_type | VARCHAR(50) | NOT NULL | e.g., `Item`, `BorrowRecord` |
-| entity_id | INT | NOT NULL | Row PK of the affected entity |
-| action | `LogAction` enum | NOT NULL | |
-| old_data | JSON | nullable | Snapshot before mutation |
-| new_data | JSON | nullable | Snapshot after mutation |
-| performed_by | INT | FK → `users.id` | |
-| performed_at | TIMESTAMP | NOT NULL, default `now()` | |
+| Field        | Type             | Constraints               | Notes                         |
+| ------------ | ---------------- | ------------------------- | ----------------------------- |
+| id           | INT              | PK, auto-increment        |                               |
+| entity_type  | VARCHAR(50)      | NOT NULL                  | e.g., `Item`, `BorrowRecord`  |
+| entity_id    | INT              | NOT NULL                  | Row PK of the affected entity |
+| action       | `LogAction` enum | NOT NULL                  |                               |
+| old_data     | JSON             | nullable                  | Snapshot before mutation      |
+| new_data     | JSON             | nullable                  | Snapshot after mutation       |
+| performed_by | INT              | FK → `users.id`           |                               |
+| performed_at | TIMESTAMP        | NOT NULL, default `now()` |                               |
 
 > **Append-only enforcement.** The log table has no `UPDATE` or `DELETE` permission granted to application roles. Only the migration/admin role can purge rows, and that purge is logged externally.
 
@@ -990,13 +992,13 @@ Append-only audit log for tracked-table mutations.
 
 The system surfaces time-sensitive events via in-app dashboard widgets and email. Notifications are dispatched by a `node-cron` job inside the Express process (see [Section 11, Decision 8](#decision-8--scheduled-jobs-node-cron-inside-the-express-process)).
 
-| Event | Trigger | Recipients |
-|---|---|---|
-| Low stock | `items.quantity <= reorder_point` | Manager, Admin |
-| Overdue borrow | `borrow_records.expected_return < now() AND actual_return IS NULL` | Borrower + Manager |
-| Warranty expiring | `equipment.warranty_end` within 30 days | Manager |
-| Digital asset expiring | `digital_assets.expiry_date` within 30 days | Manager |
-| Maintenance due | `maintenance_logs.scheduled_date` within 7 days, status `SCHEDULED` | Assigned technician + Manager |
+| Event                  | Trigger                                                             | Recipients                    |
+| ---------------------- | ------------------------------------------------------------------- | ----------------------------- |
+| Low stock              | `items.quantity <= reorder_point`                                   | Manager, Admin                |
+| Overdue borrow         | `borrow_records.expected_return < now() AND actual_return IS NULL`  | Borrower + Manager            |
+| Warranty expiring      | `equipment.warranty_end` within 30 days                             | Manager                       |
+| Digital asset expiring | `digital_assets.expiry_date` within 30 days                         | Manager                       |
+| Maintenance due        | `maintenance_logs.scheduled_date` within 7 days, status `SCHEDULED` | Assigned technician + Manager |
 
 ### 8.2 Audit & Retention
 
@@ -1042,36 +1044,40 @@ The system surfaces time-sensitive events via in-app dashboard widgets and email
 
 Story points measure complexity and risk, not hours.
 
-| Points | Meaning | Example |
-|---|---|---|
-| 1 | Trivial | Renaming a button label |
-| 2 | Low effort | Adding a search filter to a list |
-| 3 | Moderate | Writing form-validation logic |
-| 5 | Medium | Building a filtered data table with server-side pagination |
-| 8 | High | Implementing the full borrow-and-return workflow |
-| 13 | Structural | Building the RBAC subsystem end-to-end — must be broken down |
+| Points | Meaning    | Example                                                      |
+| ------ | ---------- | ------------------------------------------------------------ |
+| 1      | Trivial    | Renaming a button label                                      |
+| 2      | Low effort | Adding a search filter to a list                             |
+| 3      | Moderate   | Writing form-validation logic                                |
+| 5      | Medium     | Building a filtered data table with server-side pagination   |
+| 8      | High       | Implementing the full borrow-and-return workflow             |
+| 13     | Structural | Building the RBAC subsystem end-to-end — must be broken down |
 
 ### 9.2 Eight-Week MVP Pipeline
 
 **Iteration 1 — Weeks 1–2: Foundation**
+
 - Scaffold the React + Vite client alongside the Express API.
 - Wire up Prisma against PostgreSQL; apply the schema in Section 6.
 - Implement auth (login, refresh, logout) and the dual-token model.
 - Stand up Zustand auth store and the Axios refresh interceptor.
 
 **Iteration 2 — Weeks 3–4: Inventory MVP**
+
 - Category CRUD with validation.
 - Item registration for all three types (equipment, consumable, digital).
 - Asset ID generation for equipment.
 - Catalog list view with search and filters.
 
 **Iteration 3 — Weeks 5–6: Procurement & Borrow**
+
 - Supplier CRUD and PO drafting with multi-line items.
 - PO approval and receive flow with `stock_in` records.
 - Borrow request, approval, handover, and return flow.
 - File upload pipeline to the object store.
 
 **Iteration 4 — Weeks 7–8: Maintenance, Disposal, Audit**
+
 - Maintenance log creation, status transitions, completion.
 - Disposal workflow with Admin approval and replacement-PO hook.
 - Audit log (`inventory_logs`) wiring on all tracked tables via Prisma middleware.
@@ -1112,11 +1118,13 @@ All questions from the previous draft have been resolved below. Hosting and clou
 ### 11.1 Resolved Decisions
 
 #### Decision 1 — Local File & Image Storage: MinIO via Docker Compose
+
 **Decision:** Run a [MinIO](https://min.io/) container alongside PostgreSQL in `docker-compose.yml`. MinIO is an S3-compatible object store that runs entirely on a local machine or LAN server.
 
 **Rationale:** The upload pipeline in Section 3.3 uses the AWS SDK. With MinIO, the only change is setting the `endpoint` to `http://localhost:9000` (or the team host's IP) and `forcePathStyle: true`. The rest of the upload code is identical to what would run against real S3 — no throwaway code. When/if the system ever moves to a hosted environment, the SDK config is the only thing that changes.
 
 **Implementation notes:**
+
 - Add a `minio` service to `docker-compose.yml` alongside `postgres`.
 - Expose ports `9000` (API) and `9001` (web console).
 - Set `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` in `.env`.
@@ -1126,11 +1134,13 @@ All questions from the previous draft have been resolved below. Hosting and clou
 ---
 
 #### Decision 2 — License-Key Encryption: pgcrypto (column-level)
+
 **Decision:** Enable the `pgcrypto` PostgreSQL extension and use `pgp_sym_encrypt` / `pgp_sym_decrypt` with a symmetric application key to encrypt `digital_assets.license_key` at rest.
 
 **Rationale:** pgcrypto is bundled with every standard PostgreSQL installation — no additional dependencies. The encryption key lives in `.env` as `ENCRYPTION_KEY` and is applied in the service layer before writes and after reads. The existing `credentials_ref` column is retained as an optional plaintext pointer for assets whose credentials live in an external tool (e.g., a team password manager) rather than directly in the database.
 
 **Implementation notes:**
+
 - Run `CREATE EXTENSION IF NOT EXISTS pgcrypto;` in the initial migration.
 - The Prisma `license_key` field is typed as `String?`. Encryption/decryption is handled in a `digitalAssets` service wrapper — Prisma itself is not aware of it.
 - Never log the decrypted value; only the encrypted ciphertext touches the database.
@@ -1138,11 +1148,13 @@ All questions from the previous draft have been resolved below. Hosting and clou
 ---
 
 #### Decision 3 — Equipment Quantity Sync: Application code in a transaction
+
 **Decision:** `items.quantity` for equipment-type items is updated by application code within the same Prisma transaction as any operation that changes the count of available `equipment` rows.
 
 **Rationale:** Database triggers and generated columns add invisible schema behaviour that is hard to trace during early development and requires raw SQL outside Prisma's type system. Keeping the logic in the service layer means the behaviour is readable, testable, and debuggable without leaving TypeScript.
 
 **Implementation notes:**
+
 - The `equipmentService` wraps the following in a single `prisma.$transaction`:
   - Creating a new `equipment` row increments `items.quantity`.
   - Setting `equipment.status` to `RETIRED`, `LOST`, or any terminal status decrements `items.quantity`.
@@ -1152,22 +1164,26 @@ All questions from the previous draft have been resolved below. Hosting and clou
 ---
 
 #### Decision 4 — PO `total_amount` Sync: Application code in a transaction
+
 **Decision:** `purchase_orders.total_amount` is a stored field recalculated by application code whenever a `purchase_order_items` row is created, updated, or deleted.
 
 **Rationale:** Same reasoning as Decision 3 — the calculation `SUM(quantity × unit_cost)` is trivial and belongs in the service layer where it is visible and testable.
 
 **Implementation notes:**
+
 - The `purchaseOrderService` runs `SUM(poi.quantity * poi.unit_cost)` in the same transaction as any line-item mutation and writes the result back to `purchase_orders.total_amount`.
 - A helper `recalculatePOTotal(purchaseOrderId, tx)` is the single canonical function called by all line-item mutations (create, update, delete).
 
 ---
 
 #### Decision 5 — Soft-Delete Consistency: Add `deleted_at` to `equipment` and `digital_assets`
+
 **Decision:** Add `deletedAt DateTime? @map("deleted_at")` to both `equipment` and `digital_assets` to match the pattern on `users`, `items`, `categories`, and `suppliers`.
 
 **Rationale:** The Prisma middleware that excludes soft-deleted rows from default queries uses `where: { deletedAt: null }`. Covering all top-level entities with the same pattern means one middleware rule handles everything. Status enums (`RETIRED`, `CANCELLED`) are retained for active lifecycle tracking within those tables and mean something different from soft deletion (e.g., `RETIRED` equipment can still be queried for history; a soft-deleted row should not appear at all in normal use).
 
 **Schema changes required:**
+
 ```prisma
 model Equipment {
   // ... existing fields ...
@@ -1183,57 +1199,71 @@ model DigitalAsset {
 ---
 
 #### Decision 6 — `assigned_to` vs `borrow_records`: Keep both, enforce mutual exclusion
+
 **Decision:** Both fields are kept. They cover distinct use cases:
 
-| | `equipment.assigned_to` | `borrow_records` |
-|---|---|---|
-| **Use case** | Long-term or permanent assignment (e.g., a laptop that is Alice's primary workstation) | Short-term, time-bounded loan (e.g., borrowing a camera for three days) |
-| **Return date** | None — no expected return | Required (`expected_return`) |
-| **Who sets it** | Manager, via a direct assignment action | Initiated by Staff, approved by Manager |
-| **UI label** | "Assigned to" | "Borrow request" |
+|                 | `equipment.assigned_to`                                                                | `borrow_records`                                                        |
+| --------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Use case**    | Long-term or permanent assignment (e.g., a laptop that is Alice's primary workstation) | Short-term, time-bounded loan (e.g., borrowing a camera for three days) |
+| **Return date** | None — no expected return                                                              | Required (`expected_return`)                                            |
+| **Who sets it** | Manager, via a direct assignment action                                                | Initiated by Staff, approved by Manager                                 |
+| **UI label**    | "Assigned to"                                                                          | "Borrow request"                                                        |
 
 **Constraint enforced at the service layer:** An equipment unit that has a non-null `assigned_to` cannot have an open (non-terminal) `borrow_record`, and vice versa. The service throws a validation error if both are attempted simultaneously.
 
 ---
 
 #### Decision 7 — `LogAction` BORROWED / RETURNED overlap: Written explicitly at the service layer
+
 **Decision:** Audit log entries are written explicitly by each service handler at the point of each status transition — they are not derived automatically from entity state.
 
 **Rationale:** The `BorrowStatus` enum tracks the current state of a record. `LogAction` tracks what happened at a point in time. A borrow workflow produces multiple distinct log entries (`APPROVED`, then `BORROWED`, then `RETURNED`) — if the logger inferred action from current status it would only ever see the final state. Explicit logging also makes it easy to include extra context (e.g., `oldData`, `newData`) in each entry.
 
 **Pattern:**
+
 ```typescript
 // Inside borrowService.markBorrowed(id, performedBy):
 await prisma.$transaction(async (tx) => {
-  await tx.borrowRecord.update({ where: { id }, data: { status: 'BORROWED', borrowDate: new Date() } });
+  await tx.borrowRecord.update({
+    where: { id },
+    data: { status: 'BORROWED', borrowDate: new Date() },
+  });
   await tx.equipment.update({ where: { id: record.equipmentId }, data: { status: 'BORROWED' } });
-  await auditLog(tx, { entityType: 'borrow_records', entityId: id, action: 'BORROWED', performedBy });
+  await auditLog(tx, {
+    entityType: 'borrow_records',
+    entityId: id,
+    action: 'BORROWED',
+    performedBy,
+  });
 });
 ```
 
 ---
 
 #### Decision 8 — Scheduled Jobs: `node-cron` inside the Express process
+
 **Decision:** Scheduled jobs run as `node-cron` tasks registered at API startup. No separate worker process is needed for local development.
 
 **Jobs and cadence:**
 
-| Job | Schedule | Action |
-|---|---|---|
-| Overdue borrow detection | Every hour | Set `borrow_records.status = OVERDUE` where `expected_return < now() AND actual_return IS NULL` |
-| Digital asset expiry | Daily at 01:00 | Set `digital_assets.status = EXPIRED` where `expiry_date < today AND status = ACTIVE` |
-| Notification dispatch | Daily at 08:00 | Query low stock, overdue borrows, warranty expiry (30d), digital asset expiry (30d), and maintenance due (7d); send emails via MailDev (see Decision 11) |
+| Job                      | Schedule       | Action                                                                                                                                                   |
+| ------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overdue borrow detection | Every hour     | Set `borrow_records.status = OVERDUE` where `expected_return < now() AND actual_return IS NULL`                                                          |
+| Digital asset expiry     | Daily at 01:00 | Set `digital_assets.status = EXPIRED` where `expiry_date < today AND status = ACTIVE`                                                                    |
+| Notification dispatch    | Daily at 08:00 | Query low stock, overdue borrows, warranty expiry (30d), digital asset expiry (30d), and maintenance due (7d); send emails via MailDev (see Decision 11) |
 
 **Rationale:** A separate worker process adds Docker Compose complexity (another service, health-checks, shared DB connection pool) for no benefit at this stage. If the system is later moved to a hosted environment, the cron module can be extracted into a standalone script without architectural changes.
 
 ---
 
 #### Decision 9 — Digital Asset Renewal Model: Update existing row
+
 **Decision:** Renewal updates the existing `digital_assets` row (new `expiry_date`, incremented `renewal_count`) and writes a `LogAction.RENEWED` entry to `inventory_logs`.
 
 **Rationale:** Creating a new row on each renewal would break the 1:1 `items ↔ digital_assets` constraint and inflate the catalog with duplicate entries for what is logically the same asset. Historical renewal dates are preserved in the audit log (`inventory_logs.newData` captures the updated `expiry_date` and `renewal_count` on every `RENEWED` entry).
 
 **Schema change required — add `renewal_count` to `digital_assets`:**
+
 ```prisma
 model DigitalAsset {
   // ... existing fields ...
@@ -1244,6 +1274,7 @@ model DigitalAsset {
 ---
 
 #### Decision 10 — Asset ID Format: `JIT-EQ-NNNN` confirmed
+
 **Decision:** The Asset ID format `JIT-EQ-NNNN` (zero-padded to 4 digits) is confirmed for all equipment regardless of category. A single global auto-increment sequence is used — no category-based prefix variation in v1.
 
 **Rationale:** Per-category prefixes (`JIT-LAPTOP-0001`, `JIT-MON-0002`) require a sequence-per-category and add lookup complexity. A single sequence is simpler to implement and keeps IDs collision-free without coordination. Category is already captured in `items.categoryId`; it does not need to be encoded in the tag.
@@ -1253,9 +1284,11 @@ model DigitalAsset {
 ---
 
 #### Decision 11 — Email for Local Development: MailDev via Docker Compose
+
 **Decision:** Add a `maildev` container to `docker-compose.yml`. The API uses Nodemailer configured to deliver to MailDev's local SMTP port. All notification emails are captured and viewable in the MailDev web UI — nothing is sent externally.
 
 **Implementation notes:**
+
 - MailDev exposes SMTP on port `1025` and the web inbox on port `1080`.
 - Add `SMTP_HOST=localhost`, `SMTP_PORT=1025` to `.env`. Nodemailer transport uses these values.
 - No authentication required for MailDev.
@@ -1316,7 +1349,7 @@ Integration tests (see Section 8.7) run against a separate test database (`jit_d
 
 ## 12. Change Log
 
-| Version | Date | Author | Notes |
-|---|---|---|---|
-| 4.0 | _original_ | _unspecified_ | Initial AI-assisted draft |
-| 4.2 | _TBD_ | _TBD_ | Resolved all open questions in Section 11; removed hosting/cloud question (out of scope); added local dev database-sharing setup; added MinIO, MailDev, renewal_count, and soft-delete schema notes |
+| Version | Date       | Author        | Notes                                                                                                                                                                                               |
+| ------- | ---------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.0     | _original_ | _unspecified_ | Initial AI-assisted draft                                                                                                                                                                           |
+| 4.2     | _TBD_      | _TBD_         | Resolved all open questions in Section 11; removed hosting/cloud question (out of scope); added local dev database-sharing setup; added MinIO, MailDev, renewal_count, and soft-delete schema notes |

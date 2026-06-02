@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { useAuthStore } from "../store/authStore";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { useAuthStore } from '../store/authStore';
 
-const API_BASE_URL =
-  (import.meta.env.VITE_API_URL as string) || "http://localhost:3001/api";
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3001/api';
 
 const USER_DIRECTORY_PAGE_SIZE = 1000;
 
@@ -92,20 +91,20 @@ const emptySummary: UserSummary = {
 };
 
 const emptyNewUserForm: NewUserForm = {
-  firstName: "",
-  lastName: "",
-  email: "",
-  password: "",
-  roleId: "",
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  roleId: '',
   isActive: true,
 };
 
 const initialAuthState: AuthState = {
   isChecking: true,
   isAuthorized: false,
-  token: "",
+  token: '',
   user: null,
-  message: "",
+  message: '',
 };
 
 function getStoredToken() {
@@ -114,13 +113,7 @@ function getStoredToken() {
     return memToken;
   }
 
-  const tokenKeys = [
-    "accessToken",
-    "access_token",
-    "token",
-    "jwt",
-    "jit_access_token",
-  ];
+  const tokenKeys = ['accessToken', 'access_token', 'token', 'jwt', 'jit_access_token'];
 
   for (const key of tokenKeys) {
     const token = window.localStorage.getItem(key);
@@ -130,7 +123,7 @@ function getStoredToken() {
     }
   }
 
-  return "";
+  return '';
 }
 
 function getStoredUser() {
@@ -139,7 +132,7 @@ function getStoredUser() {
     return memUser;
   }
 
-  const userKeys = ["currentUser", "authUser", "user"];
+  const userKeys = ['currentUser', 'authUser', 'user'];
 
   for (const key of userKeys) {
     const storedUser = window.localStorage.getItem(key);
@@ -160,16 +153,16 @@ function getStoredUser() {
 
 function decodeJwtPayload(token: string): CurrentUser | null {
   try {
-    const payload = token.split(".")[1];
+    const payload = token.split('.')[1];
 
     if (!payload) {
       return null;
     }
 
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
     const paddedPayload = normalizedPayload.padEnd(
       normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
-      "=",
+      '=',
     );
 
     return JSON.parse(window.atob(paddedPayload)) as CurrentUser;
@@ -180,11 +173,11 @@ function decodeJwtPayload(token: string): CurrentUser | null {
 
 function getPermissionNames(user: CurrentUser) {
   return (user.permissions ?? []).map((permission) => {
-    if (typeof permission === "string") {
+    if (typeof permission === 'string') {
       return permission;
     }
 
-    return permission.name ?? "";
+    return permission.name ?? '';
   });
 }
 
@@ -194,19 +187,15 @@ function hasUserManagementAccess(user: CurrentUser | null) {
   }
 
   const roleName =
-    typeof user.role === "string"
-      ? user.role
-      : user.role?.name ?? user.roleName ?? "";
+    typeof user.role === 'string' ? user.role : (user.role?.name ?? user.roleName ?? '');
 
   const normalizedRole = roleName.toLowerCase();
   const permissions = getPermissionNames(user);
 
-  const hasUserAccess =
-    permissions.includes("users:read") || permissions.includes("users:manage");
-  const hasRoleAccess =
-    permissions.includes("roles:read") || permissions.includes("roles:manage");
+  const hasUserAccess = permissions.includes('users:read') || permissions.includes('users:manage');
+  const hasRoleAccess = permissions.includes('roles:read') || permissions.includes('roles:manage');
 
-  return normalizedRole.includes("admin") || (hasUserAccess && hasRoleAccess);
+  return normalizedRole.includes('admin') || (hasUserAccess && hasRoleAccess);
 }
 
 function getClientAuth(): AuthState {
@@ -216,9 +205,9 @@ function getClientAuth(): AuthState {
     return {
       isChecking: false,
       isAuthorized: false,
-      token: "",
+      token: '',
       user: null,
-      message: "Please sign in with an administrator account.",
+      message: 'Please sign in with an administrator account.',
     };
   }
 
@@ -235,7 +224,7 @@ function getClientAuth(): AuthState {
       isAuthorized: false,
       token,
       user,
-      message: "You do not have permission to access User Management.",
+      message: 'You do not have permission to access User Management.',
     };
   }
 
@@ -244,19 +233,15 @@ function getClientAuth(): AuthState {
     isAuthorized: true,
     token,
     user,
-    message: "",
+    message: '',
   };
 }
 
-async function requestJson<T>(
-  url: string,
-  token: string,
-  init?: RequestInit,
-): Promise<T> {
+async function requestJson<T>(url: string, token: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       ...(init?.headers ?? {}),
     },
@@ -268,8 +253,8 @@ async function requestJson<T>(
     } | null;
 
     const message = Array.isArray(errorBody?.message)
-      ? errorBody.message.join(", ")
-      : errorBody?.message ?? "Request failed.";
+      ? errorBody.message.join(', ')
+      : (errorBody?.message ?? 'Request failed.');
 
     throw new Error(message);
   }
@@ -284,32 +269,32 @@ export default function UserManagementPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [summary, setSummary] = useState<UserSummary>(emptySummary);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRoleId, setSelectedRoleId] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRoleId, setSelectedRoleId] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
 
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [newUser, setNewUser] = useState<NewUserForm>(emptyNewUserForm);
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editRoleId, setEditRoleId] = useState("");
+  const [editRoleId, setEditRoleId] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
 
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const loadData = useCallback(async (token: string) => {
     setIsLoading(true);
-    setErrorMessage("");
+    setErrorMessage('');
 
     try {
       const usersUrl = new URL(`${API_BASE_URL}/users`);
-      usersUrl.searchParams.set("page", "1");
-      usersUrl.searchParams.set("limit", String(USER_DIRECTORY_PAGE_SIZE));
+      usersUrl.searchParams.set('page', '1');
+      usersUrl.searchParams.set('limit', String(USER_DIRECTORY_PAGE_SIZE));
 
       const [usersResponse, summaryResponse, rolesResponse] = await Promise.all([
         requestJson<UsersResponse>(usersUrl.toString(), token),
@@ -333,9 +318,7 @@ export default function UserManagementPage() {
       });
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to load user management data.",
+        error instanceof Error ? error.message : 'Unable to load user management data.',
       );
     } finally {
       setIsLoading(false);
@@ -372,20 +355,19 @@ export default function UserManagementPage() {
         user.email.toLowerCase().includes(normalizedSearch);
 
       const matchesRole =
-        selectedRoleId === "all" ||
-        String(user.role?.id ?? "") === selectedRoleId;
+        selectedRoleId === 'all' || String(user.role?.id ?? '') === selectedRoleId;
 
       const matchesStatus =
-        selectedStatus === "all" ||
-        (selectedStatus === "active" && user.isActive) ||
-        (selectedStatus === "inactive" && !user.isActive);
+        selectedStatus === 'all' ||
+        (selectedStatus === 'active' && user.isActive) ||
+        (selectedStatus === 'inactive' && !user.isActive);
 
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [searchTerm, selectedRoleId, selectedStatus, users]);
 
   function getDefaultRoleId() {
-    return roles[0] ? String(roles[0].id) : "";
+    return roles[0] ? String(roles[0].id) : '';
   }
 
   function resetAddUserForm() {
@@ -399,52 +381,52 @@ export default function UserManagementPage() {
     resetAddUserForm();
     setEditingUser(null);
     setIsAddUserOpen(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setErrorMessage('');
+    setSuccessMessage('');
   }
 
   function cancelAddUser() {
     resetAddUserForm();
     setIsAddUserOpen(false);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setErrorMessage('');
+    setSuccessMessage('');
   }
 
   function openEditAccess(user: User) {
     setEditingUser(user);
-    setEditRoleId(user.role ? String(user.role.id) : "");
+    setEditRoleId(user.role ? String(user.role.id) : '');
     setEditIsActive(user.isActive);
     setIsAddUserOpen(false);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setErrorMessage('');
+    setSuccessMessage('');
   }
 
   function closeEditAccess() {
     setEditingUser(null);
-    setEditRoleId("");
+    setEditRoleId('');
     setEditIsActive(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setErrorMessage('');
+    setSuccessMessage('');
   }
 
   async function handleAddUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setErrorMessage("");
-    setSuccessMessage("");
+    setErrorMessage('');
+    setSuccessMessage('');
 
     if (!authState.isAuthorized) {
-      setErrorMessage("You are not authorized to create users.");
+      setErrorMessage('You are not authorized to create users.');
       return;
     }
 
     if (!newUser.roleId) {
-      setErrorMessage("Please select a role before saving.");
+      setErrorMessage('Please select a role before saving.');
       return;
     }
 
     if (newUser.password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters.");
+      setErrorMessage('Password must be at least 8 characters.');
       return;
     }
 
@@ -452,7 +434,7 @@ export default function UserManagementPage() {
 
     try {
       await requestJson<User>(`${API_BASE_URL}/users`, authState.token, {
-        method: "POST",
+        method: 'POST',
         body: JSON.stringify({
           firstName: newUser.firstName.trim(),
           lastName: newUser.lastName.trim(),
@@ -463,15 +445,13 @@ export default function UserManagementPage() {
         }),
       });
 
-      setSuccessMessage("User added successfully.");
+      setSuccessMessage('User added successfully.');
       setIsAddUserOpen(false);
       resetAddUserForm();
 
       await loadData(authState.token);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Unable to add user.",
-      );
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to add user.');
     } finally {
       setIsSaving(false);
     }
@@ -485,42 +465,34 @@ export default function UserManagementPage() {
     }
 
     if (!authState.isAuthorized) {
-      setErrorMessage("You are not authorized to update user access.");
+      setErrorMessage('You are not authorized to update user access.');
       return;
     }
 
     if (!editRoleId) {
-      setErrorMessage("Please select a role before saving.");
+      setErrorMessage('Please select a role before saving.');
       return;
     }
 
     setIsUpdatingAccess(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setErrorMessage('');
+    setSuccessMessage('');
 
     try {
-      await requestJson<User>(
-        `${API_BASE_URL}/users/${editingUser.id}/access`,
-        authState.token,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            roleId: Number(editRoleId),
-            isActive: editIsActive,
-          }),
-        },
-      );
+      await requestJson<User>(`${API_BASE_URL}/users/${editingUser.id}/access`, authState.token, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          roleId: Number(editRoleId),
+          isActive: editIsActive,
+        }),
+      });
 
-      setSuccessMessage("User access updated successfully.");
+      setSuccessMessage('User access updated successfully.');
       closeEditAccess();
 
       await loadData(authState.token);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to update user access.",
-      );
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to update user access.');
     } finally {
       setIsUpdatingAccess(false);
     }
@@ -543,15 +515,9 @@ export default function UserManagementPage() {
     return (
       <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
         <section className="mx-auto max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
-          <p className="text-sm font-medium text-[var(--accent)]">
-            Access Restricted
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold">
-            User Management is admin-only
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            {authState.message}
-          </p>
+          <p className="text-sm font-medium text-[var(--accent)]">Access Restricted</p>
+          <h1 className="mt-1 text-2xl font-semibold">User Management is admin-only</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">{authState.message}</p>
         </section>
       </main>
     );
@@ -562,15 +528,11 @@ export default function UserManagementPage() {
       <section className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">
-              User Story 204748
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold">
-              User and Role Access Management
-            </h1>
+            <p className="text-sm font-medium text-[var(--accent)]">User Story 204748</p>
+            <h1 className="mt-1 text-2xl font-semibold">User and Role Access Management</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Display and monitor system users, assigned roles, account
-              statuses, and permission visibility across the inventory system.
+              Display and monitor system users, assigned roles, account statuses, and permission
+              visibility across the inventory system.
             </p>
           </div>
 
@@ -692,11 +654,11 @@ export default function UserManagementPage() {
               </select>
 
               <select
-                value={newUser.isActive ? "active" : "inactive"}
+                value={newUser.isActive ? 'active' : 'inactive'}
                 onChange={(event) =>
                   setNewUser((currentUser) => ({
                     ...currentUser,
-                    isActive: event.target.value === "active",
+                    isActive: event.target.value === 'active',
                   }))
                 }
                 className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
@@ -711,7 +673,7 @@ export default function UserManagementPage() {
                   disabled={isSaving || roles.length === 0}
                   className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSaving ? "Saving..." : "Save User"}
+                  {isSaving ? 'Saving...' : 'Save User'}
                 </button>
 
                 <button
@@ -737,15 +699,11 @@ export default function UserManagementPage() {
             <div className="mb-4">
               <h2 className="text-lg font-semibold">Edit User Access</h2>
               <p className="text-sm text-[var(--text-secondary)]">
-                Update the role and account status for{" "}
-                {getUserFullName(editingUser)}.
+                Update the role and account status for {getUserFullName(editingUser)}.
               </p>
             </div>
 
-            <form
-              onSubmit={handleUpdateAccess}
-              className="grid gap-3 md:grid-cols-2"
-            >
+            <form onSubmit={handleUpdateAccess} className="grid gap-3 md:grid-cols-2">
               <select
                 required
                 value={editRoleId}
@@ -763,10 +721,8 @@ export default function UserManagementPage() {
               </select>
 
               <select
-                value={editIsActive ? "active" : "inactive"}
-                onChange={(event) =>
-                  setEditIsActive(event.target.value === "active")
-                }
+                value={editIsActive ? 'active' : 'inactive'}
+                onChange={(event) => setEditIsActive(event.target.value === 'active')}
                 className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
               >
                 <option value="active">Active</option>
@@ -779,7 +735,7 @@ export default function UserManagementPage() {
                   disabled={isUpdatingAccess || roles.length === 0}
                   className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isUpdatingAccess ? "Updating..." : "Save Changes"}
+                  {isUpdatingAccess ? 'Updating...' : 'Save Changes'}
                 </button>
 
                 <button
@@ -798,10 +754,7 @@ export default function UserManagementPage() {
           <SummaryCard title="Total Users" value={summary.totalUsers} />
           <SummaryCard title="Active Users" value={summary.activeUsers} />
           <SummaryCard title="Inactive Users" value={summary.inactiveUsers} />
-          <SummaryCard
-            title="Administrators"
-            value={summary.administratorUsers}
-          />
+          <SummaryCard title="Administrators" value={summary.administratorUsers} />
         </section>
 
         <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
@@ -868,20 +821,11 @@ export default function UserManagementPage() {
 
                   <tbody className="divide-y divide-[var(--surface-border)]">
                     {filteredUsers.map((user) => (
-                      <tr
-                        key={user.id}
-                        className="transition hover:bg-[var(--surface-hover)]"
-                      >
-                        <td className="px-4 py-3 font-medium">
-                          {getUserFullName(user)}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {user.email}
-                        </td>
+                      <tr key={user.id} className="transition hover:bg-[var(--surface-hover)]">
+                        <td className="px-4 py-3 font-medium">{getUserFullName(user)}</td>
+                        <td className="px-4 py-3 text-[var(--text-secondary)]">{user.email}</td>
                         <td className="px-4 py-3">
-                          <Badge variant={getUserRoleName(user)}>
-                            {getUserRoleName(user)}
-                          </Badge>
+                          <Badge variant={getUserRoleName(user)}>{getUserRoleName(user)}</Badge>
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={user.status}>{user.status}</Badge>
@@ -912,21 +856,15 @@ export default function UserManagementPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold">
-                          {getUserFullName(user)}
-                        </h3>
-                        <p className="text-sm text-[var(--text-secondary)]">
-                          {user.email}
-                        </p>
+                        <h3 className="font-semibold">{getUserFullName(user)}</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">{user.email}</p>
                       </div>
 
                       <Badge variant={user.status}>{user.status}</Badge>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <Badge variant={getUserRoleName(user)}>
-                        {getUserRoleName(user)}
-                      </Badge>
+                      <Badge variant={getUserRoleName(user)}>{getUserRoleName(user)}</Badge>
                       <span className="text-sm text-[var(--text-tertiary)]">
                         Created: {formatDate(user.createdAt)}
                       </span>
@@ -959,8 +897,7 @@ export default function UserManagementPage() {
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Permission Visibility</h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Review access sections for each role to support administrator
-              monitoring.
+              Review access sections for each role to support administrator monitoring.
             </p>
           </div>
 
@@ -984,12 +921,11 @@ export default function UserManagementPage() {
                   </div>
 
                   <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                    {role.description ?? "No role description available."}
+                    {role.description ?? 'No role description available.'}
                   </p>
 
                   <p className="mt-3 text-xs font-medium text-[var(--text-tertiary)]">
-                    {role.userCount} user/s • {role.permissionCount}{" "}
-                    permission/s
+                    {role.userCount} user/s • {role.permissionCount} permission/s
                   </p>
 
                   <ul className="mt-4 space-y-2 text-sm text-[var(--text-secondary)]">
@@ -1000,7 +936,7 @@ export default function UserManagementPage() {
                         <li key={permission.id} className="flex gap-2">
                           <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
                           <span>
-                            {permission.name}{" "}
+                            {permission.name}{' '}
                             <span className="text-[var(--text-tertiary)]">
                               ({permission.action} {permission.resource})
                             </span>
@@ -1028,13 +964,7 @@ function SummaryCard({ title, value }: { title: string; value: number }) {
   );
 }
 
-function Badge({
-  children,
-  variant,
-}: {
-  children: ReactNode;
-  variant: string;
-}) {
+function Badge({ children, variant }: { children: ReactNode; variant: string }) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getBadgeClass(
@@ -1053,39 +983,39 @@ function getUserFullName(user: User) {
     return fullName;
   }
 
-  return `${user.firstName} ${user.lastName}`.trim() || "Unnamed User";
+  return `${user.firstName} ${user.lastName}`.trim() || 'Unnamed User';
 }
 
 function getUserRoleName(user: User) {
-  return user.role?.name ?? "No role assigned";
+  return user.role?.name ?? 'No role assigned';
 }
 
 function getBadgeClass(variant: string) {
   const normalizedVariant = variant.toLowerCase();
 
-  if (normalizedVariant.includes("admin")) {
-    return "bg-[var(--accent-muted)] text-[var(--accent)]";
+  if (normalizedVariant.includes('admin')) {
+    return 'bg-[var(--accent-muted)] text-[var(--accent)]';
   }
 
-  if (normalizedVariant.includes("staff")) {
-    return "bg-[var(--info-muted)] text-[var(--info)]";
+  if (normalizedVariant.includes('staff')) {
+    return 'bg-[var(--info-muted)] text-[var(--info)]';
   }
 
-  if (normalizedVariant.includes("inactive")) {
-    return "bg-[var(--background-tertiary)] text-[var(--text-secondary)]";
+  if (normalizedVariant.includes('inactive')) {
+    return 'bg-[var(--background-tertiary)] text-[var(--text-secondary)]';
   }
 
-  if (normalizedVariant.includes("active")) {
-    return "bg-[var(--success-muted)] text-[var(--success)]";
+  if (normalizedVariant.includes('active')) {
+    return 'bg-[var(--success-muted)] text-[var(--success)]';
   }
 
-  return "bg-[var(--background-tertiary)] text-[var(--text-secondary)]";
+  return 'bg-[var(--background-tertiary)] text-[var(--text-secondary)]';
 }
 
 function formatDate(dateValue: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
   }).format(new Date(dateValue));
 }

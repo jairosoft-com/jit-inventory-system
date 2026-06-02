@@ -42,7 +42,6 @@ interface FormState {
   serialNumber: string;
   brand: string;
   model: string;
-  barcode: string;
   condition: ConditionStatus;
   status: EquipmentStatus;
   location: string;
@@ -60,6 +59,26 @@ interface PendingImage {
   size: number;
 }
 
+const DEFAULT_LOCATIONS = [
+  'IT Office',
+  'Server Room',
+  'Conference Room A',
+  'Conference Room B',
+  'Storage Room',
+  'Reception',
+  'HR Department',
+  'Finance Department',
+  'Operations Room',
+];
+
+/** Generate a unique Asset ID like EQ-YYYYMMDD-XXXX */
+function generateAssetId(): string {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `EQ-${date}-${rand}`;
+}
+
 const emptyForm: FormState = {
   itemName: '',
   assetId: '',
@@ -68,7 +87,6 @@ const emptyForm: FormState = {
   serialNumber: '',
   brand: '',
   model: '',
-  barcode: '',
   condition: 'NEW',
   status: 'AVAILABLE',
   location: '',
@@ -97,7 +115,6 @@ function equipmentToForm(eq: Equipment): FormState {
     serialNumber: eq.serialNumber || '',
     brand: eq.brand || '',
     model: eq.model || '',
-    barcode: eq.item.barcode || '',
     condition: eq.condition,
     status: eq.status,
     location: eq.location || '',
@@ -160,6 +177,9 @@ export default function EquipmentPage() {
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_LOCATIONS);
+  const [showLocationInput, setShowLocationInput] = useState(false);
+  const [newLocationValue, setNewLocationValue] = useState('');
 
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -195,10 +215,12 @@ export default function EquipmentPage() {
   // ── Form Handlers ────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
     setEditingEquipment(null);
-    setFormData(emptyForm);
+    setFormData({ ...emptyForm, assetId: generateAssetId() });
     setPendingImages([]);
     setImageError(null);
     setFormError(null);
+    setShowLocationInput(false);
+    setNewLocationValue('');
     setIsFormOpen(true);
   };
 
@@ -208,6 +230,12 @@ export default function EquipmentPage() {
     setPendingImages([]);
     setImageError(null);
     setFormError(null);
+    setShowLocationInput(false);
+    setNewLocationValue('');
+    // Add current location to dropdown if not already there
+    if (eq.location && !locationOptions.includes(eq.location)) {
+      setLocationOptions((prev) => [...prev, eq.location!]);
+    }
     setIsFormOpen(true);
   };
 
@@ -217,6 +245,8 @@ export default function EquipmentPage() {
     setFormData(emptyForm);
     setPendingImages([]);
     setFormError(null);
+    setShowLocationInput(false);
+    setNewLocationValue('');
   };
 
   const handleInputChange = (
@@ -226,23 +256,32 @@ export default function EquipmentPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset input immediately so the same file can be re-selected after an error
+    e.target.value = '';
+
     if (!file.type.startsWith('image/')) {
-      setImageError('Only image files are allowed.');
+      setImageError(`"${file.name}" is not an image file. Only JPG, PNG, GIF, and WEBP are allowed.`);
+      return;
+    }
+
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setImageError(`"${file.name}" is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller image.`);
       return;
     }
 
     setImageError(null);
-    
+
     // Read file as base64 data URL so it can be saved in the database
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const url = event.target?.result as string;
       if (!url) return;
-
       setPendingImages((prev) => [
         ...prev,
         {
@@ -254,12 +293,9 @@ export default function EquipmentPage() {
       ]);
     };
     reader.onerror = () => {
-      setImageError('Failed to read image file.');
+      setImageError(`Failed to read "${file.name}". Please try again.`);
     };
     reader.readAsDataURL(file);
-    
-    // Reset file input
-    e.target.value = '';
   };
 
   const handleRemovePendingImage = (index: number) => {
@@ -306,12 +342,6 @@ export default function EquipmentPage() {
       return;
     }
 
-    const hasOversizedImage = pendingImages.some((img) => img.size > 5 * 1024 * 1024);
-    if (hasOversizedImage) {
-      setFormError('One or more images exceed the 5MB size limit.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       if (editingEquipment) {
@@ -324,7 +354,6 @@ export default function EquipmentPage() {
           serialNumber: formData.serialNumber.trim() || null,
           brand: formData.brand.trim() || null,
           model: formData.model.trim() || null,
-          barcode: formData.barcode.trim() || null,
           condition: formData.condition,
           status: formData.status,
           location: formData.location.trim() || null,
@@ -357,7 +386,6 @@ export default function EquipmentPage() {
           serialNumber: formData.serialNumber.trim() || null,
           brand: formData.brand.trim() || null,
           model: formData.model.trim() || null,
-          barcode: formData.barcode.trim() || null,
           condition: formData.condition,
           status: formData.status,
           location: formData.location.trim() || null,
@@ -859,14 +887,37 @@ export default function EquipmentPage() {
                     onChange={handleInputChange}
                     placeholder="e.g. Dell XPS 15 Laptop"
                   />
-                  <FormField
-                    label="Asset ID"
-                    required
-                    name="assetId"
-                    value={formData.assetId}
-                    onChange={handleInputChange}
-                    placeholder="e.g. ASSET-1001"
-                  />
+                  {/* Asset ID — auto-generated, read-only in create; editable in edit */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Asset ID <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        required
+                        type="text"
+                        name="assetId"
+                        value={formData.assetId}
+                        onChange={handleInputChange}
+                        readOnly={!editingEquipment}
+                        className={`w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 pr-24 text-sm font-mono outline-none transition focus:border-[var(--input-border-focus)] ${
+                          !editingEquipment ? 'text-[var(--text-secondary)] cursor-default' : ''
+                        }`}
+                      />
+                      {!editingEquipment && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, assetId: generateAssetId() }))}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-[var(--background-tertiary)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
+                        >
+                          Regenerate
+                        </button>
+                      )}
+                    </div>
+                    {!editingEquipment && (
+                      <p className="text-[10px] text-[var(--text-disabled)]">Auto-generated — click Regenerate for a new ID</p>
+                    )}
+                  </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-[var(--text-secondary)]">
                       Category <span className="text-red-500">*</span>
@@ -912,20 +963,88 @@ export default function EquipmentPage() {
                     onChange={handleInputChange}
                     placeholder="e.g. XPS 15 9520"
                   />
-                  <FormField
-                    label="Barcode"
-                    name="barcode"
-                    value={formData.barcode}
-                    onChange={handleInputChange}
-                    placeholder="Optional barcode"
-                  />
-                  <FormField
-                    label="Location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    placeholder="e.g. IT Office, Room 302"
-                  />
+                  {/* Location dropdown with ability to add new options */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Location
+                    </label>
+                    {showLocationInput ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newLocationValue}
+                          onChange={(e) => setNewLocationValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const trimmed = newLocationValue.trim();
+                              if (trimmed && !locationOptions.includes(trimmed)) {
+                                setLocationOptions((prev) => [...prev, trimmed]);
+                              }
+                              if (trimmed) {
+                                setFormData((prev) => ({ ...prev, location: trimmed }));
+                              }
+                              setNewLocationValue('');
+                              setShowLocationInput(false);
+                            }
+                            if (e.key === 'Escape') {
+                              setShowLocationInput(false);
+                              setNewLocationValue('');
+                            }
+                          }}
+                          placeholder="Enter new location..."
+                          autoFocus
+                          className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = newLocationValue.trim();
+                            if (trimmed && !locationOptions.includes(trimmed)) {
+                              setLocationOptions((prev) => [...prev, trimmed]);
+                            }
+                            if (trimmed) {
+                              setFormData((prev) => ({ ...prev, location: trimmed }));
+                            }
+                            setNewLocationValue('');
+                            setShowLocationInput(false);
+                          }}
+                          className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowLocationInput(false); setNewLocationValue(''); }}
+                          className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <select
+                          name="location"
+                          value={formData.location}
+                          onChange={handleInputChange}
+                          className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                        >
+                          <option value="">Select location...</option>
+                          {locationOptions.map((loc) => (
+                            <option key={loc} value={loc}>{loc}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setShowLocationInput(true)}
+                          title="Add new location"
+                          className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-3">
                   <label className="text-xs font-semibold text-[var(--text-secondary)]">
@@ -1071,31 +1190,30 @@ export default function EquipmentPage() {
                   </div>
                 )}
 
-                {/* Pending images (create mode) */}
-                {!editingEquipment && pendingImages.length > 0 && (
+                {/* Pending images (both create and edit modes) */}
+                {pendingImages.length > 0 && (
                   <div className="mb-3">
                     <p className="text-xs text-[var(--text-secondary)] mb-2">
-                      Images to upload
+                      {editingEquipment ? 'New images to add' : 'Images to upload'}
                     </p>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-3">
                       {pendingImages.map((img, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-3 rounded-lg border border-[var(--surface-border)] px-3 py-2 text-xs"
-                        >
-                          <img src={img.url} alt={img.label} className="h-10 w-10 rounded object-cover flex-shrink-0 border border-[var(--surface-border)]" />
-                          <span className="flex-1 truncate text-[var(--text-primary)]">
-                            {img.label}
-                          </span>
+                        <div key={i} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label}
+                            className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
                           {img.isPrimary && (
-                            <span className="text-[var(--accent)] font-bold">
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
                               Primary
                             </span>
                           )}
                           <button
                             type="button"
                             onClick={() => handleRemovePendingImage(i)}
-                            className="text-red-500 hover:text-red-700 font-bold"
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
                           >
                             ×
                           </button>
@@ -1114,7 +1232,10 @@ export default function EquipmentPage() {
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                   />
                   {imageError && (
-                    <p className="text-xs text-red-600 font-medium">{imageError}</p>
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
+                      <span>{imageError}</span>
+                      <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
+                    </div>
                   )}
                   <p className="text-xs text-[var(--text-tertiary)]">Max size: 5MB. Formats: JPG, PNG, GIF, WEBP</p>
                 </div>

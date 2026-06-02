@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 
-type EquipmentStatus = 
+type EquipmentStatus =
   | 'AVAILABLE'
   | 'IN_USE'
   | 'UNDER_MAINTENANCE'
@@ -39,7 +39,7 @@ const MOCK_EQUIPMENT: Equipment[] = [
     warrantyExpiry: '2027-05-15',
     lifecycleStatus: 'NEW',
     replacementDate: '2030-05-15',
-    imageUrl: null
+    imageUrl: null,
   },
   {
     id: 'EQ-002',
@@ -52,7 +52,7 @@ const MOCK_EQUIPMENT: Equipment[] = [
     warrantyExpiry: '2026-10-10',
     lifecycleStatus: 'ACTIVE',
     replacementDate: '2028-10-10',
-    imageUrl: null
+    imageUrl: null,
   },
   {
     id: 'EQ-003',
@@ -65,17 +65,22 @@ const MOCK_EQUIPMENT: Equipment[] = [
     warrantyExpiry: '2024-12-01',
     lifecycleStatus: 'AGING',
     replacementDate: '2026-12-01',
-    imageUrl: null
-  }
+    imageUrl: null,
+  },
 ];
 
 export default function EquipmentPage() {
   const { user } = useAuthStore();
-  const isAdmin = user?.role?.name?.toUpperCase().includes('ADMIN') || user?.role?.name === 'System Administrator';
+  const isAdmin =
+    user?.role?.name?.toUpperCase().includes('ADMIN') ||
+    user?.role?.name === 'System Administrator';
 
   const [equipmentList, setEquipmentList] = useState<Equipment[]>(MOCK_EQUIPMENT);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEquipmentId, setEditingEquipmentId] = useState<string | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Form State
   const initialFormState = {
@@ -88,84 +93,149 @@ export default function EquipmentPage() {
     warrantyExpiry: '',
     lifecycleStatus: 'NEW' as LifecycleStatus,
     replacementDate: '',
-    imageUrl: null as string | null
+    imageUrl: null as string | null,
   };
   const [formData, setFormData] = useState(initialFormState);
 
   const getStatusColor = (status: EquipmentStatus) => {
     switch (status) {
-      case 'AVAILABLE': return 'bg-green-100 text-green-800';
-      case 'IN_USE': return 'bg-blue-100 text-blue-800';
-      case 'UNDER_MAINTENANCE': return 'bg-orange-100 text-orange-800';
-      case 'DAMAGED': return 'bg-red-100 text-red-800';
-      case 'RETIRED': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'AVAILABLE':
+        return 'bg-green-100 text-green-800';
+      case 'IN_USE':
+        return 'bg-blue-100 text-blue-800';
+      case 'UNDER_MAINTENANCE':
+        return 'bg-orange-100 text-orange-800';
+      case 'DAMAGED':
+        return 'bg-red-100 text-red-800';
+      case 'RETIRED':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getConditionColor = (condition: EquipmentCondition) => {
     switch (condition) {
-      case 'EXCELLENT': return 'text-green-600 font-medium';
-      case 'GOOD': return 'text-blue-600 font-medium';
-      case 'FAIR': return 'text-orange-600 font-medium';
-      case 'POOR': return 'text-red-600 font-bold';
+      case 'EXCELLENT':
+        return 'text-green-600 font-medium';
+      case 'GOOD':
+        return 'text-blue-600 font-medium';
+      case 'FAIR':
+        return 'text-orange-600 font-medium';
+      case 'POOR':
+        return 'text-red-600 font-bold';
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const hadImage = !!formData.imageUrl;
     if (editingEquipmentId) {
       // Editing existing
-      setEquipmentList(prev => 
-        (prev.map(eq => eq.id === editingEquipmentId ? { ...formData, id: eq.id } : eq)) as Equipment[]
+      setEquipmentList(
+        (prev) =>
+          prev.map((eq) =>
+            eq.id === editingEquipmentId ? { ...formData, id: eq.id } : eq,
+          ) as Equipment[],
       );
     } else {
       // Adding new
       const newEquipment: Equipment = {
         id: `EQ-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-        ...formData
+        ...formData,
       } as Equipment;
-      setEquipmentList(prev => [...prev, newEquipment]);
+      setEquipmentList((prev) => [...prev, newEquipment]);
     }
-    
+
     closeModal();
+    const action = editingEquipmentId ? 'updated' : 'saved';
+    const imageNote = hadImage ? ' Image uploaded successfully.' : '';
+    setSuccessMessage(`Equipment ${action} successfully.${imageNote}`);
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   const openAddModal = () => {
     setFormData(initialFormState);
     setEditingEquipmentId(null);
     setShowAddForm(true);
+    setImageError(null);
   };
 
   const openEditModal = (equipment: Equipment) => {
     setFormData({ ...equipment });
     setEditingEquipmentId(equipment.id);
     setShowAddForm(true);
+    setImageError(null);
   };
 
   const closeModal = () => {
     setShowAddForm(false);
     setEditingEquipmentId(null);
     setFormData(initialFormState);
+    setImageError(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
+  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'];
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const imageUrl = URL.createObjectURL(file); // Local mock URL
+
+      // Reset input early so the user can retry after an error
+      e.target.value = '';
+
+      // Validation 1: Size check (max 5MB) — block immediately before reading
+      const MAX_SIZE_MB = 5;
+      const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+      if (file.size > MAX_SIZE_BYTES) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        setImageError(`"${file.name}" is ${sizeMB} MB — exceeds the ${MAX_SIZE_MB} MB limit. Please choose a smaller image.`);
+        return;
+      }
+
+      // Validation 2: Format check — dual guard (MIME type + file extension)
+      // MIME type can be empty or spoofed, so we check extension as a fallback.
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      const mimeOk = ALLOWED_MIME_TYPES.includes(file.type);
+      const extOk = ALLOWED_EXTENSIONS.includes(ext);
+
+      if (!mimeOk || !extOk) {
+        setImageError(`"${file.name}" is not a supported image format. Allowed formats: JPG, JPEG, PNG, GIF, WEBP, AVIF.`);
+        return;
+      }
+
+      const imageUrl = URL.createObjectURL(file);
       setFormData(prev => ({ ...prev, imageUrl }));
     }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, imageUrl: null }));
+    setImageError(null);
   };
 
   const showModal = showAddForm;
 
   return (
     <div className="space-y-6">
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 shadow-sm">
+          <svg className="h-5 w-5 flex-shrink-0 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span className="flex-1 font-medium">{successMessage}</span>
+          <button onClick={() => setSuccessMessage(null)} className="font-bold text-green-700 hover:text-green-900">×</button>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Equipment Management</h1>
         <button
@@ -187,11 +257,16 @@ export default function EquipmentPage() {
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-500">
                 <span className="sr-only">Close</span>
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {/* Image Upload spanning 2 cols */}
@@ -199,18 +274,46 @@ export default function EquipmentPage() {
                   <label className="block text-sm font-medium text-gray-700">Equipment Image</label>
                   <div className="mt-1 flex items-center mb-4 gap-4">
                     {formData.imageUrl ? (
-                      <img src={formData.imageUrl} alt="Equipment preview" className="h-24 w-24 object-cover rounded shadow" />
+                      <div className="relative group flex-shrink-0">
+                        <img
+                          src={formData.imageUrl}
+                          alt="Equipment preview"
+                          className="h-24 w-24 object-cover rounded shadow cursor-pointer hover:opacity-80 transition hover:scale-105 duration-200"
+                          onClick={() => setPreviewImageUrl(formData.imageUrl)}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition rounded pointer-events-none">
+                          <span className="text-white text-xs font-semibold">Preview</span>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400">
+                      <div className="h-24 w-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 flex-shrink-0">
                         No Image
                       </div>
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                    />
+                    <div className="flex flex-col gap-2 w-full">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                      />
+                      {formData.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="self-start text-xs font-medium text-red-600 hover:text-red-800 transition cursor-pointer"
+                        >
+                          Remove Image
+                        </button>
+                      )}
+                      {imageError && (
+                        <p className="text-xs text-red-600 font-medium">{imageError}</p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium">Supported formats:</span> JPG, JPEG, PNG, GIF, WEBP, AVIF
+                        &nbsp;&middot;&nbsp;<span className="font-medium">Max size:</span> 5 MB per image
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -242,7 +345,7 @@ export default function EquipmentPage() {
                     name="model"
                     value={formData.model}
                     onChange={handleInputChange}
-                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
                   />
                 </div>
                 <div>
@@ -252,28 +355,32 @@ export default function EquipmentPage() {
                     name="serialNumber"
                     value={formData.serialNumber}
                     onChange={handleInputChange}
-                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Warranty Expiry *</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Warranty Expiry *
+                  </label>
                   <input
                     required
                     type="date"
                     name="warrantyExpiry"
                     value={formData.warrantyExpiry}
                     onChange={handleInputChange}
-                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Replacement Date</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Replacement Date
+                  </label>
                   <input
                     type="date"
                     name="replacementDate"
                     value={formData.replacementDate}
                     onChange={handleInputChange}
-                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
                   />
                 </div>
                 <div>
@@ -306,7 +413,9 @@ export default function EquipmentPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Lifecycle Status</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Lifecycle Status
+                  </label>
                   <select
                     name="lifecycleStatus"
                     value={formData.lifecycleStatus}
@@ -320,7 +429,7 @@ export default function EquipmentPage() {
                   </select>
                 </div>
               </div>
-              
+
               <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
                 <button
                   type="submit"
@@ -346,11 +455,25 @@ export default function EquipmentPage() {
         <table className="min-w-full divide-y divide-gray-300">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-16"></th>
-              <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Equipment</th>
-              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Serial &amp; Model</th>
-              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Monitoring Info</th>
+              <th
+                scope="col"
+                className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 w-16"
+              ></th>
+              <th
+                scope="col"
+                className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900"
+              >
+                Equipment
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Serial &amp; Model
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Status
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                Monitoring Info
+              </th>
               {isAdmin && (
                 <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                   <span className="sr-only">Actions</span>
@@ -363,7 +486,12 @@ export default function EquipmentPage() {
               <tr key={equipment.id}>
                 <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                   {equipment.imageUrl ? (
-                    <img src={equipment.imageUrl} alt={equipment.name} className="h-10 w-10 rounded-md object-cover" />
+                    <img
+                      src={equipment.imageUrl}
+                      alt={equipment.name}
+                      className="h-10 w-10 rounded-md object-cover cursor-pointer hover:scale-110 transition-transform duration-200 hover:shadow"
+                      onClick={() => setPreviewImageUrl(equipment.imageUrl)}
+                    />
                   ) : (
                     <div className="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500 text-xs text-center border">
                       No img
@@ -380,37 +508,43 @@ export default function EquipmentPage() {
                   <div className="text-gray-500">{equipment.serialNumber}</div>
                 </td>
                 <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                  <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(equipment.status)}`}>
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${getStatusColor(equipment.status)}`}
+                  >
                     {equipment.status.replace('_', ' ')}
                   </span>
                 </td>
                 <td className="px-3 py-4 text-sm text-gray-500">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                       <span className="text-gray-600 font-medium whitespace-nowrap">Condition:</span>
-                       <span className={getConditionColor(equipment.condition)}>{equipment.condition}</span>
+                      <span className="text-gray-600 font-medium whitespace-nowrap">
+                        Condition:
+                      </span>
+                      <span className={getConditionColor(equipment.condition)}>
+                        {equipment.condition}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                       <span className="text-gray-600 whitespace-nowrap">Lifecycle:</span>
-                       <span>{equipment.lifecycleStatus.replace('_', ' ')}</span>
+                      <span className="text-gray-600 whitespace-nowrap">Lifecycle:</span>
+                      <span>{equipment.lifecycleStatus.replace('_', ' ')}</span>
                     </div>
                     <div className="flex flex-col gap-1 text-xs mt-1">
-                       <div>
-                         <span className="text-gray-600">Warranty: </span>
-                         <span>{equipment.warrantyExpiry}</span>
-                       </div>
-                       {equipment.replacementDate && (
-                         <div>
-                           <span className="text-gray-600">Replace by: </span>
-                           <span>{equipment.replacementDate}</span>
-                         </div>
-                       )}
+                      <div>
+                        <span className="text-gray-600">Warranty: </span>
+                        <span>{equipment.warrantyExpiry}</span>
+                      </div>
+                      {equipment.replacementDate && (
+                        <div>
+                          <span className="text-gray-600">Replace by: </span>
+                          <span>{equipment.replacementDate}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
                 {isAdmin && (
                   <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 align-top">
-                    <button 
+                    <button
                       onClick={() => openEditModal(equipment)}
                       className="text-indigo-600 hover:text-indigo-900"
                     >
@@ -421,13 +555,48 @@ export default function EquipmentPage() {
               </tr>
             ))}
             {equipmentList.length === 0 && (
-               <tr>
-                 <td colSpan={isAdmin ? 6 : 5} className="py-8 text-center text-gray-500">No equipment found. Add some to get started.</td>
-               </tr>
+              <tr>
+                <td colSpan={isAdmin ? 6 : 5} className="py-8 text-center text-gray-500">
+                  No equipment found. Add some to get started.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
+      {/* Lightbox Preview Modal */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none transition p-2 bg-gray-800/50 hover:bg-gray-800 rounded-full cursor-pointer"
+            >
+              <span className="sr-only">Close Preview</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            {/* Image */}
+            <img
+              src={previewImageUrl}
+              alt="Full-size preview"
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-gray-700 bg-gray-900"
+              onClick={(e) => e.stopPropagation()} // prevent closing when clicking the image itself
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

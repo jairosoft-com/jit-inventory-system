@@ -1,37 +1,45 @@
 import { Router, Request, Response } from 'express';
-import { CategoriesService } from '../services/categories.service.js';
+import { ItemsService } from '../services/items.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import {
-  createCategorySchema,
-  updateCategorySchema,
-  CreateCategoryInput,
-  UpdateCategoryInput,
-  listCategoriesQuerySchema,
-  ListCategoriesQuery,
-} from '../schemas/categories.schema.js';
+  createItemSchema,
+  updateItemSchema,
+  listItemsQuerySchema,
+  type CreateItemInput,
+  type UpdateItemInput,
+  type ListItemsQuery,
+} from '../schemas/items.schema.js';
 
 const router = Router();
 
-// All category routes require authentication
 router.use(authenticate);
 
-// POST /categories
+// POST /items
 router.post(
   '/',
-  authorize('categories:create'),
-  validate(createCategorySchema),
+  authorize('inventory:create'),
+  validate(createItemSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const category = await CategoriesService.create(
-        req.body as CreateCategoryInput,
+      const item = await ItemsService.create(
+        req.body as CreateItemInput,
+        req.user!.id,
       );
-      res.status(201).json(category);
+      res.status(201).json(item);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
-      if (message.includes('already exists')) {
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      if (message.includes('already in use') || message.includes('already exists')) {
         res.status(409).json({ message });
+        return;
+      }
+      if (message.includes('does not match')) {
+        res.status(422).json({ message });
         return;
       }
       res.status(400).json({ message });
@@ -39,16 +47,17 @@ router.post(
   },
 );
 
-// GET /categories
+// GET /items
 router.get(
   '/',
-  authorize('categories:read'),
-  validate(listCategoriesQuerySchema, 'query'),
+  authorize('inventory:read'),
+  validate(listItemsQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const query = req.query as unknown as ListCategoriesQuery;
-      const categories = await CategoriesService.findAll(query.includeArchived);
-      res.status(200).json(categories);
+      const result = await ItemsService.findAll(
+        req.query as unknown as ListItemsQuery,
+      );
+      res.status(200).json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
@@ -57,19 +66,19 @@ router.get(
   },
 );
 
-// GET /categories/:id
+// GET /items/:id
 router.get(
   '/:id',
-  authorize('categories:read'),
+  authorize('inventory:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
-        res.status(400).json({ message: 'Invalid category ID' });
+        res.status(400).json({ message: 'Invalid item ID' });
         return;
       }
-      const category = await CategoriesService.findOne(id);
-      res.status(200).json(category);
+      const item = await ItemsService.findOne(id);
+      res.status(200).json(item);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
@@ -82,31 +91,32 @@ router.get(
   },
 );
 
-// PATCH /categories/:id
+// PATCH /items/:id
 router.patch(
   '/:id',
-  authorize('categories:update'),
-  validate(updateCategorySchema),
+  authorize('inventory:update'),
+  validate(updateItemSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
-        res.status(400).json({ message: 'Invalid category ID' });
+        res.status(400).json({ message: 'Invalid item ID' });
         return;
       }
-      const category = await CategoriesService.update(
-        id,
-        req.body as UpdateCategoryInput,
-      );
-      res.status(200).json(category);
+      const item = await ItemsService.update(id, req.body as UpdateItemInput);
+      res.status(200).json(item);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
-      if (message.includes('already exists')) {
+      if (message.includes('already in use')) {
         res.status(409).json({ message });
+        return;
+      }
+      if (message.includes('does not match')) {
+        res.status(422).json({ message });
         return;
       }
       res.status(400).json({ message });
@@ -114,18 +124,18 @@ router.patch(
   },
 );
 
-// DELETE /categories/:id
+// DELETE /items/:id  (soft delete)
 router.delete(
   '/:id',
-  authorize('categories:delete'),
+  authorize('inventory:delete'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
       if (isNaN(id)) {
-        res.status(400).json({ message: 'Invalid category ID' });
+        res.status(400).json({ message: 'Invalid item ID' });
         return;
       }
-      const result = await CategoriesService.archive(id);
+      const result = await ItemsService.archive(id);
       res.status(200).json(result);
     } catch (error) {
       const message =
@@ -134,7 +144,7 @@ router.delete(
         res.status(404).json({ message });
         return;
       }
-      if (message.includes('Cannot archive')) {
+      if (message.includes('must be archived via')) {
         res.status(400).json({ message });
         return;
       }

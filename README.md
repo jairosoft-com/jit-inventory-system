@@ -4,17 +4,17 @@ A web-based internal tool for managing the full lifecycle of Jairosoft Inc. / LL
 
 ## Tech Stack
 
-| Layer                | Technology               | Notes                                                     |
-| -------------------- | ------------------------ | --------------------------------------------------------- |
-| **Frontend**         | Vite + React 19          | Fast single-page application with React Router v7         |
-| **Styling**          | Vanilla CSS              | Modern, responsive CSS with CSS custom properties         |
-| **Backend**          | Express + TypeScript     | Lightweight, modular, and fast Node.js backend            |
-| **ORM**              | Prisma                   | Type-safe database client for PostgreSQL                  |
-| **Database**         | PostgreSQL (Docker)      | Local or shared relational database                       |
-| **File Storage**     | MinIO (S3-compatible)     | Local or shared file/image storage                        |
-| **Authentication**   | Custom Express JWT       | Two-token strategy (AT in memory + RT in httpOnly cookie) |
-| **State Management** | Zustand                  | Access token in memory (never localStorage)               |
-| **HTTP Client**      | Axios                    | With request/response interceptors for token refresh      |
+| Layer                | Technology            | Notes                                                     |
+| -------------------- | --------------------- | --------------------------------------------------------- |
+| **Frontend**         | Vite + React 19       | Fast single-page application with React Router v7         |
+| **Styling**          | Vanilla CSS           | Modern, responsive CSS with CSS custom properties         |
+| **Backend**          | Express + TypeScript  | Lightweight, modular, and fast Node.js backend            |
+| **ORM**              | Prisma                | Type-safe database client for PostgreSQL                  |
+| **Database**         | PostgreSQL (Docker)   | Local or shared relational database                       |
+| **File Storage**     | MinIO (S3-compatible) | Local or shared file/image storage                        |
+| **Authentication**   | Custom Express JWT    | Two-token strategy (AT in memory + RT in httpOnly cookie) |
+| **State Management** | Zustand               | Access token in memory (never localStorage)               |
+| **HTTP Client**      | Axios                 | With request/response interceptors for token refresh      |
 
 ## Project Structure
 

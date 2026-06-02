@@ -1,0 +1,136 @@
+@baseUrl = http://localhost:3001/api
+
+# 1. Run the Login request below, copy the "accessToken" from the response.
+# 2. Paste it directly below
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc4MDI5NDEyNiwiZXhwIjoxNzgwMjk1MDI2fQ.Czekd2GIys6Tu6gdbpEXMLfxKO2hzFg4v99jBygYNsQ
+
+# ── AUTHENTICATION ───────────────────────────────────────────────────────────
+
+### Login (Get Token)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "sam@jitims.com",
+  "password": "admin123"
+}
+
+
+# ── ITEMS — CONSUMABLE ───────────────────────────────────────────────────────
+
+### Create Consumable Item
+POST {{baseUrl}}/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "itemType": "CONSUMABLE",
+  "itemName": "Ballpen Black",
+  "description": "Black ink ballpen for office use",
+  "categoryId": 116,
+  "barcode": "BC-BALLPEN-001",
+  "consumableProfile": {
+    "unit": "pcs",
+    "quantity": 100,
+    "reorderPoint": 20
+  }
+}
+
+### Get All Items
+GET {{baseUrl}}/items
+Authorization: Bearer {{token}}
+
+### Get All Consumables Only
+GET {{baseUrl}}/items?itemType=CONSUMABLE
+Authorization: Bearer {{token}}
+
+### Get All Digital Items Only
+GET {{baseUrl}}/items?itemType=DIGITAL
+Authorization: Bearer {{token}}
+
+### Search Items
+GET {{baseUrl}}/items?search=ballpen&page=1&limit=10
+Authorization: Bearer {{token}}
+
+### Get Single Item (replace 1 with actual ID)
+GET {{baseUrl}}/items/1
+Authorization: Bearer {{token}}
+
+### Update Consumable Item
+PATCH {{baseUrl}}/items/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "itemName": "Ballpen Black (Updated)",
+  "quantity": 150,
+  "reorderPoint": 30
+}
+
+### Delete Item (Soft Delete)
+DELETE {{baseUrl}}/items/1
+Authorization: Bearer {{token}}
+
+
+# ── ITEMS — DIGITAL ──────────────────────────────────────────────────────────
+
+### Create Digital Item (Software License)
+POST {{baseUrl}}/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "itemType": "DIGITAL",
+  "itemName": "Adobe Photoshop License",
+  "description": "Annual subscription for design team",
+  "categoryId": 2,
+  "digitalAsset": {
+    "assetType": "SOFTWARE",
+    "vendor": "Adobe",
+    "seats": 5,
+    "expiryDate": "2026-12-31",
+    "cost": 599.99,
+    "billingCycle": "ANNUAL",
+    "status": "ACTIVE",
+    "notes": "Renewal due end of year"
+  }
+}
+
+### Create Digital Item (Subscription)
+POST {{baseUrl}}/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "itemType": "DIGITAL",
+  "itemName": "GitHub Teams",
+  "description": "Source code management",
+  "categoryId": 117,
+  "digitalAsset": {
+    "assetType": "SUBSCRIPTION",
+    "url": "https://github.com",
+    "vendor": "GitHub",
+    "seats": 10,
+    "cost": 40.00,
+    "billingCycle": "MONTHLY",
+    "status": "ACTIVE"
+  }
+}
+
+### Update Digital Item
+PATCH {{baseUrl}}/items/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "seats": 8,
+  "notes": "Reduced seats from 10 to 8"
+}
+
+
+### Get All Categories
+GET {{baseUrl}}/categories
+Authorization: Bearer {{token}}
+
+
+

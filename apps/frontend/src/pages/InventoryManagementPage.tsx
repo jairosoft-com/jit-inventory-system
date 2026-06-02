@@ -22,6 +22,8 @@ type InventoryFormState = {
 
 const mockCategories = ['Accessories', 'Cables', 'Peripherals', 'Equipment', 'Office Supplies'];
 
+const mockLocations = ['Storage Room A', 'Storage Room B', 'IT Office', 'Supply Room', 'Main Office'];
+
 const initialInventoryItems: InventoryItem[] = [
   {
     id: 1,
@@ -291,12 +293,11 @@ export default function InventoryManagementPage() {
             <label>
               Item Code
               <input
-                aria-readonly="true"
                 className="inventory-input inventory-input-readonly"
+                value={editingItemId !== null ? form.itemCode : generatedItemCode}
                 readOnly
-                value={editingItemId ? form.itemCode : generatedItemCode}
+                aria-readonly="true"
               />
-              <span className="inventory-help-text">Item codes are generated automatically and cannot be edited.</span>
             </label>
 
             <label>
@@ -324,19 +325,23 @@ export default function InventoryManagementPage() {
                   </option>
                 ))}
               </select>
-              <span className="inventory-help-text">
-                Temporary category options are shown until Categories page integration is available.
-              </span>
             </label>
 
             <label>
               Location
-              <input
+              <select
                 className="inventory-input"
                 value={form.location}
                 onChange={(event) => handleInputChange('location', event.target.value)}
                 required
-              />
+              >
+                <option value="">Select location</option>
+                {mockLocations.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
@@ -362,6 +367,7 @@ export default function InventoryManagementPage() {
                   ?
                 </span>
               </span>
+
               <input
                 className="inventory-input"
                 type="number"
@@ -370,6 +376,7 @@ export default function InventoryManagementPage() {
                 onChange={(event) => handleInputChange('reorderLevel', event.target.value)}
                 required
               />
+
               <span className="inventory-help-text">
                 Minimum stock quantity before the item is marked as low stock.
               </span>

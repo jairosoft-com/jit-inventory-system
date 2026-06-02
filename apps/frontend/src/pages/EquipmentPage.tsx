@@ -78,6 +78,7 @@ export default function EquipmentPage() {
   const [editingEquipmentId, setEditingEquipmentId] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Form State
   const initialFormState = {
@@ -116,6 +117,7 @@ export default function EquipmentPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const hadImage = !!formData.imageUrl;
     if (editingEquipmentId) {
       // Editing existing
       setEquipmentList(prev => 
@@ -131,6 +133,10 @@ export default function EquipmentPage() {
     }
     
     closeModal();
+    const action = editingEquipmentId ? 'updated' : 'saved';
+    const imageNote = hadImage ? ' Image uploaded successfully.' : '';
+    setSuccessMessage(`Equipment ${action} successfully.${imageNote}`);
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   const openAddModal = () => {
@@ -159,29 +165,38 @@ export default function EquipmentPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
+  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'];
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
-      // Validation 1: Size check (max 5MB)
+      // Reset input early so the user can retry after an error
+      e.target.value = '';
+
+      // Validation 1: Size check (max 5MB) — block immediately before reading
       const MAX_SIZE_MB = 5;
       const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
       if (file.size > MAX_SIZE_BYTES) {
-        setImageError(`Image size must be less than ${MAX_SIZE_MB}MB.`);
-        e.target.value = '';
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        setImageError(`"${file.name}" is ${sizeMB} MB — exceeds the ${MAX_SIZE_MB} MB limit. Please choose a smaller image.`);
         return;
       }
 
-      // Validation 2: Format check (allowed types: JPG, PNG, GIF, WEBP)
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        setImageError('Invalid image format. Allowed formats: JPG, PNG, GIF, WEBP.');
-        e.target.value = '';
+      // Validation 2: Format check — dual guard (MIME type + file extension)
+      // MIME type can be empty or spoofed, so we check extension as a fallback.
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      const mimeOk = ALLOWED_MIME_TYPES.includes(file.type);
+      const extOk = ALLOWED_EXTENSIONS.includes(ext);
+
+      if (!mimeOk || !extOk) {
+        setImageError(`"${file.name}" is not a supported image format. Allowed formats: JPG, JPEG, PNG, GIF, WEBP, AVIF.`);
         return;
       }
 
-      const imageUrl = URL.createObjectURL(file); // Local mock URL
+      const imageUrl = URL.createObjectURL(file);
       setFormData(prev => ({ ...prev, imageUrl }));
     }
   };
@@ -195,6 +210,17 @@ export default function EquipmentPage() {
 
   return (
     <div className="space-y-6">
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 shadow-sm">
+          <svg className="h-5 w-5 flex-shrink-0 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span className="flex-1 font-medium">{successMessage}</span>
+          <button onClick={() => setSuccessMessage(null)} className="font-bold text-green-700 hover:text-green-900">×</button>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Equipment Management</h1>
         <button
@@ -263,7 +289,10 @@ export default function EquipmentPage() {
                       {imageError && (
                         <p className="text-xs text-red-600 font-medium">{imageError}</p>
                       )}
-                      <p className="text-xs text-gray-400">Max size: 5MB. Formats: JPG, PNG, GIF, WEBP</p>
+                      <p className="text-xs text-gray-500">
+                        <span className="font-medium">Supported formats:</span> JPG, JPEG, PNG, GIF, WEBP, AVIF
+                        &nbsp;&middot;&nbsp;<span className="font-medium">Max size:</span> 5 MB per image
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ const eslintConfig = [
       "dist/**",
       "node_modules/**",
       "vite.config.ts",
+      ".next/**",
     ],
   },
 ];

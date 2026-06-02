@@ -1,10 +1,18 @@
 import { prisma } from '../lib/prisma.js';
-import { ItemType, Prisma } from '@prisma/client';
+import { ItemType, ItemStatus, Prisma } from '@prisma/client';
 import type {
   CreateItemInput,
   UpdateItemInput,
   ListItemsQuery,
 } from '../schemas/items.schema.js';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function calculateStockStatus(quantity: number, reorderPoint: number): ItemStatus {
+  if (quantity <= 0) return ItemStatus.OUT_OF_STOCK;
+  if (quantity <= reorderPoint) return ItemStatus.LOW_STOCK;
+  return ItemStatus.IN_STOCK;
+}
 
 // ── Shared include ────────────────────────────────────────────────────────────
 
@@ -85,6 +93,10 @@ export class ItemsService {
               unit: data.consumableProfile.unit,
               quantity: data.consumableProfile.quantity,
               reorderPoint: data.consumableProfile.reorderPoint,
+              status: calculateStockStatus(
+                data.consumableProfile.quantity,
+                data.consumableProfile.reorderPoint,
+              ),
             },
           },
         },
@@ -214,11 +226,17 @@ export class ItemsService {
             quantity !== undefined ||
             reorderPoint !== undefined) && {
             consumableProfile: {
-              update: {
-                ...(unit !== undefined && { unit }),
-                ...(quantity !== undefined && { quantity }),
-                ...(reorderPoint !== undefined && { reorderPoint }),
-              },
+              update: (() => {
+                const existingProfile = item.consumableProfile!;
+                const newQuantity = quantity !== undefined ? quantity : existingProfile.quantity;
+                const newReorderPoint = reorderPoint !== undefined ? reorderPoint : existingProfile.reorderPoint;
+                return {
+                  ...(unit !== undefined && { unit }),
+                  ...(quantity !== undefined && { quantity }),
+                  ...(reorderPoint !== undefined && { reorderPoint }),
+                  status: calculateStockStatus(newQuantity, newReorderPoint),
+                };
+              })(),
             },
           }),
 

@@ -94,17 +94,32 @@ chore(ci): add type-check step to GitHub Actions pipeline
 
 ## Database Changes
 
-1. Update `prisma/schema.prisma`
-2. Run `npm run db:migrate` to generate a migration
-3. If adding seed data, update `prisma/seed.ts`
-4. Commit both the schema and migration files
+When changing the database schema:
+
+1. Update `prisma/schema.prisma`.
+2. Generate a local migration: `npm run db:migrate` (runs `prisma migrate dev` against your local database).
+3. If adding seed data, update `prisma/seed.ts`.
+4. Commit the schema updates and the generated migration files.
+5. In your PR description, **explicitly state that this PR contains database migrations**.
+6. Once the PR is approved and merged to `develop`, **the author of the PR is responsible for running `npx prisma migrate deploy` against the shared database host** (if using a shared database instance) so that the central database schema stays in sync.
+7. Teammates pulling the latest `develop` branch must run:
+   ```bash
+   npx prisma migrate deploy
+   ```
+   If there are new roles, permissions, or system metadata added, run the seed script:
+   ```bash
+   npx prisma db seed
+   ```
 
 ## Project Structure Guidelines
 
-- **Backend modules**: One directory per feature (e.g., `src/auth/`, `src/inventory/`)
-- Each module contains: `*.module.ts`, `*.service.ts`, `*.controller.ts`, and optional `dto/` and `entities/` subdirectories
-- **Shared code**: Common guards, decorators, and interceptors go in `src/common/`
-- **Shared types**: Cross-app types and constants go in `packages/shared/`
+- **Backend Architecture**: Structured as a clean Express application:
+  - **Routes** (`src/routes/`): Defines HTTP endpoints, applies validation/authorization middlewares, and delegates to service logic.
+  - **Services** (`src/services/`): Handles core business logic, validation logic, and database operations using Prisma.
+  - **Middlewares** (`src/middleware/`): Holds route guards, specifically `authenticate` (JWT processing), `authorize` (RBAC checking), and `validate` (Zod schema checking).
+  - **Schemas** (`src/schemas/`): Zod schemas for payload validation.
+  - **Types** (`src/types/`): Application-wide TypeScript interfaces and extensions.
+- **Shared types**: Cross-app types, utilities, and constants go in `packages/shared/`.
 
 ## Questions?
 

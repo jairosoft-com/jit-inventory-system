@@ -11,6 +11,7 @@ node_modules/
 dist/
 build/
 .next/
+**/.next/
 out/
 *.tsbuildinfo
 
@@ -74,3 +75,9 @@ prisma/*.db-journal
 # ========================
 *.tgz
 .cache/
+
+# ========================
+# Docker
+# ========================
+docker-data/
+

@@ -4,25 +4,25 @@ A web-based internal tool for managing the full lifecycle of Jairosoft Inc. / LL
 
 ## Tech Stack
 
-| Layer                | Technology               | Notes                                                     |
-| -------------------- | ------------------------ | --------------------------------------------------------- |
-| **Frontend**         | Next.js (App Router)     | React framework with SSR and server components            |
-| **Styling**          | Tailwind CSS + shadcn/ui | Utility-first CSS with pre-built component library        |
-| **Backend**          | NestJS                   | Node.js framework with modular architecture               |
-| **ORM**              | Prisma                   | Type-safe database client for PostgreSQL                  |
-| **Database**         | PostgreSQL via Supabase  | Hosted relational DB                                      |
-| **File Storage**     | Supabase Storage         | Images, warranty documents, attachments                   |
-| **Authentication**   | Custom NestJS JWT        | Two-token strategy (AT in memory + RT in httpOnly cookie) |
-| **State Management** | Zustand                  | Access token in memory (never localStorage)               |
-| **HTTP Client**      | Axios                    | With response interceptor for token refresh               |
+| Layer                | Technology            | Notes                                                     |
+| -------------------- | --------------------- | --------------------------------------------------------- |
+| **Frontend**         | Vite + React 19       | Fast single-page application with React Router v7         |
+| **Styling**          | Vanilla CSS           | Modern, responsive CSS with CSS custom properties         |
+| **Backend**          | Express + TypeScript  | Lightweight, modular, and fast Node.js backend            |
+| **ORM**              | Prisma                | Type-safe database client for PostgreSQL                  |
+| **Database**         | PostgreSQL (Docker)   | Local or shared relational database                       |
+| **File Storage**     | MinIO (S3-compatible) | Local or shared file/image storage                        |
+| **Authentication**   | Custom Express JWT    | Two-token strategy (AT in memory + RT in httpOnly cookie) |
+| **State Management** | Zustand               | Access token in memory (never localStorage)               |
+| **HTTP Client**      | Axios                 | With request/response interceptors for token refresh      |
 
 ## Project Structure
 
 ```
 jit-inventory-system/
 ├── apps/
-│   ├── frontend/         # Next.js application
-│   └── backend/          # NestJS application
+│   ├── frontend/         # Vite + React 19 application
+│   └── backend/          # Express + TypeScript application
 ├── packages/
 │   └── shared/           # Shared types and constants
 ├── prisma/
@@ -40,7 +40,7 @@ jit-inventory-system/
 
 - **Node.js** >= 20.0.0
 - **npm** >= 10.0.0
-- **PostgreSQL** database (or Supabase project)
+- **Docker & Docker Compose** (for database, S3 storage, and mail capture)
 - **Git**
 
 ## Getting Started
@@ -58,7 +58,15 @@ cd jit-inventory-system
 npm install
 ```
 
-### 3. Configure Environment
+### 3. Start Infrastructure
+
+Start the local development PostgreSQL, MinIO, and MailDev services using Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+### 4. Configure Environment
 
 ```bash
 cp .env.example .env
@@ -66,24 +74,26 @@ cp .env.example .env
 
 Edit `.env` with your actual values:
 
-- `DATABASE_URL` — PostgreSQL connection string
-- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — Secret keys for JWT tokens
-- `SUPABASE_URL` / `SUPABASE_ANON_KEY` — Supabase project credentials
+- `DATABASE_URL` — PostgreSQL connection string (defaults to `localhost` but can point to a shared machine's IP)
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — Secret keys for signing JWT tokens
+- `ENCRYPTION_KEY` — Key for symmetric license key encryption (min 32 characters)
+- `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` — MinIO configuration
+- `SMTP_HOST` / `SMTP_PORT` — MailDev local mail capture configuration
 
-### 4. Setup Database
+### 5. Setup Database
 
 ```bash
 # Generate Prisma client
 npm run db:generate
 
-# Run migrations
+# Run migrations (against the Docker database)
 npm run db:migrate
 
-# Seed RBAC data (roles, permissions, role-permission mappings)
+# Seed RBAC data (roles, permissions, default admin user)
 npm run db:seed
 ```
 
-### 5. Start Development
+### 6. Start Development
 
 ```bash
 # Start both frontend and backend concurrently

@@ -1,7 +1,7 @@
 // ============================================
 // JIT IMS — RBAC Seed Data
-// Seeds roles, permissions, and role_permissions
-// on first migration as defined in v3.1 spec
+// Seeds roles, permissions, role_permissions,
+// and superadmin account
 // ============================================
 
 import { PrismaClient } from '@prisma/client';
@@ -11,13 +11,21 @@ const prisma = new PrismaClient();
 
 // ── Seeded Roles ────────────────────────────
 const ROLES = [
-  { name: 'ADMIN', description: 'Full system access — unrestricted', isSystem: true },
+  {
+    name: 'ADMIN',
+    description: 'Full system access — unrestricted',
+    isSystem: true,
+  },
   {
     name: 'MANAGER',
     description: 'Operational authority — inventory and borrow management',
     isSystem: true,
   },
-  { name: 'STAFF', description: 'End-user access — browse and self-request only', isSystem: true },
+  {
+    name: 'STAFF',
+    description: 'End-user access — browse and self-request only',
+    isSystem: true,
+  },
 ];
 
 // ── Seeded Permissions ──────────────────────
@@ -88,7 +96,12 @@ const PERMISSIONS = [
     action: 'approve',
     description: 'Approve/reject borrow requests',
   },
-  { name: 'borrow:read', resource: 'borrow', action: 'read', description: 'View borrow records' },
+  {
+    name: 'borrow:read',
+    resource: 'borrow',
+    action: 'read',
+    description: 'View borrow records',
+  },
 
   // Disposal
   {
@@ -111,7 +124,12 @@ const PERMISSIONS = [
     action: 'create',
     description: 'Create and manage user accounts',
   },
-  { name: 'users:read', resource: 'users', action: 'read', description: 'View user profiles' },
+  {
+    name: 'users:read',
+    resource: 'users',
+    action: 'read',
+    description: 'View user profiles',
+  },
 
   // Roles & Permissions
   {
@@ -206,7 +224,12 @@ const PERMISSIONS = [
     action: 'create',
     description: 'Record stock out',
   },
-  { name: 'stock:read', resource: 'stock', action: 'read', description: 'View stock movements' },
+  {
+    name: 'stock:read',
+    resource: 'stock',
+    action: 'read',
+    description: 'View stock movements',
+  },
 
   // Maintenance
   {
@@ -246,46 +269,9 @@ const PERMISSIONS = [
 ];
 
 // ── Role-Permission Mappings ────────────────
-// Based on Access Control Matrix from v3.1 spec
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {
-  ADMIN: [
-    // Admin has ALL permissions
-    'inventory:create',
-    'inventory:read',
-    'inventory:update',
-    'inventory:delete',
-    'equipment:create',
-    'equipment:read',
-    'equipment:update',
-    'equipment:delete',
-    'borrow:submit',
-    'borrow:approve',
-    'borrow:read',
-    'disposal:approve',
-    'disposal:read',
-    'users:manage',
-    'users:read',
-    'roles:manage',
-    'roles:read',
-    'categories:create',
-    'categories:read',
-    'categories:update',
-    'categories:delete',
-    'suppliers:create',
-    'suppliers:read',
-    'suppliers:update',
-    'purchase_orders:create',
-    'purchase_orders:read',
-    'purchase_orders:update',
-    'stock_in:create',
-    'stock_out:create',
-    'stock:read',
-    'maintenance:create',
-    'maintenance:read',
-    'maintenance:update',
-    'audit_logs:read',
-    'reports:export',
-  ],
+  ADMIN: PERMISSIONS.map((p) => p.name),
+
   MANAGER: [
     'inventory:create',
     'inventory:read',
@@ -317,14 +303,16 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'audit_logs:read',
     'reports:export',
   ],
+
   STAFF: ['inventory:read', 'equipment:read', 'borrow:submit', 'borrow:read', 'categories:read'],
 };
 
 async function main() {
   console.warn('🌱 Seeding JIT IMS database...\n');
 
-  // Seed roles
+  // ── Seed Roles ────────────────────────────
   console.warn('📋 Seeding roles...');
+
   for (const role of ROLES) {
     await prisma.role.upsert({
       where: { name: role.name },
@@ -332,10 +320,12 @@ async function main() {
       create: role,
     });
   }
+
   console.warn(`   ✓ ${ROLES.length} roles seeded\n`);
 
-  // Seed permissions
+  // ── Seed Permissions ──────────────────────
   console.warn('🔐 Seeding permissions...');
+
   for (const permission of PERMISSIONS) {
     await prisma.permission.upsert({
       where: { name: permission.name },
@@ -343,17 +333,26 @@ async function main() {
       create: permission,
     });
   }
+
   console.warn(`   ✓ ${PERMISSIONS.length} permissions seeded\n`);
 
-  // Seed role-permission mappings
+  // ── Seed Role-Permission Mappings ─────────
   console.warn('🔗 Seeding role-permission mappings...');
+
   let mappingCount = 0;
+
   for (const [roleName, permissionNames] of Object.entries(ROLE_PERMISSION_MAP)) {
-    const role = await prisma.role.findUnique({ where: { name: roleName } });
+    const role = await prisma.role.findUnique({
+      where: { name: roleName },
+    });
+
     if (!role) continue;
 
-    for (const permName of permissionNames) {
-      const permission = await prisma.permission.findUnique({ where: { name: permName } });
+    for (const permissionName of permissionNames) {
+      const permission = await prisma.permission.findUnique({
+        where: { name: permissionName },
+      });
+
       if (!permission) continue;
 
       await prisma.rolePermission.upsert({
@@ -369,39 +368,49 @@ async function main() {
           permissionId: permission.id,
         },
       });
+
       mappingCount++;
     }
   }
+
   console.warn(`   ✓ ${mappingCount} role-permission mappings seeded\n`);
 
-  // Seed default admin user
-  if (process.env.NODE_ENV !== 'production' || process.env.SEED_DEFAULT_ADMIN === 'true') {
-    console.warn('👤 Seeding default admin user...');
-    const adminRole = await prisma.role.findUnique({ where: { name: 'ADMIN' } });
-    if (adminRole) {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@jitims.com';
-      const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-      if (!existingAdmin) {
-        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
-        await prisma.user.create({
-          data: {
-            email: adminEmail,
-            password: hashedPassword,
-            firstName: 'Admin',
-            lastName: 'User',
-            roleId: adminRole.id,
-            isActive: true,
-          },
-        });
-        console.warn('   ✓ Default admin user seeded\n');
-      } else {
-        console.warn('   ✓ Admin user already exists\n');
-      }
-    }
+  // ── Seed Superadmin User ──────────────────
+  console.warn('👑 Seeding superadmin user...');
+
+  const adminRole = await prisma.role.findUnique({
+    where: { name: 'ADMIN' },
+  });
+
+  if (!adminRole) {
+    throw new Error('ADMIN role not found');
+  }
+
+  const superAdminEmail = process.env.SUPERADMIN_EMAIL || 'sam@jitims.com';
+
+  const superAdminPassword = process.env.SUPERADMIN_PASSWORD || 'admin123';
+
+  const existingSuperAdmin = await prisma.user.findUnique({
+    where: { email: superAdminEmail },
+  });
+
+  if (!existingSuperAdmin) {
+    const hashedPassword = await bcrypt.hash(superAdminPassword, 12);
+
+    await prisma.user.create({
+      data: {
+        email: superAdminEmail,
+        password: hashedPassword,
+        firstName: 'Sam',
+        lastName: 'SuperAdmin',
+        roleId: adminRole.id,
+        isActive: true,
+      },
+    });
+
+    console.warn('   ✓ Superadmin user seeded\n');
   } else {
-    console.warn(
-      '   ○ Skipping default admin user in production. Use environment variables if needed.\n',
-    );
+    console.warn('   ✓ Superadmin already exists\n');
   }
 
   console.warn('✅ Database seeding completed successfully!');

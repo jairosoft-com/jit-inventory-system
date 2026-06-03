@@ -411,7 +411,8 @@ export default function EquipmentPage() {
       handleCloseForm();
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
-      setFormError(err.message || 'An error occurred');
+      clearError(); // prevent store error from showing on main page
+      setFormError(err.message || 'An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -503,7 +504,7 @@ export default function EquipmentPage() {
         </header>
 
         {/* ── Alerts ──────────────────────────────────────────────────── */}
-        {storeError && (
+        {storeError && !isFormOpen && (
           <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <span>{storeError}</span>
             <button
@@ -1259,7 +1260,6 @@ export default function EquipmentPage() {
 
       {/* ── Lightbox ────────────────────────────────────────────────────── */}
       {previewImageUrl && (
-        <div
         <div
           className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
           onClick={() => setPreviewImageUrl(null)}

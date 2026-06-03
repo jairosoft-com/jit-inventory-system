@@ -25,8 +25,8 @@ interface CategoryState {
   categories: Category[];
   isLoading: boolean;
   error: string | null;
-  
-  fetchCategories: () => Promise<void>;
+
+  fetchCategories: (includeArchived?: boolean) => Promise<void>;
   createCategory: (data: CreateCategoryInput) => Promise<Category>;
   updateCategory: (id: number, data: UpdateCategoryInput) => Promise<Category>;
   archiveCategory: (id: number) => Promise<void>;
@@ -40,10 +40,12 @@ export const useCategoryStore = create<CategoryState>((set) => ({
 
   clearError: () => set({ error: null }),
 
-  fetchCategories: async () => {
+  fetchCategories: async (includeArchived = false) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get<Category[]>('/categories');
+      const response = await api.get<Category[]>('/categories', {
+        params: { includeArchived },
+      });
       set({ categories: response.data, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -60,9 +62,7 @@ export const useCategoryStore = create<CategoryState>((set) => ({
       const response = await api.post<Category>('/categories', data);
       const newCategory = response.data;
       set((state) => ({
-        categories: [...state.categories, newCategory].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        ),
+        categories: [...state.categories, newCategory].sort((a, b) => a.name.localeCompare(b.name)),
         isLoading: false,
       }));
       return newCategory;
@@ -97,9 +97,10 @@ export const useCategoryStore = create<CategoryState>((set) => ({
   archiveCategory: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await api.delete(`/categories/${id}`);
+      const response = await api.delete<Category>(`/categories/${id}`);
+      const updatedCategory = response.data;
       set((state) => ({
-        categories: state.categories.filter((cat) => cat.id !== id),
+        categories: state.categories.map((cat) => (cat.id === id ? updatedCategory : cat)),
         isLoading: false,
       }));
     } catch (error: unknown) {

@@ -168,7 +168,7 @@ export default function EquipmentPage() {
   const isAdmin = roleName.includes('ADMIN');
   const canCreate = isAdmin || permissions.includes('equipment:create');
   const canUpdate = isAdmin || permissions.includes('equipment:update');
-  const canDelete = isAdmin || permissions.includes('equipment:delete');
+  const canDelete = false; // deletion is disabled
 
   // ── UI State ─────────────────────────────────────────────────────────────
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -215,7 +215,7 @@ export default function EquipmentPage() {
   // ── Form Handlers ────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
     setEditingEquipment(null);
-    setFormData({ ...emptyForm, assetId: generateAssetId() });
+    setFormData({ ...emptyForm, assetId: '' });
     setPendingImages([]);
     setImageError(null);
     setFormError(null);
@@ -313,9 +313,9 @@ export default function EquipmentPage() {
     if (!window.confirm('Remove this image?')) return;
     try {
       await deleteImage(equipmentId, imageId);
-      
+
       // Update local editing state to remove the image immediately from the modal
-      setEditingEquipment((prev) => 
+      setEditingEquipment((prev) =>
         prev ? { ...prev, images: prev.images.filter((img) => img.id !== imageId) } : prev
       );
     } catch {
@@ -374,7 +374,7 @@ export default function EquipmentPage() {
             isPrimary: img.isPrimary,
           });
         }
-        
+
         setSuccessMessage('Equipment updated successfully');
       } else {
         // ── Create ──────────────────────────────────────────────────────
@@ -593,8 +593,7 @@ export default function EquipmentPage() {
                         Serial &amp; Model
                       </th>
                       <th className="px-4 py-3.5 font-semibold">Status</th>
-                      <th className="px-4 py-3.5 font-semibold">Condition</th>
-                      <th className="px-4 py-3.5 font-semibold">Warranty</th>
+                      <th className="px-4 py-3.5 font-semibold">Monitoring Info</th>
                       {(canUpdate || canDelete) && (
                         <th className="px-4 py-3.5 font-semibold text-right">
                           Actions
@@ -613,14 +612,18 @@ export default function EquipmentPage() {
                           {/* Image */}
                           <td className="px-4 py-4">
                             {primaryImg ? (
-                              <img
-                                src={primaryImg.url}
-                                alt={eq.item.itemName}
-                                className="h-10 w-10 rounded-lg object-cover cursor-pointer hover:scale-110 transition-transform duration-200 shadow-sm"
+                              <div
+                                className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
                                 onClick={() => setPreviewImageUrl(primaryImg.url)}
-                              />
+                              >
+                                <img
+                                  src={primaryImg.url}
+                                  alt={eq.item.itemName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
                             ) : (
-                              <div className="h-10 w-10 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
+                              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
                                 —
                               </div>
                             )}
@@ -659,30 +662,27 @@ export default function EquipmentPage() {
                             <StatusBadge status={eq.status} />
                           </td>
 
-                          {/* Condition */}
-                          <td className="px-4 py-4">
-                            <ConditionBadge condition={eq.condition} />
-                          </td>
-
-                          {/* Warranty */}
+                          {/* Monitoring Info — Condition + Warranty merged */}
                           <td className="px-4 py-4 text-xs text-[var(--text-secondary)]">
-                            {eq.warrantyEnd ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span>
-                                  Expires:{' '}
-                                  {new Date(eq.warrantyEnd).toLocaleDateString()}
-                                </span>
-                                {eq.warrantyProvider && (
-                                  <span className="text-[var(--text-tertiary)]">
-                                    {eq.warrantyProvider}
-                                  </span>
-                                )}
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[var(--text-tertiary)]">Condition:</span>
+                                <ConditionBadge condition={eq.condition} />
                               </div>
-                            ) : (
-                              <span className="text-[var(--text-disabled)] italic">
-                                No warranty
-                              </span>
-                            )}
+                              {eq.warrantyEnd ? (
+                                <>
+                                  <div>
+                                    <span className="text-[var(--text-tertiary)]">Warranty: </span>
+                                    {new Date(eq.warrantyEnd).toLocaleDateString()}
+                                  </div>
+                                  {eq.warrantyProvider && (
+                                    <div className="text-[var(--text-disabled)]">{eq.warrantyProvider}</div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-[var(--text-disabled)] italic">No warranty</div>
+                              )}
+                            </div>
                           </td>
 
                           {/* Actions */}
@@ -843,9 +843,9 @@ export default function EquipmentPage() {
       {/* ── Modal Form ──────────────────────────────────────────────────── */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up max-h-[95vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+          <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up max-h-[95vh] flex flex-col overflow-hidden">
+            {/* Modal Header — sticky, never scrolls */}
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                   {editingEquipment ? 'Edit Equipment' : 'Register New Equipment'}
@@ -864,119 +864,219 @@ export default function EquipmentPage() {
                 ✕
               </button>
             </div>
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
 
-            {/* Form Error */}
-            {formError && (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {formError}
-              </div>
-            )}
+              {/* Form Error */}
+              {formError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-              {/* ── Basic Information ───────────────────────────────────── */}
-              <fieldset>
-                <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                  Basic Information
-                </legend>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormField
-                    label="Item Name"
-                    required
-                    name="itemName"
-                    value={formData.itemName}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Dell XPS 15 Laptop"
-                  />
-                  {/* Asset ID — auto-generated, read-only in create; editable in edit */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Asset ID <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                {/* ── Images ─────────────────────────────────────────────── */}
+                <fieldset>
+                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                    Images
+                  </legend>
+
+                  {/* Existing images (edit mode) */}
+                  {editingEquipment && editingEquipment.images.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-[var(--text-secondary)] mb-2">
+                        Current Images
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {editingEquipment.images.map((img) => (
+                          <div key={img.id} className="relative group">
+                            <img
+                              src={img.url}
+                              alt={img.label || 'Equipment image'}
+                              className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                              onClick={() => setPreviewImageUrl(img.url)}
+                            />
+                            {img.isPrimary && (
+                              <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                                Primary
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteExistingImage(editingEquipment.id, img.id)
+                              }
+                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending images (both create and edit modes) */}
+                  {pendingImages.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-[var(--text-secondary)] mb-2">
+                        {editingEquipment ? 'New images to add' : 'Images to upload'}
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {pendingImages.map((img, i) => (
+                          <div key={i} className="relative group">
+                            <img
+                              src={img.url}
+                              alt={img.label}
+                              className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                              onClick={() => setPreviewImageUrl(img.url)}
+                            />
+                            {img.isPrimary && (
+                              <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                                Primary
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePendingImage(i)}
+                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add image input */}
+                  <div className="flex flex-col gap-2 w-full">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                    />
+                    {imageError && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
+                        <span>{imageError}</span>
+                        <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
+                      </div>
+                    )}
+                    <p className="text-xs text-[var(--text-tertiary)]">Max size: 5MB. Formats: JPG, PNG, GIF, WEBP</p>
+                  </div>
+                </fieldset>
+
+                {/* ── Basic Information ───────────────────────────────────── */}
+                <fieldset>
+                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                    Basic Information
+                  </legend>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormField
+                      label="Item Name"
+                      required
+                      name="itemName"
+                      value={formData.itemName}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Dell XPS 15 Laptop"
+                    />
+                    {/* Asset ID — manual entry */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Asset ID <span className="text-red-500">*</span>
+                      </label>
                       <input
                         required
                         type="text"
                         name="assetId"
                         value={formData.assetId}
                         onChange={handleInputChange}
-                        readOnly={!editingEquipment}
-                        className={`w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 pr-24 text-sm font-mono outline-none transition focus:border-[var(--input-border-focus)] ${
-                          !editingEquipment ? 'text-[var(--text-secondary)] cursor-default' : ''
-                        }`}
+                        placeholder="e.g. EQ-001"
+                        className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm font-mono outline-none transition focus:border-[var(--input-border-focus)]"
                       />
-                      {!editingEquipment && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, assetId: generateAssetId() }))}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-[var(--background-tertiary)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
-                        >
-                          Regenerate
-                        </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Category <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        required
+                        name="categoryId"
+                        value={formData.categoryId}
+                        onChange={handleInputChange}
+                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                      >
+                        <option value="">Select category...</option>
+                        {equipmentCategories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                      {equipmentCategories.length === 0 && (
+                        <p className="text-xs text-[var(--text-disabled)]">
+                          No equipment categories found. Create one first.
+                        </p>
                       )}
                     </div>
-                    {!editingEquipment && (
-                      <p className="text-[10px] text-[var(--text-disabled)]">Auto-generated — click Regenerate for a new ID</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Category <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      required
-                      name="categoryId"
-                      value={formData.categoryId}
+                    <FormField
+                      label="Serial Number"
+                      name="serialNumber"
+                      value={formData.serialNumber}
                       onChange={handleInputChange}
-                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                    >
-                      <option value="">Select category...</option>
-                      {equipmentCategories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                    {equipmentCategories.length === 0 && (
-                      <p className="text-xs text-[var(--text-disabled)]">
-                        No equipment categories found. Create one first.
-                      </p>
-                    )}
-                  </div>
-                  <FormField
-                    label="Serial Number"
-                    name="serialNumber"
-                    value={formData.serialNumber}
-                    onChange={handleInputChange}
-                    placeholder="e.g. SN-987654321"
-                  />
-                  <FormField
-                    label="Brand"
-                    name="brand"
-                    value={formData.brand}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Dell"
-                  />
-                  <FormField
-                    label="Model"
-                    name="model"
-                    value={formData.model}
-                    onChange={handleInputChange}
-                    placeholder="e.g. XPS 15 9520"
-                  />
-                  {/* Location dropdown with ability to add new options */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Location
-                    </label>
-                    {showLocationInput ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newLocationValue}
-                          onChange={(e) => setNewLocationValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
+                      placeholder="e.g. SN-987654321"
+                    />
+                    <FormField
+                      label="Brand"
+                      name="brand"
+                      value={formData.brand}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Dell"
+                    />
+                    <FormField
+                      label="Model"
+                      name="model"
+                      value={formData.model}
+                      onChange={handleInputChange}
+                      placeholder="e.g. XPS 15 9520"
+                    />
+                    {/* Location dropdown with ability to add new options */}
+                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Location
+                      </label>
+                      {showLocationInput ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newLocationValue}
+                            onChange={(e) => setNewLocationValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const trimmed = newLocationValue.trim();
+                                if (trimmed && !locationOptions.includes(trimmed)) {
+                                  setLocationOptions((prev) => [...prev, trimmed]);
+                                }
+                                if (trimmed) {
+                                  setFormData((prev) => ({ ...prev, location: trimmed }));
+                                }
+                                setNewLocationValue('');
+                                setShowLocationInput(false);
+                              }
+                              if (e.key === 'Escape') {
+                                setShowLocationInput(false);
+                                setNewLocationValue('');
+                              }
+                            }}
+                            placeholder="Enter new location..."
+                            autoFocus
+                            className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
                               const trimmed = newLocationValue.trim();
                               if (trimmed && !locationOptions.includes(trimmed)) {
                                 setLocationOptions((prev) => [...prev, trimmed]);
@@ -986,282 +1086,169 @@ export default function EquipmentPage() {
                               }
                               setNewLocationValue('');
                               setShowLocationInput(false);
-                            }
-                            if (e.key === 'Escape') {
-                              setShowLocationInput(false);
-                              setNewLocationValue('');
-                            }
-                          }}
-                          placeholder="Enter new location..."
-                          autoFocus
-                          className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const trimmed = newLocationValue.trim();
-                            if (trimmed && !locationOptions.includes(trimmed)) {
-                              setLocationOptions((prev) => [...prev, trimmed]);
-                            }
-                            if (trimmed) {
-                              setFormData((prev) => ({ ...prev, location: trimmed }));
-                            }
-                            setNewLocationValue('');
-                            setShowLocationInput(false);
-                          }}
-                          className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition"
-                        >
-                          Add
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setShowLocationInput(false); setNewLocationValue(''); }}
-                          className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <select
-                          name="location"
-                          value={formData.location}
-                          onChange={handleInputChange}
-                          className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                        >
-                          <option value="">Select location...</option>
-                          {locationOptions.map((loc) => (
-                            <option key={loc} value={loc}>{loc}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => setShowLocationInput(true)}
-                          title="Add new location"
-                          className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition"
-                        >
-                          +
-                        </button>
-                      </div>
+                            }}
+                            className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setShowLocationInput(false); setNewLocationValue(''); }}
+                            className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <select
+                            name="location"
+                            value={formData.location}
+                            onChange={handleInputChange}
+                            className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                          >
+                            <option value="">Select location...</option>
+                            {locationOptions.map((loc) => (
+                              <option key={loc} value={loc}>{loc}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setShowLocationInput(true)}
+                            title="Add new location"
+                            className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition"
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Description
+                    </label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      placeholder="Optional description..."
+                      rows={2}
+                      className="mt-1.5 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                    />
+                  </div>
+                </fieldset>
+
+                {/* ── Status & Condition ──────────────────────────────────── */}
+                <fieldset>
+                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                    Status &amp; Condition
+                  </legend>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Status
+                      </label>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                      >
+                        {EQUIPMENT_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s.replace(/_/g, ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Condition
+                      </label>
+                      <select
+                        name="condition"
+                        value={formData.condition}
+                        onChange={handleInputChange}
+                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                      >
+                        {CONDITION_STATUSES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </fieldset>
+
+                {/* ── Warranty & Purchase ─────────────────────────────────── */}
+                <fieldset>
+                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                    Warranty &amp; Purchase
+                  </legend>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormField
+                      label="Warranty Start"
+                      name="warrantyStart"
+                      type="date"
+                      value={formData.warrantyStart}
+                      onChange={handleInputChange}
+                    />
+                    <FormField
+                      label="Warranty End"
+                      name="warrantyEnd"
+                      type="date"
+                      value={formData.warrantyEnd}
+                      onChange={handleInputChange}
+                    />
+                    <FormField
+                      label="Warranty Provider"
+                      name="warrantyProvider"
+                      value={formData.warrantyProvider}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Dell Technologies"
+                    />
+                    <FormField
+                      label="Purchase Price"
+                      name="purchasePrice"
+                      type="number"
+                      value={formData.purchasePrice}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                    />
+                    <FormField
+                      label="Acquisition Date"
+                      name="acquisitionDate"
+                      type="date"
+                      value={formData.acquisitionDate}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </fieldset>
+
+                {/* ── Form Actions ────────────────────────────────────────── */}
+                <div className="mt-2 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseForm}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSubmitting && (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                     )}
-                  </div>
+                    {editingEquipment ? 'Save Changes' : 'Register Equipment'}
+                  </button>
                 </div>
-                <div className="mt-3">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="Optional description..."
-                    rows={2}
-                    className="mt-1.5 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                  />
-                </div>
-              </fieldset>
-
-              {/* ── Status & Condition ──────────────────────────────────── */}
-              <fieldset>
-                <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                  Status &amp; Condition
-                </legend>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleInputChange}
-                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                    >
-                      {EQUIPMENT_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s.replace(/_/g, ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Condition
-                    </label>
-                    <select
-                      name="condition"
-                      value={formData.condition}
-                      onChange={handleInputChange}
-                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                    >
-                      {CONDITION_STATUSES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </fieldset>
-
-              {/* ── Warranty & Purchase ─────────────────────────────────── */}
-              <fieldset>
-                <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                  Warranty &amp; Purchase
-                </legend>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormField
-                    label="Warranty Start"
-                    name="warrantyStart"
-                    type="date"
-                    value={formData.warrantyStart}
-                    onChange={handleInputChange}
-                  />
-                  <FormField
-                    label="Warranty End"
-                    name="warrantyEnd"
-                    type="date"
-                    value={formData.warrantyEnd}
-                    onChange={handleInputChange}
-                  />
-                  <FormField
-                    label="Warranty Provider"
-                    name="warrantyProvider"
-                    value={formData.warrantyProvider}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Dell Technologies"
-                  />
-                  <FormField
-                    label="Purchase Price"
-                    name="purchasePrice"
-                    type="number"
-                    value={formData.purchasePrice}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                  />
-                  <FormField
-                    label="Acquisition Date"
-                    name="acquisitionDate"
-                    type="date"
-                    value={formData.acquisitionDate}
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </fieldset>
-
-              {/* ── Images ─────────────────────────────────────────────── */}
-              <fieldset>
-                <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                  Images
-                </legend>
-
-                {/* Existing images (edit mode) */}
-                {editingEquipment && editingEquipment.images.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs text-[var(--text-secondary)] mb-2">
-                      Current Images
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      {editingEquipment.images.map((img) => (
-                        <div key={img.id} className="relative group">
-                          <img
-                            src={img.url}
-                            alt={img.label || 'Equipment image'}
-                            className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                            onClick={() => setPreviewImageUrl(img.url)}
-                          />
-                          {img.isPrimary && (
-                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                              Primary
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteExistingImage(editingEquipment.id, img.id)
-                            }
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pending images (both create and edit modes) */}
-                {pendingImages.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs text-[var(--text-secondary)] mb-2">
-                      {editingEquipment ? 'New images to add' : 'Images to upload'}
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      {pendingImages.map((img, i) => (
-                        <div key={i} className="relative group">
-                          <img
-                            src={img.url}
-                            alt={img.label}
-                            className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                            onClick={() => setPreviewImageUrl(img.url)}
-                          />
-                          {img.isPrimary && (
-                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                              Primary
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePendingImage(i)}
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Add image input */}
-                <div className="flex flex-col gap-2 w-full">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                  />
-                  {imageError && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
-                      <span>{imageError}</span>
-                      <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
-                    </div>
-                  )}
-                  <p className="text-xs text-[var(--text-tertiary)]">Max size: 5MB. Formats: JPG, PNG, GIF, WEBP</p>
-                </div>
-              </fieldset>
-
-              {/* ── Form Actions ────────────────────────────────────────── */}
-              <div className="mt-2 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseForm}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isSubmitting && (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  )}
-                  {editingEquipment ? 'Save Changes' : 'Register Equipment'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>{/* end scrollable body */}
           </section>
         </div>
       )}
@@ -1362,19 +1349,18 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          status === 'AVAILABLE'
-            ? 'bg-[var(--success)]'
-            : status === 'IN_USE'
-              ? 'bg-[var(--info)]'
-              : status === 'UNDER_MAINTENANCE'
-                ? 'bg-[var(--warning)]'
-                : status === 'DAMAGED' || status === 'LOST'
-                  ? 'bg-red-600'
-                  : status === 'BORROWED'
-                    ? 'bg-purple-600'
-                    : 'bg-gray-400'
-        }`}
+        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
+          ? 'bg-[var(--success)]'
+          : status === 'IN_USE'
+            ? 'bg-[var(--info)]'
+            : status === 'UNDER_MAINTENANCE'
+              ? 'bg-[var(--warning)]'
+              : status === 'DAMAGED' || status === 'LOST'
+                ? 'bg-red-600'
+                : status === 'BORROWED'
+                  ? 'bg-purple-600'
+                  : 'bg-gray-400'
+          }`}
       />
       {status.replace(/_/g, ' ')}
     </span>

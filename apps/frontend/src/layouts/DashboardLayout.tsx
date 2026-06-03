@@ -238,8 +238,10 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    if (!user) {
+      checkAuth();
+    }
+  }, [checkAuth, user]);
 
   useEffect(() => {
     if (!isLoading && !user) {

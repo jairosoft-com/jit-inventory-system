@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
-/* ── SVG Icon Components (inline for skeleton) ── */
+/* ------ SVG Icon Components (inline for skeleton) ------ */
 
 function IconDashboard() {
   return (
@@ -201,7 +201,7 @@ function IconChevron({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-/* ── Navigation config ── */
+/* ------ Navigation config ------ */
 
 const NAV_SECTIONS = [
   {
@@ -231,25 +231,71 @@ const NAV_SECTIONS = [
   },
 ];
 
+function formatRoleName(roleName?: string | null) {
+  if (!roleName) {
+    return 'User';
+  }
+
+  return roleName
+    .toLowerCase()
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isLoading, checkAuth, logout } = useAuthStore();
+  const { user, isLoading, checkAuth, logout, authCheckStatus } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState(0);
+  const hasCheckedAuthRef = useRef(false);
 
   useEffect(() => {
-    checkAuth();
+    if (hasCheckedAuthRef.current) {
+      return;
+    }
+
+    hasCheckedAuthRef.current = true;
+    void checkAuth();
   }, [checkAuth]);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !user && authCheckStatus === 401) {
       navigate('/');
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, authCheckStatus, navigate]);
+
+  useEffect(() => {
+    if (authCheckStatus === 429) {
+      setRetryCountdown(60);
+    }
+  }, [authCheckStatus]);
+
+  useEffect(() => {
+    if (retryCountdown <= 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRetryCountdown((currentCountdown) => Math.max(currentCountdown - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [retryCountdown]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/');
+  };
+
+  const handleRetryAuthCheck = () => {
+    if (retryCountdown > 0 || isLoading) {
+      return;
+    }
+
+    void checkAuth();
   };
 
   if (isLoading) {
@@ -267,6 +313,94 @@ export default function DashboardLayout() {
             borderTopColor: '#2563eb',
           }}
         />
+      </div>
+    );
+  }
+
+  if (!user && authCheckStatus && authCheckStatus !== 401) {
+    const isRateLimited = authCheckStatus === 429;
+
+    return (
+      <div
+        className="dash-layout"
+        style={{
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          padding: '24px',
+        }}
+      >
+        <section
+          style={{
+            width: '100%',
+            maxWidth: '480px',
+            border: '1px solid var(--surface-border)',
+            borderRadius: '16px',
+            background: 'var(--surface)',
+            padding: '24px',
+            boxShadow: 'var(--shadow-md)',
+          }}
+        >
+          <h1
+            style={{
+              margin: '0 0 8px',
+              color: 'var(--text-primary)',
+              fontSize: '1.25rem',
+              fontWeight: 700,
+            }}
+          >
+            Please wait before retrying
+          </h1>
+
+          <p
+            style={{
+              margin: '0 0 16px',
+              color: 'var(--text-secondary)',
+              fontSize: '0.95rem',
+              lineHeight: 1.6,
+            }}
+          >
+            {isRateLimited
+              ? 'Too many session checks were sent. Please wait for the cooldown before trying again.'
+              : 'The system could not verify your session right now. Please try again in a moment.'}
+          </p>
+
+          {retryCountdown > 0 && (
+            <p
+              style={{
+                margin: '0 0 16px',
+                color: 'var(--text-tertiary)',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+              }}
+            >
+              Retry available in {retryCountdown} second{retryCountdown === 1 ? '' : 's'}.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleRetryAuthCheck}
+            disabled={isLoading || retryCountdown > 0}
+            style={{
+              border: 0,
+              borderRadius: '10px',
+              background: 'var(--accent)',
+              color: '#ffffff',
+              cursor: isLoading || retryCountdown > 0 ? 'not-allowed' : 'pointer',
+              font: 'inherit',
+              fontWeight: 700,
+              opacity: isLoading || retryCountdown > 0 ? 0.65 : 1,
+              padding: '10px 14px',
+            }}
+          >
+            {isLoading
+              ? 'Checking...'
+              : retryCountdown > 0
+                ? `Retry in ${retryCountdown}s`
+                : 'Retry Session Check'}
+          </button>
+        </section>
       </div>
     );
   }
@@ -347,7 +481,7 @@ export default function DashboardLayout() {
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
                 <span className="dash-user-role">
-                  {user.role?.description || user.role?.name || 'User'}
+                  {formatRoleName(user.role?.name)}
                 </span>
               </div>
             </div>
@@ -380,10 +514,10 @@ export default function DashboardLayout() {
               <input
                 id="global-search"
                 type="text"
-                placeholder="Search inventory, equipment, orders…"
+                placeholder="Search inventory, equipment, orders"
                 className="dash-search-input"
               />
-              <kbd className="dash-search-kbd">⌘K</kbd>
+              <kbd className="dash-search-kbd"></kbd>
             </div>
           </div>
           <div className="dash-topbar-right">
@@ -410,7 +544,7 @@ export default function DashboardLayout() {
       </main>
 
       <style>{`
-        /* ── Dashboard Shell ─────────────────── */
+        /* ------ Dashboard Shell ------ */
 
         .dash-layout {
           display: flex;
@@ -418,7 +552,7 @@ export default function DashboardLayout() {
           background: var(--background);
         }
 
-        /* ── Sidebar ─────────────────────────── */
+        /* ------ Sidebar -------------- */
 
         .dash-sidebar {
           position: fixed;
@@ -478,7 +612,7 @@ export default function DashboardLayout() {
           border-color: var(--surface-border-hover);
         }
 
-        /* ── Navigation ──────────────────────── */
+        /* ------ Navigation ------ */
 
         .dash-sidebar-nav {
           flex: 1;
@@ -545,7 +679,7 @@ export default function DashboardLayout() {
           border-radius: var(--radius-full);
         }
 
-        /* ── Sidebar Footer ──────────────────── */
+        /* ------ Sidebar Footer ------ */
 
         .dash-sidebar-footer {
           border-top: 1px solid var(--sidebar-border);
@@ -617,7 +751,7 @@ export default function DashboardLayout() {
           color: var(--danger);
         }
 
-        /* ── Main Content ────────────────────── */
+        /* ------ Main Content ------ */
 
         .dash-main {
           flex: 1;
@@ -630,7 +764,7 @@ export default function DashboardLayout() {
           margin-left: 68px;
         }
 
-        /* ── Top Bar ─────────────────────────── */
+        /* ------ Top Bar ------ */
 
         .dash-topbar {
           position: sticky;
@@ -742,7 +876,7 @@ export default function DashboardLayout() {
           border: 2px solid var(--sidebar-bg);
         }
 
-        /* ── Page Content Area ───────────────── */
+        /* ------ Page Content Area ------ */
 
         .dash-content {
           flex: 1;

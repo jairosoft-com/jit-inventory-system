@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
 
@@ -198,6 +198,23 @@ function hasUserManagementAccess(user: CurrentUser | null) {
   return normalizedRole.includes('admin') || (hasUserAccess && hasRoleAccess);
 }
 
+function hasUserAccessManagementPermission(user: CurrentUser | null) {
+  if (!user) {
+    return false;
+  }
+
+  const roleName =
+    typeof user.role === 'string' ? user.role : (user.role?.name ?? user.roleName ?? '');
+
+  const normalizedRole = roleName.toLowerCase();
+  const permissions = getPermissionNames(user);
+
+  return (
+    normalizedRole.includes('admin') ||
+    (permissions.includes('users:manage') && permissions.includes('roles:manage'))
+  );
+}
+
 function getClientAuth(): AuthState {
   const token = getStoredToken();
 
@@ -264,6 +281,7 @@ async function requestJson<T>(url: string, token: string, init?: RequestInit): P
 
 export default function UserManagementPage() {
   const [authState, setAuthState] = useState<AuthState>(initialAuthState);
+  const isLoadingRef = useRef(false);
 
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -288,6 +306,11 @@ export default function UserManagementPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const loadData = useCallback(async (token: string) => {
+    if (isLoadingRef.current) {
+      return;
+    }
+
+    isLoadingRef.current = true;
     setIsLoading(true);
     setErrorMessage('');
 
@@ -321,6 +344,7 @@ export default function UserManagementPage() {
         error instanceof Error ? error.message : 'Unable to load user management data.',
       );
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   }, []);
@@ -366,6 +390,11 @@ export default function UserManagementPage() {
     });
   }, [searchTerm, selectedRoleId, selectedStatus, users]);
 
+  const canManageUserAccess = useMemo(
+    () => hasUserAccessManagementPermission(authState.user),
+    [authState.user],
+  );
+
   function getDefaultRoleId() {
     return roles[0] ? String(roles[0].id) : '';
   }
@@ -378,6 +407,12 @@ export default function UserManagementPage() {
   }
 
   function openAddUserForm() {
+    if (!canManageUserAccess) {
+      setErrorMessage('You do not have permission to create users.');
+      setSuccessMessage('');
+      return;
+    }
+
     resetAddUserForm();
     setEditingUser(null);
     setIsAddUserOpen(true);
@@ -393,6 +428,12 @@ export default function UserManagementPage() {
   }
 
   function openEditAccess(user: User) {
+    if (!canManageUserAccess) {
+      setErrorMessage('You do not have permission to update user access.');
+      setSuccessMessage('');
+      return;
+    }
+
     setEditingUser(user);
     setEditRoleId(user.role ? String(user.role.id) : '');
     setEditIsActive(user.isActive);
@@ -415,7 +456,7 @@ export default function UserManagementPage() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!authState.isAuthorized) {
+    if (!authState.isAuthorized || !canManageUserAccess) {
       setErrorMessage('You are not authorized to create users.');
       return;
     }
@@ -464,7 +505,7 @@ export default function UserManagementPage() {
       return;
     }
 
-    if (!authState.isAuthorized) {
+    if (!authState.isAuthorized || !canManageUserAccess) {
       setErrorMessage('You are not authorized to update user access.');
       return;
     }
@@ -540,18 +581,21 @@ export default function UserManagementPage() {
             <button
               type="button"
               onClick={() => void loadData(authState.token)}
-              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              disabled={isLoading}
+              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Refresh
+              {isLoading ? 'Refreshing...' : 'Refresh'}
             </button>
 
-            <button
-              type="button"
-              onClick={openAddUserForm}
-              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-            >
-              Add User
-            </button>
+            {canManageUserAccess && (
+              <button
+                type="button"
+                onClick={openAddUserForm}
+                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+              >
+                Add User
+              </button>
+            )}
           </div>
         </header>
 
@@ -694,7 +738,7 @@ export default function UserManagementPage() {
           </section>
         )}
 
-        {editingUser && (
+        {editingUser && canManageUserAccess && (
           <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
             <div className="mb-4">
               <h2 className="text-lg font-semibold">Edit User Access</h2>
@@ -815,7 +859,7 @@ export default function UserManagementPage() {
                       <th className="px-4 py-3 font-medium">Role</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Created At</th>
-                      <th className="px-4 py-3 font-medium">Action</th>
+                      {canManageUserAccess && <th className="px-4 py-3 font-medium">Action</th>}
                     </tr>
                   </thead>
 
@@ -833,15 +877,17 @@ export default function UserManagementPage() {
                         <td className="px-4 py-3 text-[var(--text-secondary)]">
                           {formatDate(user.createdAt)}
                         </td>
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => openEditAccess(user)}
-                            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-                          >
-                            Edit Role
-                          </button>
-                        </td>
+                        {canManageUserAccess && (
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => openEditAccess(user)}
+                              className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                            >
+                              Edit Role
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -870,13 +916,15 @@ export default function UserManagementPage() {
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditAccess(user)}
-                      className="mt-4 w-full rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-                    >
-                      Edit Role
-                    </button>
+                    {canManageUserAccess && (
+                      <button
+                        type="button"
+                        onClick={() => openEditAccess(user)}
+                        className="mt-4 w-full rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                      >
+                        Edit Role
+                      </button>
+                    )}
                   </article>
                 ))}
               </div>

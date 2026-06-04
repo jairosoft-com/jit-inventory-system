@@ -729,7 +729,6 @@ export default function UserManagementPage() {
                 </div>
               </form>
             </section>
-          </div>
         )}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

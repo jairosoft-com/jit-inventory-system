@@ -71,13 +71,7 @@ const DEFAULT_LOCATIONS = [
   'Operations Room',
 ];
 
-/** Generate a unique Asset ID like EQ-YYYYMMDD-XXXX */
-function generateAssetId(): string {
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `EQ-${date}-${rand}`;
-}
+
 
 const emptyForm: FormState = {
   itemName: '',
@@ -150,9 +144,9 @@ export default function EquipmentPage() {
   } = useEquipmentStore();
   const { categories, fetchCategories } = useCategoryStore();
 
-  // Categories filtered to EQUIPMENT type only
+  // Categories filtered to EQUIPMENT type only, excluding archived entries
   const equipmentCategories = useMemo(
-    () => categories.filter((c) => c.type === 'EQUIPMENT'),
+    () => categories.filter((c) => c.type === 'EQUIPMENT' && !c.deletedAt),
     [categories],
   );
 
@@ -253,7 +247,6 @@ export default function EquipmentPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 

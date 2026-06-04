@@ -40,8 +40,10 @@ export default function CategoryManagementPage() {
 
   // Resolve user permissions
   const permissions = useMemo(() => {
-    if (!user || !user.permissions) return [];
-    return user.permissions.map((p: any) => (typeof p === 'string' ? p : p.name || ''));
+    if (!user || !(user as any).permissions) return [];
+    return ((user as any).permissions as any[]).map((p: any) =>
+      typeof p === 'string' ? p : p.name || '',
+    );
   }, [user]);
 
   const canCreate = permissions.includes('categories:create') || user?.role?.name === 'ADMIN';

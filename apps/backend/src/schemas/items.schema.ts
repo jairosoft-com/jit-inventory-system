@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { ItemType, DigitalAssetType, BillingCycle, DigitalStatus } from '@prisma/client';
+import {
+  ItemType,
+  DigitalAssetType,
+  BillingCycle,
+  DigitalStatus,
+} from '@prisma/client';
 
 // ── Consumable sub-schema ─────────────────────────────────────────────────────
 
@@ -29,30 +34,35 @@ const digitalAssetSchema = z.object({
 
 // ── Create schema (discriminated by itemType) ─────────────────────────────────
 
-export const createItemSchema = z
-  .discriminatedUnion('itemType', [
-    // CONSUMABLE
-    z.object({
-      itemType: z.literal(ItemType.CONSUMABLE),
-      itemName: z.string().trim().min(1, 'Item name is required').max(255),
-      description: z.string().trim().optional().nullable(),
-      categoryId: z.number().int().positive('Category ID must be a positive integer'),
-      barcode: z.string().trim().max(255).optional().nullable(),
-      imageUrl: z.string().url().max(500).optional().nullable(),
-      consumableProfile: consumableProfileSchema,
-    }),
+export const createItemSchema = z.discriminatedUnion('itemType', [
+  // CONSUMABLE
+  z.object({
+    itemType: z.literal(ItemType.CONSUMABLE),
+    itemName: z.string().trim().min(1, 'Item name is required').max(255),
+    description: z.string().trim().optional().nullable(),
+    categoryId: z
+      .number()
+      .int()
+      .positive('Category ID must be a positive integer'),
+    barcode: z.string().trim().max(255).optional().nullable(),
+    imageUrl: z.string().url().max(500).optional().nullable(),
+    consumableProfile: consumableProfileSchema,
+  }),
 
-    // DIGITAL
-    z.object({
-      itemType: z.literal(ItemType.DIGITAL),
-      itemName: z.string().trim().min(1, 'Item name is required').max(255),
-      description: z.string().trim().optional().nullable(),
-      categoryId: z.number().int().positive('Category ID must be a positive integer'),
-      barcode: z.string().trim().max(255).optional().nullable(),
-      imageUrl: z.string().url().max(500).optional().nullable(),
-      digitalAsset: digitalAssetSchema,
-    }),
-  ]);
+  // DIGITAL
+  z.object({
+    itemType: z.literal(ItemType.DIGITAL),
+    itemName: z.string().trim().min(1, 'Item name is required').max(255),
+    description: z.string().trim().optional().nullable(),
+    categoryId: z
+      .number()
+      .int()
+      .positive('Category ID must be a positive integer'),
+    barcode: z.string().trim().max(255).optional().nullable(),
+    imageUrl: z.string().url().max(500).optional().nullable(),
+    digitalAsset: digitalAssetSchema,
+  }),
+]);
 
 // ── Update schema (flat partial — itemType cannot be changed) ─────────────────
 

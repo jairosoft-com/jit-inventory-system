@@ -34,7 +34,10 @@ router.post(
         res.status(404).json({ message });
         return;
       }
-      if (message.includes('already in use') || message.includes('already exists')) {
+      if (
+        message.includes('already in use') ||
+        message.includes('already exists')
+      ) {
         res.status(409).json({ message });
         return;
       }

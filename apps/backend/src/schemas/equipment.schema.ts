@@ -4,7 +4,7 @@ import { EquipmentStatus, ConditionStatus } from '@prisma/client';
 // ── Image sub-schema ──────────────────────────────────────────────────────────
 
 export const equipmentImageSchema = z.object({
-  url: z.string().url('Image URL must be a valid URL').max(500),
+  url: z.string().min(1, 'Image data is required'),
   label: z.string().trim().max(100).optional().nullable(),
   isPrimary: z.boolean().optional().default(false),
 });

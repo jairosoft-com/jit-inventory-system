@@ -20,6 +20,7 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   authCheckStatus: number | null;
+  authRetryAfterSeconds: number | null;
   setAuth: (accessToken: string | null, user: User | null) => void;
   setAccessToken: (accessToken: string | null) => void;
   login: (email: string, password: string) => Promise<User>;
@@ -32,7 +33,7 @@ let isCheckingAuth = false;
 let lastAuthCheckStartedAt = 0;
 
 const RATE_LIMIT_STATUS = 429;
-const AUTH_CHECK_RATE_LIMIT_COOLDOWN_MS = 10_000;
+const BACKEND_RATE_LIMIT_FALLBACK_SECONDS = 15 * 60;
 const AUTH_USER_STORAGE_KEY = 'jit-auth-user';
 
 function loadCachedUser() {
@@ -66,15 +67,142 @@ function saveCachedUser(user: User | null) {
   window.sessionStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
 }
 
+function normalizeHeaderValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value[0] ? String(value[0]) : null;
+  }
+
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return String(value);
+}
+
+function getHeaderValue(headers: unknown, headerName: string) {
+  if (!headers || typeof headers !== 'object') {
+    return null;
+  }
+
+  const headerGetter = (headers as { get?: (name: string) => unknown }).get;
+
+  if (typeof headerGetter === 'function') {
+    const value = normalizeHeaderValue(headerGetter.call(headers, headerName));
+
+    if (value) {
+      return value;
+    }
+  }
+
+  const headerRecord = headers as Record<string, unknown>;
+  const directValue =
+    headerRecord[headerName] ??
+    headerRecord[headerName.toLowerCase()] ??
+    headerRecord[headerName.toUpperCase()];
+
+  const normalizedDirectValue = normalizeHeaderValue(directValue);
+
+  if (normalizedDirectValue) {
+    return normalizedDirectValue;
+  }
+
+  const matchingEntry = Object.entries(headerRecord).find(
+    ([key]) => key.toLowerCase() === headerName.toLowerCase(),
+  );
+
+  return normalizeHeaderValue(matchingEntry?.[1]);
+}
+
+function parseSecondsOrDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  if (Number.isFinite(numericValue)) {
+    return Math.max(Math.ceil(numericValue), 0);
+  }
+
+  const timestamp = Date.parse(value);
+
+  if (!Number.isNaN(timestamp)) {
+    return Math.max(Math.ceil((timestamp - Date.now()) / 1000), 0);
+  }
+
+  return null;
+}
+
+function normalizeResetValueToSeconds(value: number) {
+  const currentEpochSeconds = Math.floor(Date.now() / 1000);
+
+  if (value > currentEpochSeconds - 60) {
+    return Math.max(value - currentEpochSeconds, 0);
+  }
+
+  return Math.max(Math.ceil(value), 0);
+}
+
+function parseRateLimitHeader(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const resetMatch = value.match(/(?:^|,)\s*reset="?(\d+)"?/i);
+
+  if (!resetMatch) {
+    return null;
+  }
+
+  return normalizeResetValueToSeconds(Number(resetMatch[1]));
+}
+
+function getRetryAfterSeconds(error: unknown) {
+  const err = error as {
+    response?: {
+      headers?: unknown;
+      status?: number;
+    };
+  };
+
+  if (err.response?.status !== RATE_LIMIT_STATUS) {
+    return null;
+  }
+
+  const headers = err.response.headers;
+
+  const retryAfterSeconds = parseSecondsOrDate(getHeaderValue(headers, 'Retry-After'));
+
+  if (retryAfterSeconds !== null) {
+    return retryAfterSeconds;
+  }
+
+  const rateLimitReset = getHeaderValue(headers, 'RateLimit-Reset');
+  const rateLimitResetSeconds = rateLimitReset ? Number(rateLimitReset) : Number.NaN;
+
+  if (Number.isFinite(rateLimitResetSeconds)) {
+    return normalizeResetValueToSeconds(rateLimitResetSeconds);
+  }
+
+  const rateLimitHeaderSeconds = parseRateLimitHeader(getHeaderValue(headers, 'RateLimit'));
+
+  if (rateLimitHeaderSeconds !== null) {
+    return rateLimitHeaderSeconds;
+  }
+
+  return BACKEND_RATE_LIMIT_FALLBACK_SECONDS;
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: null,
   user: loadCachedUser(),
   isLoading: true,
   authCheckStatus: null,
+  authRetryAfterSeconds: null,
 
   setAuth: (accessToken, user) => {
     saveCachedUser(user);
-    set({ accessToken, user, authCheckStatus: null });
+    set({ accessToken, user, authCheckStatus: null, authRetryAfterSeconds: null });
   },
 
   setAccessToken: (accessToken) => {
@@ -82,7 +210,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    set({ isLoading: true, authCheckStatus: null });
+    set({ isLoading: true, authCheckStatus: null, authRetryAfterSeconds: null });
 
     try {
       const response = await api.post('/auth/login', { email, password });
@@ -98,6 +226,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user,
         isLoading: false,
         authCheckStatus: null,
+        authRetryAfterSeconds: null,
       });
 
       return user;
@@ -127,6 +256,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       isLoading: false,
       authCheckStatus: null,
+      authRetryAfterSeconds: null,
     });
   },
 
@@ -137,10 +267,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const now = Date.now();
     const currentStatus = get().authCheckStatus;
+    const retryAfterSeconds =
+      get().authRetryAfterSeconds ?? BACKEND_RATE_LIMIT_FALLBACK_SECONDS;
 
     if (
       currentStatus === RATE_LIMIT_STATUS &&
-      now - lastAuthCheckStartedAt < AUTH_CHECK_RATE_LIMIT_COOLDOWN_MS
+      now - lastAuthCheckStartedAt < retryAfterSeconds * 1000
     ) {
       set({ isLoading: false });
       return;
@@ -148,7 +280,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     isCheckingAuth = true;
     lastAuthCheckStartedAt = now;
-    set({ isLoading: true, authCheckStatus: null });
+    set({ isLoading: true, authCheckStatus: null, authRetryAfterSeconds: null });
 
     try {
       const response = await api.get('/auth/me');
@@ -160,6 +292,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user,
         isLoading: false,
         authCheckStatus: null,
+        authRetryAfterSeconds: null,
       });
     } catch (error: unknown) {
       const err = error as { response?: { status?: number }; message?: string };
@@ -173,6 +306,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: null,
           isLoading: false,
           authCheckStatus: 401,
+          authRetryAfterSeconds: null,
         });
         return;
       }
@@ -183,6 +317,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: cachedUser,
         isLoading: false,
         authCheckStatus: status,
+        authRetryAfterSeconds: getRetryAfterSeconds(error),
       });
     } finally {
       isCheckingAuth = false;

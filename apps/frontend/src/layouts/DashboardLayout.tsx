@@ -244,10 +244,22 @@ function formatRoleName(roleName?: string | null) {
     .join(' ');
 }
 
+function formatCountdown(totalSeconds: number) {
+  const safeSeconds = Math.max(Math.floor(totalSeconds), 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  if (minutes === 0) {
+    return `${seconds}s`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isLoading, checkAuth, logout, authCheckStatus } = useAuthStore();
+  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const hasCheckedAuthRef = useRef(false);
@@ -269,9 +281,12 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     if (authCheckStatus === 429) {
-      setRetryCountdown(60);
+      setRetryCountdown(authRetryAfterSeconds ?? 15 * 60);
+      return;
     }
-  }, [authCheckStatus]);
+
+    setRetryCountdown(0);
+  }, [authCheckStatus, authRetryAfterSeconds]);
 
   useEffect(() => {
     if (retryCountdown <= 0) {
@@ -317,7 +332,7 @@ export default function DashboardLayout() {
     );
   }
 
-  if (!user && authCheckStatus && authCheckStatus !== 401) {
+  if (authCheckStatus && authCheckStatus !== 401) {
     const isRateLimited = authCheckStatus === 429;
 
     return (
@@ -361,7 +376,7 @@ export default function DashboardLayout() {
             }}
           >
             {isRateLimited
-              ? 'Too many session checks were sent. Please wait for the cooldown before trying again.'
+              ? 'Too many session checks were sent. Please wait for the backend cooldown before trying again.'
               : 'The system could not verify your session right now. Please try again in a moment.'}
           </p>
 
@@ -374,7 +389,7 @@ export default function DashboardLayout() {
                 fontWeight: 600,
               }}
             >
-              Retry available in {retryCountdown} second{retryCountdown === 1 ? '' : 's'}.
+              Retry available in {formatCountdown(retryCountdown)}.
             </p>
           )}
 
@@ -397,7 +412,7 @@ export default function DashboardLayout() {
             {isLoading
               ? 'Checking...'
               : retryCountdown > 0
-                ? `Retry in ${retryCountdown}s`
+                ? `Retry in ${formatCountdown(retryCountdown)}`
                 : 'Retry Session Check'}
           </button>
         </section>

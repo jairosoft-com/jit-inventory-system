@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3001/api';
 
 const USER_DIRECTORY_PAGE_SIZE = 1000;
 
@@ -75,14 +74,6 @@ type CurrentUser = {
   permissions?: Array<string | { name?: string }>;
 };
 
-type AuthState = {
-  isChecking: boolean;
-  isAuthorized: boolean;
-  token: string;
-  user: CurrentUser | null;
-  message: string;
-};
-
 const emptySummary: UserSummary = {
   totalUsers: 0,
   activeUsers: 0,
@@ -98,78 +89,6 @@ const emptyNewUserForm: NewUserForm = {
   roleId: '',
   isActive: true,
 };
-
-const initialAuthState: AuthState = {
-  isChecking: true,
-  isAuthorized: false,
-  token: '',
-  user: null,
-  message: '',
-};
-
-function getStoredToken() {
-  const memToken = useAuthStore.getState().accessToken;
-  if (memToken) {
-    return memToken;
-  }
-
-  const tokenKeys = ['accessToken', 'access_token', 'token', 'jwt', 'jit_access_token'];
-
-  for (const key of tokenKeys) {
-    const token = window.localStorage.getItem(key);
-
-    if (token) {
-      return token;
-    }
-  }
-
-  return '';
-}
-
-function getStoredUser() {
-  const memUser = useAuthStore.getState().user;
-  if (memUser) {
-    return memUser;
-  }
-
-  const userKeys = ['currentUser', 'authUser', 'user'];
-
-  for (const key of userKeys) {
-    const storedUser = window.localStorage.getItem(key);
-
-    if (!storedUser) {
-      continue;
-    }
-
-    try {
-      return JSON.parse(storedUser) as CurrentUser;
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-function decodeJwtPayload(token: string): CurrentUser | null {
-  try {
-    const payload = token.split('.')[1];
-
-    if (!payload) {
-      return null;
-    }
-
-    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const paddedPayload = normalizedPayload.padEnd(
-      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
-      '=',
-    );
-
-    return JSON.parse(window.atob(paddedPayload)) as CurrentUser;
-  } catch {
-    return null;
-  }
-}
 
 function getPermissionNames(user: CurrentUser) {
   return (user.permissions ?? []).map((permission) => {
@@ -215,72 +134,27 @@ function hasUserAccessManagementPermission(user: CurrentUser | null) {
   );
 }
 
-function getClientAuth(): AuthState {
-  const token = getStoredToken();
-
-  if (!token) {
-    return {
-      isChecking: false,
-      isAuthorized: false,
-      token: '',
-      user: null,
-      message: 'Please sign in with an administrator account.',
+function getApiErrorMessage(error: unknown, fallback: string) {
+  const err = error as {
+    response?: {
+      data?: {
+        message?: string | string[];
+      };
     };
-  }
-
-  const storedUser = getStoredUser();
-  const tokenUser = decodeJwtPayload(token);
-  const user = {
-    ...(tokenUser ?? {}),
-    ...(storedUser ?? {}),
+    message?: string;
   };
 
-  if (!hasUserManagementAccess(user)) {
-    return {
-      isChecking: false,
-      isAuthorized: false,
-      token,
-      user,
-      message: 'You do not have permission to access User Management.',
-    };
+  const responseMessage = err.response?.data?.message;
+
+  if (Array.isArray(responseMessage)) {
+    return responseMessage.join(', ');
   }
 
-  return {
-    isChecking: false,
-    isAuthorized: true,
-    token,
-    user,
-    message: '',
-  };
-}
-
-async function requestJson<T>(url: string, token: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => null)) as {
-      message?: string | string[];
-    } | null;
-
-    const message = Array.isArray(errorBody?.message)
-      ? errorBody.message.join(', ')
-      : (errorBody?.message ?? 'Request failed.');
-
-    throw new Error(message);
-  }
-
-  return response.json() as Promise<T>;
+  return responseMessage ?? err.message ?? fallback;
 }
 
 export default function UserManagementPage() {
-  const [authState, setAuthState] = useState<AuthState>(initialAuthState);
+  const { user: currentUser, isLoading: isAuthLoading } = useAuthStore();
   const isLoadingRef = useRef(false);
 
   const [users, setUsers] = useState<User[]>([]);
@@ -305,7 +179,18 @@ export default function UserManagementPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const loadData = useCallback(async (token: string) => {
+  const isAuthorized = useMemo(() => hasUserManagementAccess(currentUser), [currentUser]);
+
+  const canManageUserAccess = useMemo(
+    () => hasUserAccessManagementPermission(currentUser),
+    [currentUser],
+  );
+
+  const accessMessage = currentUser
+    ? 'You do not have permission to access User Management.'
+    : 'Please sign in with an authorized account.';
+
+  const loadData = useCallback(async () => {
     if (isLoadingRef.current) {
       return;
     }
@@ -315,34 +200,33 @@ export default function UserManagementPage() {
     setErrorMessage('');
 
     try {
-      const usersUrl = new URL(`${API_BASE_URL}/users`);
-      usersUrl.searchParams.set('page', '1');
-      usersUrl.searchParams.set('limit', String(USER_DIRECTORY_PAGE_SIZE));
-
       const [usersResponse, summaryResponse, rolesResponse] = await Promise.all([
-        requestJson<UsersResponse>(usersUrl.toString(), token),
-        requestJson<UserSummary>(`${API_BASE_URL}/users/summary`, token),
-        requestJson<Role[]>(`${API_BASE_URL}/users/roles`, token),
+        api.get<UsersResponse>('/users', {
+          params: {
+            page: 1,
+            limit: USER_DIRECTORY_PAGE_SIZE,
+          },
+        }),
+        api.get<UserSummary>('/users/summary'),
+        api.get<Role[]>('/users/roles'),
       ]);
 
-      setUsers(usersResponse.data);
-      setSummary(summaryResponse);
-      setRoles(rolesResponse);
+      setUsers(usersResponse.data.data);
+      setSummary(summaryResponse.data);
+      setRoles(rolesResponse.data);
 
-      setNewUser((currentUser) => {
-        if (currentUser.roleId || rolesResponse.length === 0) {
-          return currentUser;
+      setNewUser((currentForm) => {
+        if (currentForm.roleId || rolesResponse.data.length === 0) {
+          return currentForm;
         }
 
         return {
-          ...currentUser,
-          roleId: String(rolesResponse[0].id),
+          ...currentForm,
+          roleId: String(rolesResponse.data[0].id),
         };
       });
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Unable to load user management data.',
-      );
+      setErrorMessage(getApiErrorMessage(error, 'Unable to load user management data.'));
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
@@ -350,21 +234,17 @@ export default function UserManagementPage() {
   }, []);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const auth = getClientAuth();
+    if (isAuthLoading) {
+      return;
+    }
 
-      setAuthState(auth);
+    if (!isAuthorized) {
+      setIsLoading(false);
+      return;
+    }
 
-      if (!auth.isAuthorized) {
-        setIsLoading(false);
-        return;
-      }
-
-      void loadData(auth.token);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [loadData]);
+    void loadData();
+  }, [isAuthLoading, isAuthorized, loadData]);
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -389,11 +269,6 @@ export default function UserManagementPage() {
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [searchTerm, selectedRoleId, selectedStatus, users]);
-
-  const canManageUserAccess = useMemo(
-    () => hasUserAccessManagementPermission(authState.user),
-    [authState.user],
-  );
 
   function getDefaultRoleId() {
     return roles[0] ? String(roles[0].id) : '';
@@ -456,7 +331,7 @@ export default function UserManagementPage() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!authState.isAuthorized || !canManageUserAccess) {
+    if (!isAuthorized || !canManageUserAccess) {
       setErrorMessage('You are not authorized to create users.');
       return;
     }
@@ -474,25 +349,22 @@ export default function UserManagementPage() {
     setIsSaving(true);
 
     try {
-      await requestJson<User>(`${API_BASE_URL}/users`, authState.token, {
-        method: 'POST',
-        body: JSON.stringify({
-          firstName: newUser.firstName.trim(),
-          lastName: newUser.lastName.trim(),
-          email: newUser.email.trim().toLowerCase(),
-          password: newUser.password,
-          roleId: Number(newUser.roleId),
-          isActive: newUser.isActive,
-        }),
+      await api.post<User>('/users', {
+        firstName: newUser.firstName.trim(),
+        lastName: newUser.lastName.trim(),
+        email: newUser.email.trim().toLowerCase(),
+        password: newUser.password,
+        roleId: Number(newUser.roleId),
+        isActive: newUser.isActive,
       });
 
       setSuccessMessage('User added successfully.');
       setIsAddUserOpen(false);
       resetAddUserForm();
 
-      await loadData(authState.token);
+      await loadData();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to add user.');
+      setErrorMessage(getApiErrorMessage(error, 'Unable to add user.'));
     } finally {
       setIsSaving(false);
     }
@@ -505,7 +377,7 @@ export default function UserManagementPage() {
       return;
     }
 
-    if (!authState.isAuthorized || !canManageUserAccess) {
+    if (!isAuthorized || !canManageUserAccess) {
       setErrorMessage('You are not authorized to update user access.');
       return;
     }
@@ -520,26 +392,23 @@ export default function UserManagementPage() {
     setSuccessMessage('');
 
     try {
-      await requestJson<User>(`${API_BASE_URL}/users/${editingUser.id}/access`, authState.token, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          roleId: Number(editRoleId),
-          isActive: editIsActive,
-        }),
+      await api.patch<User>(`/users/${editingUser.id}/access`, {
+        roleId: Number(editRoleId),
+        isActive: editIsActive,
       });
 
       setSuccessMessage('User access updated successfully.');
       closeEditAccess();
 
-      await loadData(authState.token);
+      await loadData();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to update user access.');
+      setErrorMessage(getApiErrorMessage(error, 'Unable to update user access.'));
     } finally {
       setIsUpdatingAccess(false);
     }
   }
 
-  if (authState.isChecking) {
+  if (isAuthLoading) {
     return (
       <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
         <section className="mx-auto max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
@@ -552,13 +421,13 @@ export default function UserManagementPage() {
     );
   }
 
-  if (!authState.isAuthorized) {
+  if (!isAuthorized) {
     return (
       <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
         <section className="mx-auto max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
           <p className="text-sm font-medium text-[var(--accent)]">Access Restricted</p>
-          <h1 className="mt-1 text-2xl font-semibold">User Management is admin-only</h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">{authState.message}</p>
+          <h1 className="mt-1 text-2xl font-semibold">User Management access is restricted</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">{accessMessage}</p>
         </section>
       </main>
     );
@@ -569,7 +438,6 @@ export default function UserManagementPage() {
       <section className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">User Story 204748</p>
             <h1 className="mt-1 text-2xl font-semibold">User and Role Access Management</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
               Display and monitor system users, assigned roles, account statuses, and permission
@@ -580,7 +448,7 @@ export default function UserManagementPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => void loadData(authState.token)}
+              onClick={() => void loadData()}
               disabled={isLoading}
               className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >

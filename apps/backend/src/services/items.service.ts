@@ -8,7 +8,10 @@ import type {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function calculateStockStatus(quantity: number, reorderPoint: number): ItemStatus {
+function calculateStockStatus(
+  quantity: number,
+  reorderPoint: number,
+): ItemStatus {
   if (quantity <= 0) return ItemStatus.OUT_OF_STOCK;
   if (quantity <= reorderPoint) return ItemStatus.LOW_STOCK;
   return ItemStatus.IN_STOCK;
@@ -123,9 +126,10 @@ export class ItemsService {
             credentialsRef: data.digitalAsset.credentialsRef ?? null,
             seats: data.digitalAsset.seats ?? null,
             expiryDate: data.digitalAsset.expiryDate ?? null,
-            cost: data.digitalAsset.cost != null
-              ? new Prisma.Decimal(data.digitalAsset.cost)
-              : null,
+            cost:
+              data.digitalAsset.cost != null
+                ? new Prisma.Decimal(data.digitalAsset.cost)
+                : null,
             billingCycle: data.digitalAsset.billingCycle ?? null,
             status: data.digitalAsset.status,
             notes: data.digitalAsset.notes ?? null,
@@ -228,8 +232,12 @@ export class ItemsService {
             consumableProfile: {
               update: (() => {
                 const existingProfile = item.consumableProfile!;
-                const newQuantity = quantity !== undefined ? quantity : existingProfile.quantity;
-                const newReorderPoint = reorderPoint !== undefined ? reorderPoint : existingProfile.reorderPoint;
+                const newQuantity =
+                  quantity !== undefined ? quantity : existingProfile.quantity;
+                const newReorderPoint =
+                  reorderPoint !== undefined
+                    ? reorderPoint
+                    : existingProfile.reorderPoint;
                 return {
                   ...(unit !== undefined && { unit }),
                   ...(quantity !== undefined && { quantity }),
@@ -281,9 +289,7 @@ export class ItemsService {
 
     // Block archiving if item is EQUIPMENT — use DELETE /equipment/:id instead
     if (item.itemType === ItemType.EQUIPMENT) {
-      throw new Error(
-        'Equipment items must be archived via the equipment API',
-      );
+      throw new Error('Equipment items must be archived via the equipment API');
     }
 
     return prisma.item.update({

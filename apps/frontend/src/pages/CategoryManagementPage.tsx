@@ -57,8 +57,6 @@ export default function CategoryManagementPage() {
         (cat.description && cat.description.toLowerCase().includes(term));
       const matchesType = selectedType === 'all' || cat.type === selectedType;
 
-      // Note: Backend currently only returns active categories (deletedAt === null)
-      // So if the tab is set to archived, the list will be empty.
       const matchesTab = filterTab === 'active' ? !cat.deletedAt : !!cat.deletedAt;
 
       return matchesSearch && matchesType && matchesTab;

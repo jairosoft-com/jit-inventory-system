@@ -1,4 +1,8 @@
-import axios from 'axios';
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+};
 
 export const authActions = {
   getToken: () => null as string | null,
@@ -14,42 +18,58 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Request Interceptor: Attach access token if present in Zustand store
 api.interceptors.request.use(
   (config) => {
     const token = authActions.getToken();
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
-  (error) => Promise.reject(error),
+  (error: unknown) => Promise.reject(error),
 );
 
 let isRefreshing = false;
+
 let failedQueue: Array<{
-  resolve: (value: unknown) => void;
+  resolve: (value: string) => void;
   reject: (reason: unknown) => void;
 }> = [];
 
 const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
+  failedQueue.forEach((promise) => {
     if (token) {
-      prom.resolve(token);
+      promise.resolve(token);
     } else {
-      prom.reject(error);
+      promise.reject(error);
     }
   });
+
   failedQueue = [];
 };
 
-// Response Interceptor: Auto-refresh access token on 401
+function shouldLogoutFromRefreshFailure(error: unknown) {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+
+  return status === 401 || status === 403;
+}
+
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
+    const status = error.response?.status;
 
-    // Avoid infinite loop if refreshing or login fails
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
     if (
       originalRequest.url?.includes('/auth/refresh') ||
       originalRequest.url?.includes('/auth/login')
@@ -57,42 +77,48 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return api(originalRequest);
           })
-          .catch((err) => Promise.reject(err));
+          .catch((queueError: unknown) => Promise.reject(queueError));
       }
 
       isRefreshing = true;
 
       try {
-        const response = await axios.post(
+        const response = await axios.post<{ accessToken: string; user: unknown }>(
           `${api.defaults.baseURL}/auth/refresh`,
           {},
           { withCredentials: true },
         );
 
         const { accessToken, user } = response.data;
-        authActions.setAuth(accessToken, user);
 
+        authActions.setAuth(accessToken, user);
         processQueue(null, accessToken);
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: unknown) {
         processQueue(refreshError, null);
-        authActions.logoutStateOnly();
-        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-          window.location.href = '/';
+
+        if (shouldLogoutFromRefreshFailure(refreshError)) {
+          authActions.logoutStateOnly();
+
+          if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+            window.location.href = '/';
+          }
         }
+
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

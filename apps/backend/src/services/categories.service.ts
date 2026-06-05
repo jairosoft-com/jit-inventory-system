@@ -28,9 +28,11 @@ export class CategoriesService {
     });
   }
 
-  static async findAll(includeArchived = false) {
+  static async findAll(includeArchived: boolean | string = false) {
+    const shouldInclude =
+      includeArchived === true || includeArchived === 'true';
     return prisma.category.findMany({
-      where: includeArchived ? {} : { deletedAt: null },
+      where: shouldInclude ? {} : { deletedAt: null },
       orderBy: { name: 'asc' },
     });
   }

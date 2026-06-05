@@ -59,8 +59,6 @@ export default function CategoryManagementPage() {
         (cat.description && cat.description.toLowerCase().includes(term));
       const matchesType = selectedType === 'all' || cat.type === selectedType;
 
-      // Note: Backend currently only returns active categories (deletedAt === null)
-      // So if the tab is set to archived, the list will be empty.
       const matchesTab = filterTab === 'active' ? !cat.deletedAt : !!cat.deletedAt;
 
       return matchesSearch && matchesType && matchesTab;
@@ -437,14 +435,20 @@ export default function CategoryManagementPage() {
                     📁
                   </div>
                   <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    No categories found
+                    {filterTab === 'archived' ? 'No archived categories found' : 'No active categories found'}
                   </h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {searchTerm || selectedType !== 'all'
-                      ? 'Try refining your search query or selected type filter.'
-                      : 'No inventory categories have been created yet.'}
+                    {filterTab === 'archived' ? (
+                      searchTerm || selectedType !== 'all'
+                        ? 'No archived categories match your search criteria.'
+                        : 'There are no archived categories in the system.'
+                    ) : (
+                      searchTerm || selectedType !== 'all'
+                        ? 'Try refining your search query or selected type filter.'
+                        : 'No inventory categories have been created yet.'
+                    )}
                   </p>
-                  {canCreate && !searchTerm && selectedType === 'all' && (
+                  {canCreate && !searchTerm && selectedType === 'all' && filterTab === 'active' && (
                     <button
                       type="button"
                       onClick={handleOpenCreate}

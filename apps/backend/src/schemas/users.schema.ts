@@ -38,6 +38,15 @@ export const updateUserAccessSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+export const updateUserSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').max(100).optional(),
+  lastName: z.string().trim().min(1, 'Last name is required').max(100).optional(),
+  email: z.string().trim().email('Invalid email address').max(255).optional(),
+  roleId: z.number().int('Role ID must be an integer').optional(),
+  isActive: z.boolean().optional(),
+});
+
 export type QueryUsersInput = z.infer<typeof queryUsersSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserAccessInput = z.infer<typeof updateUserAccessSchema>;
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

@@ -15,10 +15,12 @@ export const updateCategorySchema = createCategorySchema.partial();
 
 export const listCategoriesQuerySchema = z.object({
   includeArchived: z
-    .enum(['true', 'false'])
-    .optional()
-    .default('false')
-    .transform((val) => val === 'true'),
+    .preprocess((val) => {
+      if (val === 'true' || val === true) return true;
+      if (val === 'false' || val === false) return false;
+      return undefined;
+    }, z.boolean().optional())
+    .default(false),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

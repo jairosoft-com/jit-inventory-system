@@ -1,8 +1,182 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDashboardStore } from '../store/dashboardStore.js';
+import { usePolling } from '../lib/usePolling.js';
 
 export default function DashboardPage() {
-  // Skeleton states
-  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const {
+    summary,
+    alerts,
+    recentActivity,
+    equipmentBreakdown,
+    isLoading,
+    error,
+    fetchAll,
+    clearError,
+  } = useDashboardStore();
+
+  // Setup periodic polling every 30 seconds
+  usePolling(fetchAll, 30000);
+
+  const totalCount = equipmentBreakdown.reduce((sum, item) => sum + item.count, 0);
+
+  // Map activities relative time
+  function formatRelativeTime(dateStr: string): string {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffSec < 60) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    if (diffDay === 1) return 'yesterday';
+    return `${diffDay}d ago`;
+  }
+
+  // Get color and text details for LogAction
+  function getActivityDetails(action: string) {
+    switch (action) {
+      case 'CREATED':
+        return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Created' };
+      case 'UPDATED':
+        return { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', label: 'Updated' };
+      case 'DELETED':
+        return { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', label: 'Deleted' };
+      case 'BORROWED':
+        return { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', label: 'Borrowed' };
+      case 'RETURNED':
+        return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Returned' };
+      case 'APPROVED':
+        return { color: '#059669', bg: 'rgba(5, 150, 105, 0.1)', label: 'Approved' };
+      case 'REJECTED':
+        return { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.1)', label: 'Rejected' };
+      case 'DISPOSED':
+        return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: 'Disposed' };
+      case 'MAINTENANCE_STARTED':
+        return { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', label: 'Maint. Start' };
+      case 'MAINTENANCE_COMPLETED':
+        return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Maint. End' };
+      default:
+        return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: action.toLowerCase() };
+    }
+  }
+
+  // Pre-process and merge alerts
+  const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
+    const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
+    return {
+      id: `low-stock-${item.id}`,
+      type: 'low_stock',
+      severity: isOutOfStock ? 'critical' : 'warning',
+      itemName: item.itemName,
+      detail: isOutOfStock
+        ? 'Out of stock'
+        : `${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`,
+    };
+  });
+
+  const warrantyAlertsMapped = (alerts?.warrantyExpiring || []).map((item) => {
+    const expiryDate = item.warrantyEnd ? new Date(item.warrantyEnd) : null;
+    const dateFormatted = expiryDate
+      ? expiryDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      : '';
+    return {
+      id: `warranty-${item.id}`,
+      type: 'warranty',
+      severity: 'info',
+      itemName: item.itemName,
+      detail: `Warranty expires ${dateFormatted} (Asset: ${item.assetId})`,
+    };
+  });
+
+  const mergedAlerts = [...lowStockAlertsMapped, ...warrantyAlertsMapped];
+  const severityOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+  mergedAlerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+  // Equipment Breakdown config
+  const statusConfigs: Record<string, { label: string; color: string }> = {
+    AVAILABLE: { label: 'Available', color: '#10b981' },
+    IN_USE: { label: 'In Use', color: '#3b82f6' },
+    UNDER_MAINTENANCE: { label: 'In Maintenance', color: '#f59e0b' },
+    DAMAGED: { label: 'Damaged', color: '#ef4444' },
+    LOST: { label: 'Lost', color: '#6b7280' },
+    BORROWED: { label: 'Borrowed', color: '#8b5cf6' },
+    RETIRED: { label: 'Retired', color: '#9ca3af' },
+  };
+
+  const statusesToShow = Object.keys(statusConfigs)
+    .map((statusKey) => {
+      const entry = equipmentBreakdown.find((item) => item.status === statusKey);
+      const count = entry ? entry.count : 0;
+      const percentage = totalCount > 0 ? (count / totalCount) * 100 : 0;
+      return {
+        key: statusKey,
+        count,
+        percentage,
+        ...statusConfigs[statusKey],
+      };
+    })
+    .filter((status) => status.count > 0 || totalCount === 0);
+
+  const statCards = [
+    {
+      label: 'Total Items',
+      color: '#2563eb',
+      value: summary ? summary.totalItems.toLocaleString() : null,
+      subtext: 'total registered',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+          <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
+          <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
+          <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Active Equipment',
+      color: '#8b5cf6',
+      value: summary ? summary.activeEquipment.toLocaleString() : null,
+      subtext: 'currently available',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Low Stock Alerts',
+      color: '#d97706',
+      value: summary ? summary.lowStockAlerts.toLocaleString() : null,
+      subtext: 'requires reorder',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Pending Borrows',
+      color: '#0891b2',
+      value: summary ? summary.pendingBorrows.toLocaleString() : null,
+      subtext: 'awaiting approval',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M17 2.1l4 4-4 4" />
+          <path d="M3 12.2v-2a4 4 0 0 1 4-4h14" />
+          <path d="M7 21.9l-4-4 4-4" />
+          <path d="M21 11.8v2a4 4 0 0 1-4 4H3" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div className="dash-page animate-fade-in">
@@ -15,10 +189,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="dash-page-actions">
-          <button className="dash-btn dash-btn--secondary" onClick={() => setIsLoading(!isLoading)}>
-            {isLoading ? 'Loaded State' : 'Simulate Loading'}
-          </button>
-          <button className="dash-btn dash-btn--primary">
+          <button className="dash-btn dash-btn--primary" onClick={() => navigate('/dashboard/inventory')}>
             <svg
               width="16"
               height="16"
@@ -35,14 +206,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards — Pure Visual Skeletons */}
-      <div className="dash-stats">
-        {[
-          { label: 'Total Items', color: '#2563eb' },
-          { label: 'Active Equipment', color: '#8b5cf6' },
-          { label: 'Low Stock Alerts', color: '#d97706' },
-          { label: 'Pending Borrows', color: '#0891b2' },
-        ].map((stat) => (
+      {/* Global Error Banner */}
+      {error && (
+        <div className="dash-error-banner animate-fade-in">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span className="dash-error-msg">{error}</span>
+          <button className="dash-error-close" onClick={clearError}>
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="dash-stats stagger-children">
+        {statCards.map((stat) => (
           <div key={stat.label} className="dash-stat-card">
             <div className="dash-stat-header">
               <span className="dash-stat-label">{stat.label}</span>
@@ -50,18 +231,26 @@ export default function DashboardPage() {
                 className="dash-stat-icon"
                 style={{ background: `${stat.color}08`, color: stat.color }}
               >
-                <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                {stat.icon}
               </div>
             </div>
-            {isLoading ? (
+            {isLoading && !summary ? (
               <div className="dash-skeleton-wrapper">
                 <div className="dash-skeleton-pulse dash-skeleton-pulse--value animate-pulse" />
+              </div>
+            ) : stat.value !== null ? (
+              <div className="dash-stat-val" style={{ color: 'var(--text-primary)' }}>
+                {stat.value}
               </div>
             ) : (
               <div className="dash-stat-empty-val">—</div>
             )}
             <div className="dash-stat-footer">
-              <div className="dash-skeleton-pulse dash-skeleton-pulse--small animate-pulse" />
+              {isLoading && !summary ? (
+                <div className="dash-skeleton-pulse dash-skeleton-pulse--small animate-pulse" />
+              ) : (
+                <span className="dash-stat-subtext">{stat.subtext}</span>
+              )}
             </div>
           </div>
         ))}
@@ -73,13 +262,17 @@ export default function DashboardPage() {
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">Recent Activity</h2>
-            <button className="dash-card-action" disabled>
+            <button
+              className="dash-card-action"
+              onClick={() => navigate('/dashboard/logs')}
+              disabled={recentActivity.length === 0}
+            >
               View All
             </button>
           </div>
 
-          <div className="dash-card-content-empty">
-            {isLoading ? (
+          <div className={recentActivity.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+            {isLoading && recentActivity.length === 0 ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3, 4].map((id) => (
                   <div key={id} className="dash-skeleton-row animate-pulse">
@@ -88,6 +281,35 @@ export default function DashboardPage() {
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
                   </div>
                 ))}
+              </div>
+            ) : recentActivity.length > 0 ? (
+              <div className="dash-activity-list">
+                {recentActivity.map((activity) => {
+                  const details = getActivityDetails(activity.action);
+                  return (
+                    <div key={activity.id} className="dash-activity-item">
+                      <div className="dash-activity-dot-container">
+                        <div className="dash-activity-dot" style={{ backgroundColor: details.color }} />
+                        <div className="dash-activity-line" />
+                      </div>
+                      <div className="dash-activity-info">
+                        <div className="dash-activity-text">
+                          <strong>
+                            {activity.user.firstName} {activity.user.lastName}
+                          </strong>{' '}
+                          <span
+                            className="dash-activity-action-tag"
+                            style={{ color: details.color, background: details.bg }}
+                          >
+                            {details.label}
+                          </span>{' '}
+                          {activity.entityType.toLowerCase()} #{activity.entityId}
+                        </div>
+                        <span className="dash-activity-time">{formatRelativeTime(activity.performedAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="dash-empty-state">
@@ -118,13 +340,36 @@ export default function DashboardPage() {
             <h2 className="dash-card-title">Equipment Status</h2>
           </div>
 
-          <div className="dash-card-content-empty">
-            {isLoading ? (
+          <div className={totalCount > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+            {isLoading && equipmentBreakdown.length === 0 ? (
               <div className="dash-skeleton-eq-breakdown">
                 {[1, 2, 3, 4, 5].map((id) => (
                   <div key={id} className="dash-skeleton-eq-row animate-pulse">
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--bar" />
+                  </div>
+                ))}
+              </div>
+            ) : totalCount > 0 ? (
+              <div className="dash-status-breakdown">
+                {statusesToShow.map((status) => (
+                  <div key={status.key} className="dash-status-row">
+                    <div className="dash-status-info">
+                      <span className="dash-status-label">{status.label}</span>
+                      <span className="dash-status-count">
+                        <strong>{status.count}</strong> ({Math.round(status.percentage)}%)
+                      </span>
+                    </div>
+                    <div className="dash-status-bar">
+                      <div
+                        className="dash-status-fill"
+                        style={{
+                          width: `${status.percentage}%`,
+                          backgroundColor: status.color,
+                          boxShadow: `0 0 8px ${status.color}30`,
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -151,7 +396,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Low Stock Items Card */}
+        {/* Low Stock & Warranty Alerts Card */}
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
@@ -167,20 +412,53 @@ export default function DashboardPage() {
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              Low Stock Items
+              Alerts & Low Stock
             </h2>
-            <button className="dash-card-action" disabled>
+            <button className="dash-card-action" onClick={() => navigate('/dashboard/inventory')}>
               Manage
             </button>
           </div>
 
-          <div className="dash-card-content-empty">
-            {isLoading ? (
+          <div className={mergedAlerts.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+            {isLoading && mergedAlerts.length === 0 ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3].map((id) => (
                   <div key={id} className="dash-skeleton-row animate-pulse">
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
+                  </div>
+                ))}
+              </div>
+            ) : mergedAlerts.length > 0 ? (
+              <div className="dash-alerts-list">
+                {mergedAlerts.map((alert) => (
+                  <div key={alert.id} className={`dash-alert-row dash-alert-row--${alert.severity}`}>
+                    <div className="dash-alert-badge">
+                      {alert.severity === 'critical' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      )}
+                      {alert.severity === 'warning' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      )}
+                      {alert.severity === 'info' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="dash-alert-content">
+                      <span className="dash-alert-itemName">{alert.itemName}</span>
+                      <span className="dash-alert-detail">{alert.detail}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -199,9 +477,9 @@ export default function DashboardPage() {
                     <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
                   </svg>
                 </div>
-                <h3 className="dash-empty-heading">All Items Fully Stocked</h3>
+                <h3 className="dash-empty-heading">No Alerts Active</h3>
                 <p className="dash-empty-text">
-                  Low stock warnings and reorder targets will display here when stock drops.
+                  Low stock notifications and warranty expirations will appear here when triggered.
                 </p>
               </div>
             )}
@@ -215,14 +493,18 @@ export default function DashboardPage() {
           </div>
           <div className="dash-quick-actions">
             {[
-              { label: 'Register Item', color: '#2563eb', icon: '+' },
-              { label: 'Stock In', color: '#16a34a', icon: '↓' },
-              { label: 'Stock Out', color: '#dc2626', icon: '↑' },
-              { label: 'New PO', color: '#8b5cf6', icon: '📋' },
-              { label: 'Borrow Request', color: '#d97706', icon: '🔄' },
-              { label: 'Run Report', color: '#0891b2', icon: '📊' },
+              { label: 'Register Item', color: '#2563eb', icon: '+', path: '/dashboard/inventory' },
+              { label: 'Stock In', color: '#16a34a', icon: '↓', path: '/dashboard/inventory' },
+              { label: 'Stock Out', color: '#dc2626', icon: '↑', path: '/dashboard/inventory' },
+              { label: 'New PO', color: '#8b5cf6', icon: '📋', path: '/dashboard/orders' },
+              { label: 'Borrow Request', color: '#d97706', icon: '🔄', path: '/dashboard/borrow' },
+              { label: 'Run Report', color: '#0891b2', icon: '📊', path: '/dashboard/logs' },
             ].map((action) => (
-              <button key={action.label} className="dash-qa-btn">
+              <button
+                key={action.label}
+                className="dash-qa-btn"
+                onClick={() => navigate(action.path)}
+              >
                 <span
                   className="dash-qa-icon"
                   style={{ background: `${action.color}08`, color: action.color }}
@@ -271,6 +553,35 @@ export default function DashboardPage() {
         .dash-page-actions {
           display: flex;
           gap: 10px;
+        }
+
+        /* ── Error Banner ───────────────────── */
+
+        .dash-error-banner {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 16px;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: var(--radius-md);
+          color: #ef4444;
+          font-size: 13.5px;
+          margin-bottom: 24px;
+        }
+
+        .dash-error-msg {
+          flex: 1;
+        }
+
+        .dash-error-close {
+          background: none;
+          border: none;
+          color: inherit;
+          font-size: 18px;
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
         }
 
         /* ── Buttons ─────────────────────────── */
@@ -354,6 +665,13 @@ export default function DashboardPage() {
           border-radius: var(--radius-md);
         }
 
+        .dash-stat-val {
+          font-size: 28px;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-bottom: 8px;
+        }
+
         .dash-stat-empty-val {
           font-size: 26px;
           font-weight: 700;
@@ -365,6 +683,14 @@ export default function DashboardPage() {
         .dash-stat-footer {
           margin-top: auto;
           min-height: 14px;
+        }
+
+        .dash-stat-subtext {
+          font-size: 11px;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 600;
         }
 
         /* ── Content Grid ────────────────────── */
@@ -427,6 +753,13 @@ export default function DashboardPage() {
           cursor: not-allowed;
         }
 
+        .dash-card-content {
+          min-height: 200px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+        }
+
         .dash-card-content-empty {
           min-height: 200px;
           display: flex;
@@ -465,6 +798,179 @@ export default function DashboardPage() {
           max-width: 280px;
           margin: 0;
           line-height: 1.5;
+        }
+
+        /* ── Alerts Panel ────────────────────── */
+
+        .dash-alerts-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .dash-alert-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 12px 16px;
+          border-radius: var(--radius-md);
+          border: 1px solid transparent;
+          transition: all var(--transition-fast);
+        }
+
+        .dash-alert-row--critical {
+          background: rgba(239, 68, 68, 0.04);
+          border-color: rgba(239, 68, 68, 0.12);
+        }
+
+        .dash-alert-row--warning {
+          background: rgba(217, 119, 6, 0.04);
+          border-color: rgba(217, 119, 6, 0.12);
+        }
+
+        .dash-alert-row--info {
+          background: rgba(37, 99, 235, 0.04);
+          border-color: rgba(37, 99, 235, 0.12);
+        }
+
+        .dash-alert-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
+        .dash-alert-content {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .dash-alert-itemName {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .dash-alert-detail {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        /* ── Recent Activity ─────────────────── */
+
+        .dash-activity-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+
+        .dash-activity-item {
+          display: flex;
+          gap: 16px;
+          position: relative;
+        }
+
+        .dash-activity-dot-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+          width: 12px;
+          flex-shrink: 0;
+        }
+
+        .dash-activity-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          z-index: 1;
+          margin-top: 6px;
+        }
+
+        .dash-activity-line {
+          position: absolute;
+          top: 14px;
+          bottom: -14px;
+          width: 2px;
+          background: var(--surface-border);
+        }
+
+        .dash-activity-item:last-child .dash-activity-line {
+          display: none;
+        }
+
+        .dash-activity-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding-bottom: 16px;
+          flex: 1;
+        }
+
+        .dash-activity-text {
+          font-size: 13px;
+          color: var(--text-primary);
+          line-height: 1.4;
+        }
+
+        .dash-activity-action-tag {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 1px 5px;
+          border-radius: var(--radius-sm);
+          display: inline-block;
+          text-transform: uppercase;
+        }
+
+        .dash-activity-time {
+          font-size: 11.5px;
+          color: var(--text-tertiary);
+        }
+
+        /* ── Equipment Breakdown ─────────────── */
+
+        .dash-status-breakdown {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .dash-status-row {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .dash-status-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 12.5px;
+        }
+
+        .dash-status-label {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .dash-status-count {
+          color: var(--text-secondary);
+        }
+
+        .dash-status-bar {
+          height: 6px;
+          background: var(--background-tertiary);
+          border-radius: var(--radius-full);
+          overflow: hidden;
+          position: relative;
+        }
+
+        .dash-status-fill {
+          height: 100%;
+          border-radius: var(--radius-full);
+          transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         /* ── Skeletons ───────────────────────── */

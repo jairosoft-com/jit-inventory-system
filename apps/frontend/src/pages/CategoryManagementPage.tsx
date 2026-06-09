@@ -90,7 +90,7 @@ export default function CategoryManagementPage() {
   };
 
   const handleOpenEdit = (category: Category) => {
-    if (!canUpdate) return;
+    if (!canUpdate || category.deletedAt) return;
     setEditingCategory(category);
     setFormData({
       name: category.name,
@@ -342,7 +342,7 @@ export default function CategoryManagementPage() {
                         {(canUpdate || canDelete) && (
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {canUpdate && (
+                              {canUpdate && !cat.deletedAt && (
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEdit(cat)}
@@ -404,7 +404,7 @@ export default function CategoryManagementPage() {
                       )}
 
                       <div className="flex items-center gap-2">
-                        {canUpdate && (
+                        {canUpdate && !cat.deletedAt && (
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(cat)}

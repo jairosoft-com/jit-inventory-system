@@ -1,7 +1,53 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDashboardStore } from '../store/dashboardStore.js';
-import { usePolling } from '../lib/usePolling.js';
+import { useDashboardStore } from '../store/dashboardStore';
+import { usePolling } from '../lib/usePolling';
+import './DashboardPage.css';
+
+// Map activities relative time
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay === 1) return 'yesterday';
+  return `${diffDay}d ago`;
+}
+
+// Get color and text details for LogAction
+function getActivityDetails(action: string) {
+  switch (action) {
+    case 'CREATED':
+      return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Created' };
+    case 'UPDATED':
+      return { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', label: 'Updated' };
+    case 'DELETED':
+      return { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', label: 'Deleted' };
+    case 'BORROWED':
+      return { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', label: 'Borrowed' };
+    case 'RETURNED':
+      return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Returned' };
+    case 'APPROVED':
+      return { color: '#059669', bg: 'rgba(5, 150, 105, 0.1)', label: 'Approved' };
+    case 'REJECTED':
+      return { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.1)', label: 'Rejected' };
+    case 'DISPOSED':
+      return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: 'Disposed' };
+    case 'MAINTENANCE_STARTED':
+      return { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', label: 'Maint. Start' };
+    case 'MAINTENANCE_COMPLETED':
+      return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Maint. End' };
+    default:
+      return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: action.toLowerCase() };
+  }
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -21,51 +67,6 @@ export default function DashboardPage() {
 
   const totalCount = equipmentBreakdown.reduce((sum, item) => sum + item.count, 0);
 
-  // Map activities relative time
-  function formatRelativeTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHr = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHr / 24);
-
-    if (diffSec < 60) return 'just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    if (diffHr < 24) return `${diffHr}h ago`;
-    if (diffDay === 1) return 'yesterday';
-    return `${diffDay}d ago`;
-  }
-
-  // Get color and text details for LogAction
-  function getActivityDetails(action: string) {
-    switch (action) {
-      case 'CREATED':
-        return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Created' };
-      case 'UPDATED':
-        return { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', label: 'Updated' };
-      case 'DELETED':
-        return { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', label: 'Deleted' };
-      case 'BORROWED':
-        return { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', label: 'Borrowed' };
-      case 'RETURNED':
-        return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Returned' };
-      case 'APPROVED':
-        return { color: '#059669', bg: 'rgba(5, 150, 105, 0.1)', label: 'Approved' };
-      case 'REJECTED':
-        return { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.1)', label: 'Rejected' };
-      case 'DISPOSED':
-        return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: 'Disposed' };
-      case 'MAINTENANCE_STARTED':
-        return { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', label: 'Maint. Start' };
-      case 'MAINTENANCE_COMPLETED':
-        return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Maint. End' };
-      default:
-        return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: action.toLowerCase() };
-    }
-  }
-
   // Pre-process and merge alerts
   const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
     const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
@@ -82,13 +83,16 @@ export default function DashboardPage() {
 
   const warrantyAlertsMapped = (alerts?.warrantyExpiring || []).map((item) => {
     const expiryDate = item.warrantyEnd ? new Date(item.warrantyEnd) : null;
+    const daysUntilExpiry = expiryDate
+      ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 30;
     const dateFormatted = expiryDate
       ? expiryDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       : '';
     return {
       id: `warranty-${item.id}`,
       type: 'warranty',
-      severity: 'info',
+      severity: daysUntilExpiry <= 7 ? 'critical' : daysUntilExpiry <= 14 ? 'warning' : 'info',
       itemName: item.itemName,
       detail: `Warranty expires ${dateFormatted} (Asset: ${item.assetId})`,
     };
@@ -496,14 +500,16 @@ export default function DashboardPage() {
               { label: 'Register Item', color: '#2563eb', icon: '+', path: '/dashboard/inventory' },
               { label: 'Stock In', color: '#16a34a', icon: '↓', path: '/dashboard/inventory' },
               { label: 'Stock Out', color: '#dc2626', icon: '↑', path: '/dashboard/inventory' },
-              { label: 'New PO', color: '#8b5cf6', icon: '📋', path: '/dashboard/orders' },
-              { label: 'Borrow Request', color: '#d97706', icon: '🔄', path: '/dashboard/borrow' },
+              { label: 'New PO', color: '#8b5cf6', icon: '📋', path: '/dashboard/orders', disabled: true },
+              { label: 'Borrow Request', color: '#d97706', icon: '🔄', path: '/dashboard/borrow', disabled: true },
               { label: 'Run Report', color: '#0891b2', icon: '📊', path: '/dashboard/logs' },
             ].map((action) => (
               <button
                 key={action.label}
-                className="dash-qa-btn"
-                onClick={() => navigate(action.path)}
+                className={`dash-qa-btn ${action.disabled ? 'dash-qa-btn--disabled' : ''}`}
+                disabled={action.disabled}
+                title={action.disabled ? 'Coming soon' : undefined}
+                onClick={() => !action.disabled && navigate(action.path)}
               >
                 <span
                   className="dash-qa-icon"
@@ -518,573 +524,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <style>{`
-        /* ── Dashboard Page ──────────────────── */
 
-        .dash-page {
-          max-width: 1400px;
-        }
-
-        /* ── Page Header ─────────────────────── */
-
-        .dash-page-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          margin-bottom: 28px;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .dash-page-title {
-          font-size: 26px;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0;
-          letter-spacing: -0.03em;
-        }
-
-        .dash-page-desc {
-          font-size: 13.5px;
-          color: var(--text-secondary);
-          margin: 4px 0 0;
-        }
-
-        .dash-page-actions {
-          display: flex;
-          gap: 10px;
-        }
-
-        /* ── Error Banner ───────────────────── */
-
-        .dash-error-banner {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px 16px;
-          background: rgba(239, 68, 68, 0.08);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: var(--radius-md);
-          color: #ef4444;
-          font-size: 13.5px;
-          margin-bottom: 24px;
-        }
-
-        .dash-error-msg {
-          flex: 1;
-        }
-
-        .dash-error-close {
-          background: none;
-          border: none;
-          color: inherit;
-          font-size: 18px;
-          cursor: pointer;
-          padding: 0;
-          line-height: 1;
-        }
-
-        /* ── Buttons ─────────────────────────── */
-
-        .dash-btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 16px;
-          border-radius: var(--radius-md);
-          font-size: 13px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          border: none;
-        }
-
-        .dash-btn--primary {
-          background: linear-gradient(135deg, #2563eb, #3b82f6);
-          color: white;
-        }
-        .dash-btn--primary:hover {
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-glow);
-        }
-
-        .dash-btn--secondary {
-          background: var(--surface);
-          color: var(--text-secondary);
-          border: 1px solid var(--surface-border);
-        }
-        .dash-btn--secondary:hover {
-          background: var(--surface-hover);
-          color: var(--text-primary);
-          border-color: var(--surface-border-hover);
-        }
-
-        /* ── KPI Stats Grid ──────────────────── */
-
-        .dash-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-
-        .dash-stat-card {
-          background: var(--surface);
-          border: 1px solid var(--surface-border);
-          border-radius: var(--radius-lg);
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          transition: all var(--transition-fast);
-        }
-        .dash-stat-card:hover {
-          border-color: var(--surface-border-hover);
-          box-shadow: var(--shadow-md);
-        }
-
-        .dash-stat-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .dash-stat-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
-
-        .dash-stat-icon {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: var(--radius-md);
-        }
-
-        .dash-stat-val {
-          font-size: 28px;
-          font-weight: 700;
-          line-height: 1.2;
-          margin-bottom: 8px;
-        }
-
-        .dash-stat-empty-val {
-          font-size: 26px;
-          font-weight: 700;
-          color: var(--text-disabled);
-          line-height: 1.2;
-          margin-bottom: 8px;
-        }
-
-        .dash-stat-footer {
-          margin-top: auto;
-          min-height: 14px;
-        }
-
-        .dash-stat-subtext {
-          font-size: 11px;
-          color: var(--text-tertiary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 600;
-        }
-
-        /* ── Content Grid ────────────────────── */
-
-        .dash-grid {
-          display: grid;
-          grid-template-columns: 1.6fr 1fr;
-          gap: 20px;
-        }
-
-        @media (max-width: 1024px) {
-          .dash-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        /* ── Cards ───────────────────────────── */
-
-        .dash-card {
-          background: var(--surface);
-          border: 1px solid var(--surface-border);
-          border-radius: var(--radius-lg);
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .dash-card-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 16px;
-        }
-
-        .dash-card-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .dash-card-action {
-          background: none;
-          border: none;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--accent);
-          cursor: pointer;
-          padding: 0;
-          transition: color var(--transition-fast);
-        }
-        .dash-card-action:hover:not(:disabled) {
-          color: var(--accent-hover);
-        }
-        .dash-card-action:disabled {
-          color: var(--text-disabled);
-          cursor: not-allowed;
-        }
-
-        .dash-card-content {
-          min-height: 200px;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-        }
-
-        .dash-card-content-empty {
-          min-height: 200px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-
-        /* ── Empty State ─────────────────────── */
-
-        .dash-empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          padding: 24px 16px;
-        }
-
-        .dash-empty-icon {
-          color: var(--text-disabled);
-          margin-bottom: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .dash-empty-heading {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          margin: 0 0 6px;
-        }
-
-        .dash-empty-text {
-          font-size: 12px;
-          color: var(--text-tertiary);
-          max-width: 280px;
-          margin: 0;
-          line-height: 1.5;
-        }
-
-        /* ── Alerts Panel ────────────────────── */
-
-        .dash-alerts-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .dash-alert-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 12px 16px;
-          border-radius: var(--radius-md);
-          border: 1px solid transparent;
-          transition: all var(--transition-fast);
-        }
-
-        .dash-alert-row--critical {
-          background: rgba(239, 68, 68, 0.04);
-          border-color: rgba(239, 68, 68, 0.12);
-        }
-
-        .dash-alert-row--warning {
-          background: rgba(217, 119, 6, 0.04);
-          border-color: rgba(217, 119, 6, 0.12);
-        }
-
-        .dash-alert-row--info {
-          background: rgba(37, 99, 235, 0.04);
-          border-color: rgba(37, 99, 235, 0.12);
-        }
-
-        .dash-alert-badge {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          margin-top: 2px;
-        }
-
-        .dash-alert-content {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .dash-alert-itemName {
-          font-size: 13.5px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .dash-alert-detail {
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-
-        /* ── Recent Activity ─────────────────── */
-
-        .dash-activity-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-        }
-
-        .dash-activity-item {
-          display: flex;
-          gap: 16px;
-          position: relative;
-        }
-
-        .dash-activity-dot-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          position: relative;
-          width: 12px;
-          flex-shrink: 0;
-        }
-
-        .dash-activity-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          z-index: 1;
-          margin-top: 6px;
-        }
-
-        .dash-activity-line {
-          position: absolute;
-          top: 14px;
-          bottom: -14px;
-          width: 2px;
-          background: var(--surface-border);
-        }
-
-        .dash-activity-item:last-child .dash-activity-line {
-          display: none;
-        }
-
-        .dash-activity-info {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding-bottom: 16px;
-          flex: 1;
-        }
-
-        .dash-activity-text {
-          font-size: 13px;
-          color: var(--text-primary);
-          line-height: 1.4;
-        }
-
-        .dash-activity-action-tag {
-          font-size: 10px;
-          font-weight: 700;
-          padding: 1px 5px;
-          border-radius: var(--radius-sm);
-          display: inline-block;
-          text-transform: uppercase;
-        }
-
-        .dash-activity-time {
-          font-size: 11.5px;
-          color: var(--text-tertiary);
-        }
-
-        /* ── Equipment Breakdown ─────────────── */
-
-        .dash-status-breakdown {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-
-        .dash-status-row {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .dash-status-info {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 12.5px;
-        }
-
-        .dash-status-label {
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .dash-status-count {
-          color: var(--text-secondary);
-        }
-
-        .dash-status-bar {
-          height: 6px;
-          background: var(--background-tertiary);
-          border-radius: var(--radius-full);
-          overflow: hidden;
-          position: relative;
-        }
-
-        .dash-status-fill {
-          height: 100%;
-          border-radius: var(--radius-full);
-          transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        /* ── Skeletons ───────────────────────── */
-
-        .dash-skeleton-pulse {
-          background: var(--background-tertiary);
-          border-radius: var(--radius-sm);
-        }
-
-        .dash-skeleton-pulse--square {
-          width: 16px;
-          height: 16px;
-        }
-
-        .dash-skeleton-pulse--circle {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-        }
-
-        .dash-skeleton-pulse--value {
-          width: 80px;
-          height: 28px;
-          margin-bottom: 8px;
-        }
-
-        .dash-skeleton-pulse--small {
-          width: 120px;
-          height: 12px;
-        }
-
-        .dash-skeleton-pulse--text-long {
-          flex: 1;
-          height: 14px;
-        }
-
-        .dash-skeleton-pulse--text-short {
-          width: 60px;
-          height: 14px;
-        }
-
-        .dash-skeleton-pulse--bar {
-          flex: 1;
-          height: 8px;
-          border-radius: var(--radius-full);
-        }
-
-        .dash-skeleton-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .dash-skeleton-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .dash-skeleton-eq-breakdown {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .dash-skeleton-eq-row {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        /* ── Quick Actions ───────────────────── */
-
-        .dash-quick-actions {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 10px;
-        }
-
-        .dash-qa-btn {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px;
-          background: var(--background-secondary);
-          border: 1px solid var(--surface-border);
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          font-family: inherit;
-        }
-        .dash-qa-btn:hover {
-          background: var(--surface-hover);
-          border-color: var(--surface-border-hover);
-          transform: translateY(-1px);
-        }
-
-        .dash-qa-icon {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: var(--radius-md);
-          font-size: 15px;
-          flex-shrink: 0;
-        }
-
-        .dash-qa-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-      `}</style>
     </div>
   );
 }

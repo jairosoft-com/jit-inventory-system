@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '../lib/api.js';
+import api from '../lib/api';
 
 export interface DashboardSummary {
   totalItems: number;
@@ -116,18 +116,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   fetchAll: async () => {
     set({ isLoading: true, error: null });
-    try {
-      await Promise.all([
-        get().fetchSummary(),
-        get().fetchAlerts(),
-        get().fetchRecentActivity(),
-        get().fetchEquipmentBreakdown(),
-      ]);
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      set({ error: err.response?.data?.message || 'Failed to fetch all dashboard data' });
-    } finally {
-      set({ isLoading: false });
-    }
+    await Promise.allSettled([
+      get().fetchSummary(),
+      get().fetchAlerts(),
+      get().fetchRecentActivity(),
+      get().fetchEquipmentBreakdown(),
+    ]);
+    set({ isLoading: false });
   },
 }));

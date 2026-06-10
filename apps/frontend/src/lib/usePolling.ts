@@ -6,6 +6,9 @@ import { useEffect, useRef } from 'react';
  * @param callback The function to execute on each tick
  * @param intervalMs The polling interval in milliseconds (default: 30000)
  * @param enabled Whether polling is active (default: true)
+ *
+ * @note Fires the callback immediately on mount/enable.
+ *   Do not also invoke the callback in a separate useEffect.
  */
 export function usePolling(
   callback: () => void,

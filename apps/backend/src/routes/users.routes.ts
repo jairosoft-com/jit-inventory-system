@@ -7,10 +7,12 @@ import {
   createUserSchema,
   queryUsersSchema,
   updateUserAccessSchema,
+  updateUserSchema,
 } from '../schemas/users.schema.js';
 import type {
   CreateUserInput,
   UpdateUserAccessInput,
+  UpdateUserInput,
 } from '../schemas/users.schema.js';
 
 const router = Router();
@@ -112,6 +114,45 @@ router.post(
         return;
       }
       res.status(500).json({ message });
+    }
+  },
+);
+
+// PATCH /users/:id
+router.patch(
+  '/:id',
+  authorize('users:manage'),
+  validate(updateUserSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid user ID' });
+        return;
+      }
+      const currentUserId = req.user?.id;
+      const updatedUser = await UsersService.update(
+        id,
+        req.body as UpdateUserInput,
+        currentUserId,
+      );
+      res.status(200).json(updatedUser);
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Internal server error';
+      if (msg === 'User not found' || msg === 'Role not found') {
+        res.status(404).json({ message: msg });
+        return;
+      }
+      if (
+        msg === 'Email is already in use' ||
+        msg.includes('deactivate your own account') ||
+        msg.includes('change your own role')
+      ) {
+        res.status(400).json({ message: msg });
+        return;
+      }
+      res.status(500).json({ message: msg });
     }
   },
 );

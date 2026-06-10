@@ -476,11 +476,10 @@ export default function InventoryManagementPage() {
                 key={tab}
                 type="button"
                 onClick={() => setSubTab(tab)}
-                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${
-                  subTab === tab
-                    ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${subTab === tab
+                  ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
               >
                 {tab === 'active' ? 'Active Items' : 'Archived'}
                 {tab === 'active' && meta.total > 0 && (
@@ -849,8 +848,91 @@ export default function InventoryManagementPage() {
             )}
 
             <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+              {/* ── Image Upload ─────────────────────────────────────────── */}
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-[var(--text-secondary)]">Images</p>
+
+                {/* Existing images (edit mode) */}
+                {editingItem && (editingItem.images?.length ?? 0) > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">Current Images</p>
+                    <div className="flex flex-wrap gap-2">
+                      {editingItem.images.map((img) => (
+                        <div key={img.id} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label || 'Item image'}
+                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                              Primary
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExistingImage(editingItem.id, img.id)}
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending images */}
+                {pendingImages.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">
+                      {editingItem ? 'New images to add' : 'Images to upload'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {pendingImages.map((img, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label}
+                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                              Primary
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePendingImage(i)}
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* File input */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+                {imageError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
+                    <span>{imageError}</span>
+                    <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
+                  </div>
+                )}
+                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP</p>
+              </div>
               {/* Common fields */}
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 border-t border-[var(--surface-border)] pt-4">
                 <div className="md:col-span-2">
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
                     Item Name *
@@ -949,89 +1031,7 @@ export default function InventoryManagementPage() {
                 </p>
               )}
 
-              {/* ── Image Upload ─────────────────────────────────────────── */}
-              <div className="flex flex-col gap-2 border-t border-[var(--surface-border)] pt-4">
-                <p className="text-xs font-semibold text-[var(--text-secondary)]">Images</p>
 
-                {/* Existing images (edit mode) */}
-                {editingItem && (editingItem.images?.length ?? 0) > 0 && (
-                  <div className="mb-2">
-                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">Current Images</p>
-                    <div className="flex flex-wrap gap-2">
-                      {editingItem.images.map((img) => (
-                        <div key={img.id} className="relative group">
-                          <img
-                            src={img.url}
-                            alt={img.label || 'Item image'}
-                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                            onClick={() => setPreviewImageUrl(img.url)}
-                          />
-                          {img.isPrimary && (
-                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                              Primary
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteExistingImage(editingItem.id, img.id)}
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pending images */}
-                {pendingImages.length > 0 && (
-                  <div className="mb-2">
-                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">
-                      {editingItem ? 'New images to add' : 'Images to upload'}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {pendingImages.map((img, i) => (
-                        <div key={i} className="relative group">
-                          <img
-                            src={img.url}
-                            alt={img.label}
-                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                            onClick={() => setPreviewImageUrl(img.url)}
-                          />
-                          {img.isPrimary && (
-                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                              Primary
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePendingImage(i)}
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* File input */}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                />
-                {imageError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
-                    <span>{imageError}</span>
-                    <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
-                  </div>
-                )}
-                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP</p>
-              </div>
 
               <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
                 <button

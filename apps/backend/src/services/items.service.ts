@@ -60,8 +60,10 @@ export class ItemsService {
     barcode: string,
     excludeId?: number,
   ) {
-    const existing = await prisma.item.findUnique({ where: { barcode } });
-
+    // Only conflict with active (non-archived) items
+    const existing = await prisma.item.findFirst({
+      where: { barcode, deletedAt: null },
+    });
     if (existing && existing.id !== excludeId) {
       throw new Error(`Barcode '${barcode}' is already in use`);
     }
@@ -188,11 +190,12 @@ export class ItemsService {
   }
 
   static async findAll(query: ListItemsQuery) {
-    const { itemType, categoryId, search, page, limit } = query;
+    const { itemType, categoryId, search, page, limit, includeArchived } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ItemWhereInput = {
-      deletedAt: null,
+      // When includeArchived=true return only archived rows; otherwise only active
+      ...(includeArchived ? { deletedAt: { not: null } } : { deletedAt: null }),
       ...(itemType && { itemType }),
       ...(categoryId && { categoryId }),
       ...(search && {
@@ -219,6 +222,22 @@ export class ItemsService {
       data,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  /**
+   * Returns the highest ITM-NNN barcode number across ALL items
+   * (active + archived) so the frontend can generate a collision-free code.
+   */
+  static async findMaxBarcode(): Promise<number> {
+    const items = await prisma.item.findMany({
+      select: { barcode: true },
+      where: { barcode: { startsWith: 'ITM-' } },
+    });
+    return items.reduce((max, item) => {
+      if (!item.barcode) return max;
+      const match = item.barcode.match(/^ITM-(\d+)$/);
+      return match ? Math.max(max, Number(match[1])) : max;
+    }, 0);
   }
 
   static async findOne(id: number) {

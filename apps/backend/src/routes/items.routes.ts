@@ -76,6 +76,22 @@ router.get(
   },
 );
 
+// GET /items/max-barcode  — returns highest ITM-NNN number across all items (active + archived)
+router.get(
+  '/max-barcode',
+  authorize('inventory:read'),
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const max = await ItemsService.findMaxBarcode();
+      res.status(200).json({ max });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
+
 // GET /items/:id
 router.get(
   '/:id',

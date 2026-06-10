@@ -5,7 +5,11 @@ import {
   CreateUserInput,
   QueryUsersInput,
   UpdateUserAccessInput,
+  UpdateUserInput,
 } from '../schemas/users.schema.js';
+
+// The superadmin email is protected — role and status cannot be changed by anyone.
+const SUPERADMIN_EMAIL = (process.env.SUPERADMIN_EMAIL || 'sam@jitims.com').toLowerCase();
 
 const userSelect = {
   id: true,
@@ -272,7 +276,16 @@ export class UsersService {
       );
     }
 
-    await this.findOne(id);
+    const target = await this.findOne(id);
+
+    if (target.email.toLowerCase() === SUPERADMIN_EMAIL) {
+      if (data.isActive === false) {
+        throw new Error('The superadmin account cannot be deactivated.');
+      }
+      if (hasRoleUpdate) {
+        throw new Error('The superadmin role cannot be changed.');
+      }
+    }
 
     if (currentUserId === id && data.isActive === false) {
       throw new Error('You cannot deactivate your own account');
@@ -298,6 +311,72 @@ export class UsersService {
       }
 
       updateData.roleId = data.roleId;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: userSelect,
+    });
+
+    return this.mapUser(updatedUser);
+  }
+
+  static async update(
+    id: number,
+    data: UpdateUserInput,
+    currentUserId?: number,
+  ) {
+    const target = await this.findOne(id);
+
+    if (target.email.toLowerCase() === SUPERADMIN_EMAIL) {
+      if (data.isActive === false) {
+        throw new Error('The superadmin account cannot be deactivated.');
+      }
+      if (data.roleId !== undefined) {
+        throw new Error('The superadmin role cannot be changed.');
+      }
+    }
+
+    if (currentUserId === id && data.isActive === false) {
+      throw new Error('You cannot deactivate your own account');
+    }
+
+    if (currentUserId === id && data.roleId !== undefined) {
+      throw new Error('You cannot change your own role');
+    }
+
+    const updateData: Prisma.UserUncheckedUpdateInput = {};
+
+    if (data.firstName !== undefined) {
+      updateData.firstName = data.firstName.trim();
+    }
+
+    if (data.lastName !== undefined) {
+      updateData.lastName = data.lastName.trim();
+    }
+
+    if (data.email !== undefined) {
+      const normalizedEmail = data.email.trim().toLowerCase();
+      const existing = await prisma.user.findFirst({
+        where: { email: normalizedEmail, NOT: { id } },
+      });
+      if (existing) {
+        throw new Error('Email is already in use');
+      }
+      updateData.email = normalizedEmail;
+    }
+
+    if (data.roleId !== undefined) {
+      const role = await prisma.role.findUnique({ where: { id: data.roleId } });
+      if (!role) {
+        throw new Error('Role not found');
+      }
+      updateData.roleId = data.roleId;
+    }
+
+    if (data.isActive !== undefined) {
+      updateData.isActive = data.isActive;
     }
 
     const updatedUser = await prisma.user.update({

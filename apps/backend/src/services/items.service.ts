@@ -4,7 +4,10 @@ import type {
   CreateItemInput,
   UpdateItemInput,
   ListItemsQuery,
+  ItemImageInput,
+  UpdateItemImageInput,
 } from '../schemas/items.schema.js';
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +20,10 @@ function calculateStockStatus(
   return ItemStatus.IN_STOCK;
 }
 
+function normalizeDuplicateText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
 // ── Shared include ────────────────────────────────────────────────────────────
 
 const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
@@ -26,7 +33,12 @@ const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
   },
   consumableProfile: true,
   digitalAsset: true,
+  images: {
+    where: { deletedAt: null },
+    orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
+  },
 });
+
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -40,9 +52,11 @@ export class ItemsService {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });
+
     if (!category || category.deletedAt) {
       throw new Error('Category not found');
     }
+
     if (category.type !== itemType) {
       throw new Error(
         `Category type '${category.type}' does not match item type '${itemType}'`,
@@ -54,9 +68,43 @@ export class ItemsService {
     barcode: string,
     excludeId?: number,
   ) {
-    const existing = await prisma.item.findUnique({ where: { barcode } });
+    // Only conflict with active (non-archived) items
+    const existing = await prisma.item.findFirst({
+      where: { barcode, deletedAt: null },
+    });
     if (existing && existing.id !== excludeId) {
       throw new Error(`Barcode '${barcode}' is already in use`);
+    }
+  }
+
+  private static async assertUniqueInventoryRecord(
+    itemName: string,
+    categoryId: number,
+    itemType: ItemType,
+    excludeId?: number,
+  ) {
+    const normalizedItemName = normalizeDuplicateText(itemName);
+
+    const existing = await prisma.item.findFirst({
+      where: {
+        deletedAt: null,
+        itemName: {
+          equals: normalizedItemName,
+          mode: 'insensitive',
+        },
+        categoryId,
+        itemType,
+        ...(excludeId !== undefined && {
+          NOT: { id: excludeId },
+        }),
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new Error(
+        'An inventory item with the same name, category, and type already exists.',
+      );
     }
   }
 
@@ -65,16 +113,25 @@ export class ItemsService {
       where: { id },
       include: itemInclude,
     });
+
     if (!item || item.deletedAt) {
       throw new Error('Item not found');
     }
+
     return item;
   }
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   static async create(data: CreateItemInput, registeredBy: number) {
+    const itemName = normalizeDuplicateText(data.itemName);
+
     await this.assertCategoryMatchesType(data.categoryId, data.itemType);
+    await this.assertUniqueInventoryRecord(
+      itemName,
+      data.categoryId,
+      data.itemType,
+    );
 
     if (data.barcode) {
       await this.assertUniqueBarcode(data.barcode);
@@ -84,7 +141,7 @@ export class ItemsService {
     if (data.itemType === ItemType.CONSUMABLE) {
       return prisma.item.create({
         data: {
-          itemName: data.itemName,
+          itemName,
           description: data.description ?? null,
           categoryId: data.categoryId,
           itemType: ItemType.CONSUMABLE,
@@ -110,7 +167,7 @@ export class ItemsService {
     // DIGITAL
     return prisma.item.create({
       data: {
-        itemName: data.itemName,
+        itemName,
         description: data.description ?? null,
         categoryId: data.categoryId,
         itemType: ItemType.DIGITAL,
@@ -141,11 +198,12 @@ export class ItemsService {
   }
 
   static async findAll(query: ListItemsQuery) {
-    const { itemType, categoryId, search, page, limit } = query;
+    const { itemType, categoryId, search, page, limit, includeArchived } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ItemWhereInput = {
-      deletedAt: null,
+      // When includeArchived=true return only archived rows; otherwise only active
+      ...(includeArchived ? { deletedAt: { not: null } } : { deletedAt: null }),
       ...(itemType && { itemType }),
       ...(categoryId && { categoryId }),
       ...(search && {
@@ -174,6 +232,22 @@ export class ItemsService {
     };
   }
 
+  /**
+   * Returns the highest ITM-NNN barcode number across ALL items
+   * (active + archived) so the frontend can generate a collision-free code.
+   */
+  static async findMaxBarcode(): Promise<number> {
+    const items = await prisma.item.findMany({
+      select: { barcode: true },
+      where: { barcode: { startsWith: 'ITM-' } },
+    });
+    return items.reduce((max, item) => {
+      if (!item.barcode) return max;
+      const match = item.barcode.match(/^ITM-(\d+)$/);
+      return match ? Math.max(max, Number(match[1])) : max;
+    }, 0);
+  }
+
   static async findOne(id: number) {
     return this.findActiveOrThrow(id);
   }
@@ -189,6 +263,23 @@ export class ItemsService {
       if (data.barcode) {
         await this.assertUniqueBarcode(data.barcode, id);
       }
+    }
+
+    const nextItemName =
+      data.itemName !== undefined
+        ? normalizeDuplicateText(data.itemName)
+        : item.itemName;
+
+    const nextCategoryId =
+      data.categoryId !== undefined ? data.categoryId : item.categoryId;
+
+    if (data.itemName !== undefined || data.categoryId !== undefined) {
+      await this.assertUniqueInventoryRecord(
+        nextItemName,
+        nextCategoryId,
+        item.itemType,
+        id,
+      );
     }
 
     const {
@@ -218,7 +309,7 @@ export class ItemsService {
     return prisma.item.update({
       where: { id },
       data: {
-        ...(itemName !== undefined && { itemName }),
+        ...(itemName !== undefined && { itemName: nextItemName }),
         ...(description !== undefined && { description }),
         ...(categoryId !== undefined && { categoryId }),
         ...(barcode !== undefined && { barcode }),
@@ -238,6 +329,7 @@ export class ItemsService {
                   reorderPoint !== undefined
                     ? reorderPoint
                     : existingProfile.reorderPoint;
+
                 return {
                   ...(unit !== undefined && { unit }),
                   ...(quantity !== undefined && { quantity }),
@@ -297,4 +389,68 @@ export class ItemsService {
       data: { deletedAt: new Date() },
     });
   }
+
+  // ── Image management ───────────────────────────────────────────────────
+
+  static async addImage(itemId: number, data: ItemImageInput) {
+    await this.findActiveOrThrow(itemId);
+
+    if (data.isPrimary) {
+      await prisma.itemImage.updateMany({
+        where: { itemId, isPrimary: true, deletedAt: null },
+        data: { isPrimary: false },
+      });
+    }
+
+    return prisma.itemImage.create({
+      data: {
+        itemId,
+        url: data.url,
+        label: data.label ?? null,
+        isPrimary: data.isPrimary,
+      },
+    });
+  }
+
+  static async updateImage(
+    itemId: number,
+    imageId: number,
+    data: UpdateItemImageInput,
+  ) {
+    await this.findActiveOrThrow(itemId);
+
+    const image = await prisma.itemImage.findFirst({
+      where: { id: imageId, itemId, deletedAt: null },
+    });
+    if (!image) throw new Error('Image not found');
+
+    if (data.isPrimary) {
+      await prisma.itemImage.updateMany({
+        where: { itemId, isPrimary: true, deletedAt: null },
+        data: { isPrimary: false },
+      });
+    }
+
+    return prisma.itemImage.update({
+      where: { id: imageId },
+      data,
+    });
+  }
+
+  static async deleteImage(itemId: number, imageId: number) {
+    await this.findActiveOrThrow(itemId);
+
+    const image = await prisma.itemImage.findFirst({
+      where: { id: imageId, itemId, deletedAt: null },
+    });
+    if (!image) throw new Error('Image not found');
+
+    await prisma.itemImage.update({
+      where: { id: imageId },
+      data: { deletedAt: new Date() },
+    });
+
+    return { message: 'Image soft deleted successfully' };
+  }
 }
+

@@ -5,6 +5,13 @@ import { useAuthStore } from '../store/authStore';
 
 const USER_DIRECTORY_PAGE_SIZE = 1000;
 
+/** Protected superadmin — matches the backend SUPERADMIN_EMAIL env value. */
+const SUPERADMIN_EMAIL = 'sam@jitims.com';
+
+function isSuperAdmin(user: { email: string }) {
+  return user.email.trim().toLowerCase() === SUPERADMIN_EMAIL;
+}
+
 type Permission = {
   id: number;
   name: string;
@@ -315,6 +322,12 @@ export default function UserManagementPage() {
       return;
     }
 
+    if (isSuperAdmin(user)) {
+      setErrorMessage('The superadmin account cannot be edited.');
+      setSuccessMessage('');
+      return;
+    }
+
     setEditingUser(user);
     setEditFirstName(user.firstName);
     setEditLastName(user.lastName);
@@ -404,7 +417,10 @@ export default function UserManagementPage() {
     setSuccessMessage('');
 
     try {
-      await api.patch<User>(`/users/${editingUser.id}/access`, {
+      await api.patch<User>(`/users/${editingUser.id}`, {
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim(),
+        email: editEmail.trim().toLowerCase(),
         roleId: Number(editRoleId),
         isActive: editIsActive,
       });
@@ -651,13 +667,23 @@ export default function UserManagementPage() {
         )}
 
         {editingUser && canManageUserAccess && (
-          <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">Edit User Access</h2>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Update the role and account status for {getUserFullName(editingUser)}.
-              </p>
-            </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Edit User</h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Update details for {getUserFullName(editingUser)}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEditAccess}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
 
               <form onSubmit={handleUpdateAccess} className="grid gap-3 md:grid-cols-2">
                 <input
@@ -729,6 +755,7 @@ export default function UserManagementPage() {
                 </div>
               </form>
             </section>
+          </div>
         )}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -816,13 +843,20 @@ export default function UserManagementPage() {
                         </td>
                         {canManageUserAccess && (
                           <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() => openEditAccess(user)}
-                              className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-                            >
-                              Edit Role
-                            </button>
+                            {isSuperAdmin(user) ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--background-tertiary)] px-2.5 py-1 text-xs font-medium text-[var(--text-tertiary)]" title="Superadmin — protected">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                Protected
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openEditAccess(user)}
+                                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                              >
+                                Edit
+                              </button>
+                            )}
                           </td>
                         )}
                       </tr>
@@ -854,13 +888,20 @@ export default function UserManagementPage() {
                     </div>
 
                     {canManageUserAccess && (
-                      <button
-                        type="button"
-                        onClick={() => openEditAccess(user)}
-                        className="mt-4 w-full rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-                      >
-                        Edit Role
-                      </button>
+                      isSuperAdmin(user) ? (
+                        <span className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--background-tertiary)] px-3 py-2 text-xs font-medium text-[var(--text-tertiary)]" title="Superadmin — protected">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          Protected Account
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openEditAccess(user)}
+                          className="mt-4 w-full rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                        >
+                          Edit
+                        </button>
+                      )
                     )}
                   </article>
                 ))}

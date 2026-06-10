@@ -252,11 +252,30 @@ model Item {
   equipment          Equipment?
   digitalAsset       DigitalAsset?
   purchaseOrderItems PurchaseOrderItem[]
+  images             ItemImage[]
 
   @@index([categoryId])
   @@index([itemType])
   @@index([deletedAt])
   @@map("items")
+}
+
+// ────────────────────────────────────────────
+// 7b. Item Images
+// ────────────────────────────────────────────
+model ItemImage {
+  id         Int       @id @default(autoincrement())
+  itemId     Int       @map("item_id")
+  url        String    @db.Text
+  label      String?   @db.VarChar(100)
+  isPrimary  Boolean   @default(false) @map("is_primary")
+  uploadedAt DateTime  @default(now()) @map("uploaded_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("item_images")
 }
 
 // ────────────────────────────────────────────

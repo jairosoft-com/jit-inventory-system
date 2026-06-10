@@ -6,6 +6,20 @@ import {
   DigitalStatus,
 } from '@prisma/client';
 
+// ── Image sub-schemas (mirroring equipment image schema) ─────────────────────
+
+export const itemImageSchema = z.object({
+  url: z.string().min(1, 'Image data is required'),
+  label: z.string().trim().max(100).optional().nullable(),
+  isPrimary: z.boolean().optional().default(false),
+});
+
+export const updateItemImageSchema = z.object({
+  label: z.string().trim().max(100).optional().nullable(),
+  isPrimary: z.boolean().optional(),
+});
+
+
 // ── Consumable sub-schema ─────────────────────────────────────────────────────
 
 const consumableProfileSchema = z.object({
@@ -100,6 +114,7 @@ export const listItemsQuerySchema = z.object({
   search: z.string().trim().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  includeArchived: z.coerce.boolean().optional().default(false),
 });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -107,3 +122,6 @@ export const listItemsQuerySchema = z.object({
 export type CreateItemInput = z.infer<typeof createItemSchema>;
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 export type ListItemsQuery = z.infer<typeof listItemsQuerySchema>;
+export type ItemImageInput = z.infer<typeof itemImageSchema>;
+export type UpdateItemImageInput = z.infer<typeof updateItemImageSchema>;
+

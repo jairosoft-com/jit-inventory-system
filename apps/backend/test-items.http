@@ -2,8 +2,7 @@
 
 # 1. Run the Login request below, copy the "accessToken" from the response.
 # 2. Paste it directly below
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc4MDI5NDEyNiwiZXhwIjoxNzgwMjk1MDI2fQ.Czekd2GIys6Tu6gdbpEXMLfxKO2hzFg4v99jBygYNsQ
-
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc4MDQ2OTk1MiwiZXhwIjoxNzgwNDcwODUyfQ.YpvxPCblxtga1ZCzGiRQPDgaIcFilOKstjcLs12AFTo
 # ── AUTHENTICATION ───────────────────────────────────────────────────────────
 
 ### Login (Get Token)
@@ -83,7 +82,7 @@ Content-Type: application/json
   "itemType": "DIGITAL",
   "itemName": "Adobe Photoshop License",
   "description": "Annual subscription for design team",
-  "categoryId": 2,
+  "categoryId": 117,
   "digitalAsset": {
     "assetType": "SOFTWARE",
     "vendor": "Adobe",
@@ -118,7 +117,7 @@ Content-Type: application/json
 }
 
 ### Update Digital Item
-PATCH {{baseUrl}}/items/2
+PATCH {{baseUrl}}/items/8
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -134,3 +133,24 @@ Authorization: Bearer {{token}}
 
 
 
+### Create Consumable Category
+POST {{baseUrl}}/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Office Supplies",
+  "type": "CONSUMABLE"
+}
+
+###
+
+### Create Digital Category
+POST {{baseUrl}}/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Software & Licenses",
+  "type": "DIGITAL"
+}

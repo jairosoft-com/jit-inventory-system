@@ -207,6 +207,18 @@ const PERMISSIONS = [
     description: 'Record stock out',
   },
   { name: 'stock:read', resource: 'stock', action: 'read', description: 'View stock movements' },
+  {
+    name: 'adjustment:create',
+    resource: 'adjustment',
+    action: 'create',
+    description: 'Record inventory quantity adjustments',
+  },
+  {
+    name: 'movement:read',
+    resource: 'movement',
+    action: 'read',
+    description: 'View stock movement history',
+  },
 
   // Maintenance
   {
@@ -280,6 +292,8 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'stock_in:create',
     'stock_out:create',
     'stock:read',
+    'adjustment:create',
+    'movement:read',
     'maintenance:create',
     'maintenance:read',
     'maintenance:update',
@@ -311,6 +325,8 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'stock_in:create',
     'stock_out:create',
     'stock:read',
+    'adjustment:create',
+    'movement:read',
     'maintenance:create',
     'maintenance:read',
     'maintenance:update',

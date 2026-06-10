@@ -4,15 +4,6 @@ import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useItemsStore, type Item } from '../store/itemsStore';
 
-function generateItemCode(existingItems: Item[]): string {
-  const highest = existingItems.reduce((max, item) => {
-    if (!item.barcode) return max;
-    const match = item.barcode.match(/^ITM-(\d+)$/);
-    return match ? Math.max(max, Number(match[1])) : max;
-  }, 0);
-  return `ITM-${String(highest + 1).padStart(3, '0')}`;
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getStatusLabel(item: Item): string {
@@ -90,25 +81,33 @@ function SummaryCard({
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+type SubTab = 'active' | 'archived';
+
 export default function InventoryManagementPage() {
   const { user } = useAuthStore();
   const { categories, fetchCategories } = useCategoryStore();
   const {
     items,
+    archivedItems,
     meta,
+    archivedMeta,
     isLoading,
     error: storeError,
     fetchItems,
+    fetchArchivedItems,
+    fetchMaxBarcode,
     createItem,
     updateItem,
     archiveItem,
     clearError,
   } = useItemsStore();
 
-  const fetchingRef = useRef(false);
+  const fetchingActiveRef = useRef(false);
+  const fetchingArchivedRef = useRef(false);
 
   // ── Local UI state ──────────────────────────────────────────────────────────
 
+  const [subTab, setSubTab] = useState<SubTab>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
 
@@ -118,6 +117,9 @@ export default function InventoryManagementPage() {
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // generated code for new item — fetched from backend to include archived
+  const [generatedCode, setGeneratedCode] = useState('ITM-001');
 
   // ── Permissions ─────────────────────────────────────────────────────────────
 
@@ -135,26 +137,48 @@ export default function InventoryManagementPage() {
 
   // ── Load data ───────────────────────────────────────────────────────────────
 
+  const buildQuery = useCallback(() => {
+    const query: Record<string, unknown> = { itemType: 'CONSUMABLE' };
+    if (selectedCategoryId !== 'all') query.categoryId = Number(selectedCategoryId);
+    if (searchTerm.trim()) query.search = searchTerm.trim();
+    return query;
+  }, [selectedCategoryId, searchTerm]);
+
   const loadItems = useCallback(async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
+    if (fetchingActiveRef.current) return;
+    fetchingActiveRef.current = true;
     try {
-      const query: Record<string, unknown> = { itemType: 'CONSUMABLE' };
-      if (selectedCategoryId !== 'all') query.categoryId = Number(selectedCategoryId);
-      if (searchTerm.trim()) query.search = searchTerm.trim();
-      await fetchItems(query as any);
+      await fetchItems(buildQuery() as any);
     } finally {
-      fetchingRef.current = false;
+      fetchingActiveRef.current = false;
     }
-  }, [fetchItems, selectedCategoryId, searchTerm]);
+  }, [fetchItems, buildQuery]);
+
+  const loadArchivedItems = useCallback(async () => {
+    if (fetchingArchivedRef.current) return;
+    fetchingArchivedRef.current = true;
+    try {
+      await fetchArchivedItems(buildQuery() as any);
+    } finally {
+      fetchingArchivedRef.current = false;
+    }
+  }, [fetchArchivedItems, buildQuery]);
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+    void loadArchivedItems(); // pre-load so Archived count shows on mount
+  }, [loadItems, loadArchivedItems]);
 
   useEffect(() => {
     fetchCategories(false);
   }, [fetchCategories]);
+
+  // Load archived items when user switches to the archived tab
+  useEffect(() => {
+    if (subTab === 'archived') {
+      void loadArchivedItems();
+    }
+  }, [subTab, loadArchivedItems]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
 
@@ -173,16 +197,17 @@ export default function InventoryManagementPage() {
     const outOfStock = items.filter(
       (i) => i.consumableProfile?.status === 'OUT_OF_STOCK',
     ).length;
-    return { total: meta.total, inStock, lowStock, outOfStock };
-  }, [items, meta.total]);
-
-  const generatedCode = useMemo(() => generateItemCode(items), [items]);
+    return { total: meta.total, inStock, lowStock, outOfStock, archived: archivedMeta.total };
+  }, [items, meta.total, archivedMeta.total]);
 
   // ── Form helpers ─────────────────────────────────────────────────────────────
 
-  function openCreate() {
+  async function openCreate() {
     setEditingItem(null);
     setFormError('');
+    // BUG FIX #3: Fetch the true max barcode from backend (includes archived items)
+    const max = await fetchMaxBarcode();
+    setGeneratedCode(`ITM-${String(max + 1).padStart(3, '0')}`);
     setIsFormOpen(true);
   }
 
@@ -218,12 +243,12 @@ export default function InventoryManagementPage() {
     setIsSaving(true);
     try {
       if (editingItem) {
+        // BUG FIX #1: Quantity is NOT editable through this form.
+        // Only unit and reorderPoint can be edited here.
         const updatePayload: Record<string, unknown> = { ...base };
         const unit = String(fd.get('unit') ?? '').trim();
-        const qty = Number(fd.get('quantity'));
         const reorder = Number(fd.get('reorderPoint'));
         if (unit) updatePayload.unit = unit;
-        if (!isNaN(qty)) updatePayload.quantity = qty;
         if (!isNaN(reorder)) updatePayload.reorderPoint = reorder;
 
         await updateItem(editingItem.id, updatePayload);
@@ -234,7 +259,7 @@ export default function InventoryManagementPage() {
           itemType: 'CONSUMABLE',
           consumableProfile: {
             unit: String(fd.get('unit') ?? '').trim() || 'pcs',
-            quantity: Number(fd.get('quantity') ?? 0),
+            quantity: 0,
             reorderPoint: Number(fd.get('reorderPoint') ?? 0),
           },
         };
@@ -285,7 +310,7 @@ export default function InventoryManagementPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => void loadItems()}
+              onClick={() => void (subTab === 'active' ? loadItems() : loadArchivedItems())}
               disabled={isLoading}
               className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-60"
             >
@@ -294,7 +319,7 @@ export default function InventoryManagementPage() {
             {canCreate && (
               <button
                 type="button"
-                onClick={openCreate}
+                onClick={() => void openCreate()}
                 className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
               >
                 + Add Item
@@ -319,15 +344,46 @@ export default function InventoryManagementPage() {
         )}
 
         {/* Summary */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <SummaryCard title="Total Items" value={summaries.total} icon="📦" />
+          <SummaryCard title="Active" value={summaries.total} icon="🟢" />
           <SummaryCard title="In Stock" value={summaries.inStock} icon="✅" />
           <SummaryCard title="Low Stock" value={summaries.lowStock} icon="⚠️" />
           <SummaryCard title="Out of Stock" value={summaries.outOfStock} icon="🚫" />
+          <SummaryCard title="Archived" value={summaries.archived} icon="🗄️" />
         </section>
 
-        {/* Table */}
+        {/* Table section */}
         <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+
+          {/* Sub-tabs: Active / Archived */}
+          <div className="mb-5 flex items-center gap-1 border-b border-[var(--surface-border)] pb-0">
+            {(['active', 'archived'] as SubTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setSubTab(tab)}
+                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${
+                  subTab === tab
+                    ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                {tab === 'active' ? 'Active Items' : 'Archived'}
+                {tab === 'active' && meta.total > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {meta.total}
+                  </span>
+                )}
+                {tab === 'archived' && archivedMeta.total > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--text-tertiary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {archivedMeta.total}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
           {/* Filters */}
           <div className="mb-5 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
@@ -359,145 +415,250 @@ export default function InventoryManagementPage() {
             </div>
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Item</th>
-                      <th className="px-4 py-3 font-medium">Category</th>
-                      <th className="px-4 py-3 font-medium">Stock</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="px-4 py-3 font-medium">Added</th>
-                      {(canUpdate || canDelete) && (
-                        <th className="px-4 py-3 font-medium">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--surface-border)]">
-                    {items.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="transition hover:bg-[var(--surface-hover)]"
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium">{item.itemName}</p>
-                          {item.barcode && (
-                            <p className="text-xs font-mono text-[var(--text-tertiary)]">
-                              {item.barcode}
-                            </p>
+              {/* ── Active Items ── */}
+              {subTab === 'active' && (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Item</th>
+                          <th className="px-4 py-3 font-medium">Category</th>
+                          <th className="px-4 py-3 font-medium">Stock</th>
+                          <th className="px-4 py-3 font-medium">Status</th>
+                          <th className="px-4 py-3 font-medium">Added</th>
+                          {(canUpdate || canDelete) && (
+                            <th className="px-4 py-3 font-medium">Actions</th>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {item.category.name}
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {item.consumableProfile ? (
-                            <span>
-                              {item.consumableProfile.quantity}{' '}
-                              {item.consumableProfile.unit}
-                              <span className="ml-1 text-xs text-[var(--text-tertiary)]">
-                                (reorder @ {item.consumableProfile.reorderPoint})
-                              </span>
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="px-4 py-3">
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {items.map((item) => (
+                          <tr
+                            key={item.id}
+                            className="transition hover:bg-[var(--surface-hover)]"
+                          >
+                            <td className="px-4 py-3">
+                              <p className="font-medium">{item.itemName}</p>
+                              {item.barcode && (
+                                <p className="text-xs font-mono text-[var(--text-tertiary)]">
+                                  {item.barcode}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {item.category.name}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {item.consumableProfile ? (
+                                <span>
+                                  {item.consumableProfile.quantity}{' '}
+                                  {item.consumableProfile.unit}
+                                  <span className="ml-1 text-xs text-[var(--text-tertiary)]">
+                                    (reorder @ {item.consumableProfile.reorderPoint})
+                                  </span>
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusBadge item={item} />
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {formatDate(item.createdAt)}
+                            </td>
+                            {(canUpdate || canDelete) && (
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {canUpdate && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openEdit(item)}
+                                      className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleArchive(item)}
+                                      className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                                    >
+                                      Archive
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="grid gap-3 md:hidden">
+                    {items.map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-xl border border-[var(--surface-border)] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{item.itemName}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {item.category.name}
+                            </p>
+                          </div>
                           <StatusBadge item={item} />
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
-                          {formatDate(item.createdAt)}
-                        </td>
-                        {(canUpdate || canDelete) && (
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              {canUpdate && (
-                                <button
-                                  type="button"
-                                  onClick={() => openEdit(item)}
-                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
-                                >
-                                  Edit
-                                </button>
-                              )}
-                              {canDelete && (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleArchive(item)}
-                                  className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
-                                >
-                                  Archive
-                                </button>
-                              )}
-                            </div>
-                          </td>
+                        </div>
+                        {item.consumableProfile && (
+                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                            {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                            {' · reorder @ '}{item.consumableProfile.reorderPoint}
+                          </p>
                         )}
-                      </tr>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => void handleArchive(item)}
+                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                            >
+                              Archive
+                            </button>
+                          )}
+                        </div>
+                      </article>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
 
-              {/* Mobile cards */}
-              <div className="grid gap-3 md:hidden">
-                {items.map((item) => (
-                  <article
-                    key={item.id}
-                    className="rounded-xl border border-[var(--surface-border)] p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">{item.itemName}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">
-                          {item.category.name}
-                        </p>
-                      </div>
-                      <StatusBadge item={item} />
-                    </div>
-                    {item.consumableProfile && (
-                      <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                        {item.consumableProfile.quantity} {item.consumableProfile.unit}
-                        {' · reorder @ '}{item.consumableProfile.reorderPoint}
+                  {items.length === 0 && (
+                    <div className="py-16 text-center">
+                      <p className="text-3xl">📭</p>
+                      <h3 className="mt-3 font-semibold">No items found</h3>
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                        Try adjusting your filters or add a new item.
                       </p>
-                    )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {canUpdate && (
-                        <button
-                          type="button"
-                          onClick={() => openEdit(item)}
-                          className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => void handleArchive(item)}
-                          className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                        >
-                          Archive
-                        </button>
-                      )}
                     </div>
-                  </article>
-                ))}
-              </div>
+                  )}
 
-              {items.length === 0 && (
-                <div className="py-16 text-center">
-                  <p className="text-3xl">📭</p>
-                  <h3 className="mt-3 font-semibold">No items found</h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Try adjusting your filters or add a new item.
-                  </p>
-                </div>
+                  {meta.total > 0 && (
+                    <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                      Showing {items.length} of {meta.total} items
+                    </p>
+                  )}
+                </>
               )}
 
-              {meta.total > 0 && (
-                <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                  Showing {items.length} of {meta.total} items
-                </p>
+              {/* ── Archived Items ── */}
+              {subTab === 'archived' && (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Item</th>
+                          <th className="px-4 py-3 font-medium">Category</th>
+                          <th className="px-4 py-3 font-medium">Last Stock</th>
+                          <th className="px-4 py-3 font-medium">Added</th>
+                          <th className="px-4 py-3 font-medium">Archived</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {archivedItems.map((item) => (
+                          <tr
+                            key={item.id}
+                            className="opacity-70 transition hover:bg-[var(--surface-hover)] hover:opacity-100"
+                          >
+                            <td className="px-4 py-3">
+                              <p className="font-medium">{item.itemName}</p>
+                              {item.barcode && (
+                                <p className="text-xs font-mono text-[var(--text-tertiary)]">
+                                  {item.barcode}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {item.category.name}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {item.consumableProfile ? (
+                                <span>
+                                  {item.consumableProfile.quantity}{' '}
+                                  {item.consumableProfile.unit}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {formatDate(item.createdAt)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                Archived
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="grid gap-3 md:hidden">
+                    {archivedItems.map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-xl border border-[var(--surface-border)] p-4 opacity-70"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{item.itemName}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {item.category.name}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                            Archived
+                          </span>
+                        </div>
+                        {item.consumableProfile && (
+                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                            Last stock: {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                          </p>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+
+                  {archivedItems.length === 0 && (
+                    <div className="py-16 text-center">
+                      <p className="text-3xl">🗄️</p>
+                      <h3 className="mt-3 font-semibold">No archived items</h3>
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                        Archived items will appear here.
+                      </p>
+                    </div>
+                  )}
+
+                  {archivedMeta.total > 0 && (
+                    <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                      Showing {archivedItems.length} of {archivedMeta.total} archived items
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}
@@ -595,7 +756,7 @@ export default function InventoryManagementPage() {
               </div>
 
               {/* Stock fields */}
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
                     Unit *
@@ -614,18 +775,7 @@ export default function InventoryManagementPage() {
                     ))}
                   </datalist>
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Quantity
-                  </label>
-                  <input
-                    name="quantity"
-                    type="number"
-                    min="0"
-                    defaultValue={editingItem?.consumableProfile?.quantity ?? 0}
-                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
+
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
                     Reorder Level
@@ -639,6 +789,12 @@ export default function InventoryManagementPage() {
                   />
                 </div>
               </div>
+
+              {editingItem && (
+                <p className="rounded-lg bg-[var(--background-tertiary)] px-3 py-2 text-xs text-[var(--text-tertiary)]">
+                  ℹ️ Quantity can only be adjusted through the Stock In / Stock Out process.
+                </p>
+              )}
 
               <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
                 <button

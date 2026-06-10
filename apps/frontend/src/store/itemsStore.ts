@@ -59,6 +59,7 @@ export interface ListItemsQuery {
   search?: string;
   page?: number;
   limit?: number;
+  includeArchived?: boolean;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -72,20 +73,26 @@ interface PaginationMeta {
 
 interface ItemsState {
   items: Item[];
+  archivedItems: Item[];
   meta: PaginationMeta;
+  archivedMeta: PaginationMeta;
   isLoading: boolean;
   error: string | null;
 
   fetchItems: (query?: ListItemsQuery) => Promise<void>;
+  fetchArchivedItems: (query?: ListItemsQuery) => Promise<void>;
+  fetchMaxBarcode: () => Promise<number>;
   createItem: (data: Record<string, unknown>) => Promise<Item>;
   updateItem: (id: number, data: Record<string, unknown>) => Promise<Item>;
   archiveItem: (id: number) => Promise<void>;
   clearError: () => void;
 }
 
-export const useItemsStore = create<ItemsState>((set, get) => ({
+export const useItemsStore = create<ItemsState>((set, _get) => ({
   items: [],
+  archivedItems: [],
   meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+  archivedMeta: { total: 0, page: 1, limit: 20, totalPages: 0 },
   isLoading: false,
   error: null,
 
@@ -112,6 +119,39 @@ export const useItemsStore = create<ItemsState>((set, get) => ({
         error: err.response?.data?.message || 'Failed to fetch items',
         isLoading: false,
       });
+    }
+  },
+
+  fetchArchivedItems: async (query) => {
+    set({ isLoading: true, error: null });
+    try {
+      const params: Record<string, string> = { includeArchived: 'true' };
+      if (query?.itemType) params.itemType = query.itemType;
+      if (query?.categoryId) params.categoryId = String(query.categoryId);
+      if (query?.search) params.search = query.search;
+      if (query?.page) params.page = String(query.page);
+      if (query?.limit) params.limit = String(query.limit);
+
+      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>(
+        '/items',
+        { params },
+      );
+      set({ archivedItems: response.data.data, archivedMeta: response.data.meta, isLoading: false });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      set({
+        error: err.response?.data?.message || 'Failed to fetch archived items',
+        isLoading: false,
+      });
+    }
+  },
+
+  fetchMaxBarcode: async () => {
+    try {
+      const response = await api.get<{ max: number }>('/items/max-barcode');
+      return response.data.max;
+    } catch {
+      return 0;
     }
   },
 

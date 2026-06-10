@@ -1,32 +1,13 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
-import {
-  useItemStore,
-  type Item,
-  type ItemStatus,
-  type ListItemsQuery,
-} from '../store/itemStore';
 import { useCategoryStore } from '../store/categoryStore';
+import { useItemsStore, type Item, type ItemImage } from '../store/itemsStore';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const PAGE_SIZE = 20;
+// ── Constants (image upload) ───────────────────────────────────────────────────
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
-
-// ── Form State ────────────────────────────────────────────────────────────────
-
-interface FormState {
-  itemName: string;
-  categoryId: string;
-  description: string;
-  barcode: string;
-  unit: string;
-  quantity: string;
-  reorderPoint: string;
-}
 
 interface PendingImage {
   url: string;
@@ -35,218 +16,244 @@ interface PendingImage {
   size: number;
 }
 
-const emptyForm: FormState = {
-  itemName: '',
-  categoryId: '',
-  description: '',
-  barcode: '',
-  unit: 'pcs',
-  quantity: '0',
-  reorderPoint: '0',
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function itemToForm(item: Item): FormState {
-  const profile = item.consumableProfile;
-  return {
-    itemName: item.itemName,
-    categoryId: String(item.categoryId),
-    description: item.description || '',
-    barcode: item.barcode || '',
-    unit: profile?.unit || 'pcs',
-    quantity: profile ? String(profile.quantity) : '0',
-    reorderPoint: profile ? String(profile.reorderPoint) : '0',
-  };
+function getStatusLabel(item: Item): string {
+  if (item.consumableProfile) {
+    const s = item.consumableProfile.status;
+    if (s === 'IN_STOCK') return 'In Stock';
+    if (s === 'LOW_STOCK') return 'Low Stock';
+    if (s === 'OUT_OF_STOCK') return 'Out of Stock';
+  }
+  return '—';
 }
 
-function getPrimaryImage(item: Item) {
-  return item.images.find((img) => img.isPrimary) || item.images[0] || null;
+function getStatusVariant(item: Item): 'success' | 'warning' | 'danger' | 'neutral' {
+  const label = getStatusLabel(item).toLowerCase();
+  if (label.includes('in stock')) return 'success';
+  if (label.includes('low')) return 'warning';
+  if (label.includes('out')) return 'danger';
+  return 'neutral';
 }
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value));
+}
 
-function StockBadge({ status }: { status: ItemStatus }) {
-  const styles: Record<ItemStatus, string> = {
-    IN_STOCK: 'bg-[var(--success-muted)] text-[var(--success)]',
-    LOW_STOCK: 'bg-[var(--warning-muted)] text-[var(--warning)]',
-    OUT_OF_STOCK: 'bg-red-50 text-red-600',
-    ARCHIVED: 'bg-gray-100 text-gray-500',
-  };
-  const labels: Record<ItemStatus, string> = {
-    IN_STOCK: 'In Stock',
-    LOW_STOCK: 'Low Stock',
-    OUT_OF_STOCK: 'Out of Stock',
-    ARCHIVED: 'Archived',
-  };
+function getPrimaryImage(item: Item): ItemImage | null {
+  return item.images?.find((img) => img.isPrimary) || item.images?.[0] || null;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function StatusBadge({ item }: { item: Item }) {
+  const label = getStatusLabel(item);
+  const variant = getStatusVariant(item);
+
+  const cls = {
+    success: 'bg-[var(--success-muted)] text-[var(--success)]',
+    warning: 'bg-[var(--warning-muted)] text-[var(--warning)]',
+    danger: 'bg-red-50 text-red-700',
+    neutral: 'bg-[var(--background-tertiary)] text-[var(--text-secondary)]',
+  }[variant];
+
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${cls}`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          status === 'IN_STOCK'
-            ? 'bg-[var(--success)]'
-            : status === 'LOW_STOCK'
-              ? 'bg-[var(--warning)]'
-              : status === 'OUT_OF_STOCK'
-                ? 'bg-red-600'
-                : 'bg-gray-400'
-        }`}
-      />
-      {labels[status]}
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {label}
     </span>
   );
 }
 
-// ── FormField helper ──────────────────────────────────────────────────────────
-
-function FormField({
-  label,
-  required,
-  name,
+function SummaryCard({
+  title,
   value,
-  onChange,
-  placeholder,
-  type = 'text',
+  icon,
 }: {
-  label: string;
-  required?: boolean;
-  name: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
-  type?: string;
+  title: string;
+  value: ReactNode;
+  icon: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-        {label}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      <input
-        required={required}
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        step={type === 'number' ? '1' : undefined}
-        min={type === 'number' ? '0' : undefined}
-        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-      />
-    </div>
+    <article className="flex items-center gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-2xl">
+        {icon}
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          {title}
+        </p>
+        <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
+      </div>
+    </article>
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Page ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+type SubTab = 'active' | 'archived';
 
 export default function InventoryManagementPage() {
-  // ── Stores ──────────────────────────────────────────────────────────────────
   const { user } = useAuthStore();
+  const { categories, fetchCategories } = useCategoryStore();
   const {
     items,
+    archivedItems,
     meta,
+    archivedMeta,
     isLoading,
     error: storeError,
     fetchItems,
+    fetchArchivedItems,
+    fetchMaxBarcode,
     createItem,
     updateItem,
+    archiveItem,
     addImage,
     deleteImage,
     clearError,
-  } = useItemStore();
-  const { categories, fetchCategories } = useCategoryStore();
+  } = useItemsStore();
 
-  // Categories filtered to CONSUMABLE type only
-  const consumableCategories = useMemo(
-    () => categories.filter((c) => c.type === 'CONSUMABLE' && !c.deletedAt),
-    [categories],
-  );
+  const fetchingActiveRef = useRef(false);
+  const fetchingArchivedRef = useRef(false);
 
-  // ── Permissions ─────────────────────────────────────────────────────────────
-  const permissions = useMemo(() => {
-    if (!user || !(user as any).permissions) return [];
-    return ((user as any).permissions as any[]).map((p: any) =>
-      typeof p === 'string' ? p : p.name || '',
-    );
-  }, [user]);
+  // ── Local UI state ──────────────────────────────────────────────────────────
 
-  const roleName = user?.role?.name?.toUpperCase() || '';
-  const isAdmin = roleName.includes('ADMIN');
-  const canCreate = isAdmin || permissions.includes('inventory:create');
-  const canUpdate = isAdmin || permissions.includes('inventory:update');
+  const [subTab, setSubTab] = useState<SubTab>('active');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('all');
 
-  // ── UI State ─────────────────────────────────────────────────────────────────
+  // form modal
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [formData, setFormData] = useState<FormState>(emptyForm);
+  const [formError, setFormError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // image upload state
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // generated code for new item — fetched from backend to include archived
+  const [generatedCode, setGeneratedCode] = useState('ITM-001');
 
-  // ── Filters ──────────────────────────────────────────────────────────────────
-  const [searchInput, setSearchInput] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  // ── Permissions ─────────────────────────────────────────────────────────────
 
-  // ── Data Loading ──────────────────────────────────────────────────────────────
-  const loadItems = useCallback(
-    (page?: number, search?: string) => {
-      const query: ListItemsQuery = {
-        page: page ?? currentPage,
-        limit: PAGE_SIZE,
-        itemType: 'CONSUMABLE',
-      };
-      const s = search ?? searchInput.trim();
-      if (s) query.search = s;
-      fetchItems(query);
-    },
-    [currentPage, searchInput, fetchItems],
-  );
+  const permissions = useMemo(() => {
+    if (!user || !(user as any).permissions) return [] as string[];
+    return ((user as any).permissions as any[]).map((p: any) =>
+      typeof p === 'string' ? p : (p.name ?? ''),
+    );
+  }, [user]);
+
+  const isAdmin = (user as any)?.role?.name === 'ADMIN';
+  const canCreate = isAdmin || permissions.includes('inventory:create');
+  const canUpdate = isAdmin || permissions.includes('inventory:update');
+  const canDelete = isAdmin || permissions.includes('inventory:delete');
+
+  // ── Load data ────────────────────────────────────────────────────────────────
+
+  const buildQuery = useCallback(() => {
+    const query: Record<string, unknown> = { itemType: 'CONSUMABLE' };
+    if (selectedCategoryId !== 'all') query.categoryId = Number(selectedCategoryId);
+    if (searchTerm.trim()) query.search = searchTerm.trim();
+    return query;
+  }, [selectedCategoryId, searchTerm]);
+
+  const loadItems = useCallback(async () => {
+    if (fetchingActiveRef.current) return;
+    fetchingActiveRef.current = true;
+    try {
+      await fetchItems(buildQuery() as any);
+    } finally {
+      fetchingActiveRef.current = false;
+    }
+  }, [fetchItems, buildQuery]);
+
+  const loadArchivedItems = useCallback(async () => {
+    if (fetchingArchivedRef.current) return;
+    fetchingArchivedRef.current = true;
+    try {
+      await fetchArchivedItems(buildQuery() as any);
+    } finally {
+      fetchingArchivedRef.current = false;
+    }
+  }, [fetchArchivedItems, buildQuery]);
 
   useEffect(() => {
-    loadItems(1);
-    fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void loadItems();
+    void loadArchivedItems(); // pre-load so Archived count shows on mount
+  }, [loadItems, loadArchivedItems]);
 
-  // ── Form Handlers ─────────────────────────────────────────────────────────────
-  const handleOpenCreate = () => {
+  useEffect(() => {
+    fetchCategories(false);
+  }, [fetchCategories]);
+
+  // Load archived items when user switches to the archived tab
+  useEffect(() => {
+    if (subTab === 'archived') {
+      void loadArchivedItems();
+    }
+  }, [subTab, loadArchivedItems]);
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
+
+  const inventoryCategories = useMemo(
+    () => categories.filter((c) => !c.deletedAt && c.type === 'CONSUMABLE'),
+    [categories],
+  );
+
+  const summaries = useMemo(() => {
+    const inStock = items.filter(
+      (i) => i.consumableProfile?.status === 'IN_STOCK',
+    ).length;
+    const lowStock = items.filter(
+      (i) => i.consumableProfile?.status === 'LOW_STOCK',
+    ).length;
+    const outOfStock = items.filter(
+      (i) => i.consumableProfile?.status === 'OUT_OF_STOCK',
+    ).length;
+    return { total: meta.total, inStock, lowStock, outOfStock, archived: archivedMeta.total };
+  }, [items, meta.total, archivedMeta.total]);
+
+  // ── Form helpers ─────────────────────────────────────────────────────────────
+
+  async function openCreate() {
     setEditingItem(null);
-    setFormData(emptyForm);
+    setFormError('');
     setPendingImages([]);
     setImageError(null);
-    setFormError(null);
+    // BUG FIX #3: Fetch the true max barcode from backend (includes archived items)
+    const max = await fetchMaxBarcode();
+    setGeneratedCode(`ITM-${String(max + 1).padStart(3, '0')}`);
     setIsFormOpen(true);
-  };
+  }
 
-  const handleOpenEdit = (item: Item) => {
+  function openEdit(item: Item) {
     setEditingItem(item);
-    setFormData(itemToForm(item));
+    setFormError('');
     setPendingImages([]);
     setImageError(null);
-    setFormError(null);
     setIsFormOpen(true);
-  };
+  }
 
-  const handleCloseForm = () => {
+  function closeForm() {
     setIsFormOpen(false);
     setEditingItem(null);
-    setFormData(emptyForm);
+    setFormError('');
     setPendingImages([]);
-    setFormError(null);
-  };
+    setImageError(null);
+  }
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  // ── Image Handlers ────────────────────────────────────────────────────────────
 
-  // ── Image Handlers (identical to EquipmentPage) ───────────────────────────────
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -276,7 +283,7 @@ export default function InventoryManagementPage() {
         {
           url,
           label: file.name,
-          isPrimary: prev.length === 0 && (!editingItem || editingItem.images.length === 0),
+          isPrimary: prev.length === 0 && (!editingItem || (editingItem.images?.length ?? 0) === 0),
           size: file.size,
         },
       ]);
@@ -309,38 +316,35 @@ export default function InventoryManagementPage() {
     }
   };
 
-  // ── Submit ────────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFormError(null);
-    setSuccessMessage(null);
+  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError('');
+    const fd = new FormData(event.currentTarget);
 
-    if (!formData.itemName.trim()) {
-      setFormError('Item name is required.');
-      return;
-    }
-    if (!formData.categoryId) {
-      setFormError('Please select a category.');
-      return;
-    }
-    if (!formData.unit.trim()) {
-      setFormError('Unit is required.');
+    const base = {
+      itemName: String(fd.get('itemName') ?? '').trim(),
+      description: String(fd.get('description') ?? '').trim() || null,
+      categoryId: Number(fd.get('categoryId')),
+      ...(!editingItem && { barcode: generatedCode }),
+    };
+
+    if (!base.itemName || !base.categoryId) {
+      setFormError('Item name and category are required.');
       return;
     }
 
-    setIsSubmitting(true);
+    setIsSaving(true);
     try {
       if (editingItem) {
-        // ── Update ────────────────────────────────────────────────────────
-        await updateItem(editingItem.id, {
-          itemName: formData.itemName.trim(),
-          categoryId: Number(formData.categoryId),
-          description: formData.description.trim() || null,
-          barcode: formData.barcode.trim() || null,
-          unit: formData.unit.trim(),
-          quantity: Number(formData.quantity),
-          reorderPoint: Number(formData.reorderPoint),
-        });
+        // BUG FIX #1: Quantity is NOT editable through this form.
+        // Only unit and reorderPoint can be edited here.
+        const updatePayload: Record<string, unknown> = { ...base };
+        const unit = String(fd.get('unit') ?? '').trim();
+        const reorder = Number(fd.get('reorderPoint'));
+        if (unit) updatePayload.unit = unit;
+        if (!isNaN(reorder)) updatePayload.reorderPoint = reorder;
+
+        await updateItem(editingItem.id, updatePayload);
 
         // Upload any newly selected images
         for (const img of pendingImages) {
@@ -351,21 +355,19 @@ export default function InventoryManagementPage() {
           });
         }
 
-        setSuccessMessage('Item updated successfully');
+        setSuccessMessage('Item updated successfully.');
       } else {
-        // ── Create ────────────────────────────────────────────────────────
-        const created = await createItem({
+        const createPayload = {
+          ...base,
           itemType: 'CONSUMABLE',
-          itemName: formData.itemName.trim(),
-          categoryId: Number(formData.categoryId),
-          description: formData.description.trim() || null,
-          barcode: formData.barcode.trim() || null,
           consumableProfile: {
-            unit: formData.unit.trim(),
-            quantity: Number(formData.quantity),
-            reorderPoint: Number(formData.reorderPoint),
+            unit: String(fd.get('unit') ?? '').trim() || 'pcs',
+            quantity: 0,
+            reorderPoint: Number(fd.get('reorderPoint') ?? 0),
           },
-        });
+        };
+
+        const created = await createItem(createPayload);
 
         // Upload pending images after creation
         for (const img of pendingImages) {
@@ -376,72 +378,61 @@ export default function InventoryManagementPage() {
           });
         }
 
-        setSuccessMessage('Item created successfully');
+        setSuccessMessage('Item created successfully.');
       }
-      handleCloseForm();
-      setTimeout(() => setSuccessMessage(null), 4000);
+
+      closeForm();
+      void loadItems();
+      setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err: any) {
-      clearError();
       setFormError(err.message || 'An error occurred. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
-  };
+  }
 
-  // ── Filter Handlers ────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    setCurrentPage(1);
-    loadItems(1, searchInput.trim());
-  };
+  async function handleArchive(item: Item) {
+    if (!canDelete) return;
+    if (!window.confirm(`Archive "${item.itemName}"? This cannot be undone.`)) return;
+    try {
+      await archiveItem(item.id);
+      setSuccessMessage(`"${item.itemName}" has been archived.`);
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch {
+      /* storeError handles it */
+    }
+  }
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSearch();
-  };
+  // ── Render ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  const handleClearSearch = () => {
-    setSearchInput('');
-    setCurrentPage(1);
-    loadItems(1, '');
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    loadItems(page, searchInput.trim());
-  };
-
-  // ── Summary counts ─────────────────────────────────────────────────────────────
-  const inStock = items.filter((i) => i.consumableProfile?.status === 'IN_STOCK').length;
-  const lowStock = items.filter((i) => i.consumableProfile?.status === 'LOW_STOCK').length;
-  const outOfStock = items.filter((i) => i.consumableProfile?.status === 'OUT_OF_STOCK').length;
-
-  // ── Render ─────────────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
       <section className="mx-auto flex max-w-7xl flex-col gap-6">
 
-        {/* ── Header ──────────────────────────────────────────────────── */}
+        {/* Header */}
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-medium text-[var(--accent)]">
-              Consumables & Supplies
+              Stock Tracking
             </p>
             <h1 className="mt-1 text-2xl font-semibold">Inventory Management</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Track consumable stock levels, manage reorder points, and upload item images.
+              Track stock levels, reorder points, and item movements across your organisation.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => loadItems()}
-              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              onClick={() => void (subTab === 'active' ? loadItems() : loadArchivedItems())}
+              disabled={isLoading}
+              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-60"
             >
-              Refresh
+              {isLoading ? 'Refreshing…' : 'Refresh'}
             </button>
             {canCreate && (
               <button
                 type="button"
-                onClick={handleOpenCreate}
+                onClick={() => void openCreate()}
                 className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
               >
                 + Add Item
@@ -450,29 +441,11 @@ export default function InventoryManagementPage() {
           </div>
         </header>
 
-        {/* ── Summary Tiles ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[
-            { label: 'Total Items', value: meta.total, color: 'text-[var(--text-primary)]' },
-            { label: 'In Stock', value: inStock, color: 'text-[var(--success)]' },
-            { label: 'Low Stock', value: lowStock, color: 'text-[var(--warning)]' },
-            { label: 'Out of Stock', value: outOfStock, color: 'text-red-600' },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]"
-            >
-              <p className="text-xs text-[var(--text-secondary)] font-medium">{label}</p>
-              <p className={`mt-1 text-3xl font-bold tabular-nums ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Alerts ───────────────────────────────────────────────────── */}
-        {storeError && !isFormOpen && (
+        {/* Alerts */}
+        {storeError && (
           <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <span>{storeError}</span>
-            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
+            <button onClick={clearError} className="font-semibold hover:text-red-900">
               Dismiss
             </button>
           </div>
@@ -483,509 +456,608 @@ export default function InventoryManagementPage() {
           </div>
         )}
 
-        {/* ── Main Card ─────────────────────────────────────────────────── */}
+        {/* Summary */}
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <SummaryCard title="Total Items" value={summaries.total} icon="📦" />
+          <SummaryCard title="Active" value={summaries.total} icon="🟢" />
+          <SummaryCard title="In Stock" value={summaries.inStock} icon="✅" />
+          <SummaryCard title="Low Stock" value={summaries.lowStock} icon="⚠️" />
+          <SummaryCard title="Out of Stock" value={summaries.outOfStock} icon="🚫" />
+          <SummaryCard title="Archived" value={summaries.archived} icon="🗄️" />
+        </section>
+
+        {/* Table section */}
         <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
 
-          {/* Filters Row */}
-          <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
-            <div className="text-xs text-[var(--text-tertiary)] font-medium">
-              Showing {items.length} of {meta.total} records
-              {meta.totalPages > 1 && ` · Page ${meta.page} of ${meta.totalPages}`}
-            </div>
-            {searchInput && (
+          {/* Sub-tabs: Active / Archived */}
+          <div className="mb-5 flex items-center gap-1 border-b border-[var(--surface-border)] pb-0">
+            {(['active', 'archived'] as SubTab[]).map((tab) => (
               <button
+                key={tab}
                 type="button"
-                onClick={handleClearSearch}
-                className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
+                onClick={() => setSubTab(tab)}
+                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${
+                  subTab === tab
+                    ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
               >
-                Clear Search
+                {tab === 'active' ? 'Active Items' : 'Archived'}
+                {tab === 'active' && meta.total > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {meta.total}
+                  </span>
+                )}
+                {tab === 'archived' && archivedMeta.total > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--text-tertiary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {archivedMeta.total}
+                  </span>
+                )}
               </button>
-            )}
+            ))}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search by name, barcode, description..."
-              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
-            />
-            <button
-              type="button"
-              onClick={handleSearch}
-              className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
-            >
-              Search
-            </button>
+          {/* Filters */}
+          <div className="mb-5 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, barcode…"
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+              />
+              <select
+                value={selectedCategoryId}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+              >
+                <option value="all">All Categories</option>
+                {inventoryCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* ── Table ─────────────────────────────────────────────────── */}
           {isLoading ? (
-            <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
-              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-              <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading inventory...</h3>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">Fetching data from the server.</p>
+            <div className="py-16 text-center">
+              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[var(--accent)]" />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">Loading items…</p>
             </div>
           ) : (
             <>
-              {/* Desktop Table */}
-              <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                    <tr>
-                      <th className="px-4 py-3.5 font-semibold w-14"></th>
-                      <th className="px-4 py-3.5 font-semibold">Item</th>
-                      <th className="px-4 py-3.5 font-semibold">Category</th>
-                      <th className="px-4 py-3.5 font-semibold">Stock</th>
-                      <th className="px-4 py-3.5 font-semibold">Status</th>
-                      {canUpdate && (
-                        <th className="px-4 py-3.5 font-semibold text-right">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--surface-border)]">
+              {/* ── Active Items ── */}
+              {subTab === 'active' && (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-medium w-14"></th>
+                          <th className="px-4 py-3 font-medium">Item</th>
+                          <th className="px-4 py-3 font-medium">Category</th>
+                          <th className="px-4 py-3 font-medium">Stock</th>
+                          <th className="px-4 py-3 font-medium">Status</th>
+                          <th className="px-4 py-3 font-medium">Added</th>
+                          {(canUpdate || canDelete) && (
+                            <th className="px-4 py-3 font-medium">Actions</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {items.map((item) => {
+                          const primaryImg = getPrimaryImage(item);
+                          return (
+                            <tr
+                              key={item.id}
+                              className="transition hover:bg-[var(--surface-hover)]"
+                            >
+                              {/* Image thumbnail */}
+                              <td className="px-4 py-3">
+                                {primaryImg ? (
+                                  <div
+                                    className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
+                                    onClick={() => setPreviewImageUrl(primaryImg.url)}
+                                  >
+                                    <img
+                                      src={primaryImg.url}
+                                      alt={item.itemName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
+                                    —
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-medium">{item.itemName}</p>
+                                {item.barcode && (
+                                  <p className="text-xs font-mono text-[var(--text-tertiary)]">
+                                    {item.barcode}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {item.category.name}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {item.consumableProfile ? (
+                                  <span>
+                                    {item.consumableProfile.quantity}{' '}
+                                    {item.consumableProfile.unit}
+                                    <span className="ml-1 text-xs text-[var(--text-tertiary)]">
+                                      (reorder @ {item.consumableProfile.reorderPoint})
+                                    </span>
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge item={item} />
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {formatDate(item.createdAt)}
+                              </td>
+                              {(canUpdate || canDelete) && (
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {canUpdate && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openEdit(item)}
+                                        className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
+                                    {canDelete && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleArchive(item)}
+                                        className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                                      >
+                                        Archive
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="grid gap-3 md:hidden">
                     {items.map((item) => {
                       const primaryImg = getPrimaryImage(item);
-                      const profile = item.consumableProfile;
                       return (
-                        <tr key={item.id} className="transition hover:bg-[var(--surface-hover)] group">
-                          {/* Image */}
-                          <td className="px-4 py-4">
-                            {primaryImg ? (
-                              <div
-                                className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
-                                onClick={() => setPreviewImageUrl(primaryImg.url)}
-                              >
+                        <article
+                          key={item.id}
+                          className="rounded-xl border border-[var(--surface-border)] p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              {primaryImg ? (
                                 <img
                                   src={primaryImg.url}
                                   alt={item.itemName}
-                                  className="w-full h-full object-cover"
+                                  className="h-10 w-10 rounded-lg object-cover cursor-pointer flex-shrink-0"
+                                  onClick={() => setPreviewImageUrl(primaryImg.url)}
                                 />
+                              ) : (
+                                <div className="h-10 w-10 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
+                                  —
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold">{item.itemName}</p>
+                                <p className="text-xs text-[var(--text-secondary)]">
+                                  {item.category.name}
+                                </p>
                               </div>
-                            ) : (
-                              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
-                                —
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Item Info */}
-                          <td className="px-4 py-4">
-                            <div className="font-medium text-[var(--text-primary)]">{item.itemName}</div>
-                            {item.barcode && (
-                              <div className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5">
-                                {item.barcode}
-                              </div>
-                            )}
-                            {item.description && (
-                              <div className="text-[var(--text-disabled)] text-xs mt-0.5 truncate max-w-xs">
-                                {item.description}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Category */}
-                          <td className="px-4 py-4 text-[var(--text-secondary)] text-sm">
-                            {item.category.name}
-                          </td>
-
-                          {/* Stock */}
-                          <td className="px-4 py-4 text-sm">
-                            {profile ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="font-semibold text-[var(--text-primary)]">
-                                  {profile.quantity} {profile.unit}
-                                </span>
-                                <span className="text-xs text-[var(--text-tertiary)]">
-                                  Reorder @ {profile.reorderPoint}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-[var(--text-disabled)]">—</span>
-                            )}
-                          </td>
-
-                          {/* Status */}
-                          <td className="px-4 py-4">
-                            {profile ? (
-                              <StockBadge status={profile.status} />
-                            ) : (
-                              <span className="text-[var(--text-disabled)] text-xs">—</span>
-                            )}
-                          </td>
-
-                          {/* Actions */}
-                          {canUpdate && (
-                            <td className="px-4 py-4 text-right">
+                            </div>
+                            <StatusBadge item={item} />
+                          </div>
+                          {item.consumableProfile && (
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                              {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                              {' · reorder @ '}{item.consumableProfile.reorderPoint}
+                            </p>
+                          )}
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {canUpdate && (
                               <button
                                 type="button"
-                                onClick={() => handleOpenEdit(item)}
-                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                                onClick={() => openEdit(item)}
+                                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
                               >
                                 Edit
                               </button>
-                            </td>
-                          )}
-                        </tr>
+                            )}
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => void handleArchive(item)}
+                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                              >
+                                Archive
+                              </button>
+                            )}
+                          </div>
+                        </article>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="mt-6 grid gap-4 md:hidden">
-                {items.map((item) => {
-                  const primaryImg = getPrimaryImage(item);
-                  const profile = item.consumableProfile;
-                  return (
-                    <article
-                      key={item.id}
-                      className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
-                    >
-                      <div className="flex items-start gap-3">
-                        {primaryImg ? (
-                          <img
-                            src={primaryImg.url}
-                            alt={item.itemName}
-                            className="h-12 w-12 rounded-lg object-cover cursor-pointer flex-shrink-0"
-                            onClick={() => setPreviewImageUrl(primaryImg.url)}
-                          />
-                        ) : (
-                          <div className="h-12 w-12 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
-                            —
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-[var(--text-primary)] truncate">{item.itemName}</h3>
-                          <p className="text-xs text-[var(--text-disabled)]">{item.category.name}</p>
-                          {profile && (
-                            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                              {profile.quantity} {profile.unit}
-                            </p>
-                          )}
-                        </div>
-                        {profile && <StockBadge status={profile.status} />}
-                      </div>
-                      {canUpdate && (
-                        <div className="mt-3 flex justify-end border-t border-[var(--surface-border)] pt-3">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(item)}
-                            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-
-              {/* Empty State */}
-              {items.length === 0 && !isLoading && (
-                <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
-                    📦
                   </div>
-                  <h3 className="mt-4 font-semibold text-[var(--text-primary)]">No items found</h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {searchInput
-                      ? 'Try adjusting your search criteria.'
-                      : 'Add your first consumable item to get started.'}
-                  </p>
-                  {canCreate && !searchInput && (
-                    <button
-                      type="button"
-                      onClick={handleOpenCreate}
-                      className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-                    >
-                      Add First Item
-                    </button>
+
+                  {items.length === 0 && (
+                    <div className="py-16 text-center">
+                      <p className="text-3xl">🔍</p>
+                      <h3 className="mt-3 font-semibold">No items found</h3>
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                        Try adjusting your filters or add a new item.
+                      </p>
+                    </div>
                   )}
-                </div>
+
+                  {meta.total > 0 && (
+                    <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                      Showing {items.length} of {meta.total} items
+                    </p>
+                  )}
+                </>
               )}
 
-              {/* Pagination */}
-              {meta.totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <p className="text-xs text-[var(--text-tertiary)]">
-                    Page {meta.page} of {meta.totalPages} · {meta.total} total records
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={meta.page <= 1}
-                      onClick={() => handlePageChange(meta.page - 1)}
-                      className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      ← Previous
-                    </button>
-                    <button
-                      type="button"
-                      disabled={meta.page >= meta.totalPages}
-                      onClick={() => handlePageChange(meta.page + 1)}
-                      className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Next →
-                    </button>
+              {/* ── Archived Items ── */}
+              {subTab === 'archived' && (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Item</th>
+                          <th className="px-4 py-3 font-medium">Category</th>
+                          <th className="px-4 py-3 font-medium">Last Stock</th>
+                          <th className="px-4 py-3 font-medium">Added</th>
+                          <th className="px-4 py-3 font-medium">Archived</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {archivedItems.map((item) => (
+                          <tr
+                            key={item.id}
+                            className="opacity-70 transition hover:bg-[var(--surface-hover)] hover:opacity-100"
+                          >
+                            <td className="px-4 py-3">
+                              <p className="font-medium">{item.itemName}</p>
+                              {item.barcode && (
+                                <p className="text-xs font-mono text-[var(--text-tertiary)]">
+                                  {item.barcode}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {item.category.name}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {item.consumableProfile ? (
+                                <span>
+                                  {item.consumableProfile.quantity}{' '}
+                                  {item.consumableProfile.unit}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {formatDate(item.createdAt)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                Archived
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
+
+                  {/* Mobile cards */}
+                  <div className="grid gap-3 md:hidden">
+                    {archivedItems.map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-xl border border-[var(--surface-border)] p-4 opacity-70"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{item.itemName}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {item.category.name}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                            Archived
+                          </span>
+                        </div>
+                        {item.consumableProfile && (
+                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                            Last stock: {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                          </p>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+
+                  {archivedItems.length === 0 && (
+                    <div className="py-16 text-center">
+                      <p className="text-3xl">🗄️</p>
+                      <h3 className="mt-3 font-semibold">No archived items</h3>
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                        Archived items will appear here.
+                      </p>
+                    </div>
+                  )}
+
+                  {archivedMeta.total > 0 && (
+                    <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                      Showing {archivedItems.length} of {archivedMeta.total} archived items
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}
         </section>
       </section>
 
-      {/* ── Modal Form ────────────────────────────────────────────────── */}
+      {/* ── Add / Edit Modal ───────────────────────────────────────────────────── */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up max-h-[95vh] flex flex-col overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex-shrink-0 flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up max-h-[95vh] overflow-y-auto">
+            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  {editingItem ? 'Edit Inventory Item' : 'Add Inventory Item'}
+                <h2 className="text-lg font-semibold">
+                  {editingItem ? 'Edit Item' : 'Add Item'}
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)]">
                   {editingItem
-                    ? `Editing ${editingItem.itemName}`
-                    : 'Add a new consumable item to inventory.'}
+                    ? `Editing "${editingItem.itemName}"`
+                    : 'Register a new inventory item.'}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={handleCloseForm}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                onClick={closeForm}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
               >
                 ✕
               </button>
             </div>
 
-            {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              {formError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {formError}
+            {formError && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+              {/* Common fields */}
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Item Name *
+                  </label>
+                  <input
+                    name="itemName"
+                    required
+                    defaultValue={editingItem?.itemName ?? ''}
+                    placeholder="e.g. USB-C Cable"
+                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  />
                 </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Category *
+                  </label>
+                  <select
+                    name="categoryId"
+                    required
+                    defaultValue={editingItem?.categoryId ?? ''}
+                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  >
+                    <option value="">Select category</option>
+                    {inventoryCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Item Code
+                  </label>
+                  <input
+                    readOnly
+                    value={editingItem?.barcode ?? generatedCode}
+                    className="w-full cursor-not-allowed rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-2.5 text-sm font-mono text-[var(--text-secondary)] outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={2}
+                    defaultValue={editingItem?.description ?? ''}
+                    placeholder="Optional"
+                    className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+              </div>
+
+              {/* Stock fields */}
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Unit *
+                  </label>
+                  <input
+                    name="unit"
+                    required
+                    list="unit-options"
+                    defaultValue={editingItem?.consumableProfile?.unit ?? ''}
+                    placeholder="pcs, kg, box…"
+                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  />
+                  <datalist id="unit-options">
+                    {['pcs', 'box', 'pack', 'ream', 'roll', 'kg', 'g', 'lbs', 'L', 'mL', 'm', 'cm', 'bottle', 'can', 'pair', 'set', 'sheet', 'bag', 'tube', 'carton'].map((u) => (
+                      <option key={u} value={u} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Reorder Level
+                  </label>
+                  <input
+                    name="reorderPoint"
+                    type="number"
+                    min="0"
+                    defaultValue={editingItem?.consumableProfile?.reorderPoint ?? 0}
+                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+              </div>
+
+              {editingItem && (
+                <p className="rounded-lg bg-[var(--background-tertiary)] px-3 py-2 text-xs text-[var(--text-tertiary)]">
+                  ℹ️ Quantity can only be adjusted through the Stock In / Stock Out process.
+                </p>
               )}
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              {/* ── Image Upload ─────────────────────────────────────────── */}
+              <div className="flex flex-col gap-2 border-t border-[var(--surface-border)] pt-4">
+                <p className="text-xs font-semibold text-[var(--text-secondary)]">Images</p>
 
-                {/* ── Images ──────────────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Images
-                  </legend>
-
-                  {/* Existing images (edit mode) */}
-                  {editingItem && editingItem.images.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-xs text-[var(--text-secondary)] mb-2">Current Images</p>
-                      <div className="flex flex-wrap gap-3">
-                        {editingItem.images.map((img) => (
-                          <div key={img.id} className="relative group">
-                            <img
-                              src={img.url}
-                              alt={img.label || 'Item image'}
-                              className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                              onClick={() => setPreviewImageUrl(img.url)}
-                            />
-                            {img.isPrimary && (
-                              <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                                Primary
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteExistingImage(editingItem.id, img.id)}
-                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Pending images */}
-                  {pendingImages.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-xs text-[var(--text-secondary)] mb-2">
-                        {editingItem ? 'New images to add' : 'Images to upload'}
-                      </p>
-                      <div className="flex flex-wrap gap-3">
-                        {pendingImages.map((img, i) => (
-                          <div key={i} className="relative group">
-                            <img
-                              src={img.url}
-                              alt={img.label}
-                              className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                              onClick={() => setPreviewImageUrl(img.url)}
-                            />
-                            {img.isPrimary && (
-                              <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                                Primary
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePendingImage(i)}
-                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* File input */}
-                  <div className="flex flex-col gap-2 w-full">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                    />
-                    {imageError && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
-                        <span>{imageError}</span>
-                        <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
-                      </div>
-                    )}
-                    <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP</p>
-                  </div>
-                </fieldset>
-
-                {/* ── Item Details ─────────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Item Details
-                  </legend>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <FormField
-                      label="Item Name"
-                      required
-                      name="itemName"
-                      value={formData.itemName}
-                      onChange={handleInputChange}
-                      placeholder="e.g. Ballpoint Pens"
-                    />
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Category <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        required
-                        name="categoryId"
-                        value={formData.categoryId}
-                        onChange={handleInputChange}
-                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                      >
-                        <option value="">Select category...</option>
-                        {consumableCategories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                      {consumableCategories.length === 0 && (
-                        <p className="text-xs text-[var(--text-disabled)]">
-                          No consumable categories found. Create one first.
-                        </p>
-                      )}
-                    </div>
-                    <FormField
-                      label="Barcode"
-                      name="barcode"
-                      value={formData.barcode}
-                      onChange={handleInputChange}
-                      placeholder="e.g. 1234567890123"
-                    />
-                    <div className="sm:col-span-2 flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Description
-                      </label>
-                      <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleInputChange}
-                        placeholder="Optional description..."
-                        rows={2}
-                        className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                      />
+                {/* Existing images (edit mode) */}
+                {editingItem && (editingItem.images?.length ?? 0) > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">Current Images</p>
+                    <div className="flex flex-wrap gap-2">
+                      {editingItem.images.map((img) => (
+                        <div key={img.id} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label || 'Item image'}
+                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                              Primary
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExistingImage(editingItem.id, img.id)}
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </fieldset>
+                )}
 
-                {/* ── Stock Details ────────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Stock Details
-                  </legend>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <FormField
-                      label="Unit"
-                      required
-                      name="unit"
-                      value={formData.unit}
-                      onChange={handleInputChange}
-                      placeholder="e.g. pcs, boxes, reams"
-                    />
-                    <FormField
-                      label="Quantity"
-                      name="quantity"
-                      type="number"
-                      value={formData.quantity}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                    />
-                    <FormField
-                      label="Reorder Point"
-                      name="reorderPoint"
-                      type="number"
-                      value={formData.reorderPoint}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                    />
+                {/* Pending images */}
+                {pendingImages.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">
+                      {editingItem ? 'New images to add' : 'Images to upload'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {pendingImages.map((img, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label}
+                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                              Primary
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePendingImage(i)}
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </fieldset>
+                )}
 
-                {/* ── Form Actions ─────────────────────────────────────── */}
-                <div className="mt-2 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseForm}
-                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isSubmitting && (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    )}
-                    {editingItem ? 'Save Changes' : 'Add Item'}
-                  </button>
-                </div>
-              </form>
-            </div>
+                {/* File input */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+                {imageError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
+                    <span>{imageError}</span>
+                    <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
+                  </div>
+                )}
+                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP</p>
+              </div>
+
+              <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                >
+                  {isSaving ? 'Saving…' : editingItem ? 'Save Changes' : 'Create Item'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="rounded-xl border border-[var(--surface-border)] px-5 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}
 
-      {/* ── Lightbox ─────────────────────────────────────────────────── */}
+      {/* ── Lightbox ──────────────────────────────────────────────────────────── */}
       {previewImageUrl && (
         <div
-          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4"
           onClick={() => setPreviewImageUrl(null)}
         >
           <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">

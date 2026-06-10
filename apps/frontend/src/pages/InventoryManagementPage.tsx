@@ -2,7 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
-import { useItemsStore, type Item } from '../store/itemsStore';
+import { useItemsStore, type Item, type ItemImage } from '../store/itemsStore';
+
+// ── Constants (image upload) ───────────────────────────────────────────────────
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+interface PendingImage {
+  url: string;
+  label: string;
+  isPrimary: boolean;
+  size: number;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,7 +44,11 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+function getPrimaryImage(item: Item): ItemImage | null {
+  return item.images?.find((img) => img.isPrimary) || item.images?.[0] || null;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ item }: { item: Item }) {
   const label = getStatusLabel(item);
@@ -79,7 +95,7 @@ function SummaryCard({
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+// ── Page ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 type SubTab = 'active' | 'archived';
 
@@ -99,6 +115,8 @@ export default function InventoryManagementPage() {
     createItem,
     updateItem,
     archiveItem,
+    addImage,
+    deleteImage,
     clearError,
   } = useItemsStore();
 
@@ -118,6 +136,11 @@ export default function InventoryManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // image upload state
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
   // generated code for new item — fetched from backend to include archived
   const [generatedCode, setGeneratedCode] = useState('ITM-001');
 
@@ -135,7 +158,7 @@ export default function InventoryManagementPage() {
   const canUpdate = isAdmin || permissions.includes('inventory:update');
   const canDelete = isAdmin || permissions.includes('inventory:delete');
 
-  // ── Load data ───────────────────────────────────────────────────────────────
+  // ── Load data ────────────────────────────────────────────────────────────────
 
   const buildQuery = useCallback(() => {
     const query: Record<string, unknown> = { itemType: 'CONSUMABLE' };
@@ -180,7 +203,7 @@ export default function InventoryManagementPage() {
     }
   }, [subTab, loadArchivedItems]);
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
+  // ── Derived ──────────────────────────────────────────────────────────────────
 
   const inventoryCategories = useMemo(
     () => categories.filter((c) => !c.deletedAt && c.type === 'CONSUMABLE'),
@@ -205,6 +228,8 @@ export default function InventoryManagementPage() {
   async function openCreate() {
     setEditingItem(null);
     setFormError('');
+    setPendingImages([]);
+    setImageError(null);
     // BUG FIX #3: Fetch the true max barcode from backend (includes archived items)
     const max = await fetchMaxBarcode();
     setGeneratedCode(`ITM-${String(max + 1).padStart(3, '0')}`);
@@ -214,6 +239,8 @@ export default function InventoryManagementPage() {
   function openEdit(item: Item) {
     setEditingItem(item);
     setFormError('');
+    setPendingImages([]);
+    setImageError(null);
     setIsFormOpen(true);
   }
 
@@ -221,7 +248,73 @@ export default function InventoryManagementPage() {
     setIsFormOpen(false);
     setEditingItem(null);
     setFormError('');
+    setPendingImages([]);
+    setImageError(null);
   }
+
+  // ── Image Handlers ────────────────────────────────────────────────────────────
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be re-selected after an error
+    e.target.value = '';
+
+    if (!file.type.startsWith('image/') || !ALLOWED_MIME_TYPES.includes(file.type)) {
+      setImageError(`"${file.name}" is not a supported image. Only JPG, PNG, GIF, WEBP, AVIF are allowed.`);
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      setImageError(`"${file.name}" is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller image.`);
+      return;
+    }
+
+    setImageError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      if (!url) return;
+      setPendingImages((prev) => [
+        ...prev,
+        {
+          url,
+          label: file.name,
+          isPrimary: prev.length === 0 && (!editingItem || (editingItem.images?.length ?? 0) === 0),
+          size: file.size,
+        },
+      ]);
+    };
+    reader.onerror = () => {
+      setImageError(`Failed to read "${file.name}". Please try again.`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePendingImage = (index: number) => {
+    setPendingImages((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length > 0 && !next.some((img) => img.isPrimary)) {
+        next[0].isPrimary = true;
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteExistingImage = async (itemId: number, imageId: number) => {
+    if (!window.confirm('Remove this image?')) return;
+    try {
+      await deleteImage(itemId, imageId);
+      setEditingItem((prev) =>
+        prev ? { ...prev, images: prev.images.filter((img) => img.id !== imageId) } : prev,
+      );
+    } catch {
+      // error already set in store
+    }
+  };
 
   async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -252,6 +345,16 @@ export default function InventoryManagementPage() {
         if (!isNaN(reorder)) updatePayload.reorderPoint = reorder;
 
         await updateItem(editingItem.id, updatePayload);
+
+        // Upload any newly selected images
+        for (const img of pendingImages) {
+          await addImage(editingItem.id, {
+            url: img.url,
+            label: img.label || null,
+            isPrimary: img.isPrimary,
+          });
+        }
+
         setSuccessMessage('Item updated successfully.');
       } else {
         const createPayload = {
@@ -264,7 +367,17 @@ export default function InventoryManagementPage() {
           },
         };
 
-        await createItem(createPayload);
+        const created = await createItem(createPayload);
+
+        // Upload pending images after creation
+        for (const img of pendingImages) {
+          await addImage(created.id, {
+            url: img.url,
+            label: img.label || null,
+            isPrimary: img.isPrimary,
+          });
+        }
+
         setSuccessMessage('Item created successfully.');
       }
 
@@ -290,7 +403,7 @@ export default function InventoryManagementPage() {
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
@@ -363,11 +476,10 @@ export default function InventoryManagementPage() {
                 key={tab}
                 type="button"
                 onClick={() => setSubTab(tab)}
-                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${
-                  subTab === tab
-                    ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${subTab === tab
+                  ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
               >
                 {tab === 'active' ? 'Active Items' : 'Archived'}
                 {tab === 'active' && meta.total > 0 && (
@@ -423,6 +535,7 @@ export default function InventoryManagementPage() {
                     <table className="w-full border-collapse text-left text-sm">
                       <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
                         <tr>
+                          <th className="px-4 py-3 font-medium w-14"></th>
                           <th className="px-4 py-3 font-medium">Item</th>
                           <th className="px-4 py-3 font-medium">Category</th>
                           <th className="px-4 py-3 font-medium">Stock</th>
@@ -434,118 +547,157 @@ export default function InventoryManagementPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--surface-border)]">
-                        {items.map((item) => (
-                          <tr
-                            key={item.id}
-                            className="transition hover:bg-[var(--surface-hover)]"
-                          >
-                            <td className="px-4 py-3">
-                              <p className="font-medium">{item.itemName}</p>
-                              {item.barcode && (
-                                <p className="text-xs font-mono text-[var(--text-tertiary)]">
-                                  {item.barcode}
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {item.category.name}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {item.consumableProfile ? (
-                                <span>
-                                  {item.consumableProfile.quantity}{' '}
-                                  {item.consumableProfile.unit}
-                                  <span className="ml-1 text-xs text-[var(--text-tertiary)]">
-                                    (reorder @ {item.consumableProfile.reorderPoint})
-                                  </span>
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <StatusBadge item={item} />
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {formatDate(item.createdAt)}
-                            </td>
-                            {(canUpdate || canDelete) && (
+                        {items.map((item) => {
+                          const primaryImg = getPrimaryImage(item);
+                          return (
+                            <tr
+                              key={item.id}
+                              className="transition hover:bg-[var(--surface-hover)]"
+                            >
+                              {/* Image thumbnail */}
                               <td className="px-4 py-3">
-                                <div className="flex flex-wrap gap-1.5">
-                                  {canUpdate && (
-                                    <button
-                                      type="button"
-                                      onClick={() => openEdit(item)}
-                                      className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
-                                    >
-                                      Edit
-                                    </button>
-                                  )}
-                                  {canDelete && (
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleArchive(item)}
-                                      className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
-                                    >
-                                      Archive
-                                    </button>
-                                  )}
-                                </div>
+                                {primaryImg ? (
+                                  <div
+                                    className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
+                                    onClick={() => setPreviewImageUrl(primaryImg.url)}
+                                  >
+                                    <img
+                                      src={primaryImg.url}
+                                      alt={item.itemName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
+                                    —
+                                  </div>
+                                )}
                               </td>
-                            )}
-                          </tr>
-                        ))}
+                              <td className="px-4 py-3">
+                                <p className="font-medium">{item.itemName}</p>
+                                {item.barcode && (
+                                  <p className="text-xs font-mono text-[var(--text-tertiary)]">
+                                    {item.barcode}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {item.category.name}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {item.consumableProfile ? (
+                                  <span>
+                                    {item.consumableProfile.quantity}{' '}
+                                    {item.consumableProfile.unit}
+                                    <span className="ml-1 text-xs text-[var(--text-tertiary)]">
+                                      (reorder @ {item.consumableProfile.reorderPoint})
+                                    </span>
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge item={item} />
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {formatDate(item.createdAt)}
+                              </td>
+                              {(canUpdate || canDelete) && (
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {canUpdate && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openEdit(item)}
+                                        className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
+                                    {canDelete && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleArchive(item)}
+                                        className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                                      >
+                                        Archive
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
 
                   {/* Mobile cards */}
                   <div className="grid gap-3 md:hidden">
-                    {items.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-xl border border-[var(--surface-border)] p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{item.itemName}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {item.category.name}
-                            </p>
+                    {items.map((item) => {
+                      const primaryImg = getPrimaryImage(item);
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-xl border border-[var(--surface-border)] p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              {primaryImg ? (
+                                <img
+                                  src={primaryImg.url}
+                                  alt={item.itemName}
+                                  className="h-10 w-10 rounded-lg object-cover cursor-pointer flex-shrink-0"
+                                  onClick={() => setPreviewImageUrl(primaryImg.url)}
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
+                                  —
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold">{item.itemName}</p>
+                                <p className="text-xs text-[var(--text-secondary)]">
+                                  {item.category.name}
+                                </p>
+                              </div>
+                            </div>
+                            <StatusBadge item={item} />
                           </div>
-                          <StatusBadge item={item} />
-                        </div>
-                        {item.consumableProfile && (
-                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                            {item.consumableProfile.quantity} {item.consumableProfile.unit}
-                            {' · reorder @ '}{item.consumableProfile.reorderPoint}
-                          </p>
-                        )}
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {canUpdate && (
-                            <button
-                              type="button"
-                              onClick={() => openEdit(item)}
-                              className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
-                            >
-                              Edit
-                            </button>
+                          {item.consumableProfile && (
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                              {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                              {' · reorder @ '}{item.consumableProfile.reorderPoint}
+                            </p>
                           )}
-                          {canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => void handleArchive(item)}
-                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                            >
-                              Archive
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {canUpdate && (
+                              <button
+                                type="button"
+                                onClick={() => openEdit(item)}
+                                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => void handleArchive(item)}
+                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                              >
+                                Archive
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
 
                   {items.length === 0 && (
                     <div className="py-16 text-center">
-                      <p className="text-3xl">📭</p>
+                      <p className="text-3xl">🔍</p>
                       <h3 className="mt-3 font-semibold">No items found</h3>
                       <p className="mt-1 text-sm text-[var(--text-secondary)]">
                         Try adjusting your filters or add a new item.
@@ -665,10 +817,10 @@ export default function InventoryManagementPage() {
         </section>
       </section>
 
-      {/* ── Add / Edit Modal ──────────────────────────────────────────────────── */}
+      {/* ── Add / Edit Modal ───────────────────────────────────────────────────── */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up max-h-[95vh] overflow-y-auto">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
               <div>
                 <h2 className="text-lg font-semibold">
@@ -696,8 +848,91 @@ export default function InventoryManagementPage() {
             )}
 
             <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+              {/* ── Image Upload ─────────────────────────────────────────── */}
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-[var(--text-secondary)]">Images</p>
+
+                {/* Existing images (edit mode) */}
+                {editingItem && (editingItem.images?.length ?? 0) > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">Current Images</p>
+                    <div className="flex flex-wrap gap-2">
+                      {editingItem.images.map((img) => (
+                        <div key={img.id} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label || 'Item image'}
+                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                              Primary
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExistingImage(editingItem.id, img.id)}
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending images */}
+                {pendingImages.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-1.5">
+                      {editingItem ? 'New images to add' : 'Images to upload'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {pendingImages.map((img, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={img.url}
+                            alt={img.label}
+                            className="h-16 w-16 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                            onClick={() => setPreviewImageUrl(img.url)}
+                          />
+                          {img.isPrimary && (
+                            <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                              Primary
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePendingImage(i)}
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* File input */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+                {imageError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
+                    <span>{imageError}</span>
+                    <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
+                  </div>
+                )}
+                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP</p>
+              </div>
               {/* Common fields */}
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 border-t border-[var(--surface-border)] pt-4">
                 <div className="md:col-span-2">
                   <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
                     Item Name *
@@ -796,6 +1031,8 @@ export default function InventoryManagementPage() {
                 </p>
               )}
 
+
+
               <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
                 <button
                   type="submit"
@@ -814,6 +1051,33 @@ export default function InventoryManagementPage() {
               </div>
             </form>
           </section>
+        </div>
+      )}
+
+      {/* ── Lightbox ──────────────────────────────────────────────────────────── */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none transition p-2 bg-gray-800/50 hover:bg-gray-800 rounded-full cursor-pointer"
+            >
+              <span className="sr-only">Close Preview</span>
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={previewImageUrl}
+              alt="Full-size preview"
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-gray-700 bg-gray-900"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         </div>
       )}
     </main>

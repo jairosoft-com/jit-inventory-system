@@ -7,10 +7,15 @@ import {
   createItemSchema,
   updateItemSchema,
   listItemsQuerySchema,
+  itemImageSchema,
+  updateItemImageSchema,
   type CreateItemInput,
   type UpdateItemInput,
   type ListItemsQuery,
+  type ItemImageInput,
+  type UpdateItemImageInput,
 } from '../schemas/items.schema.js';
+
 
 const router = Router();
 
@@ -156,4 +161,91 @@ router.delete(
   },
 );
 
+// ── Item Images ────────────────────────────────────────────────────────────
+
+// POST /items/:id/images
+router.post(
+  '/:id/images',
+  authorize('inventory:update'),
+  validate(itemImageSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const itemId = parseInt(req.params.id as string, 10);
+      if (isNaN(itemId)) {
+        res.status(400).json({ message: 'Invalid item ID' });
+        return;
+      }
+      const image = await ItemsService.addImage(
+        itemId,
+        req.body as ItemImageInput,
+      );
+      res.status(201).json(image);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bad request';
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(400).json({ message });
+    }
+  },
+);
+
+// PATCH /items/:id/images/:imageId
+router.patch(
+  '/:id/images/:imageId',
+  authorize('inventory:update'),
+  validate(updateItemImageSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const itemId = parseInt(req.params.id as string, 10);
+      const imageId = parseInt(req.params.imageId as string, 10);
+      if (isNaN(itemId) || isNaN(imageId)) {
+        res.status(400).json({ message: 'Invalid item or image ID' });
+        return;
+      }
+      const image = await ItemsService.updateImage(
+        itemId,
+        imageId,
+        req.body as UpdateItemImageInput,
+      );
+      res.status(200).json(image);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bad request';
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(400).json({ message });
+    }
+  },
+);
+
+// DELETE /items/:id/images/:imageId
+router.delete(
+  '/:id/images/:imageId',
+  authorize('inventory:update'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const itemId = parseInt(req.params.id as string, 10);
+      const imageId = parseInt(req.params.imageId as string, 10);
+      if (isNaN(itemId) || isNaN(imageId)) {
+        res.status(400).json({ message: 'Invalid item or image ID' });
+        return;
+      }
+      const result = await ItemsService.deleteImage(itemId, imageId);
+      res.status(200).json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(500).json({ message });
+    }
+  },
+);
+
 export default router;
+

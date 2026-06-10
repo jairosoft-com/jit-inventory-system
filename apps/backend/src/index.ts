@@ -9,7 +9,9 @@ import authRouter from './routes/auth.routes.js';
 import usersRouter from './routes/users.routes.js';
 import categoriesRouter from './routes/categories.routes.js';
 import equipmentRouter from './routes/equipment.routes.js';
+import itemsRouter from './routes/items.routes.js';
 import inventoryRouter from './routes/inventory.routes.js';
+
 
 const app = express();
 
@@ -45,7 +47,9 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/equipment', equipmentRouter);
+app.use('/api/items', itemsRouter);
 app.use('/api/inventory', inventoryRouter);
+
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

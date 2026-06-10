@@ -4,7 +4,10 @@ import type {
   CreateItemInput,
   UpdateItemInput,
   ListItemsQuery,
+  ItemImageInput,
+  UpdateItemImageInput,
 } from '../schemas/items.schema.js';
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -26,7 +29,12 @@ const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
   },
   consumableProfile: true,
   digitalAsset: true,
+  images: {
+    where: { deletedAt: null },
+    orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
+  },
 });
+
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -297,4 +305,68 @@ export class ItemsService {
       data: { deletedAt: new Date() },
     });
   }
+
+  // ── Image management ───────────────────────────────────────────────────
+
+  static async addImage(itemId: number, data: ItemImageInput) {
+    await this.findActiveOrThrow(itemId);
+
+    if (data.isPrimary) {
+      await prisma.itemImage.updateMany({
+        where: { itemId, isPrimary: true, deletedAt: null },
+        data: { isPrimary: false },
+      });
+    }
+
+    return prisma.itemImage.create({
+      data: {
+        itemId,
+        url: data.url,
+        label: data.label ?? null,
+        isPrimary: data.isPrimary,
+      },
+    });
+  }
+
+  static async updateImage(
+    itemId: number,
+    imageId: number,
+    data: UpdateItemImageInput,
+  ) {
+    await this.findActiveOrThrow(itemId);
+
+    const image = await prisma.itemImage.findFirst({
+      where: { id: imageId, itemId, deletedAt: null },
+    });
+    if (!image) throw new Error('Image not found');
+
+    if (data.isPrimary) {
+      await prisma.itemImage.updateMany({
+        where: { itemId, isPrimary: true, deletedAt: null },
+        data: { isPrimary: false },
+      });
+    }
+
+    return prisma.itemImage.update({
+      where: { id: imageId },
+      data,
+    });
+  }
+
+  static async deleteImage(itemId: number, imageId: number) {
+    await this.findActiveOrThrow(itemId);
+
+    const image = await prisma.itemImage.findFirst({
+      where: { id: imageId, itemId, deletedAt: null },
+    });
+    if (!image) throw new Error('Image not found');
+
+    await prisma.itemImage.update({
+      where: { id: imageId },
+      data: { deletedAt: new Date() },
+    });
+
+    return { message: 'Image soft deleted successfully' };
+  }
 }
+

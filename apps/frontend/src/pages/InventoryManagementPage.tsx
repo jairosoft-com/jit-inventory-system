@@ -89,11 +89,16 @@ function generateItemCode(items: InventoryItem[]) {
   return `INV-${String(highestNumber + 1).padStart(3, '0')}`;
 }
 
+function normalizeDuplicateValue(value: string) {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 export default function InventoryManagementPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(initialInventoryItems);
   const [form, setForm] = useState<InventoryFormState>(emptyForm);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [formError, setFormError] = useState('');
 
   const generatedItemCode = useMemo(() => generateItemCode(inventoryItems), [inventoryItems]);
 
@@ -116,6 +121,8 @@ export default function InventoryManagementPage() {
   }, [inventoryItems, searchTerm]);
 
   const handleInputChange = (field: keyof InventoryFormState, value: string) => {
+    setFormError('');
+
     setForm((currentForm) => ({
       ...currentForm,
       [field]: value,
@@ -140,11 +147,28 @@ export default function InventoryManagementPage() {
       return;
     }
 
+    const duplicateItem = inventoryItems.find((item) => {
+      const isSameItem = item.id === editingItemId;
+
+      return (
+        !isSameItem &&
+        normalizeDuplicateValue(item.itemName) === normalizeDuplicateValue(form.itemName) &&
+        normalizeDuplicateValue(item.category) === normalizeDuplicateValue(form.category)
+      );
+    });
+
+    if (duplicateItem) {
+      setFormError(
+        'An inventory item with the same name and category already exists. Existing inventory records were not changed.',
+      );
+      return;
+    }
+
     const existingItem = inventoryItems.find((item) => item.id === editingItemId);
 
     const itemPayload: Omit<InventoryItem, 'id'> = {
       itemCode: existingItem?.itemCode ?? generateItemCode(inventoryItems),
-      itemName: form.itemName.trim(),
+      itemName: form.itemName.trim().replace(/\s+/g, ' '),
       category: form.category.trim(),
       location: form.location.trim(),
       quantity,
@@ -173,11 +197,13 @@ export default function InventoryManagementPage() {
       ]);
     }
 
+    setFormError('');
     setForm(emptyForm);
     setEditingItemId(null);
   };
 
   const handleEdit = (item: InventoryItem) => {
+    setFormError('');
     setEditingItemId(item.id);
     setForm({
       itemCode: item.itemCode,
@@ -190,6 +216,7 @@ export default function InventoryManagementPage() {
   };
 
   const handleCancelEdit = () => {
+    setFormError('');
     setForm(emptyForm);
     setEditingItemId(null);
   };
@@ -295,6 +322,12 @@ export default function InventoryManagementPage() {
         <div className="dash-card">
           <h2>{editingItemId ? 'Update Inventory Item' : 'Create Inventory Item'}</h2>
           <p className="inventory-form-note">This form currently saves only to local page state.</p>
+
+          {formError && (
+            <p className="inventory-form-error" role="alert">
+              {formError}
+            </p>
+          )}
 
           <form className="inventory-form" onSubmit={handleSubmit}>
             <label>

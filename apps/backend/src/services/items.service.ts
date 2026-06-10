@@ -17,6 +17,10 @@ function calculateStockStatus(
   return ItemStatus.IN_STOCK;
 }
 
+function normalizeDuplicateText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
 // ── Shared include ────────────────────────────────────────────────────────────
 
 const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
@@ -40,9 +44,11 @@ export class ItemsService {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });
+
     if (!category || category.deletedAt) {
       throw new Error('Category not found');
     }
+
     if (category.type !== itemType) {
       throw new Error(
         `Category type '${category.type}' does not match item type '${itemType}'`,
@@ -55,8 +61,40 @@ export class ItemsService {
     excludeId?: number,
   ) {
     const existing = await prisma.item.findUnique({ where: { barcode } });
+
     if (existing && existing.id !== excludeId) {
       throw new Error(`Barcode '${barcode}' is already in use`);
+    }
+  }
+
+  private static async assertUniqueInventoryRecord(
+    itemName: string,
+    categoryId: number,
+    itemType: ItemType,
+    excludeId?: number,
+  ) {
+    const normalizedItemName = normalizeDuplicateText(itemName);
+
+    const existing = await prisma.item.findFirst({
+      where: {
+        deletedAt: null,
+        itemName: {
+          equals: normalizedItemName,
+          mode: 'insensitive',
+        },
+        categoryId,
+        itemType,
+        ...(excludeId !== undefined && {
+          NOT: { id: excludeId },
+        }),
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new Error(
+        'An inventory item with the same name, category, and type already exists.',
+      );
     }
   }
 
@@ -65,16 +103,25 @@ export class ItemsService {
       where: { id },
       include: itemInclude,
     });
+
     if (!item || item.deletedAt) {
       throw new Error('Item not found');
     }
+
     return item;
   }
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   static async create(data: CreateItemInput, registeredBy: number) {
+    const itemName = normalizeDuplicateText(data.itemName);
+
     await this.assertCategoryMatchesType(data.categoryId, data.itemType);
+    await this.assertUniqueInventoryRecord(
+      itemName,
+      data.categoryId,
+      data.itemType,
+    );
 
     if (data.barcode) {
       await this.assertUniqueBarcode(data.barcode);
@@ -84,7 +131,7 @@ export class ItemsService {
     if (data.itemType === ItemType.CONSUMABLE) {
       return prisma.item.create({
         data: {
-          itemName: data.itemName,
+          itemName,
           description: data.description ?? null,
           categoryId: data.categoryId,
           itemType: ItemType.CONSUMABLE,
@@ -110,7 +157,7 @@ export class ItemsService {
     // DIGITAL
     return prisma.item.create({
       data: {
-        itemName: data.itemName,
+        itemName,
         description: data.description ?? null,
         categoryId: data.categoryId,
         itemType: ItemType.DIGITAL,
@@ -191,6 +238,23 @@ export class ItemsService {
       }
     }
 
+    const nextItemName =
+      data.itemName !== undefined
+        ? normalizeDuplicateText(data.itemName)
+        : item.itemName;
+
+    const nextCategoryId =
+      data.categoryId !== undefined ? data.categoryId : item.categoryId;
+
+    if (data.itemName !== undefined || data.categoryId !== undefined) {
+      await this.assertUniqueInventoryRecord(
+        nextItemName,
+        nextCategoryId,
+        item.itemType,
+        id,
+      );
+    }
+
     const {
       itemName,
       description,
@@ -218,7 +282,7 @@ export class ItemsService {
     return prisma.item.update({
       where: { id },
       data: {
-        ...(itemName !== undefined && { itemName }),
+        ...(itemName !== undefined && { itemName: nextItemName }),
         ...(description !== undefined && { description }),
         ...(categoryId !== undefined && { categoryId }),
         ...(barcode !== undefined && { barcode }),
@@ -238,6 +302,7 @@ export class ItemsService {
                   reorderPoint !== undefined
                     ? reorderPoint
                     : existingProfile.reorderPoint;
+
                 return {
                   ...(unit !== undefined && { unit }),
                   ...(quantity !== undefined && { quantity }),

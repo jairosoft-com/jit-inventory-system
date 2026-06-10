@@ -494,6 +494,16 @@ body {
   line-height: 1.4;
 }
 
+.inventory-form-error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 @media (max-width: 1100px) {
   .inventory-content-grid {
     grid-template-columns: 1fr;

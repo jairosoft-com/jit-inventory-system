@@ -8,7 +8,6 @@ import type {
   UpdateItemImageInput,
 } from '../schemas/items.schema.js';
 
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function calculateStockStatus(
@@ -38,7 +37,6 @@ const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
     orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
   },
 });
-
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -198,7 +196,15 @@ export class ItemsService {
   }
 
   static async findAll(query: ListItemsQuery) {
-    const { itemType, categoryId, search, page, limit, includeArchived } = query;
+    const {
+      itemType,
+      categoryId,
+      search,
+      page,
+      limit,
+      includeArchived,
+      status,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ItemWhereInput = {
@@ -206,11 +212,21 @@ export class ItemsService {
       ...(includeArchived ? { deletedAt: { not: null } } : { deletedAt: null }),
       ...(itemType && { itemType }),
       ...(categoryId && { categoryId }),
+      ...(status && {
+        consumableProfile: {
+          is: { status },
+        },
+      }),
       ...(search && {
         OR: [
           { itemName: { contains: search, mode: 'insensitive' } },
           { barcode: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
+          {
+            category: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
         ],
       }),
     };
@@ -453,4 +469,3 @@ export class ItemsService {
     return { message: 'Image soft deleted successfully' };
   }
 }
-

@@ -64,15 +64,41 @@ export class EquipmentService {
     }
   }
 
+  /**
+   * Generates a unique Asset ID in the format EQ-YYYYMMDD-XXXXX.
+   * Retries up to 5 times in the unlikely event of a collision.
+   */
+  static async generateUniqueAssetId(): Promise<string> {
+    const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // unambiguous chars
+    const MAX_ATTEMPTS = 5;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const datePart = new Date()
+        .toISOString()
+        .slice(0, 10)
+        .replace(/-/g, '');
+      const randomPart = Array.from({ length: 5 }, () =>
+        CHARS[Math.floor(Math.random() * CHARS.length)],
+      ).join('');
+      const assetId = `EQ-${datePart}-${randomPart}`;
+
+      const existing = await prisma.equipment.findUnique({ where: { assetId } });
+      if (!existing) return assetId;
+    }
+
+    throw new Error('Failed to generate a unique Asset ID after multiple attempts');
+  }
+
   private static async assertUniqueSerialNumber(
     serialNumber: string,
     excludeId?: number,
   ) {
-    const existing = await prisma.equipment.findUnique({
-      where: { serialNumber },
+    // Case-insensitive lookup: treat 'SN-ABC-123' and 'sn-abc-123' as duplicates
+    const existing = await prisma.equipment.findFirst({
+      where: { serialNumber: { equals: serialNumber, mode: 'insensitive' } },
     });
     if (existing && existing.id !== excludeId) {
-      throw new Error(`Serial number '${serialNumber}' is already in use`);
+      throw new Error('Serial number already exists');
     }
   }
 
@@ -91,7 +117,9 @@ export class EquipmentService {
 
   static async create(data: CreateEquipmentInput, registeredBy: number) {
     await this.assertCategoryIsEquipment(data.categoryId);
-    await this.assertUniqueAssetId(data.assetId);
+
+    // Auto-generate Asset ID — system always assigns it on create
+    const assetId = await this.generateUniqueAssetId();
 
     if (data.serialNumber) {
       await this.assertUniqueSerialNumber(data.serialNumber);
@@ -122,7 +150,7 @@ export class EquipmentService {
 
     return prisma.equipment.create({
       data: {
-        assetId: data.assetId,
+        assetId,
         serialNumber: data.serialNumber ?? null,
         brand: data.brand ?? null,
         model: data.model ?? null,
@@ -228,11 +256,11 @@ export class EquipmentService {
       await this.assertCategoryIsEquipment(data.categoryId);
     }
 
-    if (data.assetId && data.assetId !== equipment.assetId) {
-      await this.assertUniqueAssetId(data.assetId, id);
-    }
 
-    if (data.serialNumber && data.serialNumber !== equipment.serialNumber) {
+    if (
+      data.serialNumber &&
+      data.serialNumber.toLowerCase() !== (equipment.serialNumber ?? '').toLowerCase()
+    ) {
       await this.assertUniqueSerialNumber(data.serialNumber, id);
     }
 

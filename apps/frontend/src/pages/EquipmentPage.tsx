@@ -36,7 +36,6 @@ const PAGE_SIZE = 20;
 
 interface FormState {
   itemName: string;
-  assetId: string;
   categoryId: string;
   description: string;
   serialNumber: string;
@@ -75,7 +74,6 @@ const DEFAULT_LOCATIONS = [
 
 const emptyForm: FormState = {
   itemName: '',
-  assetId: '',
   categoryId: '',
   description: '',
   serialNumber: '',
@@ -103,7 +101,6 @@ function toDateInput(dateStr: string | null | undefined): string {
 function equipmentToForm(eq: Equipment): FormState {
   return {
     itemName: eq.item.itemName,
-    assetId: eq.assetId,
     categoryId: String(eq.item.categoryId),
     description: eq.item.description || '',
     serialNumber: eq.serialNumber || '',
@@ -209,7 +206,7 @@ export default function EquipmentPage() {
   // ── Form Handlers ────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
     setEditingEquipment(null);
-    setFormData({ ...emptyForm, assetId: '' });
+    setFormData({ ...emptyForm });
     setPendingImages([]);
     setImageError(null);
     setFormError(null);
@@ -330,10 +327,6 @@ export default function EquipmentPage() {
       setFormError('Item name is required.');
       return;
     }
-    if (!formData.assetId.trim()) {
-      setFormError('Asset ID is required.');
-      return;
-    }
     if (!formData.categoryId) {
       setFormError('Please select a category.');
       return;
@@ -345,7 +338,6 @@ export default function EquipmentPage() {
         // ── Update ──────────────────────────────────────────────────────
         await updateEquipment(editingEquipment.id, {
           itemName: formData.itemName.trim(),
-          assetId: formData.assetId.trim(),
           categoryId: Number(formData.categoryId),
           description: formData.description.trim() || null,
           serialNumber: formData.serialNumber.trim() || null,
@@ -377,7 +369,7 @@ export default function EquipmentPage() {
         // ── Create ──────────────────────────────────────────────────────
         await createEquipment({
           itemName: formData.itemName.trim(),
-          assetId: formData.assetId.trim(),
+          // assetId is intentionally omitted — the backend auto-generates it
           categoryId: Number(formData.categoryId),
           description: formData.description.trim() || null,
           serialNumber: formData.serialNumber.trim() || null,
@@ -979,20 +971,30 @@ export default function EquipmentPage() {
                       onChange={handleInputChange}
                       placeholder="e.g. Dell XPS 15 Laptop"
                     />
-                    {/* Asset ID — manual entry */}
+                    {/* Asset ID — read-only in edit mode, auto-generated in create mode */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Asset ID <span className="text-red-500">*</span>
+                        Asset ID
                       </label>
-                      <input
-                        required
-                        type="text"
-                        name="assetId"
-                        value={formData.assetId}
-                        onChange={handleInputChange}
-                        placeholder="e.g. EQ-001"
-                        className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm font-mono outline-none transition focus:border-[var(--input-border-focus)]"
-                      />
+                      {editingEquipment ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-2.5">
+                          <span className="font-mono text-sm text-[var(--text-primary)]">
+                            {editingEquipment.assetId}
+                          </span>
+                          <span className="ml-auto rounded-md bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
+                            System-assigned
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-xl border border-dashed border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-2.5">
+                          <span className="text-sm italic text-[var(--text-tertiary)]">
+                            Auto-generated on save
+                          </span>
+                          <span className="ml-auto rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                            Auto
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-[var(--text-secondary)]">

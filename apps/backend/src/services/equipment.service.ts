@@ -64,30 +64,6 @@ export class EquipmentService {
     }
   }
 
-  /**
-   * Generates a unique Asset ID in the format EQ-YYYYMMDD-XXXXX.
-   * Retries up to 5 times in the unlikely event of a collision.
-   */
-  static async generateUniqueAssetId(): Promise<string> {
-    const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // unambiguous chars
-    const MAX_ATTEMPTS = 5;
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const datePart = new Date()
-        .toISOString()
-        .slice(0, 10)
-        .replace(/-/g, '');
-      const randomPart = Array.from({ length: 5 }, () =>
-        CHARS[Math.floor(Math.random() * CHARS.length)],
-      ).join('');
-      const assetId = `EQ-${datePart}-${randomPart}`;
-
-      const existing = await prisma.equipment.findUnique({ where: { assetId } });
-      if (!existing) return assetId;
-    }
-
-    throw new Error('Failed to generate a unique Asset ID after multiple attempts');
-  }
 
   private static async assertUniqueSerialNumber(
     serialNumber: string,
@@ -117,9 +93,7 @@ export class EquipmentService {
 
   static async create(data: CreateEquipmentInput, registeredBy: number) {
     await this.assertCategoryIsEquipment(data.categoryId);
-
-    // Auto-generate Asset ID — system always assigns it on create
-    const assetId = await this.generateUniqueAssetId();
+    await this.assertUniqueAssetId(data.assetId);
 
     if (data.serialNumber) {
       await this.assertUniqueSerialNumber(data.serialNumber);
@@ -150,7 +124,7 @@ export class EquipmentService {
 
     return prisma.equipment.create({
       data: {
-        assetId,
+        assetId: data.assetId,
         serialNumber: data.serialNumber ?? null,
         brand: data.brand ?? null,
         model: data.model ?? null,

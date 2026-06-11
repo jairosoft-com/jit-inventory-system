@@ -3,7 +3,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import { useItemsStore, type Item, type ItemImage } from '../store/itemsStore';
-
+import StockMovementModal from '../components/StockMovementModal';
 // ── Constants (image upload) ───────────────────────────────────────────────────
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
@@ -135,6 +135,9 @@ export default function InventoryManagementPage() {
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // stock movement modal
+  const [stockItem, setStockItem] = useState<Item | null>(null);
 
   // image upload state
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
@@ -613,6 +616,15 @@ export default function InventoryManagementPage() {
                                         Edit
                                       </button>
                                     )}
+                                    {canUpdate && item.consumableProfile && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setStockItem(item)}
+                                        className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
+                                      >
+                                        Stock
+                                      </button>
+                                    )}
                                     {canDelete && (
                                       <button
                                         type="button"
@@ -678,6 +690,15 @@ export default function InventoryManagementPage() {
                                 className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
                               >
                                 Edit
+                              </button>
+                            )}
+                            {canUpdate && item.consumableProfile && (
+                              <button
+                                type="button"
+                                onClick={() => setStockItem(item)}
+                                className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                              >
+                                Stock
                               </button>
                             )}
                             {canDelete && (
@@ -1031,8 +1052,6 @@ export default function InventoryManagementPage() {
                 </p>
               )}
 
-
-
               <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
                 <button
                   type="submit"
@@ -1052,6 +1071,18 @@ export default function InventoryManagementPage() {
             </form>
           </section>
         </div>
+      )}
+
+      {/* ── Stock Movement Modal ───────────────────────────────────────────────── */}
+      {stockItem && (
+        <StockMovementModal
+          item={stockItem}
+          onClose={() => setStockItem(null)}
+          onSuccess={() => {
+            setStockItem(null);
+            void loadItems();
+          }}
+        />
       )}
 
       {/* ── Lightbox ──────────────────────────────────────────────────────────── */}

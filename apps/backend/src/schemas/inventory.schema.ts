@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AdjustmentReason, MovementType } from '@prisma/client';
+import { AdjustmentReason, MovementType } from '@prisma/client';  
 
 // ── Stock In ──────────────────────────────────────────────────────────────────
 

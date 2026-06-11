@@ -4,6 +4,16 @@ import {
   UpdateCategoryInput,
 } from '../schemas/categories.schema.js';
 
+const CATEGORY_INCLUDE = {
+  _count: {
+    select: {
+      items: {
+        where: { deletedAt: null },
+      },
+    },
+  },
+} as const;
+
 export class CategoriesService {
   static async create(data: CreateCategoryInput) {
     const existing = await prisma.category.findFirst({
@@ -25,6 +35,7 @@ export class CategoriesService {
         type: data.type,
         description: data.description,
       },
+      include: CATEGORY_INCLUDE,
     });
   }
 
@@ -34,15 +45,7 @@ export class CategoriesService {
     return prisma.category.findMany({
       where: shouldInclude ? {} : { deletedAt: null },
       orderBy: { name: 'asc' },
-      include: {
-        _count: {
-          select: {
-            items: {
-              where: { deletedAt: null },
-            },
-          },
-        },
-      },
+      include: CATEGORY_INCLUDE,
     });
   }
 
@@ -83,6 +86,7 @@ export class CategoriesService {
         type: data.type,
         description: data.description,
       },
+      include: CATEGORY_INCLUDE,
     });
   }
 
@@ -105,6 +109,7 @@ export class CategoriesService {
     return prisma.category.update({
       where: { id },
       data: { deletedAt: new Date() },
+      include: CATEGORY_INCLUDE,
     });
   }
 }

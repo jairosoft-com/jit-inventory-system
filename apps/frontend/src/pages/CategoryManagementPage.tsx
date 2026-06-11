@@ -46,9 +46,9 @@ export default function CategoryManagementPage() {
     );
   }, [user]);
 
-  const canCreate = permissions.includes('categories:create') || user?.role?.name === 'ADMIN';
-  const canUpdate = permissions.includes('categories:update') || user?.role?.name === 'ADMIN';
-  const canDelete = permissions.includes('categories:delete') || user?.role?.name === 'ADMIN';
+  const canCreate = permissions.includes('categories:create');
+  const canUpdate = permissions.includes('categories:update');
+  const canDelete = permissions.includes('categories:delete');
 
   // Filter categories based on search term and selected type
   const filteredCategories = useMemo(() => {
@@ -132,8 +132,9 @@ export default function CategoryManagementPage() {
       setIsFormOpen(false);
       // Auto-fade success message
       setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err: any) {
-      setFormError(err.message || 'An error occurred while saving the category');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'An error occurred while saving the category';
+      setFormError(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -150,8 +151,9 @@ export default function CategoryManagementPage() {
       await archiveCategory(id);
       setSuccessMessage(`Category "${name}" archived successfully`);
       setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err: any) {
-      alert(err.message || 'Failed to archive category');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to archive category';
+      alert(errMsg);
     }
   };
 

@@ -1,5 +1,19 @@
 import { prisma } from '../lib/prisma.js';
 
+const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
+const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
+  const warrantyEndDate = startOfDay(warrantyEnd);
+  return Math.ceil(
+    (warrantyEndDate.getTime() - today.getTime()) / MILLISECONDS_PER_DAY,
+  );
+}
+
 export class DashboardService {
   static async getSummary() {
     const totalItems = await prisma.item.count({
@@ -57,30 +71,61 @@ export class DashboardService {
   }
 
   static async getWarrantyAlerts() {
-    const now = new Date();
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(now.getDate() + 30);
+    const today = startOfDay(new Date());
+    const warrantyWindowEnd = new Date(today);
+    warrantyWindowEnd.setDate(today.getDate() + WARRANTY_EXPIRY_WINDOW_DAYS);
 
     const warrantyExpiring = await prisma.equipment.findMany({
       where: {
         warrantyEnd: {
-          gte: now,
-          lte: thirtyDaysFromNow,
+          gte: today,
+          lte: warrantyWindowEnd,
         },
         deletedAt: null,
+        item: {
+          deletedAt: null,
+        },
       },
       include: {
         item: true,
       },
+      orderBy: {
+        warrantyEnd: 'asc',
+      },
     });
 
-    return warrantyExpiring.map((e) => ({
-      id: e.id,
-      itemName: e.item.itemName,
-      assetId: e.assetId,
-      warrantyEnd: e.warrantyEnd,
-      warrantyProvider: e.warrantyProvider,
-    }));
+    return warrantyExpiring
+      .map((equipment) => {
+        if (!equipment.warrantyEnd) {
+          return null;
+        }
+
+        const daysRemaining = calculateDaysRemaining(
+          equipment.warrantyEnd,
+          today,
+        );
+
+        return {
+          id: equipment.id,
+          itemName: equipment.item.itemName,
+          assetId: equipment.assetId,
+          warrantyEnd: equipment.warrantyEnd,
+          warrantyProvider: equipment.warrantyProvider,
+          daysRemaining,
+        };
+      })
+      .filter(
+        (
+          alert,
+        ): alert is {
+          id: number;
+          itemName: string;
+          assetId: string;
+          warrantyEnd: Date;
+          warrantyProvider: string | null;
+          daysRemaining: number;
+        } => alert !== null,
+      );
   }
 
   static async getRecentActivity(limit = 10) {

@@ -34,6 +34,15 @@ export class CategoriesService {
     return prisma.category.findMany({
       where: shouldInclude ? {} : { deletedAt: null },
       orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: {
+            items: {
+              where: { deletedAt: null },
+            },
+          },
+        },
+      },
     });
   }
 

@@ -40,8 +40,8 @@ export default function CategoryManagementPage() {
 
   // Resolve user permissions
   const permissions = useMemo(() => {
-    if (!user || !(user as any).permissions) return [];
-    return ((user as any).permissions as any[]).map((p: any) =>
+    if (!user || !user.permissions) return [];
+    return user.permissions.map((p) =>
       typeof p === 'string' ? p : p.name || '',
     );
   }, [user]);
@@ -300,6 +300,7 @@ export default function CategoryManagementPage() {
                       <th className="px-5 py-3.5 font-semibold">Name</th>
                       <th className="px-5 py-3.5 font-semibold">Type</th>
                       <th className="px-5 py-3.5 font-semibold">Description</th>
+                      <th className="px-5 py-3.5 font-semibold">Linked Items</th>
                       <th className="px-5 py-3.5 font-semibold">Status</th>
                       {(canUpdate || canDelete) && (
                         <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
@@ -325,6 +326,9 @@ export default function CategoryManagementPage() {
                               No description
                             </span>
                           )}
+                        </td>
+                        <td className="px-5 py-3.5 font-medium text-[var(--text-secondary)]">
+                          {cat._count?.items ?? 0}
                         </td>
                         <td className="px-5 py-3.5">
                           {cat.deletedAt ? (
@@ -385,6 +389,9 @@ export default function CategoryManagementPage() {
                               No description
                             </span>
                           )}
+                        </p>
+                        <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
+                          Linked Items: <span className="font-semibold text-[var(--text-primary)]">{cat._count?.items ?? 0}</span>
                         </p>
                       </div>
                       <TypeBadge type={cat.type} />

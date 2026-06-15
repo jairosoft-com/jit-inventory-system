@@ -156,8 +156,6 @@ export class DashboardService {
       count: group._count.status,
     }));
   }
-}
-
   static async getProcurementSummary() {
     const pendingOrders = await prisma.purchaseOrder.count({
       where: {
@@ -336,4 +334,3 @@ export class DashboardService {
     };
   }
 }
-

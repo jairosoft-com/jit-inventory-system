@@ -102,7 +102,6 @@ router.get(
   },
 );
 
-export default router;
 // GET /api/dashboard/procurement-summary
 router.get('/procurement-summary', async (req: Request, res: Response): Promise<void> => {
   try {

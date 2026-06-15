@@ -12,12 +12,20 @@ export const createCategorySchema = z.object({
 });
 
 export const updateCategorySchema = z.object({
-  name: z.string().trim().min(1, 'Category name is required').max(100).optional(),
-  type: z.nativeEnum(ItemType, {
-    errorMap: () => ({
-      message: 'Invalid category type. Allowed: EQUIPMENT, CONSUMABLE, DIGITAL',
-    }),
-  }).optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Category name is required')
+    .max(100)
+    .optional(),
+  type: z
+    .nativeEnum(ItemType, {
+      errorMap: () => ({
+        message:
+          'Invalid category type. Allowed: EQUIPMENT, CONSUMABLE, DIGITAL',
+      }),
+    })
+    .optional(),
   description: z.string().optional().nullable(),
 });
 
@@ -29,6 +37,18 @@ export const listCategoriesQuerySchema = z.object({
       return undefined;
     }, z.boolean().optional())
     .default(false),
+
+  search: z.preprocess((val) => {
+    if (typeof val !== 'string') return undefined;
+
+    const trimmed = val.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }, z.string().max(100).optional()),
+
+  type: z.preprocess((val) => {
+    if (val === 'all' || val === '') return undefined;
+    return val;
+  }, z.nativeEnum(ItemType).optional()),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

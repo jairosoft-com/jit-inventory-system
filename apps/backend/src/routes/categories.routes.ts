@@ -47,7 +47,7 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const query = req.query as unknown as ListCategoriesQuery;
-      const categories = await CategoriesService.findAll(query.includeArchived);
+      const categories = await CategoriesService.findAll(query);
       res.status(200).json(categories);
     } catch (error) {
       const message =

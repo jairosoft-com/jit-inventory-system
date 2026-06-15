@@ -1,6 +1,8 @@
+import { ItemType, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import {
   CreateCategoryInput,
+  ListCategoriesQuery,
   UpdateCategoryInput,
 } from '../schemas/categories.schema.js';
 
@@ -13,6 +15,21 @@ const CATEGORY_INCLUDE = {
     },
   },
 } as const;
+
+type FindAllCategoriesQuery = Omit<
+  Partial<ListCategoriesQuery>,
+  'includeArchived'
+> & {
+  includeArchived?: boolean | string;
+};
+
+function isCategoryType(value: unknown): value is ItemType {
+  return (
+    value === ItemType.EQUIPMENT ||
+    value === ItemType.CONSUMABLE ||
+    value === ItemType.DIGITAL
+  );
+}
 
 export class CategoriesService {
   static async create(data: CreateCategoryInput) {
@@ -39,11 +56,29 @@ export class CategoriesService {
     });
   }
 
-  static async findAll(includeArchived: boolean | string = false) {
-    const shouldInclude =
-      includeArchived === true || includeArchived === 'true';
+  static async findAll(query: FindAllCategoriesQuery = {}) {
+    const shouldIncludeArchived =
+      query.includeArchived === true || query.includeArchived === 'true';
+
+    const search = typeof query.search === 'string' ? query.search.trim() : '';
+
+    const type = isCategoryType(query.type) ? query.type : undefined;
+
+    const where: Prisma.CategoryWhereInput = {
+      ...(shouldIncludeArchived ? {} : { deletedAt: null }),
+      ...(search
+        ? {
+            name: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+      ...(type ? { type } : {}),
+    };
+
     return prisma.category.findMany({
-      where: shouldInclude ? {} : { deletedAt: null },
+      where,
       orderBy: { name: 'asc' },
       include: CATEGORY_INCLUDE,
     });

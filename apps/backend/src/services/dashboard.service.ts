@@ -9,6 +9,7 @@ function startOfDay(date: Date): Date {
 
 function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
   const warrantyEndDate = startOfDay(warrantyEnd);
+
   return Math.ceil(
     (warrantyEndDate.getTime() - today.getTime()) / MILLISECONDS_PER_DAY,
   );
@@ -78,6 +79,7 @@ export class DashboardService {
     const warrantyExpiring = await prisma.equipment.findMany({
       where: {
         warrantyEnd: {
+          not: null,
           gte: today,
           lte: warrantyWindowEnd,
         },
@@ -94,38 +96,19 @@ export class DashboardService {
       },
     });
 
-    return warrantyExpiring
-      .map((equipment) => {
-        if (!equipment.warrantyEnd) {
-          return null;
-        }
+    return warrantyExpiring.map((equipment) => {
+      const warrantyEnd = equipment.warrantyEnd!;
+      const daysRemaining = calculateDaysRemaining(warrantyEnd, today);
 
-        const daysRemaining = calculateDaysRemaining(
-          equipment.warrantyEnd,
-          today,
-        );
-
-        return {
-          id: equipment.id,
-          itemName: equipment.item.itemName,
-          assetId: equipment.assetId,
-          warrantyEnd: equipment.warrantyEnd,
-          warrantyProvider: equipment.warrantyProvider,
-          daysRemaining,
-        };
-      })
-      .filter(
-        (
-          alert,
-        ): alert is {
-          id: number;
-          itemName: string;
-          assetId: string;
-          warrantyEnd: Date;
-          warrantyProvider: string | null;
-          daysRemaining: number;
-        } => alert !== null,
-      );
+      return {
+        id: equipment.id,
+        itemName: equipment.item.itemName,
+        assetId: equipment.assetId,
+        warrantyEnd,
+        warrantyProvider: equipment.warrantyProvider,
+        daysRemaining,
+      };
+    });
   }
 
   static async getRecentActivity(limit = 10) {

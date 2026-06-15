@@ -638,15 +638,15 @@ export default function DashboardPage() {
               >
                 Manage Alerts
               </button>
-            </div>
 
-            <button
-              className="dash-card-action"
-              onClick={() => void fetchWarrantyAlerts()}
-              disabled={isLoading || isWarrantyAlertsLoading}
-            >
-              {isWarrantyAlertsLoading ? 'Refreshing...' : 'Refresh'}
-            </button>
+              <button
+                className="dash-card-action"
+                onClick={() => void fetchWarrantyAlerts()}
+                disabled={isLoading || isWarrantyAlertsLoading}
+              >
+                {isWarrantyAlertsLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
           </div>
 
           <div

@@ -86,8 +86,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const err = error as { response?: { data?: { message?: string } } };
       set({
         error:
-          err.response?.data?.message ||
-          'Failed to fetch dashboard summary',
+          err.response?.data?.message || 'Failed to fetch dashboard summary',
       });
     }
   },
@@ -105,6 +104,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   fetchWarrantyAlerts: async () => {
+    // isLoading covers the initial dashboard fetch, while isWarrantyAlertsLoading prevents duplicate manual refresh requests.
     if (get().isWarrantyAlertsLoading || get().isLoading) {
       return;
     }
@@ -144,8 +144,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const err = error as { response?: { data?: { message?: string } } };
       set({
         error:
-          err.response?.data?.message ||
-          'Failed to fetch recent activity',
+          err.response?.data?.message || 'Failed to fetch recent activity',
       });
     }
   },

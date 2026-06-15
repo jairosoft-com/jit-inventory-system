@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStore } from '../store/dashboardStore';
+import { usePolling } from '../lib/usePolling';
+import AnalyticsSection from './AnalyticsSection';
 import './DashboardPage.css';
 
 function formatRelativeTime(dateStr: string): string {
@@ -134,6 +136,7 @@ export default function DashboardPage() {
     alerts,
     recentActivity,
     equipmentBreakdown,
+    procurementSummary,
     isLoading,
     isWarrantyAlertsLoading,
     error,
@@ -512,6 +515,148 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Procurement Summary Card */}
+        <div className="dash-card dash-card--wide dash-procurement-card">
+          <div className="dash-card-header">
+            <h2 className="dash-card-title">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#8b5cf6"
+                strokeWidth="2"
+              >
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
+                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+              </svg>
+              Procurement Summary
+            </h2>
+            <button
+              className="dash-card-action"
+              onClick={() => navigate('/dashboard/orders')}
+              disabled={!procurementSummary || procurementSummary.recentPurchaseActivity.length === 0}
+            >
+              View All
+            </button>
+          </div>
+
+          <div className={procurementSummary?.recentPurchaseActivity && procurementSummary.recentPurchaseActivity.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+            {isLoading && !procurementSummary ? (
+              <div className="dash-skeleton-list">
+                {[1, 2, 3].map((id) => (
+                  <div key={id} className="dash-skeleton-row animate-pulse">
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="dash-procurement-container">
+                {/* KPI Mini Stats */}
+                <div className="dash-procurement-stats">
+                  <div className="dash-procurement-stat">
+                    <div className="dash-procurement-stat-icon dash-procurement-stat-icon--pending">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                    </div>
+                    <div className="dash-procurement-stat-info">
+                      <span className="dash-procurement-stat-val">
+                        {procurementSummary?.pendingOrders ?? 0}
+                      </span>
+                      <span className="dash-procurement-stat-label">Pending Orders</span>
+                    </div>
+                  </div>
+
+                  <div className="dash-procurement-stat">
+                    <div className="dash-procurement-stat-icon dash-procurement-stat-icon--completed">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                    <div className="dash-procurement-stat-info">
+                      <span className="dash-procurement-stat-val">
+                        {procurementSummary?.completedOrders ?? 0}
+                      </span>
+                      <span className="dash-procurement-stat-label">Completed Orders</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Purchase Activity */}
+                <div className="dash-procurement-activity">
+                  <h3 className="dash-procurement-subtitle">Recent Purchase Activity</h3>
+                  
+                  {procurementSummary?.recentPurchaseActivity && procurementSummary.recentPurchaseActivity.length > 0 ? (
+                    <div className="dash-po-list-wrapper">
+                      <table className="dash-po-table">
+                        <thead>
+                          <tr>
+                            <th>Invoice / PO</th>
+                            <th>Supplier</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {procurementSummary.recentPurchaseActivity.map((po) => {
+                            const statusColors: Record<string, { bg: string; text: string }> = {
+                              DRAFT: { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' },
+                              PENDING: { bg: 'rgba(245, 158, 11, 0.08)', text: '#d97706' },
+                              APPROVED: { bg: 'rgba(59, 130, 246, 0.08)', text: '#2563eb' },
+                              RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
+                              CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
+                            };
+                            const color = statusColors[po.status] || { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' };
+                            
+                            return (
+                              <tr key={po.id}>
+                                <td className="dash-po-invoice">
+                                  <strong>{po.invoiceNumber || `#${po.id}`}</strong>
+                                  <span className="dash-po-item-count">{po.itemCount} item{po.itemCount === 1 ? '' : 's'}</span>
+                                </td>
+                                <td>{po.supplier.name}</td>
+                                <td className="dash-po-amount">
+                                  {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(po.totalAmount)}
+                                </td>
+                                <td>
+                                  <span
+                                    className="dash-po-status-badge"
+                                    style={{ backgroundColor: color.bg, color: color.text }}
+                                  >
+                                    {po.status}
+                                  </span>
+                                </td>
+                                <td className="dash-po-date">
+                                  {new Date(po.orderDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="dash-empty-state" style={{ minHeight: '140px' }}>
+                      <div className="dash-empty-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
+                        </svg>
+                      </div>
+                      <h4 className="dash-empty-heading">No Purchase Orders Found</h4>
+                      <p className="dash-empty-text">Recent purchasing actions and order statuses will display here once recorded.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Low Stock & Warranty Alerts Card */}
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
@@ -766,6 +911,12 @@ export default function DashboardPage() {
 
           <div className="dash-quick-actions">
             {[
+              { label: 'Register Item', color: '#2563eb', icon: '+', path: '/dashboard/inventory' },
+              { label: 'Stock In', color: '#16a34a', icon: '↓', path: '/dashboard/inventory' },
+              { label: 'Stock Out', color: '#dc2626', icon: '↑', path: '/dashboard/inventory' },
+              { label: 'New PO', color: '#8b5cf6', icon: '📋', path: '/dashboard/orders', disabled: false },
+              { label: 'Borrow Request', color: '#d97706', icon: '🔄', path: '/dashboard/borrow', disabled: true },
+              { label: 'Run Report', color: '#0891b2', icon: '📊', path: '/dashboard/logs' },
               {
                 label: 'Register Item',
                 color: '#2563eb',
@@ -829,6 +980,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <AnalyticsSection />
     </div>
   );
 }

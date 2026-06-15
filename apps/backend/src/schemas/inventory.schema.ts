@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AdjustmentReason, MovementType } from '@prisma/client';  
+import { AdjustmentReason, MovementType } from '@prisma/client';
 
 // ── Stock In ──────────────────────────────────────────────────────────────────
 
@@ -42,9 +42,13 @@ export const stockAdjustmentSchema = z
       .int()
       .positive('Consumable profile ID must be a positive integer'),
     newQuantity: z.number().int().min(0).optional(),
-    quantityChange: z.number().int().refine((val) => val !== 0, {
-      message: 'Quantity change cannot be zero',
-    }).optional(),
+    quantityChange: z
+      .number()
+      .int()
+      .refine((val) => val !== 0, {
+        message: 'Quantity change cannot be zero',
+      })
+      .optional(),
     reason: z.nativeEnum(AdjustmentReason, {
       errorMap: () => ({ message: 'A valid adjustment reason is required' }),
     }),
@@ -54,8 +58,7 @@ export const stockAdjustmentSchema = z
     (data) =>
       (data.newQuantity !== undefined) !== (data.quantityChange !== undefined),
     {
-      message:
-        'Provide exactly one of "newQuantity" or "quantityChange"',
+      message: 'Provide exactly one of "newQuantity" or "quantityChange"',
       path: ['newQuantity'],
     },
   );

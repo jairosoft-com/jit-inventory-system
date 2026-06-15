@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { InventoryService } from '../services/inventory.service.js'
+import { InventoryService } from '../services/inventory.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
@@ -17,8 +17,6 @@ import {
 const router = Router();
 
 router.use(authenticate);
-
-
 
 // POST /inventory/stock-in
 router.post(

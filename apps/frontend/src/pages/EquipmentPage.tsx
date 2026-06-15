@@ -209,7 +209,7 @@ export default function EquipmentPage() {
   // ── Form Handlers ────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
     setEditingEquipment(null);
-    setFormData({ ...emptyForm, assetId: '' });
+    setFormData({ ...emptyForm });
     setPendingImages([]);
     setImageError(null);
     setFormError(null);

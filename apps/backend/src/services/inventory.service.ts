@@ -73,6 +73,9 @@ export class InventoryService {
       if (!profile) {
         throw new Error('Consumable profile not found');
       }
+      if (profile.status === ItemStatus.ARCHIVED) {
+        throw new Error('Cannot process stock transactions on an archived item');
+      }
 
       const quantityBefore = profile.quantity;
       const quantityAfter = quantityBefore + quantityAdded;
@@ -128,6 +131,9 @@ export class InventoryService {
       });
       if (!profile) {
         throw new Error('Consumable profile not found');
+      }
+      if (profile.status === ItemStatus.ARCHIVED) {
+        throw new Error('Cannot process stock transactions on an archived item');
       }
 
       const quantityBefore = profile.quantity;
@@ -189,6 +195,9 @@ export class InventoryService {
       });
       if (!profile) {
         throw new Error('Consumable profile not found');
+      }
+      if (profile.status === ItemStatus.ARCHIVED) {
+        throw new Error('Cannot process stock transactions on an archived item');
       }
 
       const quantityBefore = profile.quantity;

@@ -7,6 +7,9 @@ export interface Category {
   type: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
   description: string | null;
   deletedAt: string | null;
+  _count?: {
+    items: number;
+  };
 }
 
 export interface CreateCategoryInput {

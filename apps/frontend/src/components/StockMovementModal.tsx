@@ -99,7 +99,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
     setIsLoadingHistory(true);
     try {
       const res = await api.get<MovementsResponse>('/inventory/movements', {
-        params: { profileId: profile.id, limit: 20 },
+        params: { consumableProfileId: profile.id, limit: 20 },
       });
       setMovements(res.data.data);
       setHistTotal(res.data.pagination.total);

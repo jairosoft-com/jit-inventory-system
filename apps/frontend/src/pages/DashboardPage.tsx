@@ -1,10 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStore } from '../store/dashboardStore';
-import { usePolling } from '../lib/usePolling';
 import './DashboardPage.css';
 
-// Map activities relative time
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -21,58 +19,143 @@ function formatRelativeTime(dateStr: string): string {
   return `${diffDay}d ago`;
 }
 
-// Get color and text details for LogAction
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatDaysRemaining(daysRemaining: number): string {
+  if (daysRemaining === 0) {
+    return 'Expires today';
+  }
+
+  if (daysRemaining === 1) {
+    return '1 day remaining';
+  }
+
+  return `${daysRemaining} days remaining`;
+}
+
 function getActivityDetails(action: string) {
   switch (action) {
     case 'CREATED':
-      return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Created' };
+      return {
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.1)',
+        label: 'Created',
+      };
     case 'UPDATED':
-      return { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', label: 'Updated' };
+      return {
+        color: '#3b82f6',
+        bg: 'rgba(59, 130, 246, 0.1)',
+        label: 'Updated',
+      };
     case 'DELETED':
-      return { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', label: 'Deleted' };
+      return {
+        color: '#ef4444',
+        bg: 'rgba(239, 68, 68, 0.1)',
+        label: 'Deleted',
+      };
     case 'BORROWED':
-      return { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', label: 'Borrowed' };
+      return {
+        color: '#8b5cf6',
+        bg: 'rgba(139, 92, 246, 0.1)',
+        label: 'Borrowed',
+      };
     case 'RETURNED':
-      return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Returned' };
+      return {
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.1)',
+        label: 'Returned',
+      };
     case 'APPROVED':
-      return { color: '#059669', bg: 'rgba(5, 150, 105, 0.1)', label: 'Approved' };
+      return {
+        color: '#059669',
+        bg: 'rgba(5, 150, 105, 0.1)',
+        label: 'Approved',
+      };
     case 'REJECTED':
-      return { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.1)', label: 'Rejected' };
+      return {
+        color: '#dc2626',
+        bg: 'rgba(220, 38, 38, 0.1)',
+        label: 'Rejected',
+      };
     case 'DISPOSED':
-      return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: 'Disposed' };
+      return {
+        color: '#6b7280',
+        bg: 'rgba(107, 114, 128, 0.1)',
+        label: 'Disposed',
+      };
     case 'MAINTENANCE_STARTED':
-      return { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', label: 'Maint. Start' };
+      return {
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.1)',
+        label: 'Maint. Start',
+      };
     case 'MAINTENANCE_COMPLETED':
-      return { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Maint. End' };
+      return {
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.1)',
+        label: 'Maint. End',
+      };
     default:
-      return { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', label: action.toLowerCase() };
+      return {
+        color: '#6b7280',
+        bg: 'rgba(107, 114, 128, 0.1)',
+        label: action.toLowerCase(),
+      };
   }
+}
+
+function getWarrantySeverity(
+  daysRemaining: number,
+): 'critical' | 'warning' | 'info' {
+  if (daysRemaining <= 7) {
+    return 'critical';
+  }
+
+  if (daysRemaining <= 14) {
+    return 'warning';
+  }
+
+  return 'info';
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+
   const {
     summary,
     alerts,
     recentActivity,
     equipmentBreakdown,
     isLoading,
+    isWarrantyAlertsLoading,
     error,
     fetchAll,
+    fetchWarrantyAlerts,
     clearError,
   } = useDashboardStore();
 
-  // Setup periodic polling every 30 seconds
-  usePolling(fetchAll, 30000);
+  useEffect(() => {
+    void fetchAll();
+  }, [fetchAll]);
 
-  const totalCount = equipmentBreakdown.reduce((sum, item) => sum + item.count, 0);
+  const totalCount = equipmentBreakdown.reduce(
+    (sum, item) => sum + item.count,
+    0,
+  );
 
-  // Pre-process and merge alerts
   const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
     const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
+
     return {
       id: `low-stock-${item.id}`,
-      type: 'low_stock',
       severity: isOutOfStock ? 'critical' : 'warning',
       itemName: item.itemName,
       detail: isOutOfStock
@@ -81,28 +164,8 @@ export default function DashboardPage() {
     };
   });
 
-  const warrantyAlertsMapped = (alerts?.warrantyExpiring || []).map((item) => {
-    const expiryDate = item.warrantyEnd ? new Date(item.warrantyEnd) : null;
-    const daysUntilExpiry = expiryDate
-      ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      : 30;
-    const dateFormatted = expiryDate
-      ? expiryDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : '';
-    return {
-      id: `warranty-${item.id}`,
-      type: 'warranty',
-      severity: daysUntilExpiry <= 7 ? 'critical' : daysUntilExpiry <= 14 ? 'warning' : 'info',
-      itemName: item.itemName,
-      detail: `Warranty expires ${dateFormatted} (Asset: ${item.assetId})`,
-    };
-  });
+  const warrantyAlerts = alerts?.warrantyExpiring || [];
 
-  const mergedAlerts = [...lowStockAlertsMapped, ...warrantyAlertsMapped];
-  const severityOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 };
-  mergedAlerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
-
-  // Equipment Breakdown config
   const statusConfigs: Record<string, { label: string; color: string }> = {
     AVAILABLE: { label: 'Available', color: '#10b981' },
     IN_USE: { label: 'In Use', color: '#3b82f6' },
@@ -115,9 +178,12 @@ export default function DashboardPage() {
 
   const statusesToShow = Object.keys(statusConfigs)
     .map((statusKey) => {
-      const entry = equipmentBreakdown.find((item) => item.status === statusKey);
+      const entry = equipmentBreakdown.find(
+        (item) => item.status === statusKey,
+      );
       const count = entry ? entry.count : 0;
       const percentage = totalCount > 0 ? (count / totalCount) * 100 : 0;
+
       return {
         key: statusKey,
         count,
@@ -134,7 +200,14 @@ export default function DashboardPage() {
       value: summary ? summary.totalItems.toLocaleString() : null,
       subtext: 'total registered',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
           <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
           <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
@@ -148,7 +221,14 @@ export default function DashboardPage() {
       value: summary ? summary.activeEquipment.toLocaleString() : null,
       subtext: 'currently available',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
         </svg>
       ),
@@ -159,7 +239,14 @@ export default function DashboardPage() {
       value: summary ? summary.lowStockAlerts.toLocaleString() : null,
       subtext: 'requires reorder',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           <line x1="12" y1="9" x2="12" y2="13" />
           <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -172,11 +259,18 @@ export default function DashboardPage() {
       value: summary ? summary.pendingBorrows.toLocaleString() : null,
       subtext: 'awaiting approval',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <path d="M17 2.1l4 4-4 4" />
-          <path d="M3 12.2v-2a4 4 0 0 1 4-4h14" />
+          <path d="M3 12.2v-2a4 4 0 014-4h14" />
           <path d="M7 21.9l-4-4 4-4" />
-          <path d="M21 11.8v2a4 4 0 0 1-4 4H3" />
+          <path d="M21 11.8v2a4 4 0 01-4 4H3" />
         </svg>
       ),
     },
@@ -184,36 +278,26 @@ export default function DashboardPage() {
 
   return (
     <div className="dash-page animate-fade-in">
-      {/* Page Header */}
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Dashboard</h1>
           <p className="dash-page-desc">
-            Welcome back — here is your real-time inventory and equipment oversight.
+            Welcome back — here is your real-time inventory and equipment
+            oversight.
           </p>
-        </div>
-        <div className="dash-page-actions">
-          <button className="dash-btn dash-btn--primary" onClick={() => navigate('/dashboard/inventory')}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add Item
-          </button>
         </div>
       </div>
 
-      {/* Global Error Banner */}
       {error && (
         <div className="dash-error-banner animate-fade-in">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -225,7 +309,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* KPI Cards */}
       <div className="dash-stats stagger-children">
         {statCards.map((stat) => (
           <div key={stat.label} className="dash-stat-card">
@@ -233,22 +316,30 @@ export default function DashboardPage() {
               <span className="dash-stat-label">{stat.label}</span>
               <div
                 className="dash-stat-icon"
-                style={{ background: `${stat.color}08`, color: stat.color }}
+                style={{
+                  background: `${stat.color}08`,
+                  color: stat.color,
+                }}
               >
                 {stat.icon}
               </div>
             </div>
+
             {isLoading && !summary ? (
               <div className="dash-skeleton-wrapper">
                 <div className="dash-skeleton-pulse dash-skeleton-pulse--value animate-pulse" />
               </div>
             ) : stat.value !== null ? (
-              <div className="dash-stat-val" style={{ color: 'var(--text-primary)' }}>
+              <div
+                className="dash-stat-val"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {stat.value}
               </div>
             ) : (
               <div className="dash-stat-empty-val">—</div>
             )}
+
             <div className="dash-stat-footer">
               {isLoading && !summary ? (
                 <div className="dash-skeleton-pulse dash-skeleton-pulse--small animate-pulse" />
@@ -260,9 +351,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Main Grid Layout */}
       <div className="dash-grid">
-        {/* Recent Activity Card */}
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">Recent Activity</h2>
@@ -275,7 +364,13 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className={recentActivity.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+          <div
+            className={
+              recentActivity.length > 0
+                ? 'dash-card-content'
+                : 'dash-card-content-empty'
+            }
+          >
             {isLoading && recentActivity.length === 0 ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3, 4].map((id) => (
@@ -290,26 +385,37 @@ export default function DashboardPage() {
               <div className="dash-activity-list">
                 {recentActivity.map((activity) => {
                   const details = getActivityDetails(activity.action);
+
                   return (
                     <div key={activity.id} className="dash-activity-item">
                       <div className="dash-activity-dot-container">
-                        <div className="dash-activity-dot" style={{ backgroundColor: details.color }} />
+                        <div
+                          className="dash-activity-dot"
+                          style={{ backgroundColor: details.color }}
+                        />
                         <div className="dash-activity-line" />
                       </div>
                       <div className="dash-activity-info">
                         <div className="dash-activity-text">
                           <strong>
-                            {activity.user.firstName} {activity.user.lastName}
+                            {activity.user.firstName}{' '}
+                            {activity.user.lastName}
                           </strong>{' '}
                           <span
                             className="dash-activity-action-tag"
-                            style={{ color: details.color, background: details.bg }}
+                            style={{
+                              color: details.color,
+                              background: details.bg,
+                            }}
                           >
                             {details.label}
                           </span>{' '}
-                          {activity.entityType.toLowerCase()} #{activity.entityId}
+                          {activity.entityType.toLowerCase()} #
+                          {activity.entityId}
                         </div>
-                        <span className="dash-activity-time">{formatRelativeTime(activity.performedAt)}</span>
+                        <span className="dash-activity-time">
+                          {formatRelativeTime(activity.performedAt)}
+                        </span>
                       </div>
                     </div>
                   );
@@ -331,20 +437,24 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">No Recent Activities</h3>
                 <p className="dash-empty-text">
-                  Real-time audit log entries will display here as operational changes occur.
+                  Real-time audit log entries will display here as operational
+                  changes occur.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Equipment Status Breakdown */}
         <div className="dash-card">
           <div className="dash-card-header">
             <h2 className="dash-card-title">Equipment Status</h2>
           </div>
 
-          <div className={totalCount > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+          <div
+            className={
+              totalCount > 0 ? 'dash-card-content' : 'dash-card-content-empty'
+            }
+          >
             {isLoading && equipmentBreakdown.length === 0 ? (
               <div className="dash-skeleton-eq-breakdown">
                 {[1, 2, 3, 4, 5].map((id) => (
@@ -361,7 +471,8 @@ export default function DashboardPage() {
                     <div className="dash-status-info">
                       <span className="dash-status-label">{status.label}</span>
                       <span className="dash-status-count">
-                        <strong>{status.count}</strong> ({Math.round(status.percentage)}%)
+                        <strong>{status.count}</strong> (
+                        {Math.round(status.percentage)}%)
                       </span>
                     </div>
                     <div className="dash-status-bar">
@@ -393,14 +504,14 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">No Registered Assets</h3>
                 <p className="dash-empty-text">
-                  Register trackable equipment units to begin tracking operational status.
+                  Register trackable equipment units to begin tracking
+                  operational status.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Low Stock & Warranty Alerts Card */}
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
@@ -416,15 +527,24 @@ export default function DashboardPage() {
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              Alerts & Low Stock
+              Low Stock Alerts
             </h2>
-            <button className="dash-card-action" onClick={() => navigate('/dashboard/inventory')}>
+            <button
+              className="dash-card-action"
+              onClick={() => navigate('/dashboard/inventory')}
+            >
               Manage
             </button>
           </div>
 
-          <div className={mergedAlerts.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
-            {isLoading && mergedAlerts.length === 0 ? (
+          <div
+            className={
+              lowStockAlertsMapped.length > 0
+                ? 'dash-card-content'
+                : 'dash-card-content-empty'
+            }
+          >
+            {isLoading && lowStockAlertsMapped.length === 0 ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3].map((id) => (
                   <div key={id} className="dash-skeleton-row animate-pulse">
@@ -433,35 +553,38 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            ) : mergedAlerts.length > 0 ? (
+            ) : lowStockAlertsMapped.length > 0 ? (
               <div className="dash-alerts-list">
-                {mergedAlerts.map((alert) => (
-                  <div key={alert.id} className={`dash-alert-row dash-alert-row--${alert.severity}`}>
+                {lowStockAlertsMapped.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={`dash-alert-row dash-alert-row--${alert.severity}`}
+                  >
                     <div className="dash-alert-badge">
-                      {alert.severity === 'critical' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
-                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                      )}
-                      {alert.severity === 'warning' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
-                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                      )}
-                      {alert.severity === 'info' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                      )}
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke={
+                          alert.severity === 'critical'
+                            ? '#ef4444'
+                            : '#d97706'
+                        }
+                        strokeWidth="2"
+                      >
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
                     </div>
                     <div className="dash-alert-content">
-                      <span className="dash-alert-itemName">{alert.itemName}</span>
-                      <span className="dash-alert-detail">{alert.detail}</span>
+                      <span className="dash-alert-itemName">
+                        {alert.itemName}
+                      </span>
+                      <span className="dash-alert-detail">
+                        {alert.detail}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -481,39 +604,222 @@ export default function DashboardPage() {
                     <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
                   </svg>
                 </div>
-                <h3 className="dash-empty-heading">No Alerts Active</h3>
+                <h3 className="dash-empty-heading">No Low Stock Alerts</h3>
                 <p className="dash-empty-text">
-                  Low stock notifications and warranty expirations will appear here when triggered.
+                  Consumable inventory levels are currently within acceptable
+                  thresholds.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Quick Actions Panel */}
+        <div className="dash-card dash-card--wide">
+          <div className="dash-card-header">
+            <h2 className="dash-card-title">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#2563eb"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              Warranty Expiration Alerts
+            </h2>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                className="dash-card-action"
+                onClick={() => navigate('/dashboard/equipment')}
+              >
+                Manage Alerts
+              </button>
+
+              <button
+                className="dash-card-action"
+                onClick={() => void fetchWarrantyAlerts()}
+                disabled={isLoading || isWarrantyAlertsLoading}
+              >
+                {isWarrantyAlertsLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          <div
+            className={
+              warrantyAlerts.length > 0
+                ? 'dash-card-content'
+                : 'dash-card-content-empty'
+            }
+          >
+            {(isLoading || isWarrantyAlertsLoading) &&
+            warrantyAlerts.length === 0 ? (
+              <div className="dash-skeleton-list">
+                {[1, 2, 3].map((id) => (
+                  <div key={id} className="dash-skeleton-row animate-pulse">
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
+                  </div>
+                ))}
+              </div>
+            ) : warrantyAlerts.length > 0 ? (
+              <div className="dash-alerts-list">
+                {warrantyAlerts.map((alert) => {
+                  const severity = getWarrantySeverity(alert.daysRemaining);
+
+                  return (
+                    <div
+                      key={alert.id}
+                      className={`dash-alert-row dash-alert-row--${severity}`}
+                    >
+                      <div className="dash-alert-badge">
+                        {severity === 'critical' && (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#ef4444"
+                            strokeWidth="2"
+                          >
+                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                        )}
+
+                        {severity === 'warning' && (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#d97706"
+                            strokeWidth="2"
+                          >
+                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                        )}
+
+                        {severity === 'info' && (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#2563eb"
+                            strokeWidth="2"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                          </svg>
+                        )}
+                      </div>
+
+                      <div className="dash-alert-content">
+                        <span className="dash-alert-itemName">
+                          {alert.itemName}
+                        </span>
+                        <span className="dash-alert-detail">
+                          Warranty ends {formatDate(alert.warrantyEnd)} ·{' '}
+                          {formatDaysRemaining(alert.daysRemaining)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="dash-empty-state">
+                <div className="dash-empty-icon">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                </div>
+                <h3 className="dash-empty-heading">All warranties valid</h3>
+                <p className="dash-empty-text">
+                  No equipment warranties are nearing expiration within the next
+                  30 days.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="dash-card">
           <div className="dash-card-header">
             <h2 className="dash-card-title">Quick Actions</h2>
           </div>
+
           <div className="dash-quick-actions">
             {[
-              { label: 'Register Item', color: '#2563eb', icon: '+', path: '/dashboard/inventory' },
-              { label: 'Stock In', color: '#16a34a', icon: '↓', path: '/dashboard/inventory' },
-              { label: 'Stock Out', color: '#dc2626', icon: '↑', path: '/dashboard/inventory' },
-              { label: 'New PO', color: '#8b5cf6', icon: '📋', path: '/dashboard/orders', disabled: true },
-              { label: 'Borrow Request', color: '#d97706', icon: '🔄', path: '/dashboard/borrow', disabled: true },
-              { label: 'Run Report', color: '#0891b2', icon: '📊', path: '/dashboard/logs' },
+              {
+                label: 'Register Item',
+                color: '#2563eb',
+                icon: '+',
+                path: '/dashboard/inventory',
+              },
+              {
+                label: 'Stock In',
+                color: '#16a34a',
+                icon: '↓',
+                path: '/dashboard/inventory',
+              },
+              {
+                label: 'Stock Out',
+                color: '#dc2626',
+                icon: '↑',
+                path: '/dashboard/inventory',
+              },
+              {
+                label: 'New PO',
+                color: '#8b5cf6',
+                icon: '📋',
+                path: '/dashboard/orders',
+                disabled: true,
+              },
+              {
+                label: 'Borrow Request',
+                color: '#d97706',
+                icon: '🔄',
+                path: '/dashboard/borrow',
+                disabled: true,
+              },
+              {
+                label: 'Run Report',
+                color: '#0891b2',
+                icon: '📊',
+                path: '/dashboard/logs',
+              },
             ].map((action) => (
               <button
                 key={action.label}
-                className={`dash-qa-btn ${action.disabled ? 'dash-qa-btn--disabled' : ''}`}
+                className={`dash-qa-btn ${
+                  action.disabled ? 'dash-qa-btn--disabled' : ''
+                }`}
                 disabled={action.disabled}
                 title={action.disabled ? 'Coming soon' : undefined}
                 onClick={() => !action.disabled && navigate(action.path)}
               >
                 <span
                   className="dash-qa-icon"
-                  style={{ background: `${action.color}08`, color: action.color }}
+                  style={{
+                    background: `${action.color}08`,
+                    color: action.color,
+                  }}
                 >
                   {action.icon}
                 </span>
@@ -523,8 +829,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-
     </div>
   );
 }

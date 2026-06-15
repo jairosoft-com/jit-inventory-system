@@ -5,6 +5,7 @@ import api from '../lib/api';
 
 export type ItemType = 'CONSUMABLE' | 'DIGITAL';
 export type ItemStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'ARCHIVED';
+export type StockStatusFilter = Exclude<ItemStatus, 'ARCHIVED'>;
 export type DigitalStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED';
 export type DigitalAssetType = 'SOFTWARE' | 'SUBSCRIPTION' | 'DOMAIN' | 'LICENSE' | 'API_KEY';
 export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'ONE_TIME';
@@ -67,6 +68,7 @@ export interface ListItemsQuery {
   itemType?: ItemType;
   categoryId?: number;
   search?: string;
+  status?: StockStatusFilter;
   page?: number;
   limit?: number;
   includeArchived?: boolean;
@@ -103,6 +105,20 @@ interface ItemsState {
   clearError: () => void;
 }
 
+function buildItemQueryParams(query?: ListItemsQuery) {
+  const params: Record<string, string> = {};
+
+  if (query?.itemType) params.itemType = query.itemType;
+  if (query?.categoryId) params.categoryId = String(query.categoryId);
+  if (query?.search) params.search = query.search;
+  if (query?.status) params.status = query.status;
+  if (query?.page) params.page = String(query.page);
+  if (query?.limit) params.limit = String(query.limit);
+  if (query?.includeArchived) params.includeArchived = 'true';
+
+  return params;
+}
+
 export const useItemsStore = create<ItemsState>((set, _get) => ({
   items: [],
   archivedItems: [],
@@ -115,19 +131,18 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
   fetchItems: async (query) => {
     set({ isLoading: true, error: null });
-    try {
-      const params: Record<string, string> = {};
-      if (query?.itemType) params.itemType = query.itemType;
-      if (query?.categoryId) params.categoryId = String(query.categoryId);
-      if (query?.search) params.search = query.search;
-      if (query?.page) params.page = String(query.page);
-      if (query?.limit) params.limit = String(query.limit);
 
+    try {
       const response = await api.get<{ data: Item[]; meta: PaginationMeta }>(
         '/items',
-        { params },
+        { params: buildItemQueryParams(query) },
       );
-      set({ items: response.data.data, meta: response.data.meta, isLoading: false });
+
+      set({
+        items: response.data.data,
+        meta: response.data.meta,
+        isLoading: false,
+      });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       set({
@@ -139,19 +154,23 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
   fetchArchivedItems: async (query) => {
     set({ isLoading: true, error: null });
-    try {
-      const params: Record<string, string> = { includeArchived: 'true' };
-      if (query?.itemType) params.itemType = query.itemType;
-      if (query?.categoryId) params.categoryId = String(query.categoryId);
-      if (query?.search) params.search = query.search;
-      if (query?.page) params.page = String(query.page);
-      if (query?.limit) params.limit = String(query.limit);
 
+    try {
       const response = await api.get<{ data: Item[]; meta: PaginationMeta }>(
         '/items',
-        { params },
+        {
+          params: buildItemQueryParams({
+            ...query,
+            includeArchived: true,
+          }),
+        },
       );
-      set({ archivedItems: response.data.data, archivedMeta: response.data.meta, isLoading: false });
+
+      set({
+        archivedItems: response.data.data,
+        archivedMeta: response.data.meta,
+        isLoading: false,
+      });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       set({
@@ -172,6 +191,7 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
   createItem: async (data) => {
     set({ isLoading: true, error: null });
+
     try {
       const response = await api.post<Item>('/items', data);
       set({ isLoading: false });
@@ -186,13 +206,16 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
   updateItem: async (id, data) => {
     set({ isLoading: true, error: null });
+
     try {
       const response = await api.patch<Item>(`/items/${id}`, data);
       const updated = response.data;
+
       set((state) => ({
         items: state.items.map((item) => (item.id === id ? updated : item)),
         isLoading: false,
       }));
+
       return updated;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
@@ -204,10 +227,22 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
   archiveItem: async (id) => {
     set({ isLoading: true, error: null });
+
     try {
       await api.delete(`/items/${id}`);
+
       set((state) => ({
         items: state.items.filter((item) => item.id !== id),
+        // Decrement active count so the Active badge updates immediately
+        meta: {
+          ...state.meta,
+          total: Math.max(0, state.meta.total - 1),
+        },
+        // Increment archived count so the Archived badge updates immediately
+        archivedMeta: {
+          ...state.archivedMeta,
+          total: state.archivedMeta.total + 1,
+        },
         isLoading: false,
       }));
     } catch (error: unknown) {
@@ -224,7 +259,9 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
         `/items/${itemId}/images`,
         data,
       );
+
       const newImage = response.data;
+
       set((state) => ({
         items: state.items.map((item) =>
           item.id === itemId
@@ -232,6 +269,7 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
             : item,
         ),
       }));
+
       return newImage;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
@@ -244,6 +282,7 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
   deleteImage: async (itemId, imageId) => {
     try {
       await api.delete(`/items/${itemId}/images/${imageId}`);
+
       set((state) => ({
         items: state.items.map((item) =>
           item.id === itemId

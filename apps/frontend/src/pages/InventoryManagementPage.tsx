@@ -128,6 +128,12 @@ export default function InventoryManagementPage() {
   const [subTab, setSubTab] = useState<SubTab>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const [selectedItemType, setSelectedItemType] = useState<ItemTypeFilter>('CONSUMABLE');
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+  const [appliedCategoryId, setAppliedCategoryId] = useState('all');
+  const [appliedItemType, setAppliedItemType] = useState<ItemTypeFilter>('CONSUMABLE');
+  const [appliedStatus, setAppliedStatus] = useState<StatusFilter>('all');
 
   // form modal
   const [isFormOpen, setIsFormOpen] = useState(false);

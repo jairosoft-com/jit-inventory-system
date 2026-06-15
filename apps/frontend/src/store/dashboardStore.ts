@@ -24,6 +24,7 @@ export interface WarrantyAlert {
   assetId: string;
   warrantyEnd: string;
   warrantyProvider: string | null;
+  daysRemaining: number;
 }
 
 export interface DashboardAlerts {
@@ -48,18 +49,71 @@ export interface EquipmentBreakdown {
   count: number;
 }
 
+export interface RecentPurchaseOrder {
+  id: number;
+  invoiceNumber: string | null;
+  status: string;
+  totalAmount: number;
+  orderDate: string;
+  supplier: {
+    name: string;
+  };
+  createdBy: {
+    firstName: string;
+    lastName: string;
+  };
+  itemCount: number;
+}
+
+export interface ProcurementSummary {
+  pendingOrders: number;
+  completedOrders: number;
+  recentPurchaseActivity: RecentPurchaseOrder[];
+}
+
+export interface StockMovement {
+  date: string;
+  stockIn: number;
+  stockOut: number;
+}
+
+export interface EquipmentCondition {
+  condition: string;
+  count: number;
+}
+
+export interface BorrowActivity {
+  date: string;
+  total: number;
+  pending: number;
+  approved: number;
+  returned: number;
+}
+
+export interface AnalyticsData {
+  stockMovements: StockMovement[];
+  equipmentConditions: EquipmentCondition[];
+  borrowActivity: BorrowActivity[];
+}
+
 interface DashboardState {
   summary: DashboardSummary | null;
   alerts: DashboardAlerts;
   recentActivity: RecentActivity[];
   equipmentBreakdown: EquipmentBreakdown[];
+  procurementSummary: ProcurementSummary | null;
+  analytics: AnalyticsData | null;
   isLoading: boolean;
+  isWarrantyAlertsLoading: boolean;
   error: string | null;
 
   fetchSummary: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
+  fetchWarrantyAlerts: () => Promise<void>;
   fetchRecentActivity: () => Promise<void>;
   fetchEquipmentBreakdown: () => Promise<void>;
+  fetchProcurementSummary: () => Promise<void>;
+  fetchAnalytics: () => Promise<void>;
   fetchAll: () => Promise<void>;
   clearError: () => void;
 }
@@ -69,7 +123,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   alerts: { lowStock: [], warrantyExpiring: [] },
   recentActivity: [],
   equipmentBreakdown: [],
+  procurementSummary: null,
+  analytics: null,
   isLoading: false,
+  isWarrantyAlertsLoading: false,
   error: null,
 
   clearError: () => set({ error: null }),
@@ -80,7 +137,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ summary: response.data });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      set({ error: err.response?.data?.message || 'Failed to fetch dashboard summary' });
+      set({
+        error:
+          err.response?.data?.message || 'Failed to fetch dashboard summary',
+      });
     }
   },
 
@@ -90,38 +150,106 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ alerts: response.data });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      set({ error: err.response?.data?.message || 'Failed to fetch alerts' });
+      set({
+        error: err.response?.data?.message || 'Failed to fetch alerts',
+      });
+    }
+  },
+
+  fetchWarrantyAlerts: async () => {
+    // isLoading covers the initial dashboard fetch, while isWarrantyAlertsLoading prevents duplicate manual refresh requests.
+    if (get().isWarrantyAlertsLoading || get().isLoading) {
+      return;
+    }
+
+    set({ isWarrantyAlertsLoading: true, error: null });
+
+    try {
+      const response = await api.get<WarrantyAlert[]>(
+        '/dashboard/warranty-alerts',
+      );
+
+      set((state) => ({
+        alerts: {
+          ...state.alerts,
+          warrantyExpiring: response.data,
+        },
+      }));
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({
+        error:
+          err.response?.data?.message ||
+          'Failed to fetch warranty expiration alerts',
+      });
+    } finally {
+      set({ isWarrantyAlertsLoading: false });
     }
   },
 
   fetchRecentActivity: async () => {
     try {
-      const response = await api.get<RecentActivity[]>('/dashboard/activity?limit=10');
+      const response = await api.get<RecentActivity[]>(
+        '/dashboard/activity?limit=10',
+      );
       set({ recentActivity: response.data });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      set({ error: err.response?.data?.message || 'Failed to fetch recent activity' });
+      set({
+        error:
+          err.response?.data?.message || 'Failed to fetch recent activity',
+      });
     }
   },
 
   fetchEquipmentBreakdown: async () => {
     try {
-      const response = await api.get<EquipmentBreakdown[]>('/dashboard/equipment-status');
+      const response = await api.get<EquipmentBreakdown[]>(
+        '/dashboard/equipment-status',
+      );
       set({ equipmentBreakdown: response.data });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
-      set({ error: err.response?.data?.message || 'Failed to fetch equipment status breakdown' });
+      set({
+        error:
+          err.response?.data?.message ||
+          'Failed to fetch equipment status breakdown',
+      });
+    }
+  },
+
+  fetchProcurementSummary: async () => {
+    try {
+      const response = await api.get<ProcurementSummary>('/dashboard/procurement-summary');
+      set({ procurementSummary: response.data });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({ error: err.response?.data?.message || 'Failed to fetch procurement summary' });
+    }
+  },
+
+  fetchAnalytics: async () => {
+    try {
+      const response = await api.get<AnalyticsData>('/dashboard/analytics');
+      set({ analytics: response.data });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({ error: err.response?.data?.message || 'Failed to fetch analytics' });
     }
   },
 
   fetchAll: async () => {
     set({ isLoading: true, error: null });
+
     await Promise.allSettled([
       get().fetchSummary(),
       get().fetchAlerts(),
       get().fetchRecentActivity(),
       get().fetchEquipmentBreakdown(),
+      get().fetchProcurementSummary(),
+      get().fetchAnalytics(),
     ]);
+
     set({ isLoading: false });
   },
 }));

@@ -55,8 +55,7 @@ export const updateEquipmentSchema = z
     categoryId: z.number().int().positive(),
     barcode: z.string().trim().max(255).optional().nullable(),
 
-    // Equipment fields
-    assetId: z.string().trim().min(1).max(100),
+    // Equipment fields — assetId is immutable after creation and cannot be updated
     serialNumber: z.string().trim().max(100).optional().nullable(),
     brand: z.string().trim().max(255).optional().nullable(),
     model: z.string().trim().max(255).optional().nullable(),

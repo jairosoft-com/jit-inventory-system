@@ -64,15 +64,17 @@ export class EquipmentService {
     }
   }
 
+
   private static async assertUniqueSerialNumber(
     serialNumber: string,
     excludeId?: number,
   ) {
-    const existing = await prisma.equipment.findUnique({
-      where: { serialNumber },
+    // Case-insensitive lookup: treat 'SN-ABC-123' and 'sn-abc-123' as duplicates
+    const existing = await prisma.equipment.findFirst({
+      where: { serialNumber: { equals: serialNumber, mode: 'insensitive' } },
     });
     if (existing && existing.id !== excludeId) {
-      throw new Error(`Serial number '${serialNumber}' is already in use`);
+      throw new Error('Serial number already exists');
     }
   }
 
@@ -228,11 +230,11 @@ export class EquipmentService {
       await this.assertCategoryIsEquipment(data.categoryId);
     }
 
-    if (data.assetId && data.assetId !== equipment.assetId) {
-      await this.assertUniqueAssetId(data.assetId, id);
-    }
 
-    if (data.serialNumber && data.serialNumber !== equipment.serialNumber) {
+    if (
+      data.serialNumber &&
+      data.serialNumber.toLowerCase() !== (equipment.serialNumber ?? '').toLowerCase()
+    ) {
       await this.assertUniqueSerialNumber(data.serialNumber, id);
     }
 

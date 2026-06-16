@@ -13,7 +13,6 @@ import itemsRouter from './routes/items.routes.js';
 import inventoryRouter from './routes/inventory.routes.js';
 import dashboardRouter from './routes/dashboard.routes.js';
 
-
 const app = express();
 
 // Security Headers
@@ -51,7 +50,6 @@ app.use('/api/equipment', equipmentRouter);
 app.use('/api/items', itemsRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/dashboard', dashboardRouter);
-
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

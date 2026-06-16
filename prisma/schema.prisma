@@ -103,6 +103,21 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
+enum MovementType {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT_ADD
+  ADJUSTMENT_REMOVE
+}
+
+enum AdjustmentReason {
+  DAMAGED
+  EXPIRED
+  LOST
+  COUNT_CORRECTION
+  OTHER
+}
+
 enum LogAction {
   CREATED
   UPDATED
@@ -190,6 +205,8 @@ model User {
   maintenanceJobs   MaintenanceLog[] @relation("PerformedByUser")
   disposalsApproved Disposal[]       @relation("DisposalApprovedBy")
   activityLogs      InventoryLog[]
+  stockAdjustments  StockAdjustment[] @relation("AdjustedByUser")
+  stockMovements    StockMovement[]   @relation("StockMovementPerformedBy")
 
   @@index([isActive])
   @@index([roleId])
@@ -292,6 +309,8 @@ model ConsumableProfile {
   item     Item      @relation(fields: [itemId], references: [id])
   stockIns StockIn[]
   stockOuts StockOut[]
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
 
   @@index([status])
   @@map("consumable_profiles")
@@ -332,6 +351,7 @@ model Equipment {
 
   @@index([status])
   @@index([assignedTo])
+  @@index([deletedAt])
   @@index([warrantyEnd])
   @@index([purchaseOrderId])
   @@map("equipment")
@@ -352,6 +372,7 @@ model EquipmentImage {
   equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@index([equipmentId])
+  @@index([deletedAt])
   @@map("equipment_images")
 }
 
@@ -484,6 +505,52 @@ model StockOut {
 
   @@index([consumableProfileId])
   @@map("stock_out")
+}
+
+// ────────────────────────────────────────────
+// 14a. Stock Adjustments
+// ────────────────────────────────────────────
+model StockAdjustment {
+  id                  Int              @id @default(autoincrement())
+  consumableProfileId Int              @map("consumable_profile_id")
+  quantityBefore      Int              @map("quantity_before")
+  quantityAfter       Int              @map("quantity_after")
+  difference          Int
+  reason              AdjustmentReason
+  notes               String?          @db.Text
+  adjustedById        Int              @map("adjusted_by_id")
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  adjustedBy        User              @relation("AdjustedByUser", fields: [adjustedById], references: [id])
+
+  @@index([consumableProfileId])
+  @@map("stock_adjustments")
+}
+
+// ────────────────────────────────────────────
+// 14b. Stock Movements (unified ledger)
+// ────────────────────────────────────────────
+model StockMovement {
+  id                  Int          @id @default(autoincrement())
+  consumableProfileId Int          @map("consumable_profile_id")
+  movementType        MovementType @map("movement_type")
+  quantityChange      Int          @map("quantity_change")
+  quantityBefore      Int          @map("quantity_before")
+  quantityAfter       Int          @map("quantity_after")
+  reason              String       @db.VarChar(255)
+  referenceType       String?      @map("reference_type") @db.VarChar(50)
+  referenceId         Int?         @map("reference_id")
+  performedById       Int          @map("performed_by_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
+
+  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  performedBy       User              @relation("StockMovementPerformedBy", fields: [performedById], references: [id])
+
+  @@index([consumableProfileId])
+  @@index([movementType])
+  @@index([createdAt])
+  @@map("stock_movements")
 }
 
 // ────────────────────────────────────────────

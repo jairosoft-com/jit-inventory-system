@@ -64,7 +64,6 @@ export class EquipmentService {
     }
   }
 
-
   private static async assertUniqueSerialNumber(
     serialNumber: string,
     excludeId?: number,
@@ -230,10 +229,10 @@ export class EquipmentService {
       await this.assertCategoryIsEquipment(data.categoryId);
     }
 
-
     if (
       data.serialNumber &&
-      data.serialNumber.toLowerCase() !== (equipment.serialNumber ?? '').toLowerCase()
+      data.serialNumber.toLowerCase() !==
+        (equipment.serialNumber ?? '').toLowerCase()
     ) {
       await this.assertUniqueSerialNumber(data.serialNumber, id);
     }

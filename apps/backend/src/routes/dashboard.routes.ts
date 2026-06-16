@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { DashboardService } from '../services/dashboard.service.js';
 import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
 
 const router = Router();
 
@@ -168,7 +169,7 @@ router.get('/procurement-summary', async (req: Request, res: Response): Promise<
 });
 
 // GET /api/dashboard/analytics
-router.get('/analytics', async (req: Request, res: Response): Promise<void> => {
+router.get('/analytics', authorize('reports:export'), async (req: Request, res: Response): Promise<void> => {
   try {
     const analytics = await DashboardService.getAnalytics();
     res.status(200).json(analytics);

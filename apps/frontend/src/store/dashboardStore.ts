@@ -82,11 +82,17 @@ export interface EquipmentCondition {
   count: number;
 }
 
+export interface InventoryDistribution {
+  categoryId: number;
+  categoryName: string;
+  count: number;
+}
+
 export interface BorrowActivity {
   date: string;
   total: number;
-  pending: number;
-  approved: number;
+  active: number;
+  overdue: number;
   returned: number;
 }
 
@@ -94,6 +100,7 @@ export interface AnalyticsData {
   stockMovements: StockMovement[];
   equipmentConditions: EquipmentCondition[];
   borrowActivity: BorrowActivity[];
+  inventoryDistribution: InventoryDistribution[];
 }
 
 interface DashboardState {
@@ -114,7 +121,7 @@ interface DashboardState {
   fetchEquipmentBreakdown: () => Promise<void>;
   fetchProcurementSummary: () => Promise<void>;
   fetchAnalytics: () => Promise<void>;
-  fetchAll: () => Promise<void>;
+  fetchAll: (hasAnalyticsPermission?: boolean) => Promise<void>;
   clearError: () => void;
 }
 
@@ -238,17 +245,22 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
-  fetchAll: async () => {
+  fetchAll: async (hasAnalyticsPermission = false) => {
     set({ isLoading: true, error: null });
 
-    await Promise.allSettled([
+    const promises = [
       get().fetchSummary(),
       get().fetchAlerts(),
       get().fetchRecentActivity(),
       get().fetchEquipmentBreakdown(),
       get().fetchProcurementSummary(),
-      get().fetchAnalytics(),
-    ]);
+    ];
+
+    if (hasAnalyticsPermission) {
+      promises.push(get().fetchAnalytics());
+    }
+
+    await Promise.allSettled(promises);
 
     set({ isLoading: false });
   },

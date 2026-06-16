@@ -195,7 +195,16 @@ export class DashboardService {
   }
 
   static async getRecentActivity(limit = 10) {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
     const logs = await prisma.inventoryLog.findMany({
+      where: {
+        performedAt: {
+          gte: sevenDaysAgo,
+        },
+      },
       orderBy: {
         performedAt: 'desc',
       },

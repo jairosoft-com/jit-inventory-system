@@ -145,9 +145,9 @@ export default function DashboardPage() {
     clearError,
   } = useDashboardStore();
 
-  useEffect(() => {
+  usePolling(() => {
     void fetchAll();
-  }, [fetchAll]);
+  }, 30000);
 
   const totalCount = equipmentBreakdown.reduce(
     (sum, item) => sum + item.count,

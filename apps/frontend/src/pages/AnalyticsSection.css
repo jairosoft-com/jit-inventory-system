@@ -1,0 +1,165 @@
+.dash-analytics-section {
+  margin-top: 24px;
+}
+
+.dash-analytics-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-analytics-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .dash-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dash-chart-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast);
+}
+
+.dash-chart-card:hover {
+  border-color: var(--surface-border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.dash-chart-card--full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1024px) {
+  .dash-chart-card--full {
+    grid-column: auto;
+  }
+}
+
+.dash-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dash-chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-chart-title svg {
+  color: var(--accent);
+}
+
+.dash-chart-body {
+  height: 280px;
+  width: 100%;
+  position: relative;
+  min-height: 280px;
+}
+
+/* Custom Tooltip styling for Recharts */
+.recharts-custom-tooltip {
+  background: var(--surface) !important;
+  border: 1px solid var(--surface-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 10px 12px !important;
+  box-shadow: var(--shadow-md) !important;
+  font-family: inherit;
+  z-index: 100;
+}
+
+.recharts-tooltip-label {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  font-size: 12px;
+}
+
+.recharts-tooltip-item-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recharts-tooltip-item {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recharts-tooltip-marker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.recharts-tooltip-name {
+  color: var(--text-secondary);
+}
+
+.recharts-tooltip-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Skeleton Loading for Charts */
+.dash-skeleton-chart {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.dash-skeleton-chart-body {
+  flex: 1;
+  width: 100%;
+  background: linear-gradient(180deg, var(--background-tertiary) 0%, transparent 100%);
+  position: relative;
+  border-radius: var(--radius-md);
+  opacity: 0.6;
+}
+
+.dash-skeleton-chart-lines {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 0;
+}
+
+.dash-skeleton-chart-line {
+  height: 1px;
+  width: 100%;
+  background: var(--surface-border);
+}

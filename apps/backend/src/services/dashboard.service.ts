@@ -3,6 +3,11 @@ import { prisma } from '../lib/prisma.js';
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 
+interface DashboardAccess {
+  canReadInventory: boolean;
+  canReadEquipment: boolean;
+}
+
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -15,31 +20,72 @@ function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
   );
 }
 
+function isLowStock(quantity: number, reorderPoint: number): boolean {
+  return quantity <= reorderPoint;
+}
+
+function getDisplayStockStatus(
+  quantity: number,
+  reorderPoint: number,
+  currentStatus: string,
+): string {
+  if (quantity <= 0) {
+    return 'OUT_OF_STOCK';
+  }
+
+  if (quantity <= reorderPoint) {
+    return 'LOW_STOCK';
+  }
+
+  return currentStatus;
+}
+
 export class DashboardService {
-  static async getSummary() {
-    const totalItems = await prisma.item.count({
-      where: { deletedAt: null },
-    });
-
-    const activeEquipment = await prisma.equipment.count({
-      where: {
-        status: 'AVAILABLE',
-        deletedAt: null,
+  static async getRolePermissionNames(roleId: number): Promise<string[]> {
+    const rolePermissions = await prisma.rolePermission.findMany({
+      where: { roleId },
+      select: {
+        permission: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
-    const lowStockAlerts = await prisma.consumableProfile.count({
-      where: {
-        status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
-        item: { deletedAt: null },
-      },
-    });
+    return rolePermissions.map((rp) => rp.permission.name);
+  }
 
-    const pendingBorrows = await prisma.borrowRecord.count({
-      where: {
-        status: 'PENDING',
-      },
-    });
+  static async getSummary(access: DashboardAccess) {
+    const [totalItems, activeEquipment, lowStockAlerts, pendingBorrows] =
+      await Promise.all([
+        access.canReadInventory
+          ? prisma.item.count({
+              where: { deletedAt: null },
+            })
+          : Promise.resolve(0),
+
+        access.canReadEquipment
+          ? prisma.equipment.count({
+              where: {
+                status: 'AVAILABLE',
+                deletedAt: null,
+              },
+            })
+          : Promise.resolve(0),
+
+        access.canReadInventory
+          ? DashboardService.countLowStockItems()
+          : Promise.resolve(0),
+
+        access.canReadEquipment
+          ? prisma.borrowRecord.count({
+              where: {
+                status: 'PENDING',
+              },
+            })
+          : Promise.resolve(0),
+      ]);
 
     return {
       totalItems,
@@ -49,25 +95,62 @@ export class DashboardService {
     };
   }
 
-  static async getLowStockItems() {
-    const lowStock = await prisma.consumableProfile.findMany({
+  private static async getLowStockProfiles() {
+    const consumableProfiles = await prisma.consumableProfile.findMany({
       where: {
-        status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
-        item: { deletedAt: null },
+        status: {
+          not: 'ARCHIVED',
+        },
+        item: {
+          deletedAt: null,
+        },
       },
       include: {
-        item: true,
+        item: {
+          select: {
+            itemName: true,
+          },
+        },
       },
+      orderBy: [
+        {
+          quantity: 'asc',
+        },
+        {
+          reorderPoint: 'desc',
+        },
+        {
+          id: 'asc',
+        },
+      ],
     });
 
-    return lowStock.map((p) => ({
-      id: p.id,
-      itemId: p.itemId,
-      itemName: p.item.itemName,
-      quantity: p.quantity,
-      reorderPoint: p.reorderPoint,
-      unit: p.unit,
-      status: p.status,
+    return consumableProfiles.filter((profile) =>
+      isLowStock(profile.quantity, profile.reorderPoint),
+    );
+  }
+
+  private static async countLowStockItems(): Promise<number> {
+    const lowStockProfiles = await DashboardService.getLowStockProfiles();
+
+    return lowStockProfiles.length;
+  }
+
+  static async getLowStockItems() {
+    const lowStock = await DashboardService.getLowStockProfiles();
+
+    return lowStock.map((profile) => ({
+      id: profile.id,
+      itemId: profile.itemId,
+      itemName: profile.item.itemName,
+      quantity: profile.quantity,
+      reorderPoint: profile.reorderPoint,
+      unit: profile.unit,
+      status: getDisplayStockStatus(
+        profile.quantity,
+        profile.reorderPoint,
+        profile.status,
+      ),
     }));
   }
 
@@ -335,4 +418,3 @@ export class DashboardService {
     };
   }
 }
-

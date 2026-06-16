@@ -16,7 +16,6 @@ import {
   type UpdateItemImageInput,
 } from '../schemas/items.schema.js';
 
-
 const router = Router();
 
 router.use(authenticate);
@@ -292,4 +291,3 @@ router.delete(
 );
 
 export default router;
-

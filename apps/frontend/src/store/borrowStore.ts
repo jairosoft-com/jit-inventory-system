@@ -79,6 +79,10 @@ interface BorrowState {
   fetchMyRecords: (query?: Omit<ListBorrowQuery, 'mine'>) => Promise<void>;
   /** Submit a new borrow request */
   submitRequest: (data: CreateBorrowInput) => Promise<BorrowRecord>;
+  /** Approve a PENDING request (requires borrow:approve) */
+  approveRequest: (id: number) => Promise<BorrowRecord>;
+  /** Reject a PENDING request (requires borrow:approve) */
+  rejectRequest: (id: number, reason?: string) => Promise<BorrowRecord>;
   clearError: () => void;
 }
 
@@ -165,6 +169,51 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to submit borrow request';
       set({ error: errMsg, isSubmitting: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  approveRequest: async (id) => {
+    set({ error: null });
+    try {
+      const response = await api.patch<BorrowRecord>(`/borrow/${id}/approve`);
+      const updated = response.data;
+      // Replace the record in-place in the admin list (status flips PENDING -> APPROVED)
+      set((state) => ({
+        records: state.records.map((r) => (r.id === id ? updated : r)),
+      }));
+      return updated;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to approve request';
+      set({ error: errMsg });
+      throw new Error(errMsg);
+    }
+  },
+
+  rejectRequest: async (id, reason) => {
+    set({ error: null });
+    try {
+      const response = await api.patch<BorrowRecord>(`/borrow/${id}/reject`, {
+        reason: reason ?? null,
+      });
+      const updated = response.data;
+      set((state) => ({
+        records: state.records.map((r) => (r.id === id ? updated : r)),
+      }));
+      return updated;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to reject request';
+      set({ error: errMsg });
       throw new Error(errMsg);
     }
   },

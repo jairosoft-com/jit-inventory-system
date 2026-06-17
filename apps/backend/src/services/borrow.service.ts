@@ -1,6 +1,10 @@
 import { prisma } from '../lib/prisma.js';
 import { EquipmentStatus, BorrowStatus, Prisma } from '@prisma/client';
-import type { CreateBorrowInput, ListBorrowQuery } from '../schemas/borrow.schema.js';
+import type {
+  CreateBorrowInput,
+  ListBorrowQuery,
+  RejectBorrowInput,
+} from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
 
@@ -112,5 +116,91 @@ export class BorrowService {
     }
 
     return record;
+  }
+
+  // ── Approve ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Approves a PENDING borrow request: flips the request to APPROVED, sets
+   * borrowDate to now, and transitions the equipment to BORROWED so it drops
+   * out of any AVAILABLE-filtered list. Wrapped in a transaction so the
+   * request and equipment status move together — no window where one is
+   * updated and the other isn't.
+   */
+  static async approve(id: number, approverId: number) {
+    return prisma.$transaction(async (tx) => {
+      const record = await tx.borrowRecord.findUnique({
+        where: { id },
+        include: { equipment: { select: { id: true, status: true } } },
+      });
+
+      if (!record) {
+        throw new Error('Borrow record not found');
+      }
+      if (record.status !== BorrowStatus.PENDING) {
+        throw new Error(
+          `Cannot approve a request with status ${record.status}; only PENDING requests can be approved`,
+        );
+      }
+      if (record.equipment.status !== EquipmentStatus.AVAILABLE) {
+        // Defensive: covers the case where the equipment was already borrowed
+        // or taken out of service between request submission and approval.
+        throw new Error('Equipment is currently unavailable');
+      }
+
+      await tx.equipment.update({
+        where: { id: record.equipmentId },
+        data: { status: EquipmentStatus.BORROWED },
+      });
+
+      const updated = await tx.borrowRecord.update({
+        where: { id },
+        data: {
+          status: BorrowStatus.APPROVED,
+          approvedById: approverId,
+          borrowDate: new Date(),
+        },
+        include: borrowInclude,
+      });
+
+      return updated;
+    });
+  }
+
+  // ── Reject ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Rejects a PENDING borrow request. The equipment is never touched — it
+   * was never reserved in the first place, so it simply stays AVAILABLE.
+   */
+  static async reject(id: number, approverId: number, data: RejectBorrowInput) {
+    return prisma.$transaction(async (tx) => {
+      const record = await tx.borrowRecord.findUnique({ where: { id } });
+
+      if (!record) {
+        throw new Error('Borrow record not found');
+      }
+      if (record.status !== BorrowStatus.PENDING) {
+        throw new Error(
+          `Cannot reject a request with status ${record.status}; only PENDING requests can be rejected`,
+        );
+      }
+
+      const updated = await tx.borrowRecord.update({
+        where: { id },
+        data: {
+          status: BorrowStatus.REJECTED,
+          approvedById: approverId,
+          notes: data.reason
+            ? [record.notes, `Rejection reason: ${data.reason}`]
+                .filter(Boolean)
+                .join('\n')
+            : record.notes,
+        },
+        include: borrowInclude,
+      });
+
+      return updated;
+    });
   }
 }

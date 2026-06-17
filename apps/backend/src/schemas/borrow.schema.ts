@@ -28,7 +28,14 @@ export const listBorrowQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
+// ── Reject Borrow Request ─────────────────────────────────────────────────────
+
+export const rejectBorrowSchema = z.object({
+  reason: z.string().trim().max(1000).optional().nullable(),
+});
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CreateBorrowInput = z.infer<typeof createBorrowSchema>;
 export type ListBorrowQuery = z.infer<typeof listBorrowQuerySchema>;
+export type RejectBorrowInput = z.infer<typeof rejectBorrowSchema>;

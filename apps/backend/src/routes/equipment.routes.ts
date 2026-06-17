@@ -115,29 +115,29 @@ router.patch(
         return;
       }
 
+      const body = req.body as UpdateEquipmentInput;
+
       // If attempting to update assetId, verify that the user is an ADMIN
-      if (req.body.assetId !== undefined) {
+      if (body.assetId !== undefined) {
         const equipment = await prisma.equipment.findUnique({
           where: { id },
         });
-        if (equipment && req.body.assetId !== equipment.assetId) {
+        if (equipment && body.assetId !== equipment.assetId) {
           const user = req.user!;
           const role = await prisma.role.findUnique({
             where: { id: user.roleId },
           });
           if (role?.name !== 'ADMIN') {
             res.status(403).json({
-              message: 'Forbidden: Only administrators can modify the Asset ID.',
+              message:
+                'Forbidden: Only administrators can modify the Asset ID.',
             });
             return;
           }
         }
       }
 
-      const equipment = await EquipmentService.update(
-        id,
-        req.body as UpdateEquipmentInput,
-      );
+      const equipment = await EquipmentService.update(id, body);
       res.status(200).json(equipment);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';

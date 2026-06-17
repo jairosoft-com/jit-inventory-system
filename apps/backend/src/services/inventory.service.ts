@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
-import { ItemStatus, MovementType, Prisma } from '@prisma/client';
+import { ItemStatus, MovementType, Prisma, LogAction } from '@prisma/client';
+import { AuditLogService } from './audit-log.service.js';
 import type {
   StockInInput,
   StockOutInput,
@@ -117,6 +118,16 @@ export class InventoryService {
         },
       });
 
+      await AuditLogService.log(
+        'ConsumableProfile',
+        consumableProfileId,
+        LogAction.UPDATED,
+        userId,
+        { quantity: quantityBefore, status: profile.status },
+        { quantity: quantityAfter, status: newStatus },
+        tx,
+      );
+
       return { profile: updatedProfile, stockIn, movement };
     });
   }
@@ -181,6 +192,16 @@ export class InventoryService {
           performedById: userId,
         },
       });
+
+      await AuditLogService.log(
+        'ConsumableProfile',
+        consumableProfileId,
+        LogAction.UPDATED,
+        userId,
+        { quantity: quantityBefore, status: profile.status },
+        { quantity: quantityAfter, status: newStatus },
+        tx,
+      );
 
       return { profile: updatedProfile, stockOut, movement };
     });
@@ -261,6 +282,16 @@ export class InventoryService {
           performedById: userId,
         },
       });
+
+      await AuditLogService.log(
+        'ConsumableProfile',
+        consumableProfileId,
+        LogAction.UPDATED,
+        userId,
+        { quantity: quantityBefore, status: profile.status },
+        { quantity: quantityAfter, status: newStatus },
+        tx,
+      );
 
       return { profile: updatedProfile, adjustment, movement };
     });

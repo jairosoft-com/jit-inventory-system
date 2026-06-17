@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { DashboardService } from '../services/dashboard.service.js';
 import { authenticate } from '../middleware/authenticate.js';
-import { authorize } from '../middleware/authorize.js';
 
 const router = Router();
 
@@ -30,8 +29,13 @@ async function getDashboardAccess(req: Request): Promise<DashboardAccess> {
 
   const permissions = await DashboardService.getRolePermissionNames(roleId);
 
-  const canReadInventory = permissions.includes('inventory:read');
-  const canReadEquipment = permissions.includes('equipment:read');
+  const canReadInventory =
+    permissions.includes('inventory:read') ||
+    permissions.includes('inventory:manage');
+
+  const canReadEquipment =
+    permissions.includes('equipment:read') ||
+    permissions.includes('equipment:manage');
 
   if (!canReadInventory && !canReadEquipment) {
     throw new DashboardRouteError('Forbidden: Insufficient permissions', 403);
@@ -126,7 +130,7 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
       : 10;
 
     const activity = await DashboardService.getRecentActivity(
-      isNaN(limit) ? 10 : limit,
+      Number.isNaN(limit) ? 10 : limit,
     );
 
     res.status(200).json(activity);
@@ -138,18 +142,21 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
 // GET /api/dashboard/replacement-needed
 router.get(
   '/replacement-needed',
-  authorize('equipment:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
+      const access = await getDashboardAccess(req);
+
+      if (!access.canReadEquipment) {
+        res.status(200).json([]);
+        return;
+      }
+
       const replacementNeeded =
         await DashboardService.getReplacementNeededItems();
 
       res.status(200).json(replacementNeeded);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-
-      res.status(500).json({ message });
+      sendDashboardError(res, error);
     }
   },
 );
@@ -182,11 +189,10 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const procurementSummary = await DashboardService.getProcurementSummary();
+
       res.status(200).json(procurementSummary);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      res.status(500).json({ message });
+      sendDashboardError(res, error);
     }
   },
 );
@@ -195,11 +201,10 @@ router.get(
 router.get('/analytics', async (req: Request, res: Response): Promise<void> => {
   try {
     const analytics = await DashboardService.getAnalytics();
+
     res.status(200).json(analytics);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
+    sendDashboardError(res, error);
   }
 });
 

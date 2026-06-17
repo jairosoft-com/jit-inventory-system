@@ -4,6 +4,7 @@ import api from '../lib/api';
 // ── Enums (must match backend Prisma enums) ─────────────────────────────────
 
 export type ConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
+
 export type EquipmentStatus =
   | 'AVAILABLE'
   | 'IN_USE'
@@ -11,9 +12,28 @@ export type EquipmentStatus =
   | 'DAMAGED'
   | 'LOST'
   | 'BORROWED'
+  | 'RETIREMENT_PENDING'
   | 'RETIRED';
 
+export type DisposalReason =
+  | 'DAMAGED_BEYOND_REPAIR'
+  | 'OUTDATED'
+  | 'LOST'
+  | 'STOLEN'
+  | 'DONATED';
+
 // ── Response types (match backend API shape) ────────────────────────────────
+
+export interface Disposal {
+  id: number;
+  equipmentId: number;
+  approvedById: number;
+  disposalDate: string;
+  reason: DisposalReason;
+  method: string;
+  notes: string | null;
+  createdAt: string;
+}
 
 export interface EquipmentImage {
   id: number;
@@ -110,6 +130,18 @@ export interface CreateEquipmentInput {
   images: Array<{ url: string; label?: string | null; isPrimary: boolean }>;
 }
 
+export interface RetirementRequestInput {
+  reason: DisposalReason;
+  method: string;
+  notes?: string | null;
+}
+
+export interface RetirementRequestResponse {
+  message: string;
+  equipment: Equipment;
+  disposal: Disposal;
+}
+
 export interface UpdateEquipmentInput {
   itemName?: string;
   description?: string | null;
@@ -152,6 +184,10 @@ interface EquipmentState {
   fetchEquipment: (query?: ListEquipmentQuery) => Promise<void>;
   createEquipment: (data: CreateEquipmentInput) => Promise<Equipment>;
   updateEquipment: (id: number, data: UpdateEquipmentInput) => Promise<Equipment>;
+  submitRetirementRequest: (
+    id: number,
+    data: RetirementRequestInput,
+  ) => Promise<RetirementRequestResponse>;
   deleteEquipment: (id: number) => Promise<void>;
   addImage: (
     equipmentId: number,
@@ -171,8 +207,10 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   fetchEquipment: async (query) => {
     set({ isLoading: true, error: null });
+
     try {
       const params: Record<string, string> = {};
+
       if (query?.status) params.status = query.status;
       if (query?.condition) params.condition = query.condition;
       if (query?.categoryId) params.categoryId = String(query.categoryId);
@@ -185,6 +223,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         '/equipment',
         { params },
       );
+
       set({
         equipment: response.data.data,
         meta: response.data.meta,
@@ -192,6 +231,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
+
       set({
         error: err.response?.data?.message || 'Failed to fetch equipment',
         isLoading: false,
@@ -201,19 +241,23 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   createEquipment: async (data) => {
     set({ isLoading: true, error: null });
+
     try {
       const response = await api.post<Equipment>('/equipment', data);
       const created = response.data;
-      // Refresh the full list to keep pagination accurate
+
       await get().fetchEquipment({ page: 1 });
+
       return created;
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };
         message?: string;
       };
+
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to create equipment';
+
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -221,21 +265,61 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   updateEquipment: async (id, data) => {
     set({ isLoading: true, error: null });
+
     try {
       const response = await api.patch<Equipment>(`/equipment/${id}`, data);
       const updated = response.data;
+
       set((state) => ({
         equipment: state.equipment.map((eq) => (eq.id === id ? updated : eq)),
         isLoading: false,
       }));
+
       return updated;
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };
         message?: string;
       };
+
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to update equipment';
+
+      set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  submitRetirementRequest: async (id, data) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await api.post<RetirementRequestResponse>(
+        `/equipment/${id}/retirement-request`,
+        data,
+      );
+
+      const result = response.data;
+
+      set((state) => ({
+        equipment: state.equipment.map((eq) =>
+          eq.id === id ? result.equipment : eq,
+        ),
+        isLoading: false,
+      }));
+
+      return result;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to submit retirement request';
+
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -243,8 +327,10 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   deleteEquipment: async (id) => {
     set({ isLoading: true, error: null });
+
     try {
       await api.delete(`/equipment/${id}`);
+
       set((state) => ({
         equipment: state.equipment.filter((eq) => eq.id !== id),
         isLoading: false,
@@ -254,8 +340,10 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
+
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to delete equipment';
+
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -267,21 +355,25 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         `/equipment/${equipmentId}/images`,
         data,
       );
+
       const newImage = response.data;
-      // Update local state with the new image
+
       set((state) => ({
         equipment: state.equipment.map((eq) =>
           eq.id === equipmentId ? { ...eq, images: [...eq.images, newImage] } : eq,
         ),
       }));
+
       return newImage;
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };
         message?: string;
       };
+
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to add image';
+
       set({ error: errMsg });
       throw new Error(errMsg);
     }
@@ -290,6 +382,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
   deleteImage: async (equipmentId, imageId) => {
     try {
       await api.delete(`/equipment/${equipmentId}/images/${imageId}`);
+
       set((state) => ({
         equipment: state.equipment.map((eq) =>
           eq.id === equipmentId
@@ -302,8 +395,10 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
+
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to delete image';
+
       set({ error: errMsg });
       throw new Error(errMsg);
     }

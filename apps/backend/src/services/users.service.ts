@@ -9,7 +9,9 @@ import {
 } from '../schemas/users.schema.js';
 
 // The superadmin email is protected — role and status cannot be changed by anyone.
-const SUPERADMIN_EMAIL = (process.env.SUPERADMIN_EMAIL || 'sam@jitims.com').toLowerCase();
+const SUPERADMIN_EMAIL = (
+  process.env.SUPERADMIN_EMAIL || 'sam@jitims.com'
+).toLowerCase();
 
 const userSelect = {
   id: true,

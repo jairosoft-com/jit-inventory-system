@@ -1,5 +1,6 @@
 import { ConditionStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { cacheGet } from '../lib/redis.js';
 
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -328,6 +329,12 @@ export class DashboardService {
   }
 
   static async getAnalytics() {
+    return cacheGet('dashboard:analytics', 300, () =>
+      DashboardService._getAnalyticsUncached(),
+    );
+  }
+
+  private static async _getAnalyticsUncached() {
     const endDate = new Date();
     const startDate = new Date();
 

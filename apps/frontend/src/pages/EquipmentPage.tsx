@@ -250,8 +250,8 @@ export default function EquipmentPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
-  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'];
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
+  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -260,8 +260,8 @@ export default function EquipmentPage() {
     // Reset input immediately so the same file can be re-selected after an error
     e.target.value = '';
 
-    if (!file.type.startsWith('image/')) {
-      setImageError(`"${file.name}" is not an image file. Only JPG, PNG, GIF, and WEBP are allowed.`);
+    if (!file.type.startsWith('image/') || !ALLOWED_MIME_TYPES.includes(file.type)) {
+      setImageError(`"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`);
       return;
     }
 
@@ -951,7 +951,7 @@ export default function EquipmentPage() {
                   <div className="flex flex-col gap-2 w-full">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png"
                       onChange={handleImageChange}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                     />
@@ -961,7 +961,7 @@ export default function EquipmentPage() {
                         <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
                       </div>
                     )}
-                    <p className="text-xs text-[var(--text-tertiary)]">Max size: 5MB. Formats: JPG, PNG, GIF, WEBP</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">Max size: 5MB. Formats: JPG, JPEG, PNG</p>
                   </div>
                 </fieldset>
 

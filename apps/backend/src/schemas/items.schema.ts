@@ -19,7 +19,6 @@ export const updateItemImageSchema = z.object({
   isPrimary: z.boolean().optional(),
 });
 
-
 // ── Consumable sub-schema ─────────────────────────────────────────────────────
 
 const consumableProfileSchema = z.object({
@@ -124,4 +123,3 @@ export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 export type ListItemsQuery = z.infer<typeof listItemsQuerySchema>;
 export type ItemImageInput = z.infer<typeof itemImageSchema>;
 export type UpdateItemImageInput = z.infer<typeof updateItemImageSchema>;
-

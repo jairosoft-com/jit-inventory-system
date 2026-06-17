@@ -234,8 +234,26 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
       }));
       return newImage;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errMsg = err.response?.data?.message || err.message || 'Failed to add image';
+      const err = error as {
+        response?: { status?: number; data?: { message?: string } };
+        message?: string;
+      };
+      let errMsg = err.response?.data?.message || err.message || 'Failed to add image';
+      if (
+        err.response?.status === 413 ||
+        errMsg.includes('413') ||
+        errMsg.toLowerCase().includes('payload too large') ||
+        errMsg.toLowerCase().includes('too large')
+      ) {
+        errMsg = 'file size exceeds 5mb';
+      } else if (
+        err.response?.status === 415 ||
+        errMsg.toLowerCase().includes('file type') ||
+        errMsg.toLowerCase().includes('mime') ||
+        errMsg.toLowerCase().includes('unsupported')
+      ) {
+        errMsg = 'wrong file type';
+      }
       set({ error: errMsg });
       throw new Error(errMsg);
     }

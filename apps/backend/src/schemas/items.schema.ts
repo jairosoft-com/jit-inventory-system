@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   ItemType,
+  ItemStatus,
   DigitalAssetType,
   BillingCycle,
   DigitalStatus,
@@ -44,6 +45,14 @@ const digitalAssetSchema = z.object({
   status: z.nativeEnum(DigitalStatus).optional().default('ACTIVE'),
   notes: z.string().trim().optional().nullable(),
 });
+
+// ── List filter sub-schema ────────────────────────────────────────────────────
+
+const stockStatusFilterSchema = z.enum([
+  ItemStatus.IN_STOCK,
+  ItemStatus.LOW_STOCK,
+  ItemStatus.OUT_OF_STOCK,
+]);
 
 // ── Create schema (discriminated by itemType) ─────────────────────────────────
 
@@ -111,6 +120,7 @@ export const listItemsQuerySchema = z.object({
   itemType: z.nativeEnum(ItemType).optional(),
   categoryId: z.coerce.number().int().positive().optional(),
   search: z.string().trim().optional(),
+  status: stockStatusFilterSchema.optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   includeArchived: z.coerce.boolean().optional().default(false),

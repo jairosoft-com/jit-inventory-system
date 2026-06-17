@@ -224,11 +224,18 @@ const PERMISSIONS = [
     action: 'create',
     description: 'Record stock out',
   },
+  { name: 'stock:read', resource: 'stock', action: 'read', description: 'View stock movements' },
   {
-    name: 'stock:read',
-    resource: 'stock',
+    name: 'adjustment:create',
+    resource: 'adjustment',
+    action: 'create',
+    description: 'Record inventory quantity adjustments',
+  },
+  {
+    name: 'movement:read',
+    resource: 'movement',
     action: 'read',
-    description: 'View stock movements',
+    description: 'View stock movement history',
   },
 
   // Maintenance
@@ -270,8 +277,9 @@ const PERMISSIONS = [
 
 // ── Role-Permission Mappings ────────────────
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {
+  // Admin gets every permission defined above — derived dynamically so this
+  // list never drifts when new permissions are added to PERMISSIONS.
   ADMIN: PERMISSIONS.map((p) => p.name),
-
   MANAGER: [
     'inventory:create',
     'inventory:read',
@@ -297,6 +305,8 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'stock_in:create',
     'stock_out:create',
     'stock:read',
+    'adjustment:create',
+    'movement:read',
     'maintenance:create',
     'maintenance:read',
     'maintenance:update',

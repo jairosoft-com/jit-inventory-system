@@ -96,8 +96,8 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
         ? DashboardService.getWarrantyAlerts()
         : Promise.resolve([]),
 
-      canReadInventory
-        ? DashboardService.getRecentActivity(10)
+      canReadInventory || canReadEquipment
+        ? DashboardService.getRecentActivity(access, 10)
         : Promise.resolve([]),
 
       canReadEquipment
@@ -188,7 +188,7 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
   try {
     const access = await getDashboardAccess(req);
 
-    if (!access.canReadInventory) {
+    if (!access.canReadInventory && !access.canReadEquipment) {
       res.status(200).json([]);
       return;
     }
@@ -198,6 +198,7 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
       : 10;
 
     const activity = await DashboardService.getRecentActivity(
+      access,
       isNaN(limit) ? 10 : limit,
     );
 

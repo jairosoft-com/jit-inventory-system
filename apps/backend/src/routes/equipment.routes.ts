@@ -116,6 +116,7 @@ router.patch(
       const equipment = await EquipmentService.update(
         id,
         req.body as UpdateEquipmentInput,
+        req.user!.id,
       );
       res.status(200).json(equipment);
     } catch (error) {
@@ -151,7 +152,7 @@ router.delete(
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
-      const result = await EquipmentService.softDelete(id);
+      const result = await EquipmentService.softDelete(id, req.user!.id);
       res.status(200).json(result);
     } catch (error) {
       const message =

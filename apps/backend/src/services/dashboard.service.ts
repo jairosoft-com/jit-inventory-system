@@ -196,15 +196,30 @@ export class DashboardService {
     });
   }
 
-  static async getRecentActivity(limit = 10) {
+  static async getRecentActivity(access: DashboardAccess, limit = 10) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const allowedTypes: string[] = [];
+    if (access.canReadInventory) {
+      allowedTypes.push('ConsumableProfile', 'Item');
+    }
+    if (access.canReadEquipment) {
+      allowedTypes.push('Equipment', 'BorrowRecord');
+    }
+
+    if (allowedTypes.length === 0) {
+      return [];
+    }
 
     const logs = await prisma.inventoryLog.findMany({
       where: {
         performedAt: {
           gte: sevenDaysAgo,
+        },
+        entityType: {
+          in: allowedTypes,
         },
       },
       orderBy: {
@@ -221,17 +236,65 @@ export class DashboardService {
       },
     });
 
-    return logs.map((log) => ({
-      id: log.id,
-      entityType: log.entityType,
-      entityId: log.entityId,
-      action: log.action,
-      performedAt: log.performedAt,
-      user: {
-        firstName: log.user.firstName,
-        lastName: log.user.lastName,
-      },
-    }));
+    return Promise.all(
+      logs.map(async (log) => {
+        let itemName = `${log.entityType} #${log.entityId}`;
+        try {
+          if (log.entityType === 'ConsumableProfile') {
+            const profile = await prisma.consumableProfile.findUnique({
+              where: { id: log.entityId },
+              include: { item: { select: { itemName: true } } },
+            });
+            if (profile?.item) {
+              itemName = profile.item.itemName;
+            }
+          } else if (log.entityType === 'Item') {
+            const item = await prisma.item.findUnique({
+              where: { id: log.entityId },
+              select: { itemName: true },
+            });
+            if (item) {
+              itemName = item.itemName;
+            }
+          } else if (log.entityType === 'Equipment') {
+            const equipment = await prisma.equipment.findUnique({
+              where: { id: log.entityId },
+              include: { item: { select: { itemName: true } } },
+            });
+            if (equipment?.item) {
+              itemName = equipment.item.itemName;
+            }
+          } else if (log.entityType === 'BorrowRecord') {
+            const record = await prisma.borrowRecord.findUnique({
+              where: { id: log.entityId },
+              include: {
+                equipment: {
+                  include: { item: { select: { itemName: true } } },
+                },
+              },
+            });
+            if (record?.equipment?.item) {
+              itemName = record.equipment.item.itemName;
+            }
+          }
+        } catch {
+          // ignore database errors, fall back to default
+        }
+
+        return {
+          id: log.id,
+          entityType: log.entityType,
+          entityId: log.entityId,
+          action: log.action,
+          performedAt: log.performedAt,
+          itemName,
+          user: {
+            firstName: log.user.firstName,
+            lastName: log.user.lastName,
+          },
+        };
+      }),
+    );
   }
 
   static async getEquipmentStatusBreakdown() {

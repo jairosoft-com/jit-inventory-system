@@ -98,6 +98,8 @@ function SummaryCard({
 // ── Page ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 type SubTab = 'active' | 'archived';
+type ItemTypeFilter = 'CONSUMABLE' | 'DIGITAL' | 'all';
+type StatusFilter = 'all' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
 export default function InventoryManagementPage() {
   const { user } = useAuthStore();

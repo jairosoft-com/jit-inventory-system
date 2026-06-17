@@ -990,8 +990,13 @@ export default function EquipmentPage() {
                         name="assetId"
                         value={formData.assetId}
                         onChange={handleInputChange}
+                        readOnly={!!editingEquipment && !isAdmin}
                         placeholder="e.g. EQ-001"
-                        className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm font-mono outline-none transition focus:border-[var(--input-border-focus)]"
+                        className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono outline-none transition ${
+                          editingEquipment && !isAdmin
+                            ? 'cursor-not-allowed border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)]'
+                            : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
+                        }`}
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">

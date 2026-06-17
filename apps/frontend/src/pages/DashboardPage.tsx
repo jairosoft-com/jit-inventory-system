@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStore } from '../store/dashboardStore';
-import { usePolling } from '../lib/usePolling';
 import AnalyticsSection from './AnalyticsSection';
 import './DashboardPage.css';
 
@@ -136,12 +135,15 @@ export default function DashboardPage() {
     alerts,
     recentActivity,
     equipmentBreakdown,
+    replacementNeeded,
     procurementSummary,
     isLoading,
     isWarrantyAlertsLoading,
+    isReplacementNeededLoading,
     error,
     fetchAll,
     fetchWarrantyAlerts,
+    fetchReplacementNeeded,
     clearError,
   } = useDashboardStore();
 
@@ -168,6 +170,7 @@ export default function DashboardPage() {
   });
 
   const warrantyAlerts = alerts?.warrantyExpiring || [];
+  const replacementNeededItems = replacementNeeded || [];
 
   const statusConfigs: Record<string, { label: string; color: string }> = {
     AVAILABLE: { label: 'Available', color: '#10b981' },
@@ -898,6 +901,136 @@ export default function DashboardPage() {
                 <p className="dash-empty-text">
                   No equipment warranties are nearing expiration within the next
                   30 days.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="dash-card dash-card--wide">
+          <div className="dash-card-header">
+            <h2 className="dash-card-title">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#ef4444"
+                strokeWidth="2"
+              >
+                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+              </svg>
+              Replacement Needed
+            </h2>
+
+            <div className="dash-card-actions-inline">
+              <button
+                className="dash-card-action"
+                onClick={() => navigate('/dashboard/equipment')}
+              >
+                Manage Equipment
+              </button>
+
+              <button
+                className="dash-card-action"
+                onClick={() => void fetchReplacementNeeded()}
+                disabled={isLoading || isReplacementNeededLoading}
+              >
+                {isReplacementNeededLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          <div
+            className={
+              replacementNeededItems.length > 0
+                ? 'dash-card-content'
+                : 'dash-card-content-empty'
+            }
+          >
+            {(isLoading || isReplacementNeededLoading) &&
+            replacementNeededItems.length === 0 ? (
+              <div className="dash-skeleton-list">
+                {[1, 2, 3].map((id) => (
+                  <div key={id} className="dash-skeleton-row animate-pulse">
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
+                  </div>
+                ))}
+              </div>
+            ) : replacementNeededItems.length > 0 ? (
+              <div className="dash-alerts-list">
+                {replacementNeededItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="dash-alert-row dash-alert-row--critical"
+                  >
+                    <div className="dash-alert-badge">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth="2"
+                      >
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                    </div>
+
+                    <div className="dash-alert-content">
+                      <span className="dash-alert-itemName">
+                        {item.itemName}
+                      </span>
+
+                      <div className="dash-replacement-meta">
+                        <span className="dash-condition-badge">
+                          Condition: {item.condition}
+                        </span>
+                        <span className="dash-condition-badge dash-condition-badge--status">
+                          Status: {item.status}
+                        </span>
+                      </div>
+
+                      <span className="dash-alert-detail">
+                        {item.replacementRecommendation}
+                      </span>
+
+                      {item.replacementReasons.length > 0 && (
+                        <div className="dash-replacement-reasons">
+                          {item.replacementReasons.map((reason) => (
+                            <span
+                              key={item.id + '-' + reason}
+                              className="dash-replacement-reason-tag"
+                            >
+                              {reason}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="dash-empty-state">
+                <div className="dash-empty-icon">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                </div>
+                <h3 className="dash-empty-heading">No Replacement Needed</h3>
+                <p className="dash-empty-text">
+                  No equipment currently meets the replacement-needed threshold.
                 </p>
               </div>
             )}

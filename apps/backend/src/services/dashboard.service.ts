@@ -1,6 +1,8 @@
+import { ConditionStatus, EquipmentStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
+const EQUIPMENT_LIFECYCLE_YEARS = 5;
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 
 interface DashboardAccess {
@@ -18,6 +20,75 @@ function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
   return Math.ceil(
     (warrantyEndDate.getTime() - today.getTime()) / MILLISECONDS_PER_DAY,
   );
+}
+
+function calculateLifecycleYears(acquisitionDate: Date, today: Date): number {
+  const acquisitionStart = startOfDay(acquisitionDate);
+  const todayStart = startOfDay(today);
+  const ageInDays = Math.floor(
+    (todayStart.getTime() - acquisitionStart.getTime()) / MILLISECONDS_PER_DAY,
+  );
+
+  return Math.max(0, Math.floor(ageInDays / 365.25));
+}
+
+function hasExceededLifecycle(
+  acquisitionDate: Date | null,
+  today: Date,
+): boolean {
+  if (!acquisitionDate) {
+    return false;
+  }
+
+  return (
+    calculateLifecycleYears(acquisitionDate, today) >= EQUIPMENT_LIFECYCLE_YEARS
+  );
+}
+
+function buildReplacementReasons(equipment: {
+  condition: ConditionStatus;
+  status: EquipmentStatus;
+  acquisitionDate: Date | null;
+}): string[] {
+  const today = new Date();
+  const reasons: string[] = [];
+
+  if (equipment.condition === ConditionStatus.DAMAGED) {
+    reasons.push('Condition is damaged');
+  }
+
+  if (equipment.status === EquipmentStatus.DAMAGED) {
+    reasons.push('Equipment status is damaged');
+  }
+
+  if (equipment.status === EquipmentStatus.RETIRED) {
+    reasons.push('Equipment is retired or manually flagged');
+  }
+
+  if (hasExceededLifecycle(equipment.acquisitionDate, today)) {
+    reasons.push(`Lifecycle exceeded (${EQUIPMENT_LIFECYCLE_YEARS}+ years)`);
+  }
+
+  return reasons;
+}
+
+function buildReplacementRecommendation(reasons: string[]): string {
+  if (
+    reasons.includes('Condition is damaged') ||
+    reasons.includes('Equipment status is damaged')
+  ) {
+    return 'Replace immediately due to damaged equipment condition or status.';
+  }
+
+  if (reasons.includes('Equipment is retired or manually flagged')) {
+    return 'Review and replace because the equipment is retired or manually flagged.';
+  }
+
+  if (reasons.some((reason) => reason.startsWith('Lifecycle exceeded'))) {
+    return 'Review and plan replacement because the equipment lifecycle threshold has been exceeded.';
+  }
+
+  return 'Review equipment for possible replacement.';
 }
 
 function isLowStock(quantity: number, reorderPoint: number): boolean {
@@ -194,6 +265,73 @@ export class DashboardService {
     });
   }
 
+  static async getReplacementNeededItems() {
+    const lifecycleCutoffDate = startOfDay(new Date());
+
+    lifecycleCutoffDate.setFullYear(
+      lifecycleCutoffDate.getFullYear() - EQUIPMENT_LIFECYCLE_YEARS,
+    );
+
+    const replacementNeeded = await prisma.equipment.findMany({
+      where: {
+        deletedAt: null,
+        item: {
+          deletedAt: null,
+        },
+        OR: [
+          {
+            condition: ConditionStatus.DAMAGED,
+          },
+          {
+            status: {
+              in: [EquipmentStatus.DAMAGED, EquipmentStatus.RETIRED],
+            },
+          },
+          {
+            acquisitionDate: {
+              not: null,
+              lte: lifecycleCutoffDate,
+            },
+          },
+        ],
+      },
+      include: {
+        item: {
+          select: {
+            itemName: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          updatedAt: 'desc',
+        },
+        {
+          id: 'asc',
+        },
+      ],
+    });
+
+    return replacementNeeded.map((equipment) => {
+      const reasons = buildReplacementReasons(equipment);
+
+      return {
+        id: equipment.id,
+        itemId: equipment.itemId,
+        itemName: equipment.item.itemName,
+        assetId: equipment.assetId,
+        condition: equipment.condition,
+        status: equipment.status,
+        acquisitionDate: equipment.acquisitionDate,
+        lifecycleYears: equipment.acquisitionDate
+          ? calculateLifecycleYears(equipment.acquisitionDate, new Date())
+          : null,
+        replacementRecommendation: buildReplacementRecommendation(reasons),
+        replacementReasons: reasons,
+      };
+    });
+  }
+
   static async getRecentActivity(limit = 10) {
     const logs = await prisma.inventoryLog.findMany({
       orderBy: {
@@ -305,12 +443,15 @@ export class DashboardService {
     startDate.setDate(endDate.getDate() - 29);
     startDate.setHours(0, 0, 0, 0);
 
-    const [stockMovementsRaw, conditionBreakdownRaw, borrowActivityRaw] = await Promise.all([
-      prisma.$queryRaw<Array<{
-        date: Date | string;
-        stockIn: number;
-        stockOut: number;
-      }>>`
+    const [stockMovementsRaw, conditionBreakdownRaw, borrowActivityRaw] =
+      await Promise.all([
+        prisma.$queryRaw<
+          Array<{
+            date: Date | string;
+            stockIn: number;
+            stockOut: number;
+          }>
+        >`
         WITH dates AS (
           SELECT generate_series(
             ${startDate}::date,
@@ -340,23 +481,25 @@ export class DashboardService {
         ORDER BY dates.date ASC;
       `,
 
-      prisma.equipment.groupBy({
-        by: ['condition'],
-        where: {
-          deletedAt: null,
-        },
-        _count: {
-          condition: true,
-        },
-      }),
+        prisma.equipment.groupBy({
+          by: ['condition'],
+          where: {
+            deletedAt: null,
+          },
+          _count: {
+            condition: true,
+          },
+        }),
 
-      prisma.$queryRaw<Array<{
-        date: Date | string;
-        total: number;
-        pending: number;
-        approved: number;
-        returned: number;
-      }>>`
+        prisma.$queryRaw<
+          Array<{
+            date: Date | string;
+            total: number;
+            pending: number;
+            approved: number;
+            returned: number;
+          }>
+        >`
         WITH dates AS (
           SELECT generate_series(
             ${startDate}::date,
@@ -384,19 +527,24 @@ export class DashboardService {
         FROM dates
         LEFT JOIN borrow_agg ON dates.date = borrow_agg.date
         ORDER BY dates.date ASC;
-      `
-    ]);
+      `,
+      ]);
 
     // Format stock movements
     const stockMovements = stockMovementsRaw.map((m) => ({
-      date: m.date instanceof Date ? m.date.toISOString().split('T')[0] : String(m.date),
+      date:
+        m.date instanceof Date
+          ? m.date.toISOString().split('T')[0]
+          : String(m.date),
       stockIn: Number(m.stockIn),
       stockOut: Number(m.stockOut),
     }));
 
     // Format equipment conditions ensuring all ConditionStatus enums are represented
     const allConditions = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
-    const conditionMap = new Map(conditionBreakdownRaw.map((c) => [c.condition, c._count.condition]));
+    const conditionMap = new Map(
+      conditionBreakdownRaw.map((c) => [c.condition, c._count.condition]),
+    );
     const equipmentConditions = allConditions.map((cond) => ({
       condition: cond,
       count: conditionMap.get(cond as any) || 0,
@@ -404,7 +552,10 @@ export class DashboardService {
 
     // Format borrow activity
     const borrowActivity = borrowActivityRaw.map((b) => ({
-      date: b.date instanceof Date ? b.date.toISOString().split('T')[0] : String(b.date),
+      date:
+        b.date instanceof Date
+          ? b.date.toISOString().split('T')[0]
+          : String(b.date),
       total: Number(b.total),
       pending: Number(b.pending),
       approved: Number(b.approved),

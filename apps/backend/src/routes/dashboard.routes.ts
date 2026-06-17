@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { DashboardService } from '../services/dashboard.service.js';
 import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
 
 const router = Router();
 
@@ -134,6 +135,25 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// GET /api/dashboard/replacement-needed
+router.get(
+  '/replacement-needed',
+  authorize('equipment:read'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const replacementNeeded =
+        await DashboardService.getReplacementNeededItems();
+
+      res.status(200).json(replacementNeeded);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+
+      res.status(500).json({ message });
+    }
+  },
+);
+
 // GET /api/dashboard/equipment-status
 router.get(
   '/equipment-status',
@@ -157,15 +177,19 @@ router.get(
 );
 
 // GET /api/dashboard/procurement-summary
-router.get('/procurement-summary', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const procurementSummary = await DashboardService.getProcurementSummary();
-    res.status(200).json(procurementSummary);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+router.get(
+  '/procurement-summary',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const procurementSummary = await DashboardService.getProcurementSummary();
+      res.status(200).json(procurementSummary);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 // GET /api/dashboard/analytics
 router.get('/analytics', async (req: Request, res: Response): Promise<void> => {
@@ -173,7 +197,8 @@ router.get('/analytics', async (req: Request, res: Response): Promise<void> => {
     const analytics = await DashboardService.getAnalytics();
     res.status(200).json(analytics);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });

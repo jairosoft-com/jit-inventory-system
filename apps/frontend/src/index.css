@@ -524,3 +524,122 @@ body {
     width: 100%;
   }
 }
+
+/* -- Supplier Directory --------------------- */
+
+.suppliers-page {
+  max-width: 1400px;
+}
+
+.suppliers-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 280px) auto;
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 20px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+}
+
+.suppliers-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.suppliers-filter-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.suppliers-search-button,
+.suppliers-refresh-button {
+  min-height: 42px;
+}
+
+.suppliers-card {
+  overflow: hidden;
+}
+
+.suppliers-card-header {
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.suppliers-table td:first-child {
+  min-width: 220px;
+}
+
+.suppliers-name {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.suppliers-address {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  white-space: normal;
+}
+
+.suppliers-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.suppliers-status--active {
+  background: var(--success-muted);
+  color: var(--success);
+}
+
+.suppliers-status--inactive {
+  background: var(--danger-muted);
+  color: var(--danger);
+}
+
+.suppliers-empty-state {
+  border-top: 1px solid var(--surface-border);
+}
+
+.suppliers-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--surface-border);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+  .suppliers-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .suppliers-toolbar-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .suppliers-search-button,
+  .suppliers-refresh-button {
+    width: 100%;
+  }
+
+  .suppliers-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

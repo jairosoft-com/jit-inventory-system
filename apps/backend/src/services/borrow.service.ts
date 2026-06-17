@@ -1,6 +1,9 @@
 import { prisma } from '../lib/prisma.js';
 import { EquipmentStatus, BorrowStatus, Prisma } from '@prisma/client';
-import type { CreateBorrowInput, ListBorrowQuery } from '../schemas/borrow.schema.js';
+import type {
+  CreateBorrowInput,
+  ListBorrowQuery,
+} from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
 

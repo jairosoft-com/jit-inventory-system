@@ -744,3 +744,16 @@
   font-size: 12.5px;
 }
 
+@media (max-width: 640px) {
+  .dash-card {
+    padding: 18px;
+  }
+
+  .dash-quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-procurement-stats {
+    grid-template-columns: 1fr;
+  }
+}

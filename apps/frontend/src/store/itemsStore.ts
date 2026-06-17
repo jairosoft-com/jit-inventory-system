@@ -233,6 +233,16 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
       set((state) => ({
         items: state.items.filter((item) => item.id !== id),
+        // Decrement active count so the Active badge updates immediately
+        meta: {
+          ...state.meta,
+          total: Math.max(0, state.meta.total - 1),
+        },
+        // Increment archived count so the Archived badge updates immediately
+        archivedMeta: {
+          ...state.archivedMeta,
+          total: state.archivedMeta.total + 1,
+        },
         isLoading: false,
       }));
     } catch (error: unknown) {

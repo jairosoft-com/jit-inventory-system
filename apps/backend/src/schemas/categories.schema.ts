@@ -12,12 +12,20 @@ export const createCategorySchema = z.object({
 });
 
 export const updateCategorySchema = z.object({
-  name: z.string().trim().min(1, 'Category name is required').max(100).optional(),
-  type: z.nativeEnum(ItemType, {
-    errorMap: () => ({
-      message: 'Invalid category type. Allowed: EQUIPMENT, CONSUMABLE, DIGITAL',
-    }),
-  }).optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Category name is required')
+    .max(100)
+    .optional(),
+  type: z
+    .nativeEnum(ItemType, {
+      errorMap: () => ({
+        message:
+          'Invalid category type. Allowed: EQUIPMENT, CONSUMABLE, DIGITAL',
+      }),
+    })
+    .optional(),
   description: z.string().optional().nullable(),
 });
 

@@ -53,7 +53,6 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/borrow', borrowRouter);
 
-
 // Health Check
 app.get('/api/healthz', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });

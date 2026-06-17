@@ -33,6 +33,6 @@ export const env = {
   RATE_LIMIT_GLOBAL: parseInt(process.env.RATE_LIMIT_GLOBAL || '600', 10),
   RATE_LIMIT_MUTATIVE: parseInt(process.env.RATE_LIMIT_MUTATIVE || '120', 10),
   RATE_LIMIT_AUTH: parseInt(process.env.RATE_LIMIT_AUTH || '15', 10),
-  RATE_LIMIT_HEAVY: parseInt(process.env.RATE_LIMIT_HEAVY || '30', 10),
+  RATE_LIMIT_HEAVY: parseInt(process.env.RATE_LIMIT_HEAVY || '200', 10),
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
 };

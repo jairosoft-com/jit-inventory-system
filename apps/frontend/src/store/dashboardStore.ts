@@ -248,20 +248,33 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   fetchAll: async (hasAnalyticsPermission = false) => {
     set({ isLoading: true, error: null });
 
-    const promises = [
-      get().fetchSummary(),
-      get().fetchAlerts(),
-      get().fetchRecentActivity(),
-      get().fetchEquipmentBreakdown(),
-      get().fetchProcurementSummary(),
-    ];
+    try {
+      const response = await api.get(`/dashboard/all?analytics=${hasAnalyticsPermission}`);
+      const {
+        summary,
+        alerts,
+        recentActivity,
+        equipmentBreakdown,
+        procurementSummary,
+        analytics,
+      } = response.data;
 
-    if (hasAnalyticsPermission) {
-      promises.push(get().fetchAnalytics());
+      set({
+        summary,
+        alerts,
+        recentActivity,
+        equipmentBreakdown,
+        procurementSummary,
+        analytics,
+      });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({
+        error:
+          err.response?.data?.message || 'Failed to fetch dashboard data',
+      });
+    } finally {
+      set({ isLoading: false });
     }
-
-    await Promise.allSettled(promises);
-
-    set({ isLoading: false });
   },
 }));

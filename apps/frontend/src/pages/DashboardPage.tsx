@@ -4,6 +4,62 @@ import { useDashboardStore } from '../store/dashboardStore';
 import AnalyticsSection from './AnalyticsSection';
 import './DashboardPage.css';
 
+interface QuickAction {
+  label: string;
+  color: string;
+  icon: string;
+  path: string;
+  disabled?: boolean;
+}
+
+const quickActions: QuickAction[] = [
+  {
+    label: 'Register Item',
+    color: '#2563eb',
+    icon: '+',
+    path: '/dashboard/inventory',
+  },
+  {
+    label: 'Stock In',
+    color: '#16a34a',
+    icon: '↓',
+    path: '/dashboard/inventory',
+  },
+  {
+    label: 'Stock Out',
+    color: '#dc2626',
+    icon: '↑',
+    path: '/dashboard/inventory',
+  },
+  {
+    label: 'New PO',
+    color: '#8b5cf6',
+    icon: '📋',
+    path: '/dashboard/orders',
+  },
+  {
+    label: 'Borrow Request',
+    color: '#d97706',
+    icon: '🔄',
+    path: '/dashboard/borrow',
+    disabled: true,
+  },
+  {
+    label: 'Run Report',
+    color: '#0891b2',
+    icon: '📊',
+    path: '/dashboard/logs',
+  },
+];
+
+const purchaseOrderStatusColors: Record<string, { bg: string; text: string }> = {
+  DRAFT: { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' },
+  PENDING: { bg: 'rgba(245, 158, 11, 0.08)', text: '#d97706' },
+  APPROVED: { bg: 'rgba(59, 130, 246, 0.08)', text: '#2563eb' },
+  RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
+  CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
+};
+
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -17,6 +73,7 @@ function formatRelativeTime(dateStr: string): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHr < 24) return `${diffHr}h ago`;
   if (diffDay === 1) return 'yesterday';
+
   return `${diffDay}d ago`;
 }
 
@@ -40,6 +97,13 @@ function formatDaysRemaining(daysRemaining: number): string {
   }
 
   return `${daysRemaining} days remaining`;
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value);
 }
 
 function getActivityDetails(action: string) {
@@ -151,7 +215,7 @@ export default function DashboardPage() {
     void fetchAll();
   }, [fetchAll]);
 
-  const totalCount = equipmentBreakdown.reduce(
+  const totalEquipmentCount = equipmentBreakdown.reduce(
     (sum, item) => sum + item.count,
     0,
   );
@@ -164,7 +228,7 @@ export default function DashboardPage() {
       severity: isOutOfStock ? 'critical' : 'warning',
       itemName: item.itemName,
       detail: isOutOfStock
-        ? 'Out of stock'
+        ? `Out of stock · ${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`
         : `${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`,
     };
   });
@@ -188,7 +252,8 @@ export default function DashboardPage() {
         (item) => item.status === statusKey,
       );
       const count = entry ? entry.count : 0;
-      const percentage = totalCount > 0 ? (count / totalCount) * 100 : 0;
+      const percentage =
+        totalEquipmentCount > 0 ? (count / totalEquipmentCount) * 100 : 0;
 
       return {
         key: statusKey,
@@ -197,7 +262,7 @@ export default function DashboardPage() {
         ...statusConfigs[statusKey],
       };
     })
-    .filter((status) => status.count > 0 || totalCount === 0);
+    .filter((status) => status.count > 0 || totalEquipmentCount === 0);
 
   const statCards = [
     {
@@ -458,7 +523,9 @@ export default function DashboardPage() {
 
           <div
             className={
-              totalCount > 0 ? 'dash-card-content' : 'dash-card-content-empty'
+              totalEquipmentCount > 0
+                ? 'dash-card-content'
+                : 'dash-card-content-empty'
             }
           >
             {isLoading && equipmentBreakdown.length === 0 ? (
@@ -470,7 +537,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            ) : totalCount > 0 ? (
+            ) : totalEquipmentCount > 0 ? (
               <div className="dash-status-breakdown">
                 {statusesToShow.map((status) => (
                   <div key={status.key} className="dash-status-row">
@@ -518,7 +585,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Procurement Summary Card */}
         <div className="dash-card dash-card--wide dash-procurement-card">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
@@ -538,13 +604,23 @@ export default function DashboardPage() {
             <button
               className="dash-card-action"
               onClick={() => navigate('/dashboard/orders')}
-              disabled={!procurementSummary || procurementSummary.recentPurchaseActivity.length === 0}
+              disabled={
+                !procurementSummary ||
+                procurementSummary.recentPurchaseActivity.length === 0
+              }
             >
               View All
             </button>
           </div>
 
-          <div className={procurementSummary?.recentPurchaseActivity && procurementSummary.recentPurchaseActivity.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}>
+          <div
+            className={
+              procurementSummary?.recentPurchaseActivity &&
+              procurementSummary.recentPurchaseActivity.length > 0
+                ? 'dash-card-content'
+                : 'dash-card-content-empty'
+            }
+          >
             {isLoading && !procurementSummary ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3].map((id) => (
@@ -556,11 +632,17 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="dash-procurement-container">
-                {/* KPI Mini Stats */}
                 <div className="dash-procurement-stats">
                   <div className="dash-procurement-stat">
                     <div className="dash-procurement-stat-icon dash-procurement-stat-icon--pending">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <circle cx="12" cy="12" r="10" />
                         <polyline points="12 6 12 12 16 14" />
                       </svg>
@@ -569,13 +651,22 @@ export default function DashboardPage() {
                       <span className="dash-procurement-stat-val">
                         {procurementSummary?.pendingOrders ?? 0}
                       </span>
-                      <span className="dash-procurement-stat-label">Pending Orders</span>
+                      <span className="dash-procurement-stat-label">
+                        Pending Orders
+                      </span>
                     </div>
                   </div>
 
                   <div className="dash-procurement-stat">
                     <div className="dash-procurement-stat-icon dash-procurement-stat-icon--completed">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
@@ -583,16 +674,20 @@ export default function DashboardPage() {
                       <span className="dash-procurement-stat-val">
                         {procurementSummary?.completedOrders ?? 0}
                       </span>
-                      <span className="dash-procurement-stat-label">Completed Orders</span>
+                      <span className="dash-procurement-stat-label">
+                        Completed Orders
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Recent Purchase Activity */}
                 <div className="dash-procurement-activity">
-                  <h3 className="dash-procurement-subtitle">Recent Purchase Activity</h3>
-                  
-                  {procurementSummary?.recentPurchaseActivity && procurementSummary.recentPurchaseActivity.length > 0 ? (
+                  <h3 className="dash-procurement-subtitle">
+                    Recent Purchase Activity
+                  </h3>
+
+                  {procurementSummary?.recentPurchaseActivity &&
+                  procurementSummary.recentPurchaseActivity.length > 0 ? (
                     <div className="dash-po-list-wrapper">
                       <table className="dash-po-table">
                         <thead>
@@ -605,52 +700,75 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {procurementSummary.recentPurchaseActivity.map((po) => {
-                            const statusColors: Record<string, { bg: string; text: string }> = {
-                              DRAFT: { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' },
-                              PENDING: { bg: 'rgba(245, 158, 11, 0.08)', text: '#d97706' },
-                              APPROVED: { bg: 'rgba(59, 130, 246, 0.08)', text: '#2563eb' },
-                              RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
-                              CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
-                            };
-                            const color = statusColors[po.status] || { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' };
-                            
-                            return (
-                              <tr key={po.id}>
-                                <td className="dash-po-invoice">
-                                  <strong>{po.invoiceNumber || `#${po.id}`}</strong>
-                                  <span className="dash-po-item-count">{po.itemCount} item{po.itemCount === 1 ? '' : 's'}</span>
-                                </td>
-                                <td>{po.supplier.name}</td>
-                                <td className="dash-po-amount">
-                                  {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(po.totalAmount)}
-                                </td>
-                                <td>
-                                  <span
-                                    className="dash-po-status-badge"
-                                    style={{ backgroundColor: color.bg, color: color.text }}
-                                  >
-                                    {po.status}
-                                  </span>
-                                </td>
-                                <td className="dash-po-date">
-                                  {new Date(po.orderDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                          {procurementSummary.recentPurchaseActivity.map(
+                            (po) => {
+                              const color = purchaseOrderStatusColors[
+                                po.status
+                              ] || {
+                                bg: 'rgba(107, 114, 128, 0.08)',
+                                text: '#6b7280',
+                              };
+
+                              return (
+                                <tr key={po.id}>
+                                  <td className="dash-po-invoice">
+                                    <strong>
+                                      {po.invoiceNumber || `#${po.id}`}
+                                    </strong>
+                                    <span className="dash-po-item-count">
+                                      {po.itemCount} item
+                                      {po.itemCount === 1 ? '' : 's'}
+                                    </span>
+                                  </td>
+                                  <td>{po.supplier.name}</td>
+                                  <td className="dash-po-amount">
+                                    {formatCurrency(po.totalAmount)}
+                                  </td>
+                                  <td>
+                                    <span
+                                      className="dash-po-status-badge"
+                                      style={{
+                                        backgroundColor: color.bg,
+                                        color: color.text,
+                                      }}
+                                    >
+                                      {po.status}
+                                    </span>
+                                  </td>
+                                  <td className="dash-po-date">
+                                    {formatDate(po.orderDate)}
+                                  </td>
+                                </tr>
+                              );
+                            },
+                          )}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <div className="dash-empty-state" style={{ minHeight: '140px' }}>
+                    <div
+                      className="dash-empty-state"
+                      style={{ minHeight: '140px' }}
+                    >
                       <div className="dash-empty-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                        <svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1"
+                        >
                           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
                         </svg>
                       </div>
-                      <h4 className="dash-empty-heading">No Purchase Orders Found</h4>
-                      <p className="dash-empty-text">Recent purchasing actions and order statuses will display here once recorded.</p>
+                      <h4 className="dash-empty-heading">
+                        No Purchase Orders Found
+                      </h4>
+                      <p className="dash-empty-text">
+                        Recent purchasing actions and order statuses will
+                        display here once recorded.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -659,7 +777,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Low Stock & Warranty Alerts Card */}
         <div className="dash-card dash-card--wide">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
@@ -677,12 +794,6 @@ export default function DashboardPage() {
               </svg>
               Low Stock Alerts
             </h2>
-            <button
-              className="dash-card-action"
-              onClick={() => navigate('/dashboard/inventory')}
-            >
-              Manage
-            </button>
           </div>
 
           <div
@@ -696,8 +807,8 @@ export default function DashboardPage() {
               <div className="dash-skeleton-list">
                 {[1, 2, 3].map((id) => (
                   <div key={id} className="dash-skeleton-row animate-pulse">
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
-                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
                   </div>
                 ))}
               </div>
@@ -726,6 +837,7 @@ export default function DashboardPage() {
                         <line x1="12" y1="17" x2="12.01" y2="17" />
                       </svg>
                     </div>
+
                     <div className="dash-alert-content">
                       <span className="dash-alert-itemName">
                         {alert.itemName}
@@ -748,8 +860,7 @@ export default function DashboardPage() {
                     stroke="currentColor"
                     strokeWidth="1"
                   >
-                    <path d="M20 7H4a1 1 0 00-1 1v12a2 2 0 002 2h14a2 2 0 002-2V8a1 1 0 00-1-1z" />
-                    <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
+                    <path d="M20 6L9 17l-5-5" />
                   </svg>
                 </div>
                 <h3 className="dash-empty-heading">No Low Stock Alerts</h3>
@@ -762,7 +873,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="dash-card dash-card--wide">
+        <div className="dash-card">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
               <svg
@@ -776,25 +887,15 @@ export default function DashboardPage() {
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              Warranty Expiration Alerts
+              Warranty Alerts
             </h2>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button
-                className="dash-card-action"
-                onClick={() => navigate('/dashboard/equipment')}
-              >
-                Manage Alerts
-              </button>
-
-              <button
-                className="dash-card-action"
-                onClick={() => void fetchWarrantyAlerts()}
-                disabled={isLoading || isWarrantyAlertsLoading}
-              >
-                {isWarrantyAlertsLoading ? 'Refreshing...' : 'Refresh'}
-              </button>
-            </div>
+            <button
+              className="dash-card-action"
+              onClick={() => void fetchWarrantyAlerts()}
+              disabled={isWarrantyAlertsLoading}
+            >
+              {isWarrantyAlertsLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
 
           <div
@@ -804,13 +905,12 @@ export default function DashboardPage() {
                 : 'dash-card-content-empty'
             }
           >
-            {(isLoading || isWarrantyAlertsLoading) &&
-            warrantyAlerts.length === 0 ? (
+            {isLoading && warrantyAlerts.length === 0 ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3].map((id) => (
                   <div key={id} className="dash-skeleton-row animate-pulse">
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
                     <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
-                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
                   </div>
                 ))}
               </div>
@@ -834,9 +934,9 @@ export default function DashboardPage() {
                             stroke="#ef4444"
                             strokeWidth="2"
                           >
-                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                            <line x1="12" y1="9" x2="12" y2="13" />
-                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
                           </svg>
                         )}
 
@@ -1043,52 +1143,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="dash-quick-actions">
-            {[
-              { label: 'Register Item', color: '#2563eb', icon: '+', path: '/dashboard/inventory' },
-              { label: 'Stock In', color: '#16a34a', icon: '↓', path: '/dashboard/inventory' },
-              { label: 'Stock Out', color: '#dc2626', icon: '↑', path: '/dashboard/inventory' },
-              { label: 'New PO', color: '#8b5cf6', icon: '📋', path: '/dashboard/orders', disabled: false },
-              { label: 'Borrow Request', color: '#d97706', icon: '🔄', path: '/dashboard/borrow', disabled: true },
-              { label: 'Run Report', color: '#0891b2', icon: '📊', path: '/dashboard/logs' },
-              {
-                label: 'Register Item',
-                color: '#2563eb',
-                icon: '+',
-                path: '/dashboard/inventory',
-              },
-              {
-                label: 'Stock In',
-                color: '#16a34a',
-                icon: '↓',
-                path: '/dashboard/inventory',
-              },
-              {
-                label: 'Stock Out',
-                color: '#dc2626',
-                icon: '↑',
-                path: '/dashboard/inventory',
-              },
-              {
-                label: 'New PO',
-                color: '#8b5cf6',
-                icon: '📋',
-                path: '/dashboard/orders',
-                disabled: true,
-              },
-              {
-                label: 'Borrow Request',
-                color: '#d97706',
-                icon: '🔄',
-                path: '/dashboard/borrow',
-                disabled: true,
-              },
-              {
-                label: 'Run Report',
-                color: '#0891b2',
-                icon: '📊',
-                path: '/dashboard/logs',
-              },
-            ].map((action) => (
+            {quickActions.map((action) => (
               <button
                 key={action.label}
                 className={`dash-qa-btn ${

@@ -123,47 +123,55 @@ export class BorrowService {
   /**
    * Approves a PENDING borrow request: flips the request to APPROVED, sets
    * borrowDate to now, and transitions the equipment to BORROWED so it drops
-   * out of any AVAILABLE-filtered list. Wrapped in a transaction so the
-   * request and equipment status move together — no window where one is
-   * updated and the other isn't.
+   * out of any AVAILABLE-filtered list.
+   *
+   * Both state transitions use updateMany() with the expected prior state
+   * baked into the `where` clause (status: PENDING / status: AVAILABLE)
+   * rather than a separate findUnique() read followed by an update(). This
+   * makes the check-and-set atomic at the database level: Postgres only
+   * matches and locks rows that still satisfy the where clause at the
+   * moment of the write, so two concurrent approve() calls for the same
+   * equipment can no longer both read AVAILABLE and both write BORROWED.
+   * The loser's updateMany() simply matches zero rows.
    */
   static async approve(id: number, approverId: number) {
     return prisma.$transaction(async (tx) => {
-      const record = await tx.borrowRecord.findUnique({
+      const existing = await tx.borrowRecord.findUnique({
         where: { id },
-        include: { equipment: { select: { id: true, status: true } } },
+        select: { id: true, equipmentId: true },
       });
-
-      if (!record) {
+      if (!existing) {
         throw new Error('Borrow record not found');
       }
-      if (record.status !== BorrowStatus.PENDING) {
-        throw new Error(
-          `Cannot approve a request with status ${record.status}; only PENDING requests can be approved`,
-        );
-      }
-      if (record.equipment.status !== EquipmentStatus.AVAILABLE) {
-        // Defensive: covers the case where the equipment was already borrowed
-        // or taken out of service between request submission and approval.
+
+      // Atomic check-and-set: only matches if the equipment is still
+      // AVAILABLE at the moment this statement executes.
+      const eqUpdate = await tx.equipment.updateMany({
+        where: { id: existing.equipmentId, status: EquipmentStatus.AVAILABLE },
+        data: { status: EquipmentStatus.BORROWED },
+      });
+      if (eqUpdate.count === 0) {
         throw new Error('Equipment is currently unavailable');
       }
 
-      await tx.equipment.update({
-        where: { id: record.equipmentId },
-        data: { status: EquipmentStatus.BORROWED },
-      });
-
-      const updated = await tx.borrowRecord.update({
-        where: { id },
+      // Atomic check-and-set: only matches if the request is still PENDING
+      // at the moment this statement executes.
+      const recordUpdate = await tx.borrowRecord.updateMany({
+        where: { id, status: BorrowStatus.PENDING },
         data: {
           status: BorrowStatus.APPROVED,
           approvedById: approverId,
           borrowDate: new Date(),
         },
+      });
+      if (recordUpdate.count === 0) {
+        throw new Error('Borrow record not found or no longer PENDING');
+      }
+
+      return tx.borrowRecord.findUniqueOrThrow({
+        where: { id },
         include: borrowInclude,
       });
-
-      return updated;
     });
   }
 
@@ -172,35 +180,41 @@ export class BorrowService {
   /**
    * Rejects a PENDING borrow request. The equipment is never touched — it
    * was never reserved in the first place, so it simply stays AVAILABLE.
+   *
+   * Uses the same atomic updateMany() pattern as approve() so a concurrent
+   * approve/reject on the same record can't both succeed against a stale
+   * in-memory PENDING read.
    */
   static async reject(id: number, approverId: number, data: RejectBorrowInput) {
     return prisma.$transaction(async (tx) => {
-      const record = await tx.borrowRecord.findUnique({ where: { id } });
-
-      if (!record) {
+      const existing = await tx.borrowRecord.findUnique({
+        where: { id },
+        select: { id: true, notes: true },
+      });
+      if (!existing) {
         throw new Error('Borrow record not found');
       }
-      if (record.status !== BorrowStatus.PENDING) {
-        throw new Error(
-          `Cannot reject a request with status ${record.status}; only PENDING requests can be rejected`,
-        );
-      }
 
-      const updated = await tx.borrowRecord.update({
-        where: { id },
+      const recordUpdate = await tx.borrowRecord.updateMany({
+        where: { id, status: BorrowStatus.PENDING },
         data: {
           status: BorrowStatus.REJECTED,
           approvedById: approverId,
           notes: data.reason
-            ? [record.notes, `Rejection reason: ${data.reason}`]
+            ? [existing.notes, `Rejection reason: ${data.reason}`]
                 .filter(Boolean)
                 .join('\n')
-            : record.notes,
+            : existing.notes,
         },
+      });
+      if (recordUpdate.count === 0) {
+        throw new Error('Borrow record not found or no longer PENDING');
+      }
+
+      return tx.borrowRecord.findUniqueOrThrow({
+        where: { id },
         include: borrowInclude,
       });
-
-      return updated;
     });
   }
 }

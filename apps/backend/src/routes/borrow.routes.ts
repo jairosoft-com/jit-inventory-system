@@ -115,13 +115,16 @@ router.patch(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
+      // Check this first: 'Borrow record not found or no longer PENDING'
+      // contains the substring 'not found', so it must be matched before
+      // the plain not-found branch below or it would incorrectly 404.
+      if (message.includes('no longer PENDING') || message.includes('unavailable')) {
+        // 409 Conflict — request/equipment is in a state that doesn't allow this action
+        res.status(409).json({ message });
         return;
       }
-      if (message.includes('unavailable') || message.includes('only PENDING')) {
-        // 409 Conflict — request is in a state that doesn't allow this action
-        res.status(409).json({ message });
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
         return;
       }
       res.status(500).json({ message });
@@ -153,12 +156,13 @@ router.patch(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
+      // Check this first: see comment in the approve handler above.
+      if (message.includes('no longer PENDING')) {
+        res.status(409).json({ message });
         return;
       }
-      if (message.includes('only PENDING')) {
-        res.status(409).json({ message });
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
         return;
       }
       res.status(500).json({ message });

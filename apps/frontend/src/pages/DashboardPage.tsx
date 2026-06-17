@@ -211,6 +211,9 @@ export default function DashboardPage() {
     clearError,
   } = useDashboardStore();
 
+  usePolling(() => {
+    void fetchAll();
+  }, 30000);
   const userRole = user?.role?.name;
   const isAuthorizedForAnalytics = userRole === 'ADMIN' || userRole === 'MANAGER';
 
@@ -483,8 +486,7 @@ export default function DashboardPage() {
                           >
                             {details.label}
                           </span>{' '}
-                          {activity.entityType.toLowerCase()} #
-                          {activity.entityId}
+                          {activity.itemName}
                         </div>
                         <span className="dash-activity-time">
                           {formatRelativeTime(activity.performedAt)}

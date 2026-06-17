@@ -114,7 +114,6 @@ router.patch(
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
-
       const body = req.body as UpdateEquipmentInput;
 
       // If attempting to update assetId, verify that the user is an ADMIN
@@ -137,7 +136,11 @@ router.patch(
         }
       }
 
-      const equipment = await EquipmentService.update(id, body);
+      const equipment = await EquipmentService.update(
+        id,
+        body,
+        req.user!.id,
+      );
       res.status(200).json(equipment);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
@@ -172,7 +175,7 @@ router.delete(
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
-      const result = await EquipmentService.softDelete(id);
+      const result = await EquipmentService.softDelete(id, req.user!.id);
       res.status(200).json(result);
     } catch (error) {
       const message =

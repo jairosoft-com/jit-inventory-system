@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { DashboardService } from '../services/dashboard.service.js';
 import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
 
 const router = Router();
 
@@ -53,6 +54,78 @@ function sendDashboardError(res: Response, error: unknown): void {
 
   res.status(500).json({ message });
 }
+
+// GET /api/dashboard/all
+router.get('/all', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const roleId = req.user?.roleId;
+    if (!roleId) {
+      res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
+      return;
+    }
+
+    const permissions = await DashboardService.getRolePermissionNames(roleId);
+    const canReadInventory = permissions.includes('inventory:read');
+    const canReadEquipment = permissions.includes('equipment:read');
+
+    if (!canReadInventory && !canReadEquipment) {
+      res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
+      return;
+    }
+
+    const access = { canReadInventory, canReadEquipment };
+    const includeAnalytics =
+      req.query.analytics === 'true' && permissions.includes('reports:export');
+
+    const [
+      summary,
+      lowStock,
+      warrantyExpiring,
+      activity,
+      equipmentStatus,
+      procurementSummary,
+      analytics,
+    ] = await Promise.all([
+      DashboardService.getSummary(access),
+
+      canReadInventory
+        ? DashboardService.getLowStockItems()
+        : Promise.resolve([]),
+
+      canReadEquipment
+        ? DashboardService.getWarrantyAlerts()
+        : Promise.resolve([]),
+
+      canReadInventory
+        ? DashboardService.getRecentActivity(10)
+        : Promise.resolve([]),
+
+      canReadEquipment
+        ? DashboardService.getEquipmentStatusBreakdown()
+        : Promise.resolve([]),
+
+      DashboardService.getProcurementSummary(),
+
+      includeAnalytics
+        ? DashboardService.getAnalytics()
+        : Promise.resolve(null),
+    ]);
+
+    res.status(200).json({
+      summary,
+      alerts: {
+        lowStock,
+        warrantyExpiring,
+      },
+      recentActivity: activity,
+      equipmentBreakdown: equipmentStatus,
+      procurementSummary,
+      analytics,
+    });
+  } catch (error) {
+    sendDashboardError(res, error);
+  }
+});
 
 // GET /api/dashboard/summary
 router.get('/summary', async (req: Request, res: Response): Promise<void> => {
@@ -157,25 +230,34 @@ router.get(
 );
 
 // GET /api/dashboard/procurement-summary
-router.get('/procurement-summary', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const procurementSummary = await DashboardService.getProcurementSummary();
-    res.status(200).json(procurementSummary);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+router.get(
+  '/procurement-summary',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const procurementSummary = await DashboardService.getProcurementSummary();
+      res.status(200).json(procurementSummary);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 // GET /api/dashboard/analytics
-router.get('/analytics', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const analytics = await DashboardService.getAnalytics();
-    res.status(200).json(analytics);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+router.get(
+  '/analytics',
+  authorize('reports:export'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const analytics = await DashboardService.getAnalytics();
+      res.status(200).json(analytics);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 export default router;

@@ -158,15 +158,19 @@ router.get(
 );
 
 // GET /api/dashboard/procurement-summary
-router.get('/procurement-summary', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const procurementSummary = await DashboardService.getProcurementSummary();
-    res.status(200).json(procurementSummary);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+router.get(
+  '/procurement-summary',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const procurementSummary = await DashboardService.getProcurementSummary();
+      res.status(200).json(procurementSummary);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 // GET /api/dashboard/analytics
 router.get('/analytics', authorize('reports:export'), async (req: Request, res: Response): Promise<void> => {
@@ -174,7 +178,8 @@ router.get('/analytics', authorize('reports:export'), async (req: Request, res: 
     const analytics = await DashboardService.getAnalytics();
     res.status(200).json(analytics);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });

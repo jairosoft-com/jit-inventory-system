@@ -9,6 +9,7 @@ import { AuditLogService } from './audit-log.service.js';
 import type {
   CreateBorrowInput,
   ListBorrowQuery,
+  RejectBorrowInput,
 } from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -130,5 +131,105 @@ export class BorrowService {
     }
 
     return record;
+  }
+
+  // ── Approve ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Approves a PENDING borrow request: flips the request to APPROVED, sets
+   * borrowDate to now, and transitions the equipment to BORROWED so it drops
+   * out of any AVAILABLE-filtered list.
+   *
+   * Both state transitions use updateMany() with the expected prior state
+   * baked into the `where` clause (status: PENDING / status: AVAILABLE)
+   * rather than a separate findUnique() read followed by an update(). This
+   * makes the check-and-set atomic at the database level: Postgres only
+   * matches and locks rows that still satisfy the where clause at the
+   * moment of the write, so two concurrent approve() calls for the same
+   * equipment can no longer both read AVAILABLE and both write BORROWED.
+   * The loser's updateMany() simply matches zero rows.
+   */
+  static async approve(id: number, approverId: number) {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.borrowRecord.findUnique({
+        where: { id },
+        select: { id: true, equipmentId: true },
+      });
+      if (!existing) {
+        throw new Error('Borrow record not found');
+      }
+
+      // Atomic check-and-set: only matches if the equipment is still
+      // AVAILABLE at the moment this statement executes.
+      const eqUpdate = await tx.equipment.updateMany({
+        where: { id: existing.equipmentId, status: EquipmentStatus.AVAILABLE },
+        data: { status: EquipmentStatus.BORROWED },
+      });
+      if (eqUpdate.count === 0) {
+        throw new Error('Equipment is currently unavailable');
+      }
+
+      // Atomic check-and-set: only matches if the request is still PENDING
+      // at the moment this statement executes.
+      const recordUpdate = await tx.borrowRecord.updateMany({
+        where: { id, status: BorrowStatus.PENDING },
+        data: {
+          status: BorrowStatus.APPROVED,
+          approvedById: approverId,
+          borrowDate: new Date(),
+        },
+      });
+      if (recordUpdate.count === 0) {
+        throw new Error('Borrow record not found or no longer PENDING');
+      }
+
+      return tx.borrowRecord.findUniqueOrThrow({
+        where: { id },
+        include: borrowInclude,
+      });
+    });
+  }
+
+  // ── Reject ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Rejects a PENDING borrow request. The equipment is never touched — it
+   * was never reserved in the first place, so it simply stays AVAILABLE.
+   *
+   * Uses the same atomic updateMany() pattern as approve() so a concurrent
+   * approve/reject on the same record can't both succeed against a stale
+   * in-memory PENDING read.
+   */
+  static async reject(id: number, approverId: number, data: RejectBorrowInput) {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.borrowRecord.findUnique({
+        where: { id },
+        select: { id: true, notes: true },
+      });
+      if (!existing) {
+        throw new Error('Borrow record not found');
+      }
+
+      const recordUpdate = await tx.borrowRecord.updateMany({
+        where: { id, status: BorrowStatus.PENDING },
+        data: {
+          status: BorrowStatus.REJECTED,
+          approvedById: approverId,
+          notes: data.reason
+            ? [existing.notes, `Rejection reason: ${data.reason}`]
+                .filter(Boolean)
+                .join('\n')
+            : existing.notes,
+        },
+      });
+      if (recordUpdate.count === 0) {
+        throw new Error('Borrow record not found or no longer PENDING');
+      }
+
+      return tx.borrowRecord.findUniqueOrThrow({
+        where: { id },
+        include: borrowInclude,
+      });
+    });
   }
 }

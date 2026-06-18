@@ -79,6 +79,10 @@ interface BorrowState {
   fetchMyRecords: (query?: Omit<ListBorrowQuery, 'mine'>) => Promise<void>;
   /** Submit a new borrow request */
   submitRequest: (data: CreateBorrowInput) => Promise<BorrowRecord>;
+  /** Approve a PENDING request (requires borrow:approve) */
+  approveRequest: (id: number) => Promise<BorrowRecord>;
+  /** Reject a PENDING request (requires borrow:approve) */
+  rejectRequest: (id: number, reason?: string) => Promise<BorrowRecord>;
   clearError: () => void;
 }
 
@@ -165,6 +169,61 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       const errMsg =
         err.response?.data?.message || err.message || 'Failed to submit borrow request';
       set({ error: errMsg, isSubmitting: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  approveRequest: async (id) => {
+    try {
+      const response = await api.patch<BorrowRecord>(`/borrow/${id}/approve`);
+      const updated = response.data;
+      // Update both lists in-place: 'records' (All Requests tab) and
+      // 'myRecords' (My Requests tab) so a manager approving their own
+      // request — or anyone's request while both tabs have been loaded —
+      // sees the new status everywhere without a manual refresh. A record
+      // simply won't be present in the array it doesn't belong to, so the
+      // .map() is a no-op there.
+      set((state) => ({
+        records: state.records.map((r) => (r.id === id ? updated : r)),
+        myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
+      }));
+      return updated;
+    } catch (error: unknown) {
+      // Intentionally does not set the global `error` state here — this is
+      // a row-scoped action and the caller (AdminPanel) already surfaces
+      // the failure inline under the affected row. Setting the global error
+      // too would render the same message twice (banner + row).
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to approve request';
+      throw new Error(errMsg);
+    }
+  },
+
+  rejectRequest: async (id, reason) => {
+    try {
+      const response = await api.patch<BorrowRecord>(`/borrow/${id}/reject`, {
+        reason: reason ?? null,
+      });
+      const updated = response.data;
+      // Same in-place dual-array update as approveRequest, for the same
+      // cross-tab sync reason.
+      set((state) => ({
+        records: state.records.map((r) => (r.id === id ? updated : r)),
+        myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
+      }));
+      return updated;
+    } catch (error: unknown) {
+      // See approveRequest above — no global error here, row-level only.
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to reject request';
       throw new Error(errMsg);
     }
   },

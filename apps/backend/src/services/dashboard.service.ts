@@ -1,8 +1,9 @@
-import { ConditionStatus } from '@prisma/client';
+import { ConditionStatus, EquipmentStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
 
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
+const EQUIPMENT_LIFECYCLE_YEARS = 5;
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 
 interface DashboardAccess {
@@ -20,6 +21,102 @@ function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
   return Math.ceil(
     (warrantyEndDate.getTime() - today.getTime()) / MILLISECONDS_PER_DAY,
   );
+}
+
+function addCalendarYears(date: Date, years: number): Date {
+  const result = startOfDay(date);
+  result.setFullYear(result.getFullYear() + years);
+
+  return result;
+}
+
+function calculateLifecycleYears(acquisitionDate: Date, today: Date): number {
+  const acquisitionStart = startOfDay(acquisitionDate);
+  const todayStart = startOfDay(today);
+
+  let completedYears =
+    todayStart.getFullYear() - acquisitionStart.getFullYear();
+
+  const anniversaryThisYear = new Date(acquisitionStart);
+  anniversaryThisYear.setFullYear(todayStart.getFullYear());
+
+  if (todayStart < anniversaryThisYear) {
+    completedYears -= 1;
+  }
+
+  return Math.max(0, completedYears);
+}
+
+function hasExceededLifecycle(
+  acquisitionDate: Date | null,
+  today: Date,
+): boolean {
+  if (!acquisitionDate) {
+    return false;
+  }
+
+  const replacementDate = addCalendarYears(
+    acquisitionDate,
+    EQUIPMENT_LIFECYCLE_YEARS,
+  );
+
+  return startOfDay(today) >= replacementDate;
+}
+
+function buildReplacementReasons(
+  equipment: {
+    condition: ConditionStatus;
+    status: EquipmentStatus;
+    acquisitionDate: Date | null;
+  },
+  today: Date,
+): string[] {
+  const reasons: string[] = [];
+
+  if (equipment.condition === ConditionStatus.DAMAGED) {
+    reasons.push('Condition is damaged');
+  }
+
+  if (equipment.status === EquipmentStatus.DAMAGED) {
+    reasons.push('Equipment status is damaged');
+  }
+
+  if (equipment.status === EquipmentStatus.RETIRED) {
+    reasons.push('Equipment is retired or manually flagged');
+  }
+
+  if (hasExceededLifecycle(equipment.acquisitionDate, today)) {
+    reasons.push('Lifecycle exceeded');
+  }
+
+  return reasons;
+}
+
+function buildReplacementRecommendation(
+  reasons: string[],
+  lifecycleYears: number | null,
+): string {
+  if (
+    reasons.includes('Condition is damaged') ||
+    reasons.includes('Equipment status is damaged')
+  ) {
+    return 'Replace immediately due to damaged equipment condition or status.';
+  }
+
+  if (reasons.includes('Equipment is retired or manually flagged')) {
+    return 'Review and replace because the equipment is retired or manually flagged.';
+  }
+
+  if (reasons.includes('Lifecycle exceeded')) {
+    const yearsText =
+      lifecycleYears !== null
+        ? `${lifecycleYears} years of use`
+        : 'the expected lifecycle';
+
+    return `Review and plan replacement because this equipment has reached ${yearsText}.`;
+  }
+
+  return 'Review equipment for possible replacement.';
 }
 
 function isLowStock(quantity: number, reorderPoint: number): boolean {
@@ -55,7 +152,9 @@ export class DashboardService {
       },
     });
 
-    return rolePermissions.map((rp) => rp.permission.name);
+    return rolePermissions.map(
+      (rolePermission) => rolePermission.permission.name,
+    );
   }
 
   static async getSummary(access: DashboardAccess) {
@@ -70,7 +169,7 @@ export class DashboardService {
         access.canReadEquipment
           ? prisma.equipment.count({
               where: {
-                status: 'AVAILABLE',
+                status: EquipmentStatus.AVAILABLE,
                 deletedAt: null,
               },
             })
@@ -159,6 +258,7 @@ export class DashboardService {
   static async getWarrantyAlerts() {
     const today = startOfDay(new Date());
     const warrantyWindowEnd = new Date(today);
+
     warrantyWindowEnd.setDate(today.getDate() + WARRANTY_EXPIRY_WINDOW_DAYS);
 
     const warrantyExpiring = await prisma.equipment.findMany({
@@ -192,6 +292,78 @@ export class DashboardService {
         warrantyEnd,
         warrantyProvider: equipment.warrantyProvider,
         daysRemaining,
+      };
+    });
+  }
+
+  static async getReplacementNeededItems() {
+    const today = startOfDay(new Date());
+    const lifecycleCutoffDate = addCalendarYears(
+      today,
+      -EQUIPMENT_LIFECYCLE_YEARS,
+    );
+
+    const replacementNeeded = await prisma.equipment.findMany({
+      where: {
+        deletedAt: null,
+        item: {
+          deletedAt: null,
+        },
+        OR: [
+          {
+            condition: ConditionStatus.DAMAGED,
+          },
+          {
+            status: {
+              in: [EquipmentStatus.DAMAGED, EquipmentStatus.RETIRED],
+            },
+          },
+          {
+            acquisitionDate: {
+              not: null,
+              lte: lifecycleCutoffDate,
+            },
+          },
+        ],
+      },
+      include: {
+        item: {
+          select: {
+            itemName: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          updatedAt: 'desc',
+        },
+        {
+          id: 'asc',
+        },
+      ],
+    });
+
+    return replacementNeeded.map((equipment) => {
+      const lifecycleYears = equipment.acquisitionDate
+        ? calculateLifecycleYears(equipment.acquisitionDate, today)
+        : null;
+
+      const replacementReasons = buildReplacementReasons(equipment, today);
+
+      return {
+        id: equipment.id,
+        itemId: equipment.itemId,
+        itemName: equipment.item.itemName,
+        assetId: equipment.assetId,
+        condition: equipment.condition,
+        status: equipment.status,
+        acquisitionDate: equipment.acquisitionDate,
+        lifecycleYears,
+        replacementRecommendation: buildReplacementRecommendation(
+          replacementReasons,
+          lifecycleYears,
+        ),
+        replacementReasons,
       };
     });
   }

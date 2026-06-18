@@ -3,6 +3,7 @@ import { EquipmentService } from '../services/equipment.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
+import { prisma } from '../lib/prisma.js';
 import {
   createEquipmentSchema,
   updateEquipmentSchema,
@@ -113,10 +114,29 @@ router.patch(
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
-      const equipment = await EquipmentService.update(
-        id,
-        req.body as UpdateEquipmentInput,
-      );
+      const body = req.body as UpdateEquipmentInput;
+
+      // If attempting to update assetId, verify that the user is an ADMIN
+      if (body.assetId !== undefined) {
+        const equipment = await prisma.equipment.findUnique({
+          where: { id },
+        });
+        if (equipment && body.assetId !== equipment.assetId) {
+          const user = req.user!;
+          const role = await prisma.role.findUnique({
+            where: { id: user.roleId },
+          });
+          if (role?.name !== 'ADMIN') {
+            res.status(403).json({
+              message:
+                'Forbidden: Only administrators can modify the Asset ID.',
+            });
+            return;
+          }
+        }
+      }
+
+      const equipment = await EquipmentService.update(id, body, req.user!.id);
       res.status(200).json(equipment);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
@@ -151,7 +171,7 @@ router.delete(
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
-      const result = await EquipmentService.softDelete(id);
+      const result = await EquipmentService.softDelete(id, req.user!.id);
       res.status(200).json(result);
     } catch (error) {
       const message =

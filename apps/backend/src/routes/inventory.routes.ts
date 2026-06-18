@@ -11,7 +11,6 @@ import {
   type StockInInput,
   type StockOutInput,
   type StockAdjustmentInput,
-  type ListMovementsQuery,
 } from '../schemas/inventory.schema.js';
 
 const router = Router();
@@ -29,19 +28,20 @@ router.post(
         req.body as StockInInput,
         req.user!.id,
       );
+
       res.status(201).json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
 );
-
-// ── Scenario 2: Stock Out ───────────────────────────────────────────────────
 
 // POST /inventory/stock-out
 router.post(
@@ -54,23 +54,25 @@ router.post(
         req.body as StockOutInput,
         req.user!.id,
       );
+
       res.status(201).json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       if (message.includes('Insufficient stock')) {
         res.status(422).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
 );
-
-// ── Scenario 3: Quantity Adjustments ────────────────────────────────────────
 
 // POST /inventory/adjustments
 router.post(
@@ -83,23 +85,25 @@ router.post(
         req.body as StockAdjustmentInput,
         req.user!.id,
       );
+
       res.status(201).json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       if (message.includes('cannot be negative')) {
         res.status(422).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
 );
-
-// ── Scenario 4: Movement History ────────────────────────────────────────────
 
 // GET /inventory/movements
 router.get(
@@ -108,13 +112,14 @@ router.get(
   validate(listMovementsQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await InventoryService.listMovements(
-        req.query as unknown as ListMovementsQuery,
-      );
+      const query = listMovementsQuerySchema.parse(req.query);
+      const result = await InventoryService.listMovements(query);
+
       res.status(200).json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       res.status(500).json({ message });
     }
   },
@@ -131,18 +136,24 @@ router.get(
         req.params.consumableProfileId as string,
         10,
       );
+
       if (isNaN(consumableProfileId)) {
         res.status(400).json({ message: 'Invalid consumable profile ID' });
         return;
       }
+
+      const query = listMovementsQuerySchema.parse(req.query);
+
       const result = await InventoryService.listMovements({
-        ...(req.query as unknown as ListMovementsQuery),
+        ...query,
         consumableProfileId,
       });
+
       res.status(200).json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       res.status(500).json({ message });
     }
   },

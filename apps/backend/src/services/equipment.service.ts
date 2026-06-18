@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
-import { ItemType, Prisma } from '@prisma/client';
+import { ItemType, Prisma, LogAction } from '@prisma/client';
+import { AuditLogService } from './audit-log.service.js';
 import type {
   CreateEquipmentInput,
   UpdateEquipmentInput,
@@ -121,52 +122,87 @@ export class EquipmentService {
       if (!po) throw new Error('Purchase order not found');
     }
 
-    return prisma.equipment.create({
-      data: {
-        assetId: data.assetId,
-        serialNumber: data.serialNumber ?? null,
-        brand: data.brand ?? null,
-        model: data.model ?? null,
-        condition: data.condition,
-        status: data.status,
-        location: data.location ?? null,
-        acquisitionDate: data.acquisitionDate ?? null,
-        purchasePrice:
-          data.purchasePrice != null
-            ? new Prisma.Decimal(data.purchasePrice)
-            : null,
-        warrantyStart: data.warrantyStart ?? null,
-        warrantyEnd: data.warrantyEnd ?? null,
-        warrantyProvider: data.warrantyProvider ?? null,
-        warrantyDocUrl: data.warrantyDocUrl ?? null,
-        ...(data.assignedTo != null && {
-          assignedToUser: { connect: { id: data.assignedTo } },
-        }),
-        ...(data.purchaseOrderId != null && {
-          purchaseOrder: { connect: { id: data.purchaseOrderId } },
-        }),
-        item: {
-          create: {
-            itemName: data.itemName,
-            description: data.description ?? null,
-            categoryId: data.categoryId,
-            itemType: ItemType.EQUIPMENT,
-            barcode: data.barcode ?? null,
-            registeredBy,
+    try {
+      const equipment = await prisma.equipment.create({
+        data: {
+          assetId: data.assetId,
+          serialNumber: data.serialNumber ?? null,
+          brand: data.brand ?? null,
+          model: data.model ?? null,
+          condition: data.condition,
+          status: data.status,
+          location: data.location ?? null,
+          acquisitionDate: data.acquisitionDate ?? null,
+          purchasePrice:
+            data.purchasePrice != null
+              ? new Prisma.Decimal(data.purchasePrice)
+              : null,
+          warrantyStart: data.warrantyStart ?? null,
+          warrantyEnd: data.warrantyEnd ?? null,
+          warrantyProvider: data.warrantyProvider ?? null,
+          warrantyDocUrl: data.warrantyDocUrl ?? null,
+          ...(data.assignedTo != null && {
+            assignedToUser: { connect: { id: data.assignedTo } },
+          }),
+          ...(data.purchaseOrderId != null && {
+            purchaseOrder: { connect: { id: data.purchaseOrderId } },
+          }),
+          item: {
+            create: {
+              itemName: data.itemName,
+              description: data.description ?? null,
+              categoryId: data.categoryId,
+              itemType: ItemType.EQUIPMENT,
+              barcode: data.barcode ?? null,
+              registeredBy,
+            },
           },
+          images: data.images.length
+            ? {
+                create: data.images.map((img) => ({
+                  url: img.url,
+                  label: img.label ?? null,
+                  isPrimary: img.isPrimary,
+                })),
+              }
+            : undefined,
         },
-        images: data.images.length
-          ? {
-              create: data.images.map((img) => ({
-                url: img.url,
-                label: img.label ?? null,
-                isPrimary: img.isPrimary,
-              })),
-            }
-          : undefined,
-      },
-      include: equipmentInclude,
-    });
+        include: equipmentInclude,
+      });
+
+      await AuditLogService.log(
+        'Equipment',
+        equipment.id,
+        LogAction.CREATED,
+        registeredBy,
+        null,
+        equipment,
+      );
+
+      return equipment;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = error.meta?.target as string[] | undefined;
+        if (
+          target?.includes('asset_id') ||
+          target?.includes('assetId') ||
+          target?.some((t) => t.includes('asset_id'))
+        ) {
+          throw new Error('Asset ID is already in use');
+        }
+        if (
+          target?.includes('serial_number') ||
+          target?.includes('serialNumber') ||
+          target?.some((t) => t.includes('serial_number'))
+        ) {
+          throw new Error('Serial number is already in use');
+        }
+      }
+      throw error;
+    }
   }
 
   static async findAll(query: ListEquipmentQuery) {
@@ -222,7 +258,7 @@ export class EquipmentService {
     return this.findActiveOrThrow(id);
   }
 
-  static async update(id: number, data: UpdateEquipmentInput) {
+  static async update(id: number, data: UpdateEquipmentInput, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
 
     if (data.categoryId) {
@@ -273,43 +309,78 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
-    return prisma.equipment.update({
-      where: { id },
-      data: {
-        ...equipmentFields,
-        ...(purchasePrice !== undefined && {
-          purchasePrice:
-            purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
-        }),
-        ...(assignedTo !== undefined && {
-          assignedToUser:
-            assignedTo != null
-              ? { connect: { id: assignedTo } }
-              : { disconnect: true },
-        }),
-        ...(purchaseOrderId !== undefined && {
-          purchaseOrder:
-            purchaseOrderId != null
-              ? { connect: { id: purchaseOrderId } }
-              : { disconnect: true },
-        }),
-        item: {
-          update: {
-            ...(itemName !== undefined && { itemName }),
-            ...(description !== undefined && { description }),
-            ...(categoryId !== undefined && { categoryId }),
-            ...(barcode !== undefined && { barcode }),
+    try {
+      const updated = await prisma.equipment.update({
+        where: { id },
+        data: {
+          ...equipmentFields,
+          ...(purchasePrice !== undefined && {
+            purchasePrice:
+              purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
+          }),
+          ...(assignedTo !== undefined && {
+            assignedToUser:
+              assignedTo != null
+                ? { connect: { id: assignedTo } }
+                : { disconnect: true },
+          }),
+          ...(purchaseOrderId !== undefined && {
+            purchaseOrder:
+              purchaseOrderId != null
+                ? { connect: { id: purchaseOrderId } }
+                : { disconnect: true },
+          }),
+          item: {
+            update: {
+              ...(itemName !== undefined && { itemName }),
+              ...(description !== undefined && { description }),
+              ...(categoryId !== undefined && { categoryId }),
+              ...(barcode !== undefined && { barcode }),
+            },
           },
         },
-      },
-      include: equipmentInclude,
-    });
+        include: equipmentInclude,
+      });
+
+      await AuditLogService.log(
+        'Equipment',
+        updated.id,
+        LogAction.UPDATED,
+        userId,
+        equipment,
+        updated,
+      );
+
+      return updated;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = error.meta?.target as string[] | undefined;
+        if (
+          target?.includes('asset_id') ||
+          target?.includes('assetId') ||
+          target?.some((t) => t.includes('asset_id'))
+        ) {
+          throw new Error('Asset ID is already in use');
+        }
+        if (
+          target?.includes('serial_number') ||
+          target?.includes('serialNumber') ||
+          target?.some((t) => t.includes('serial_number'))
+        ) {
+          throw new Error('Serial number is already in use');
+        }
+      }
+      throw error;
+    }
   }
 
-  static async softDelete(id: number) {
-    await this.findActiveOrThrow(id);
+  static async softDelete(id: number, userId: number) {
+    const equipment = await this.findActiveOrThrow(id);
 
-    return prisma.equipment.update({
+    const deleted = await prisma.equipment.update({
       where: { id },
       data: {
         deletedAt: new Date(),
@@ -317,6 +388,17 @@ export class EquipmentService {
       },
       include: equipmentInclude,
     });
+
+    await AuditLogService.log(
+      'Equipment',
+      deleted.id,
+      LogAction.DELETED,
+      userId,
+      equipment,
+      deleted,
+    );
+
+    return deleted;
   }
 
   // ── Image management ────────────────────────────────────────────────────────

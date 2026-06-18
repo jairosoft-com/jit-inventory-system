@@ -6,8 +6,10 @@ import { validate } from '../middleware/validate.js';
 import {
   createBorrowSchema,
   listBorrowQuerySchema,
+  rejectBorrowSchema,
   type CreateBorrowInput,
   type ListBorrowQuery,
+  type RejectBorrowInput,
 } from '../schemas/borrow.schema.js';
 
 const router = Router();
@@ -85,6 +87,80 @@ router.get(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// ── PATCH /borrow/:id/approve ─────────────────────────────────────────────────
+// Approve a PENDING request. Requires borrow:approve (MANAGER/ADMIN only —
+// STAFF does not hold this permission, so authorize() denies with 403).
+
+router.patch(
+  '/:id/approve',
+  authorize('borrow:approve'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid borrow record ID' });
+        return;
+      }
+      const record = await BorrowService.approve(id, req.user!.id);
+      res.status(200).json(record);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      // Check this first: 'Borrow record not found or no longer PENDING'
+      // contains the substring 'not found', so it must be matched before
+      // the plain not-found branch below or it would incorrectly 404.
+      if (message.includes('no longer PENDING') || message.includes('unavailable')) {
+        // 409 Conflict — request/equipment is in a state that doesn't allow this action
+        res.status(409).json({ message });
+        return;
+      }
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// ── PATCH /borrow/:id/reject ───────────────────────────────────────────────────
+// Reject a PENDING request. Equipment status is left untouched — it was
+// never reserved. Requires borrow:approve (same gate as approval).
+
+router.patch(
+  '/:id/reject',
+  authorize('borrow:approve'),
+  validate(rejectBorrowSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid borrow record ID' });
+        return;
+      }
+      const record = await BorrowService.reject(
+        id,
+        req.user!.id,
+        req.body as RejectBorrowInput,
+      );
+      res.status(200).json(record);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      // Check this first: see comment in the approve handler above.
+      if (message.includes('no longer PENDING')) {
+        res.status(409).json({ message });
+        return;
+      }
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;

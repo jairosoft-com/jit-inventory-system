@@ -136,11 +136,7 @@ router.patch(
         }
       }
 
-      const equipment = await EquipmentService.update(
-        id,
-        body,
-        req.user!.id,
-      );
+      const equipment = await EquipmentService.update(id, body, req.user!.id);
       res.status(200).json(equipment);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';

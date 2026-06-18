@@ -13,14 +13,7 @@ import StockMovementModal from '../components/StockMovementModal';
 
 // ── Constants (image upload) ───────────────────────────────────────────────────
 
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/avif',
-];
-
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -372,9 +365,7 @@ export default function InventoryManagementPage() {
     event.target.value = '';
 
     if (!file.type.startsWith('image/') || !ALLOWED_MIME_TYPES.includes(file.type)) {
-      setImageError(
-        `"${file.name}" is not a supported image. Only JPG, PNG, GIF, WEBP, AVIF are allowed.`,
-      );
+      setImageError(`"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`);
       return;
     }
 
@@ -1146,7 +1137,7 @@ export default function InventoryManagementPage() {
                 {/* File input */}
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
+                  accept="image/jpeg,image/png"
                   onChange={handleImageChange}
                   className="block w-full cursor-pointer rounded-lg border border-dashed border-[var(--surface-border)] p-2 text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--background-tertiary)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--text-primary)]"
                 />
@@ -1163,10 +1154,7 @@ export default function InventoryManagementPage() {
                     </button>
                   </div>
                 )}
-
-                <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
-                  Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP
-                </p>
+                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, JPEG, PNG</p>
               </div>
 
               {/* Common fields */}

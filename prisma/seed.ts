@@ -190,6 +190,12 @@ const PERMISSIONS = [
     action: 'update',
     description: 'Update supplier records',
   },
+  {
+    name: 'suppliers:delete',
+    resource: 'suppliers',
+    action: 'delete',
+    description: 'Archive supplier records',
+  },
 
   // Purchase Orders
   {
@@ -299,6 +305,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'suppliers:create',
     'suppliers:read',
     'suppliers:update',
+    'suppliers:delete',
     'purchase_orders:create',
     'purchase_orders:read',
     'purchase_orders:update',

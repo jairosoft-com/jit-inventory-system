@@ -51,6 +51,7 @@ export interface RecentActivity {
   entityId: number;
   action: string;
   performedAt: string;
+  itemName: string;
   user: {
     firstName: string;
     lastName: string;
@@ -95,11 +96,17 @@ export interface EquipmentCondition {
   count: number;
 }
 
+export interface InventoryDistribution {
+  categoryId: number;
+  categoryName: string;
+  count: number;
+}
+
 export interface BorrowActivity {
   date: string;
   total: number;
-  pending: number;
-  approved: number;
+  active: number;
+  overdue: number;
   returned: number;
 }
 
@@ -107,6 +114,7 @@ export interface AnalyticsData {
   stockMovements: StockMovement[];
   equipmentConditions: EquipmentCondition[];
   borrowActivity: BorrowActivity[];
+  inventoryDistribution: InventoryDistribution[];
 }
 
 interface DashboardState {
@@ -130,7 +138,7 @@ interface DashboardState {
   fetchEquipmentBreakdown: () => Promise<void>;
   fetchProcurementSummary: () => Promise<void>;
   fetchAnalytics: () => Promise<void>;
-  fetchAll: () => Promise<void>;
+  fetchAll: (hasAnalyticsPermission?: boolean) => Promise<void>;
   clearError: () => void;
 }
 
@@ -282,7 +290,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
-  fetchAll: async () => {
+  fetchAll: async (hasAnalyticsPermission = false) => {
     set({ isLoading: true, error: null });
 
     await Promise.allSettled([
@@ -294,7 +302,33 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       get().fetchProcurementSummary(),
       get().fetchAnalytics(),
     ]);
+    try {
+      const response = await api.get(`/dashboard/all?analytics=${hasAnalyticsPermission}`);
+      const {
+        summary,
+        alerts,
+        recentActivity,
+        equipmentBreakdown,
+        procurementSummary,
+        analytics,
+      } = response.data;
 
-    set({ isLoading: false });
+      set({
+        summary,
+        alerts,
+        recentActivity,
+        equipmentBreakdown,
+        procurementSummary,
+        analytics,
+      });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({
+        error:
+          err.response?.data?.message || 'Failed to fetch dashboard data',
+      });
+    } finally {
+      set({ isLoading: false });
+    }
   },
 }));

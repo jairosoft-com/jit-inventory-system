@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStore } from '../store/dashboardStore';
+import { usePolling } from '../lib/usePolling';
+import { useAuthStore } from '../store/authStore';
 import AnalyticsSection from './AnalyticsSection';
 import './DashboardPage.css';
 
@@ -193,6 +195,7 @@ function getWarrantySeverity(
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   const {
     summary,
@@ -211,9 +214,15 @@ export default function DashboardPage() {
     clearError,
   } = useDashboardStore();
 
-  useEffect(() => {
+  usePolling(() => {
     void fetchAll();
-  }, [fetchAll]);
+  }, 30000);
+  const userRole = user?.role?.name;
+  const isAuthorizedForAnalytics = userRole === 'ADMIN' || userRole === 'MANAGER';
+
+  useEffect(() => {
+    void fetchAll(isAuthorizedForAnalytics);
+  }, [fetchAll, isAuthorizedForAnalytics]);
 
   const totalEquipmentCount = equipmentBreakdown.reduce(
     (sum, item) => sum + item.count,
@@ -481,8 +490,7 @@ export default function DashboardPage() {
                           >
                             {details.label}
                           </span>{' '}
-                          {activity.entityType.toLowerCase()} #
-                          {activity.entityId}
+                          {activity.itemName}
                         </div>
                         <span className="dash-activity-time">
                           {formatRelativeTime(activity.performedAt)}
@@ -1169,7 +1177,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <AnalyticsSection />
+      {isAuthorizedForAnalytics && <AnalyticsSection />}
     </div>
   );
 }

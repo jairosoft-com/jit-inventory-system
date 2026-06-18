@@ -1,6 +1,15 @@
 import { prisma } from '../lib/prisma.js';
-import { EquipmentStatus, BorrowStatus, Prisma } from '@prisma/client';
-import type { CreateBorrowInput, ListBorrowQuery } from '../schemas/borrow.schema.js';
+import {
+  EquipmentStatus,
+  BorrowStatus,
+  Prisma,
+  LogAction,
+} from '@prisma/client';
+import { AuditLogService } from './audit-log.service.js';
+import type {
+  CreateBorrowInput,
+  ListBorrowQuery,
+} from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
 
@@ -63,6 +72,15 @@ export class BorrowService {
       },
       include: borrowInclude,
     });
+
+    await AuditLogService.log(
+      'BorrowRecord',
+      record.id,
+      LogAction.CREATED,
+      requestedById,
+      null,
+      record,
+    );
 
     return record;
   }

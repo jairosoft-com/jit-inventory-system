@@ -1,5 +1,6 @@
 import { ConditionStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { cacheGet } from '../lib/redis.js';
 
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -195,8 +196,32 @@ export class DashboardService {
     });
   }
 
-  static async getRecentActivity(limit = 10) {
+  static async getRecentActivity(access: DashboardAccess, limit = 10) {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const allowedTypes: string[] = [];
+    if (access.canReadInventory) {
+      allowedTypes.push('ConsumableProfile', 'Item');
+    }
+    if (access.canReadEquipment) {
+      allowedTypes.push('Equipment', 'BorrowRecord');
+    }
+
+    if (allowedTypes.length === 0) {
+      return [];
+    }
+
     const logs = await prisma.inventoryLog.findMany({
+      where: {
+        performedAt: {
+          gte: sevenDaysAgo,
+        },
+        entityType: {
+          in: allowedTypes,
+        },
+      },
       orderBy: {
         performedAt: 'desc',
       },
@@ -211,17 +236,65 @@ export class DashboardService {
       },
     });
 
-    return logs.map((log) => ({
-      id: log.id,
-      entityType: log.entityType,
-      entityId: log.entityId,
-      action: log.action,
-      performedAt: log.performedAt,
-      user: {
-        firstName: log.user.firstName,
-        lastName: log.user.lastName,
-      },
-    }));
+    return Promise.all(
+      logs.map(async (log) => {
+        let itemName = `${log.entityType} #${log.entityId}`;
+        try {
+          if (log.entityType === 'ConsumableProfile') {
+            const profile = await prisma.consumableProfile.findUnique({
+              where: { id: log.entityId },
+              include: { item: { select: { itemName: true } } },
+            });
+            if (profile?.item) {
+              itemName = profile.item.itemName;
+            }
+          } else if (log.entityType === 'Item') {
+            const item = await prisma.item.findUnique({
+              where: { id: log.entityId },
+              select: { itemName: true },
+            });
+            if (item) {
+              itemName = item.itemName;
+            }
+          } else if (log.entityType === 'Equipment') {
+            const equipment = await prisma.equipment.findUnique({
+              where: { id: log.entityId },
+              include: { item: { select: { itemName: true } } },
+            });
+            if (equipment?.item) {
+              itemName = equipment.item.itemName;
+            }
+          } else if (log.entityType === 'BorrowRecord') {
+            const record = await prisma.borrowRecord.findUnique({
+              where: { id: log.entityId },
+              include: {
+                equipment: {
+                  include: { item: { select: { itemName: true } } },
+                },
+              },
+            });
+            if (record?.equipment?.item) {
+              itemName = record.equipment.item.itemName;
+            }
+          }
+        } catch {
+          // ignore database errors, fall back to default
+        }
+
+        return {
+          id: log.id,
+          entityType: log.entityType,
+          entityId: log.entityId,
+          action: log.action,
+          performedAt: log.performedAt,
+          itemName,
+          user: {
+            firstName: log.user.firstName,
+            lastName: log.user.lastName,
+          },
+        };
+      }),
+    );
   }
 
   static async getEquipmentStatusBreakdown() {
@@ -300,22 +373,59 @@ export class DashboardService {
     };
   }
 
+  static async getInventoryDistribution() {
+    const categories = await prisma.category.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            items: {
+              where: { deletedAt: null },
+            },
+          },
+        },
+      },
+    });
+
+    return categories
+      .map((c) => ({
+        categoryId: c.id,
+        categoryName: c.name,
+        count: c._count.items,
+      }))
+      .filter((c) => c.count > 0);
+  }
+
   static async getAnalytics() {
+    return cacheGet('dashboard:analytics', 300, () =>
+      DashboardService._getAnalyticsUncached(),
+    );
+  }
+
+  private static async _getAnalyticsUncached() {
     const endDate = new Date();
     const startDate = new Date();
 
     startDate.setDate(endDate.getDate() - 29);
     startDate.setHours(0, 0, 0, 0);
 
-    const [stockMovementsRaw, conditionBreakdownRaw, borrowActivityRaw] =
-      await Promise.all([
-        prisma.$queryRaw<
-          Array<{
-            date: Date | string;
-            stockIn: number;
-            stockOut: number;
-          }>
-        >`
+    const [
+      stockMovementsRaw,
+      conditionBreakdownRaw,
+      borrowActivityRaw,
+      inventoryDistribution,
+    ] = await Promise.all([
+      prisma.$queryRaw<
+        Array<{
+          date: Date | string;
+          stockIn: number;
+          stockOut: number;
+        }>
+      >`
           WITH dates AS (
             SELECT generate_series(
               ${startDate}::date,
@@ -345,25 +455,25 @@ export class DashboardService {
           ORDER BY dates.date ASC;
         `,
 
-        prisma.equipment.groupBy({
-          by: ['condition'],
-          where: {
-            deletedAt: null,
-          },
-          _count: {
-            condition: true,
-          },
-        }),
+      prisma.equipment.groupBy({
+        by: ['condition'],
+        where: {
+          deletedAt: null,
+        },
+        _count: {
+          condition: true,
+        },
+      }),
 
-        prisma.$queryRaw<
-          Array<{
-            date: Date | string;
-            total: number;
-            pending: number;
-            approved: number;
-            returned: number;
-          }>
-        >`
+      prisma.$queryRaw<
+        Array<{
+          date: Date | string;
+          total: number;
+          active: number;
+          overdue: number;
+          returned: number;
+        }>
+      >`
           WITH dates AS (
             SELECT generate_series(
               ${startDate}::date,
@@ -375,8 +485,8 @@ export class DashboardService {
             SELECT 
               DATE(created_at) as date,
               COUNT(*)::int as total,
-              COUNT(CASE WHEN status = 'PENDING' THEN 1 END)::int as pending,
-              COUNT(CASE WHEN status = 'APPROVED' THEN 1 END)::int as approved,
+              COUNT(CASE WHEN status = 'BORROWED' THEN 1 END)::int as active,
+              COUNT(CASE WHEN status = 'OVERDUE' THEN 1 END)::int as overdue,
               COUNT(CASE WHEN status = 'RETURNED' THEN 1 END)::int as returned
             FROM borrow_records
             WHERE created_at >= ${startDate}
@@ -385,14 +495,15 @@ export class DashboardService {
           SELECT 
             dates.date,
             COALESCE(borrow_agg.total, 0)::int as total,
-            COALESCE(borrow_agg.pending, 0)::int as pending,
-            COALESCE(borrow_agg.approved, 0)::int as approved,
+            COALESCE(borrow_agg.active, 0)::int as active,
+            COALESCE(borrow_agg.overdue, 0)::int as overdue,
             COALESCE(borrow_agg.returned, 0)::int as returned
           FROM dates
           LEFT JOIN borrow_agg ON dates.date = borrow_agg.date
           ORDER BY dates.date ASC;
         `,
-      ]);
+      DashboardService.getInventoryDistribution(),
+    ]);
 
     const stockMovements = stockMovementsRaw.map((movement) => ({
       date:
@@ -429,8 +540,8 @@ export class DashboardService {
           ? borrow.date.toISOString().split('T')[0]
           : String(borrow.date),
       total: Number(borrow.total),
-      pending: Number(borrow.pending),
-      approved: Number(borrow.approved),
+      active: Number(borrow.active),
+      overdue: Number(borrow.overdue),
       returned: Number(borrow.returned),
     }));
 
@@ -438,6 +549,7 @@ export class DashboardService {
       stockMovements,
       equipmentConditions,
       borrowActivity,
+      inventoryDistribution,
     };
   }
 }

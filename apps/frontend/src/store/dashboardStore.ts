@@ -38,6 +38,7 @@ export interface RecentActivity {
   entityId: number;
   action: string;
   performedAt: string;
+  itemName: string;
   user: {
     firstName: string;
     lastName: string;

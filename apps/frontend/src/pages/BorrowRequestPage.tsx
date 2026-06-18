@@ -566,6 +566,11 @@ function AdminPanel() {
               <tbody className="divide-y divide-[var(--surface-border)]">
                 {records.map((rec) => {
                   const isPending = rec.status === 'PENDING';
+                  // A PENDING request whose equipment is no longer AVAILABLE
+                  // can never be approved (another request already claimed
+                  // it). Surface this proactively instead of letting the
+                  // manager click Approve and hit the same 409 every time.
+                  const isStale = isPending && rec.equipment.status !== 'AVAILABLE';
                   const isActioning = actioningId === rec.id;
                   return (
                     <tr
@@ -596,6 +601,11 @@ function AdminPanel() {
                       </td>
                       <td className="px-4 py-3">
                         <BorrowStatusBadge status={rec.status} />
+                        {isStale && rowError?.id !== rec.id && (
+                          <p className="mt-1 max-w-[200px] text-xs font-medium text-amber-700">
+                            Equipment no longer available — another request claimed it
+                          </p>
+                        )}
                         {rowError?.id === rec.id && (
                           <p className="mt-1 max-w-[180px] text-xs font-medium text-red-600">
                             {rowError.message}
@@ -608,8 +618,9 @@ function AdminPanel() {
                             <button
                               type="button"
                               onClick={() => handleApprove(rec.id)}
-                              disabled={isActioning}
-                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                              disabled={isActioning || isStale}
+                              title={isStale ? 'Equipment is no longer available' : undefined}
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {isActioning ? '…' : 'Approve'}
                             </button>

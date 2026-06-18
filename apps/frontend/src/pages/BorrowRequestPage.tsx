@@ -444,6 +444,173 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
   );
 }
 
+// ── Borrow history panel (read-only, all transactions) ─────────────────────────
+
+/**
+ * Full borrow history view satisfying the "view borrow history" ticket:
+ * shows every borrow transaction the requesting user is allowed to see,
+ * with status, timestamps, and equipment details, filterable by status,
+ * with a proper "No records found" empty state. Read-only — no
+ * approve/reject actions here; that's what the Admin "All Requests" tab
+ * is for.
+ *
+ * Visible to every authenticated role. What it actually shows differs by
+ * role, but that's enforced server-side in borrow.routes.ts, not here: a
+ * STAFF user's request to GET /api/borrow is silently scoped to their own
+ * records regardless of query params, while MANAGER/ADMIN see everyone's.
+ * This component doesn't need to know which case it's in.
+ */
+function BorrowHistoryPanel() {
+  const { records, meta, isLoading, fetchRecords } = useBorrowStore();
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
+
+  const load = useCallback(
+    (p: number, s: BorrowStatus | '') => {
+      void fetchRecords({ page: p, limit: 20, ...(s && { status: s }) });
+    },
+    [fetchRecords],
+  );
+
+  useEffect(() => {
+    load(1, statusFilter);
+  }, [load, statusFilter]);
+
+  function handlePageChange(next: number) {
+    setPage(next);
+    load(next, statusFilter);
+  }
+
+  function handleStatusChange(s: BorrowStatus | '') {
+    setStatusFilter(s);
+    setPage(1);
+  }
+
+  const STATUS_OPTIONS: Array<{ value: BorrowStatus | ''; label: string }> = [
+    { value: '', label: 'All statuses' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'BORROWED', label: 'Borrowed' },
+    { value: 'RETURNED', label: 'Returned' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'OVERDUE', label: 'Overdue' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-[var(--text-secondary)]">
+          {meta.total > 0 && `${meta.total} record${meta.total !== 1 ? 's' : ''}`}
+        </p>
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusChange(e.target.value as BorrowStatus | '')}
+          className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs outline-none transition focus:border-[var(--accent)]"
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-[var(--accent)]" />
+        </div>
+      ) : records.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+          <svg
+            className="mx-auto mb-3 h-10 w-10 text-[var(--text-disabled)]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+            />
+          </svg>
+          <p className="text-sm font-medium text-[var(--text-secondary)]">
+            No records found
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Equipment</th>
+                  <th className="px-4 py-3 font-semibold">Requested by</th>
+                  <th className="px-4 py-3 font-semibold">Submitted</th>
+                  <th className="px-4 py-3 font-semibold">Return by</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--surface-border)]">
+                {records.map((rec) => (
+                  <tr key={rec.id} className="bg-[var(--surface)]">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-[var(--text-primary)]">
+                        {rec.equipment.item.itemName}
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        {rec.equipment.assetId}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-[var(--text-primary)]">
+                        {rec.borrowedBy.firstName} {rec.borrowedBy.lastName}
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        {rec.borrowedBy.email}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                      {formatDateTime(rec.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                      {formatDate(rec.expectedReturn)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <BorrowStatusBadge status={rec.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {meta.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2 text-sm">
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1}
+                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+              <span className="text-xs text-[var(--text-secondary)]">
+                Page {page} of {meta.totalPages}
+              </span>
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= meta.totalPages}
+                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Admin view ────────────────────────────────────────────────────────────────
 
 function AdminPanel() {
@@ -547,7 +714,7 @@ function AdminPanel() {
         </div>
       ) : records.length === 0 ? (
         <div className="py-12 text-center text-sm text-[var(--text-disabled)]">
-          No requests found.
+          No records found
         </div>
       ) : (
         <>
@@ -865,7 +1032,7 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type Tab = 'request' | 'history' | 'admin';
+type Tab = 'request' | 'history' | 'allHistory' | 'admin';
 
 export default function BorrowRequestPage() {
   const { user } = useAuthStore();
@@ -877,6 +1044,7 @@ export default function BorrowRequestPage() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'request', label: 'New Request' },
     { id: 'history', label: 'My Requests' },
+    { id: 'allHistory', label: 'Borrow History' },
     ...(isAdminOrManager ? [{ id: 'admin' as Tab, label: 'All Requests' }] : []),
   ];
 
@@ -942,6 +1110,7 @@ export default function BorrowRequestPage() {
               <BorrowForm onSuccess={() => setActiveTab('history')} />
             )}
             {activeTab === 'history' && <HistoryPanel />}
+            {activeTab === 'allHistory' && <BorrowHistoryPanel />}
             {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
           </div>
         </div>

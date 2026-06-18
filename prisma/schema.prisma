@@ -486,6 +486,7 @@ model StockIn {
   receivedBy        User              @relation("ReceivedByUser", fields: [receivedById], references: [id])
 
   @@index([consumableProfileId])
+  @@index([createdAt])
   @@map("stock_in")
 }
 
@@ -505,6 +506,7 @@ model StockOut {
   releasedBy        User              @relation("ReleasedByUser", fields: [releasedById], references: [id])
 
   @@index([consumableProfileId])
+  @@index([createdAt])
   @@map("stock_out")
 }
 
@@ -578,6 +580,7 @@ model BorrowRecord {
   @@index([equipmentId])
   @@index([expectedReturn])
   @@index([status])
+  @@index([createdAt])
   @@map("borrow_records")
 }
 

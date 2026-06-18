@@ -13,6 +13,8 @@ import {
   Legend,
   ResponsiveContainer,
   Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
 import './AnalyticsSection.css';
 
@@ -52,6 +54,19 @@ export default function AnalyticsSection() {
     POOR: '#d97706',      // Dark Orange
     DAMAGED: '#dc2626',   // Red
   };
+
+  const categoryColors = [
+    '#2563eb', // Blue
+    '#10b981', // Emerald
+    '#8b5cf6', // Violet
+    '#f59e0b', // Amber
+    '#ec4899', // Pink
+    '#3b82f6', // Light Blue
+    '#14b8a6', // Teal
+    '#f97316', // Orange
+    '#a855f7', // Purple
+    '#06b6d4', // Cyan
+  ];
 
   const renderSkeleton = (title: string) => (
     <div className="dash-chart-card">
@@ -95,6 +110,7 @@ export default function AnalyticsSection() {
               </div>
             </div>
           </div>
+          {renderSkeleton('Inventory Distribution')}
           {renderSkeleton('Borrow Activity (30 Days)')}
           {renderSkeleton('Equipment Conditions')}
         </div>
@@ -105,10 +121,12 @@ export default function AnalyticsSection() {
   const stockData = analytics?.stockMovements || [];
   const borrowData = analytics?.borrowActivity || [];
   const conditionData = analytics?.equipmentConditions || [];
+  const distributionData = analytics?.inventoryDistribution || [];
 
   const isStockEmpty = stockData.every(d => d.stockIn === 0 && d.stockOut === 0);
   const isBorrowEmpty = borrowData.every(d => d.total === 0);
   const isConditionEmpty = conditionData.every(d => d.count === 0);
+  const isDistributionEmpty = distributionData.length === 0;
 
   // Formatting date labels (e.g. "Jun 15")
   const formatDateLabel = (dateStr: string) => {
@@ -195,7 +213,65 @@ export default function AnalyticsSection() {
           </div>
         </div>
 
-        {/* Chart 2: Borrow Activity */}
+        {/* Chart 2: Inventory Distribution */}
+        <div className="dash-chart-card">
+          <div className="dash-chart-header">
+            <h3 className="dash-chart-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                <path d="M22 12A10 10 0 0 0 12 2v10z" />
+              </svg>
+              Inventory Distribution
+            </h3>
+          </div>
+          <div className="dash-chart-body">
+            {isDistributionEmpty ? (
+              <div className="dash-empty-state" style={{ height: '100%', justifyContent: 'center' }}>
+                <div className="dash-empty-icon">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <h4 className="dash-empty-heading">No Categories / Items</h4>
+                <p className="dash-empty-text">Create categories and items to view distribution chart.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={distributionData}
+                    dataKey="count"
+                    nameKey="categoryName"
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={50}
+                    outerRadius={75}
+                    paddingAngle={4}
+                  >
+                    {distributionData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={categoryColors[index % categoryColors.length]} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={48} 
+                    iconType="circle" 
+                    iconSize={8} 
+                    wrapperStyle={{ fontSize: 11, bottom: 0 }} 
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Chart 3: Borrow Activity */}
         <div className="dash-chart-card">
           <div className="dash-chart-header">
             <h3 className="dash-chart-title">
@@ -237,24 +313,32 @@ export default function AnalyticsSection() {
                     name="Total" 
                     type="monotone" 
                     dataKey="total" 
-                    stroke="#2563eb" 
+                    stroke="#64748b" 
                     strokeWidth={2}
                     dot={false}
                     activeDot={{ r: 6 }}
                   />
                   <Line 
-                    name="Approved" 
+                    name="Active" 
                     type="monotone" 
-                    dataKey="approved" 
-                    stroke="#16a34a" 
+                    dataKey="active" 
+                    stroke="#2563eb" 
                     strokeWidth={2}
                     dot={false}
                   />
                   <Line 
-                    name="Pending" 
+                    name="Overdue" 
                     type="monotone" 
-                    dataKey="pending" 
-                    stroke="#d97706" 
+                    dataKey="overdue" 
+                    stroke="#dc2626" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line 
+                    name="Returned" 
+                    type="monotone" 
+                    dataKey="returned" 
+                    stroke="#16a34a" 
                     strokeWidth={2}
                     dot={false}
                   />
@@ -264,7 +348,7 @@ export default function AnalyticsSection() {
           </div>
         </div>
 
-        {/* Chart 3: Equipment Conditions */}
+        {/* Chart 4: Equipment Conditions */}
         <div className="dash-chart-card">
           <div className="dash-chart-header">
             <h3 className="dash-chart-title">

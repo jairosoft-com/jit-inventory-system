@@ -5,6 +5,8 @@ import {
   ItemType,
   Prisma,
 } from '@prisma/client';
+import { ItemType, Prisma, LogAction } from '@prisma/client';
+import { AuditLogService } from './audit-log.service.js';
 import type {
   CreateEquipmentInput,
   UpdateEquipmentInput,
@@ -150,7 +152,7 @@ export class EquipmentService {
       }
     }
 
-    return prisma.equipment.create({
+    const equipment = await prisma.equipment.create({
       data: {
         assetId: data.assetId,
         serialNumber: data.serialNumber ?? null,
@@ -196,6 +198,17 @@ export class EquipmentService {
       },
       include: equipmentInclude,
     });
+
+    await AuditLogService.log(
+      'Equipment',
+      equipment.id,
+      LogAction.CREATED,
+      registeredBy,
+      null,
+      equipment,
+    );
+
+    return equipment;
   }
 
   static async findAll(query: ListEquipmentQuery) {
@@ -257,7 +270,7 @@ export class EquipmentService {
     return this.findActiveOrThrow(id);
   }
 
-  static async update(id: number, data: UpdateEquipmentInput) {
+  static async update(id: number, data: UpdateEquipmentInput, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
 
     if (data.categoryId) {
@@ -319,7 +332,7 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
-    return prisma.equipment.update({
+    const updated = await prisma.equipment.update({
       where: { id },
       data: {
         ...equipmentFields,
@@ -350,6 +363,17 @@ export class EquipmentService {
       },
       include: equipmentInclude,
     });
+
+    await AuditLogService.log(
+      'Equipment',
+      updated.id,
+      LogAction.UPDATED,
+      userId,
+      equipment,
+      updated,
+    );
+
+    return updated;
   }
 
   // ── Retirement request ──────────────────────────────────────────────────────
@@ -453,6 +477,17 @@ export class EquipmentService {
       },
       include: equipmentInclude,
     });
+
+    await AuditLogService.log(
+      'Equipment',
+      deleted.id,
+      LogAction.DELETED,
+      userId,
+      equipment,
+      deleted,
+    );
+
+    return deleted;
   }
 
   // ── Image management ────────────────────────────────────────────────────────

@@ -238,9 +238,7 @@ router.get(
       const procurementSummary = await DashboardService.getProcurementSummary();
       res.status(200).json(procurementSummary);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      res.status(500).json({ message });
+      sendDashboardError(res, error);
     }
   },
 );

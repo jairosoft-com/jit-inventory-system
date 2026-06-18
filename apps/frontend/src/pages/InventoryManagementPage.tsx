@@ -6,7 +6,6 @@ import {
   useItemsStore,
   type Item,
   type ItemImage,
-  type ItemType,
   type StockStatusFilter,
 } from '../store/itemsStore';
 import StockMovementModal from '../components/StockMovementModal';
@@ -31,7 +30,6 @@ interface PendingImage {
 }
 
 type SubTab = 'active' | 'archived';
-type ItemTypeFilter = 'all' | ItemType;
 type StatusFilter = 'all' | StockStatusFilter;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -158,11 +156,9 @@ export default function InventoryManagementPage() {
   const [subTab, setSubTab] = useState<SubTab>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
-  const [selectedItemType, setSelectedItemType] = useState<ItemTypeFilter>('all');
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [appliedCategoryId, setAppliedCategoryId] = useState('all');
-  const [appliedItemType, setAppliedItemType] = useState<ItemTypeFilter>('all');
   const [appliedStatus, setAppliedStatus] = useState<StatusFilter>('all');
 
   // form modal
@@ -201,11 +197,9 @@ export default function InventoryManagementPage() {
   // ── Load data ───────────────────────────────────────────────────────────────
 
   const buildQuery = useCallback(() => {
-    const query: Record<string, unknown> = {};
-
-    if (appliedItemType !== 'all') {
-      query.itemType = appliedItemType;
-    }
+    const query: Record<string, unknown> = {
+      itemType: 'CONSUMABLE',
+    };
 
     if (appliedCategoryId !== 'all') {
       query.categoryId = Number(appliedCategoryId);
@@ -222,7 +216,7 @@ export default function InventoryManagementPage() {
     }
 
     return query;
-  }, [appliedCategoryId, appliedItemType, appliedSearchTerm, appliedStatus]);
+  }, [appliedCategoryId, appliedSearchTerm, appliedStatus]);
 
   const loadItems = useCallback(async () => {
     await fetchItems(buildQuery());
@@ -241,14 +235,6 @@ export default function InventoryManagementPage() {
     fetchCategories(false);
   }, [fetchCategories]);
 
-  useEffect(() => {
-    setSelectedCategoryId('all');
-
-    if (selectedItemType === 'DIGITAL') {
-      setSelectedStatus('all');
-    }
-  }, [selectedItemType]);
-
   // Load archived items when user switches to the archived tab
   useEffect(() => {
     if (subTab === 'archived') {
@@ -259,25 +245,16 @@ export default function InventoryManagementPage() {
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const consumableCategories = useMemo(
-    () => categories.filter((category) => !category.deletedAt && category.type === 'CONSUMABLE'),
-    [categories],
-  );
-
-  const filterCategories = useMemo(
     () =>
-      categories.filter((category) => {
-        if (category.deletedAt) return false;
-        if (selectedItemType === 'all') return true;
-
-        return category.type === selectedItemType;
-      }),
-    [categories, selectedItemType],
+      categories.filter(
+        (category) => !category.deletedAt && category.type === 'CONSUMABLE',
+      ),
+    [categories],
   );
 
   const hasActiveFilters =
     Boolean(appliedSearchTerm.trim()) ||
     appliedCategoryId !== 'all' ||
-    appliedItemType !== 'all' ||
     appliedStatus !== 'all';
 
   const summaries = useMemo(() => {
@@ -334,7 +311,6 @@ export default function InventoryManagementPage() {
   function applyFilters() {
     setAppliedSearchTerm(searchTerm.trim());
     setAppliedCategoryId(selectedCategoryId);
-    setAppliedItemType(selectedItemType);
     setAppliedStatus(selectedStatus);
   }
 
@@ -346,11 +322,9 @@ export default function InventoryManagementPage() {
   function clearFilters() {
     setSearchTerm('');
     setSelectedCategoryId('all');
-    setSelectedItemType('all');
     setSelectedStatus('all');
     setAppliedSearchTerm('');
     setAppliedCategoryId('all');
-    setAppliedItemType('all');
     setAppliedStatus('all');
   }
 
@@ -659,7 +633,7 @@ export default function InventoryManagementPage() {
           <div className="mb-5 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5">
             <form
               onSubmit={handleFilterSubmit}
-              className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_170px_190px_170px_auto]"
+              className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_220px_170px_auto]"
             >
               <input
                 value={searchTerm}
@@ -669,22 +643,12 @@ export default function InventoryManagementPage() {
               />
 
               <select
-                value={selectedItemType}
-                onChange={(event) => setSelectedItemType(event.target.value as ItemTypeFilter)}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-              >
-                <option value="all">All Item Types</option>
-                <option value="CONSUMABLE">Consumable Items</option>
-                <option value="DIGITAL">Digital Items</option>
-              </select>
-
-              <select
                 value={selectedCategoryId}
                 onChange={(event) => setSelectedCategoryId(event.target.value)}
                 className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
               >
                 <option value="all">All Categories</option>
-                {filterCategories.map((category) => (
+                {consumableCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
@@ -694,8 +658,7 @@ export default function InventoryManagementPage() {
               <select
                 value={selectedStatus}
                 onChange={(event) => setSelectedStatus(event.target.value as StatusFilter)}
-                disabled={selectedItemType === 'DIGITAL'}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
               >
                 {STATUS_FILTER_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -806,7 +769,7 @@ export default function InventoryManagementPage() {
                                     <button
                                       type="button"
                                       onClick={() => setStockItem(item)}
-                                      className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font medium text-blue-600 transition hover:bg-blue-50"
+                                      className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
                                     >
                                       Stock
                                     </button>

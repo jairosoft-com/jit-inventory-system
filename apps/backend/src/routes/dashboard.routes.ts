@@ -30,8 +30,13 @@ async function getDashboardAccess(req: Request): Promise<DashboardAccess> {
 
   const permissions = await DashboardService.getRolePermissionNames(roleId);
 
-  const canReadInventory = permissions.includes('inventory:read');
-  const canReadEquipment = permissions.includes('equipment:read');
+  const canReadInventory =
+    permissions.includes('inventory:read') ||
+    permissions.includes('inventory:manage');
+
+  const canReadEquipment =
+    permissions.includes('equipment:read') ||
+    permissions.includes('equipment:manage');
 
   if (!canReadInventory && !canReadEquipment) {
     throw new DashboardRouteError('Forbidden: Insufficient permissions', 403);
@@ -208,6 +213,28 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// GET /api/dashboard/replacement-needed
+router.get(
+  '/replacement-needed',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const access = await getDashboardAccess(req);
+
+      if (!access.canReadEquipment) {
+        res.status(200).json([]);
+        return;
+      }
+
+      const replacementNeeded =
+        await DashboardService.getReplacementNeededItems();
+
+      res.status(200).json(replacementNeeded);
+    } catch (error) {
+      sendDashboardError(res, error);
+    }
+  },
+);
+
 // GET /api/dashboard/equipment-status
 router.get(
   '/equipment-status',
@@ -236,6 +263,7 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const procurementSummary = await DashboardService.getProcurementSummary();
+
       res.status(200).json(procurementSummary);
     } catch (error) {
       sendDashboardError(res, error);

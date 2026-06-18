@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import { SuppliersService } from '../services/suppliers.service.js';
 import { listSuppliersQuerySchema } from '../schemas/suppliers.schema.js';
@@ -11,6 +12,7 @@ router.use(authenticate);
 // GET /suppliers
 router.get(
   '/',
+  authorize('suppliers:read'),
   validate(listSuppliersQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {

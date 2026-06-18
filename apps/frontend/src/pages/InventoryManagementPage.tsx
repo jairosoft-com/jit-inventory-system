@@ -6,7 +6,7 @@ import { useItemsStore, type Item, type ItemImage } from '../store/itemsStore';
 import StockMovementModal from '../components/StockMovementModal';
 // ── Constants (image upload) ───────────────────────────────────────────────────
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 interface PendingImage {
@@ -98,6 +98,8 @@ function SummaryCard({
 // ── Page ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 type SubTab = 'active' | 'archived';
+type ItemTypeFilter = 'CONSUMABLE' | 'DIGITAL' | 'all';
+type StatusFilter = 'all' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
 export default function InventoryManagementPage() {
   const { user } = useAuthStore();
@@ -271,7 +273,7 @@ export default function InventoryManagementPage() {
     e.target.value = '';
 
     if (!file.type.startsWith('image/') || !ALLOWED_MIME_TYPES.includes(file.type)) {
-      setImageError(`"${file.name}" is not a supported image. Only JPG, PNG, GIF, WEBP, AVIF are allowed.`);
+      setImageError(`"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`);
       return;
     }
 
@@ -946,7 +948,7 @@ export default function InventoryManagementPage() {
                 {/* File input */}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png"
                   onChange={handleImageChange}
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                 />
@@ -956,7 +958,7 @@ export default function InventoryManagementPage() {
                     <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
                   </div>
                 )}
-                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, PNG, GIF, WEBP</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, JPEG, PNG</p>
               </div>
               {/* Common fields */}
               <div className="grid gap-3 md:grid-cols-2 border-t border-[var(--surface-border)] pt-4">

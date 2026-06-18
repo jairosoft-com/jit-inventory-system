@@ -368,7 +368,6 @@ export class DashboardService {
     });
   }
 
-  static async getRecentActivity(limit = 10) {
   static async getRecentActivity(access: DashboardAccess, limit = 10) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

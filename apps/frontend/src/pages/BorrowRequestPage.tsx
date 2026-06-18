@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useEquipmentStore, type Equipment } from '../store/equipmentStore';
-import { useBorrowStore, type BorrowStatus } from '../store/borrowStore';
+import { useBorrowStore, type BorrowStatus, type BorrowRecord } from '../store/borrowStore';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -386,12 +386,74 @@ function HistoryPanel() {
   );
 }
 
+// ── Reject reason modal ───────────────────────────────────────────────────────
+
+interface RejectModalProps {
+  record: BorrowRecord;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  isSubmitting: boolean;
+}
+
+function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalProps) {
+  const [reason, setReason] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-md)]">
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">
+          Reject borrow request
+        </h3>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          {record.equipment.item.itemName} ({record.equipment.assetId}) —{' '}
+          {record.borrowedBy.firstName} {record.borrowedBy.lastName}
+        </p>
+
+        <label className="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          Reason <span className="text-[var(--text-disabled)] font-normal">(optional)</span>
+        </label>
+        <textarea
+          autoFocus
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Let the employee know why this was rejected…"
+          rows={3}
+          className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm placeholder:text-[var(--text-disabled)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+        />
+
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(reason.trim())}
+            disabled={isSubmitting}
+            className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
+          >
+            {isSubmitting ? 'Rejecting…' : 'Reject Request'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Admin view ────────────────────────────────────────────────────────────────
 
 function AdminPanel() {
-  const { records, meta, isLoading, error, fetchRecords } = useBorrowStore();
+  const { records, meta, isLoading, error, fetchRecords, approveRequest, rejectRequest } =
+    useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
+  const [actioningId, setActioningId] = useState<number | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<BorrowRecord | null>(null);
+  const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
 
   const load = useCallback(
     (p: number, s: BorrowStatus | '') => {
@@ -407,6 +469,34 @@ function AdminPanel() {
   function handlePageChange(next: number) {
     setPage(next);
     load(next, statusFilter);
+  }
+
+  async function handleApprove(id: number) {
+    setRowError(null);
+    setActioningId(id);
+    try {
+      await approveRequest(id);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setRowError({ id, message: e.message || 'Failed to approve request.' });
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  async function handleRejectConfirm(reason: string) {
+    if (!rejectTarget) return;
+    setRowError(null);
+    setActioningId(rejectTarget.id);
+    try {
+      await rejectRequest(rejectTarget.id, reason || undefined);
+      setRejectTarget(null);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setRowError({ id: rejectTarget.id, message: e.message || 'Failed to reject request.' });
+    } finally {
+      setActioningId(null);
+    }
   }
 
   const STATUS_OPTIONS: Array<{ value: BorrowStatus | ''; label: string }> = [
@@ -470,41 +560,86 @@ function AdminPanel() {
                   <th className="px-4 py-3 font-semibold">Submitted</th>
                   <th className="px-4 py-3 font-semibold">Return by</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--surface-border)]">
-                {records.map((rec) => (
-                  <tr
-                    key={rec.id}
-                    className="bg-[var(--surface)] transition hover:bg-[var(--surface-hover)]"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-[var(--text-primary)]">
-                        {rec.equipment.item.itemName}
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        {rec.equipment.assetId}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-[var(--text-primary)]">
-                        {rec.borrowedBy.firstName} {rec.borrowedBy.lastName}
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        {rec.borrowedBy.email}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-                      {formatDateTime(rec.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-                      {formatDate(rec.expectedReturn)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <BorrowStatusBadge status={rec.status} />
-                    </td>
-                  </tr>
-                ))}
+                {records.map((rec) => {
+                  const isPending = rec.status === 'PENDING';
+                  // A PENDING request whose equipment is no longer AVAILABLE
+                  // can never be approved (another request already claimed
+                  // it). Surface this proactively instead of letting the
+                  // manager click Approve and hit the same 409 every time.
+                  const isStale = isPending && rec.equipment.status !== 'AVAILABLE';
+                  const isActioning = actioningId === rec.id;
+                  return (
+                    <tr
+                      key={rec.id}
+                      className="bg-[var(--surface)] transition hover:bg-[var(--surface-hover)]"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-[var(--text-primary)]">
+                          {rec.equipment.item.itemName}
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          {rec.equipment.assetId}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-[var(--text-primary)]">
+                          {rec.borrowedBy.firstName} {rec.borrowedBy.lastName}
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          {rec.borrowedBy.email}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                        {formatDateTime(rec.createdAt)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                        {formatDate(rec.expectedReturn)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <BorrowStatusBadge status={rec.status} />
+                        {isStale && rowError?.id !== rec.id && (
+                          <p className="mt-1 max-w-[200px] text-xs font-medium text-amber-700">
+                            Equipment no longer available — another request claimed it
+                          </p>
+                        )}
+                        {rowError?.id === rec.id && (
+                          <p className="mt-1 max-w-[180px] text-xs font-medium text-red-600">
+                            {rowError.message}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isPending ? (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(rec.id)}
+                              disabled={isActioning || isStale}
+                              title={isStale ? 'Equipment is no longer available' : undefined}
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isActioning ? '…' : 'Approve'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRejectTarget(rec)}
+                              disabled={isActioning}
+                              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--text-disabled)]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -531,6 +666,15 @@ function AdminPanel() {
             </div>
           )}
         </>
+      )}
+
+      {rejectTarget && (
+        <RejectModal
+          record={rejectTarget}
+          onConfirm={handleRejectConfirm}
+          onCancel={() => setRejectTarget(null)}
+          isSubmitting={actioningId === rejectTarget.id}
+        />
       )}
     </div>
   );

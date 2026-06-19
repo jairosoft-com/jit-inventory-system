@@ -109,10 +109,9 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>(
-        '/borrow',
-        { params },
-      );
+      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>('/borrow', {
+        params,
+      });
       set({ records: response.data.data, meta: response.data.meta, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -131,10 +130,9 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>(
-        '/borrow',
-        { params },
-      );
+      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>('/borrow', {
+        params,
+      });
       set({ myRecords: response.data.data, myMeta: response.data.meta, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -197,8 +195,7 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to approve request';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to approve request';
       throw new Error(errMsg);
     }
   },
@@ -222,8 +219,7 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to reject request';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to reject request';
       throw new Error(errMsg);
     }
   },

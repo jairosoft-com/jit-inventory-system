@@ -27,18 +27,18 @@ export interface SupplierHistory {
 
 export interface CreateSupplierInput {
   supplierName: string;
-  contactPerson?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
 }
 
 export interface UpdateSupplierInput {
   supplierName?: string;
-  contactPerson?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
 }
 
 interface SupplierState {
@@ -86,7 +86,7 @@ export const useSupplierStore = create<SupplierState>((set) => ({
       const newSupplier = response.data;
       set((state) => ({
         suppliers: [...state.suppliers, newSupplier].sort((a, b) =>
-          a.supplierName.localeCompare(b.supplierName)
+          a.supplierName.localeCompare(b.supplierName),
         ),
         isLoading: false,
       }));
@@ -143,7 +143,8 @@ export const useSupplierStore = create<SupplierState>((set) => ({
       set({ supplierHistory: response.data, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errMsg = err.response?.data?.message || err.message || 'Failed to fetch supplier history';
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to fetch supplier history';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }

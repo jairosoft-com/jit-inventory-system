@@ -179,9 +179,7 @@ function getActivityDetails(action: string) {
   }
 }
 
-function getWarrantySeverity(
-  daysRemaining: number,
-): 'critical' | 'warning' | 'info' {
+function getWarrantySeverity(daysRemaining: number): 'critical' | 'warning' | 'info' {
   if (daysRemaining <= 7) {
     return 'critical';
   }
@@ -224,10 +222,7 @@ export default function DashboardPage() {
     void fetchAll(isAuthorizedForAnalytics);
   }, [fetchAll, isAuthorizedForAnalytics]);
 
-  const totalEquipmentCount = equipmentBreakdown.reduce(
-    (sum, item) => sum + item.count,
-    0,
-  );
+  const totalEquipmentCount = equipmentBreakdown.reduce((sum, item) => sum + item.count, 0);
 
   const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
     const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
@@ -257,12 +252,9 @@ export default function DashboardPage() {
 
   const statusesToShow = Object.keys(statusConfigs)
     .map((statusKey) => {
-      const entry = equipmentBreakdown.find(
-        (item) => item.status === statusKey,
-      );
+      const entry = equipmentBreakdown.find((item) => item.status === statusKey);
       const count = entry ? entry.count : 0;
-      const percentage =
-        totalEquipmentCount > 0 ? (count / totalEquipmentCount) * 100 : 0;
+      const percentage = totalEquipmentCount > 0 ? (count / totalEquipmentCount) * 100 : 0;
 
       return {
         key: statusKey,
@@ -362,8 +354,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="dash-page-title">Dashboard</h1>
           <p className="dash-page-desc">
-            Welcome back — here is your real-time inventory and equipment
-            oversight.
+            Welcome back — here is your real-time inventory and equipment oversight.
           </p>
         </div>
       </div>
@@ -410,10 +401,7 @@ export default function DashboardPage() {
                 <div className="dash-skeleton-pulse dash-skeleton-pulse--value animate-pulse" />
               </div>
             ) : stat.value !== null ? (
-              <div
-                className="dash-stat-val"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <div className="dash-stat-val" style={{ color: 'var(--text-primary)' }}>
                 {stat.value}
               </div>
             ) : (
@@ -445,11 +433,7 @@ export default function DashboardPage() {
           </div>
 
           <div
-            className={
-              recentActivity.length > 0
-                ? 'dash-card-content'
-                : 'dash-card-content-empty'
-            }
+            className={recentActivity.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}
           >
             {isLoading && recentActivity.length === 0 ? (
               <div className="dash-skeleton-list">
@@ -478,8 +462,7 @@ export default function DashboardPage() {
                       <div className="dash-activity-info">
                         <div className="dash-activity-text">
                           <strong>
-                            {activity.user.firstName}{' '}
-                            {activity.user.lastName}
+                            {activity.user.firstName} {activity.user.lastName}
                           </strong>{' '}
                           <span
                             className="dash-activity-action-tag"
@@ -516,8 +499,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">No Recent Activities</h3>
                 <p className="dash-empty-text">
-                  Real-time audit log entries will display here as operational
-                  changes occur.
+                  Real-time audit log entries will display here as operational changes occur.
                 </p>
               </div>
             )}
@@ -530,11 +512,7 @@ export default function DashboardPage() {
           </div>
 
           <div
-            className={
-              totalEquipmentCount > 0
-                ? 'dash-card-content'
-                : 'dash-card-content-empty'
-            }
+            className={totalEquipmentCount > 0 ? 'dash-card-content' : 'dash-card-content-empty'}
           >
             {isLoading && equipmentBreakdown.length === 0 ? (
               <div className="dash-skeleton-eq-breakdown">
@@ -552,8 +530,7 @@ export default function DashboardPage() {
                     <div className="dash-status-info">
                       <span className="dash-status-label">{status.label}</span>
                       <span className="dash-status-count">
-                        <strong>{status.count}</strong> (
-                        {Math.round(status.percentage)}%)
+                        <strong>{status.count}</strong> ({Math.round(status.percentage)}%)
                       </span>
                     </div>
                     <div className="dash-status-bar">
@@ -585,8 +562,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">No Registered Assets</h3>
                 <p className="dash-empty-text">
-                  Register trackable equipment units to begin tracking
-                  operational status.
+                  Register trackable equipment units to begin tracking operational status.
                 </p>
               </div>
             )}
@@ -613,8 +589,7 @@ export default function DashboardPage() {
               className="dash-card-action"
               onClick={() => navigate('/dashboard/orders')}
               disabled={
-                !procurementSummary ||
-                procurementSummary.recentPurchaseActivity.length === 0
+                !procurementSummary || procurementSummary.recentPurchaseActivity.length === 0
               }
             >
               View All
@@ -659,9 +634,7 @@ export default function DashboardPage() {
                       <span className="dash-procurement-stat-val">
                         {procurementSummary?.pendingOrders ?? 0}
                       </span>
-                      <span className="dash-procurement-stat-label">
-                        Pending Orders
-                      </span>
+                      <span className="dash-procurement-stat-label">Pending Orders</span>
                     </div>
                   </div>
 
@@ -682,17 +655,13 @@ export default function DashboardPage() {
                       <span className="dash-procurement-stat-val">
                         {procurementSummary?.completedOrders ?? 0}
                       </span>
-                      <span className="dash-procurement-stat-label">
-                        Completed Orders
-                      </span>
+                      <span className="dash-procurement-stat-label">Completed Orders</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="dash-procurement-activity">
-                  <h3 className="dash-procurement-subtitle">
-                    Recent Purchase Activity
-                  </h3>
+                  <h3 className="dash-procurement-subtitle">Recent Purchase Activity</h3>
 
                   {procurementSummary?.recentPurchaseActivity &&
                   procurementSummary.recentPurchaseActivity.length > 0 ? (
@@ -708,56 +677,43 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {procurementSummary.recentPurchaseActivity.map(
-                            (po) => {
-                              const color = purchaseOrderStatusColors[
-                                po.status
-                              ] || {
-                                bg: 'rgba(107, 114, 128, 0.08)',
-                                text: '#6b7280',
-                              };
+                          {procurementSummary.recentPurchaseActivity.map((po) => {
+                            const color = purchaseOrderStatusColors[po.status] || {
+                              bg: 'rgba(107, 114, 128, 0.08)',
+                              text: '#6b7280',
+                            };
 
-                              return (
-                                <tr key={po.id}>
-                                  <td className="dash-po-invoice">
-                                    <strong>
-                                      {po.invoiceNumber || `#${po.id}`}
-                                    </strong>
-                                    <span className="dash-po-item-count">
-                                      {po.itemCount} item
-                                      {po.itemCount === 1 ? '' : 's'}
-                                    </span>
-                                  </td>
-                                  <td>{po.supplier.name}</td>
-                                  <td className="dash-po-amount">
-                                    {formatCurrency(po.totalAmount)}
-                                  </td>
-                                  <td>
-                                    <span
-                                      className="dash-po-status-badge"
-                                      style={{
-                                        backgroundColor: color.bg,
-                                        color: color.text,
-                                      }}
-                                    >
-                                      {po.status}
-                                    </span>
-                                  </td>
-                                  <td className="dash-po-date">
-                                    {formatDate(po.orderDate)}
-                                  </td>
-                                </tr>
-                              );
-                            },
-                          )}
+                            return (
+                              <tr key={po.id}>
+                                <td className="dash-po-invoice">
+                                  <strong>{po.invoiceNumber || `#${po.id}`}</strong>
+                                  <span className="dash-po-item-count">
+                                    {po.itemCount} item
+                                    {po.itemCount === 1 ? '' : 's'}
+                                  </span>
+                                </td>
+                                <td>{po.supplier.name}</td>
+                                <td className="dash-po-amount">{formatCurrency(po.totalAmount)}</td>
+                                <td>
+                                  <span
+                                    className="dash-po-status-badge"
+                                    style={{
+                                      backgroundColor: color.bg,
+                                      color: color.text,
+                                    }}
+                                  >
+                                    {po.status}
+                                  </span>
+                                </td>
+                                <td className="dash-po-date">{formatDate(po.orderDate)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <div
-                      className="dash-empty-state"
-                      style={{ minHeight: '140px' }}
-                    >
+                    <div className="dash-empty-state" style={{ minHeight: '140px' }}>
                       <div className="dash-empty-icon">
                         <svg
                           width="32"
@@ -770,12 +726,10 @@ export default function DashboardPage() {
                           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
                         </svg>
                       </div>
-                      <h4 className="dash-empty-heading">
-                        No Purchase Orders Found
-                      </h4>
+                      <h4 className="dash-empty-heading">No Purchase Orders Found</h4>
                       <p className="dash-empty-text">
-                        Recent purchasing actions and order statuses will
-                        display here once recorded.
+                        Recent purchasing actions and order statuses will display here once
+                        recorded.
                       </p>
                     </div>
                   )}
@@ -806,9 +760,7 @@ export default function DashboardPage() {
 
           <div
             className={
-              lowStockAlertsMapped.length > 0
-                ? 'dash-card-content'
-                : 'dash-card-content-empty'
+              lowStockAlertsMapped.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'
             }
           >
             {isLoading && lowStockAlertsMapped.length === 0 ? (
@@ -833,11 +785,7 @@ export default function DashboardPage() {
                         height="16"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke={
-                          alert.severity === 'critical'
-                            ? '#ef4444'
-                            : '#d97706'
-                        }
+                        stroke={alert.severity === 'critical' ? '#ef4444' : '#d97706'}
                         strokeWidth="2"
                       >
                         <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -847,12 +795,8 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="dash-alert-content">
-                      <span className="dash-alert-itemName">
-                        {alert.itemName}
-                      </span>
-                      <span className="dash-alert-detail">
-                        {alert.detail}
-                      </span>
+                      <span className="dash-alert-itemName">{alert.itemName}</span>
+                      <span className="dash-alert-detail">{alert.detail}</span>
                     </div>
                   </div>
                 ))}
@@ -873,8 +817,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">No Low Stock Alerts</h3>
                 <p className="dash-empty-text">
-                  Consumable inventory levels are currently within acceptable
-                  thresholds.
+                  Consumable inventory levels are currently within acceptable thresholds.
                 </p>
               </div>
             )}
@@ -907,11 +850,7 @@ export default function DashboardPage() {
           </div>
 
           <div
-            className={
-              warrantyAlerts.length > 0
-                ? 'dash-card-content'
-                : 'dash-card-content-empty'
-            }
+            className={warrantyAlerts.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}
           >
             {isLoading && warrantyAlerts.length === 0 ? (
               <div className="dash-skeleton-list">
@@ -928,10 +867,7 @@ export default function DashboardPage() {
                   const severity = getWarrantySeverity(alert.daysRemaining);
 
                   return (
-                    <div
-                      key={alert.id}
-                      className={`dash-alert-row dash-alert-row--${severity}`}
-                    >
+                    <div key={alert.id} className={`dash-alert-row dash-alert-row--${severity}`}>
                       <div className="dash-alert-badge">
                         {severity === 'critical' && (
                           <svg
@@ -979,9 +915,7 @@ export default function DashboardPage() {
                       </div>
 
                       <div className="dash-alert-content">
-                        <span className="dash-alert-itemName">
-                          {alert.itemName}
-                        </span>
+                        <span className="dash-alert-itemName">{alert.itemName}</span>
                         <span className="dash-alert-detail">
                           Warranty ends {formatDate(alert.warrantyEnd)} ·{' '}
                           {formatDaysRemaining(alert.daysRemaining)}
@@ -1007,8 +941,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">All warranties valid</h3>
                 <p className="dash-empty-text">
-                  No equipment warranties are nearing expiration within the next
-                  30 days.
+                  No equipment warranties are nearing expiration within the next 30 days.
                 </p>
               </div>
             )}
@@ -1032,10 +965,7 @@ export default function DashboardPage() {
             </h2>
 
             <div className="dash-card-actions-inline">
-              <button
-                className="dash-card-action"
-                onClick={() => navigate('/dashboard/equipment')}
-              >
+              <button className="dash-card-action" onClick={() => navigate('/dashboard/equipment')}>
                 Manage Equipment
               </button>
 
@@ -1051,13 +981,10 @@ export default function DashboardPage() {
 
           <div
             className={
-              replacementNeededItems.length > 0
-                ? 'dash-card-content'
-                : 'dash-card-content-empty'
+              replacementNeededItems.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'
             }
           >
-            {(isLoading || isReplacementNeededLoading) &&
-            replacementNeededItems.length === 0 ? (
+            {(isLoading || isReplacementNeededLoading) && replacementNeededItems.length === 0 ? (
               <div className="dash-skeleton-list">
                 {[1, 2, 3].map((id) => (
                   <div key={id} className="dash-skeleton-row animate-pulse">
@@ -1069,10 +996,7 @@ export default function DashboardPage() {
             ) : replacementNeededItems.length > 0 ? (
               <div className="dash-alerts-list">
                 {replacementNeededItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="dash-alert-row dash-alert-row--critical"
-                  >
+                  <div key={item.id} className="dash-alert-row dash-alert-row--critical">
                     <div className="dash-alert-badge">
                       <svg
                         width="16"
@@ -1089,22 +1013,16 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="dash-alert-content">
-                      <span className="dash-alert-itemName">
-                        {item.itemName}
-                      </span>
+                      <span className="dash-alert-itemName">{item.itemName}</span>
 
                       <div className="dash-replacement-meta">
-                        <span className="dash-condition-badge">
-                          Condition: {item.condition}
-                        </span>
+                        <span className="dash-condition-badge">Condition: {item.condition}</span>
                         <span className="dash-condition-badge dash-condition-badge--status">
                           Status: {item.status}
                         </span>
                       </div>
 
-                      <span className="dash-alert-detail">
-                        {item.replacementRecommendation}
-                      </span>
+                      <span className="dash-alert-detail">{item.replacementRecommendation}</span>
 
                       {item.replacementReasons.length > 0 && (
                         <div className="dash-replacement-reasons">
@@ -1154,9 +1072,7 @@ export default function DashboardPage() {
             {quickActions.map((action) => (
               <button
                 key={action.label}
-                className={`dash-qa-btn ${
-                  action.disabled ? 'dash-qa-btn--disabled' : ''
-                }`}
+                className={`dash-qa-btn ${action.disabled ? 'dash-qa-btn--disabled' : ''}`}
                 disabled={action.disabled}
                 title={action.disabled ? 'Coming soon' : undefined}
                 onClick={() => !action.disabled && navigate(action.path)}

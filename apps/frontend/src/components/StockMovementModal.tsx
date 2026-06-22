@@ -72,7 +72,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
 
   // ── Transaction form state ────────────────────────────────────────────────────
   const [txType, setTxType] = useState<TransactionType>('STOCK_IN');
-  const [delta, setDelta] = useState(0);          // relative change (+/-)
+  const [delta, setDelta] = useState(0); // relative change (+/-)
   const [inputValue, setInputValue] = useState('0'); // text in the editable field
   const [purpose, setPurpose] = useState('');
   const [notes, setNotes] = useState('');
@@ -172,7 +172,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
       setSuccessMsg(
         txType === 'STOCK_IN'
           ? `Added ${delta} ${profile.unit}. New quantity: ${previewQty}.`
-          : `Removed ${delta} ${profile.unit}. New quantity: ${previewQty}.`
+          : `Removed ${delta} ${profile.unit}. New quantity: ${previewQty}.`,
       );
 
       // reset form
@@ -217,16 +217,18 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
         <div className="flex border-b border-[var(--surface-border)] px-6">
           {(['adjust', 'history'] as const).map((tab) => (
             <button
-               key={tab}
-               type="button"
-               onClick={() => setActiveTab(tab)}
-               className={`-mb-px border-b-2 py-3 pr-4 text-sm font-medium transition ${
-                 activeTab === tab
-                   ? 'border-[var(--primary,#3b82f6)] text-[var(--primary,#3b82f6)]'
-                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-               }`}
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`-mb-px border-b-2 py-3 pr-4 text-sm font-medium transition ${
+                activeTab === tab
+                  ? 'border-[var(--primary,#3b82f6)] text-[var(--primary,#3b82f6)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
             >
-               {tab === 'adjust' ? 'Update Stock' : `History${histTotal > 0 ? ` (${histTotal})` : ''}`}
+              {tab === 'adjust'
+                ? 'Update Stock'
+                : `History${histTotal > 0 ? ` (${histTotal})` : ''}`}
             </button>
           ))}
         </div>
@@ -262,53 +264,60 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
 
             {/* Quantity input */}
             <div>
-               <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                 {txType === 'STOCK_IN' ? 'Quantity to Add' : 'Quantity to Remove'}
-               </label>
-               <div className="flex items-center gap-2">
-                 <button
-                   type="button"
-                   onClick={() => applyDelta(-1)}
-                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] text-lg font-bold transition hover:bg-[var(--surface-hover)]"
-                 >
-                   −
-                 </button>
-                 <input
-                   type="number"
-                   min="0"
-                   value={inputValue}
-                   onChange={(e) => handleInputChange(e.target.value)}
-                   onBlur={handleInputBlur}
-                   className="h-9 flex-1 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 text-center text-sm font-semibold"
-                 />
-                 <button
-                   type="button"
-                   onClick={() => applyDelta(1)}
-                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] text-lg font-bold transition hover:bg-[var(--surface-hover)]"
-                 >
-                   +
-                 </button>
-                 <span className="text-xs text-[var(--text-secondary)]">{profile.unit}</span>
-               </div>
-               
-               {/* Preview */}
-               {delta !== 0 && (
-                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                   Current: <span className="font-semibold">{currentQty}</span> → New:{' '}
-                   <span className={`font-bold ${previewQty < 0 ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
-                     {previewSafe}
-                   </span>
-                 </p>
-               )}
-               {/* Inline Validation Warning */}
-               {previewQty < 0 && (
-                 <p className="mt-1 flex items-center gap-1 text-sm font-medium text-red-500">
-                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                   </svg>
-                   Cannot remove more than available stock.
-                 </p>
-               )}
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                {txType === 'STOCK_IN' ? 'Quantity to Add' : 'Quantity to Remove'}
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyDelta(-1)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] text-lg font-bold transition hover:bg-[var(--surface-hover)]"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min="0"
+                  value={inputValue}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onBlur={handleInputBlur}
+                  className="h-9 flex-1 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 text-center text-sm font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => applyDelta(1)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] text-lg font-bold transition hover:bg-[var(--surface-hover)]"
+                >
+                  +
+                </button>
+                <span className="text-xs text-[var(--text-secondary)]">{profile.unit}</span>
+              </div>
+
+              {/* Preview */}
+              {delta !== 0 && (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Current: <span className="font-semibold">{currentQty}</span> → New:{' '}
+                  <span
+                    className={`font-bold ${previewQty < 0 ? 'text-red-600' : 'text-[var(--text-primary)]'}`}
+                  >
+                    {previewSafe}
+                  </span>
+                </p>
+              )}
+              {/* Inline Validation Warning */}
+              {previewQty < 0 && (
+                <p className="mt-1 flex items-center gap-1 text-sm font-medium text-red-500">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  Cannot remove more than available stock.
+                </p>
+              )}
             </div>
 
             {/* Purpose — only for Stock Out */}
@@ -352,7 +361,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                 {successMsg}
               </div>
             )}
-            
+
             {/* Action Buttons */}
             <div className="mt-6 flex justify-end gap-3 border-t border-[var(--surface-border)] pt-5">
               <button
@@ -391,18 +400,25 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                 {movements.map((mov) => {
                   const lbl = movementLabel(mov.movementType);
                   return (
-                    <div key={mov.id} className="flex gap-4 rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] p-4">
+                    <div
+                      key={mov.id}
+                      className="flex gap-4 rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] p-4"
+                    >
                       <div className="flex-1">
                         <div className="mb-2 flex items-center justify-between">
-                           <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${lbl.color}`}>
-                             {lbl.text}
-                           </span>
-                           <span className="text-xs text-[var(--text-disabled)]">
-                             {formatTs(mov.createdAt)}
-                           </span>
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${lbl.color}`}
+                          >
+                            {lbl.text}
+                          </span>
+                          <span className="text-xs text-[var(--text-disabled)]">
+                            {formatTs(mov.createdAt)}
+                          </span>
                         </div>
                         <p className="text-sm text-[var(--text-primary)]">
-                          <span className="font-medium text-[var(--text-secondary)]">Performed by: </span>
+                          <span className="font-medium text-[var(--text-secondary)]">
+                            Performed by:{' '}
+                          </span>
                           {mov.performedBy.firstName} {mov.performedBy.lastName}
                         </p>
                         <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
@@ -410,13 +426,15 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                           <span className="text-[var(--text-disabled)] text-xs">→</span>
                           <span className="text-[var(--text-primary)]">{mov.quantityAfter}</span>
                           <span className="text-xs text-[var(--text-disabled)] font-normal ml-2">
-                             (Change: {mov.quantityChange > 0 ? `+${mov.quantityChange}` : mov.quantityChange})
+                            (Change:{' '}
+                            {mov.quantityChange > 0 ? `+${mov.quantityChange}` : mov.quantityChange}
+                            )
                           </span>
                         </div>
                         {mov.reason && (
-                           <p className="mt-2 text-xs italic text-[var(--text-secondary)] border-l-2 border-[var(--surface-border)] pl-2">
-                             "{mov.reason}"
-                           </p>
+                          <p className="mt-2 text-xs italic text-[var(--text-secondary)] border-l-2 border-[var(--surface-border)] pl-2">
+                            "{mov.reason}"
+                          </p>
                         )}
                       </div>
                     </div>

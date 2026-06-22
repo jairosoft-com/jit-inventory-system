@@ -1,8 +1,17 @@
 import { prisma } from '../lib/prisma.js';
-import {
-  CreateCategoryInput,
-  UpdateCategoryInput,
-} from '../schemas/categories.schema.js';
+
+// Adjust these imports based on your actual validation/type file locations
+export interface CreateCategoryInput {
+  name: string;
+  type: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
+  description?: string;
+}
+
+export interface UpdateCategoryInput {
+  name?: string;
+  type?: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
+  description?: string;
+}
 
 const CATEGORY_INCLUDE = {
   _count: {
@@ -26,7 +35,7 @@ export class CategoriesService {
     });
 
     if (existing) {
-      throw new Error('Category name already exists');
+      throw new Error('Category already exists');
     }
 
     return prisma.category.create({
@@ -40,21 +49,22 @@ export class CategoriesService {
   }
 
   static async findAll(includeArchived: boolean | string = false) {
-    const shouldInclude =
-      includeArchived === true || includeArchived === 'true';
+    const shouldInclude = includeArchived === true || includeArchived === 'true';
+
     return prisma.category.findMany({
-      where: shouldInclude ? {} : { deletedAt: null },
-      orderBy: { name: 'asc' },
+      where: shouldInclude ? undefined : { deletedAt: null },
       include: CATEGORY_INCLUDE,
+      orderBy: { name: 'asc' },
     });
   }
 
   static async findOne(id: number) {
     const category = await prisma.category.findUnique({
       where: { id },
+      include: CATEGORY_INCLUDE,
     });
 
-    if (!category || category.deletedAt) {
+    if (!category) {
       throw new Error('Category not found');
     }
 
@@ -91,20 +101,11 @@ export class CategoriesService {
   }
 
   static async archive(id: number) {
+    // 1. Ensure the category actually exists
     await this.findOne(id);
 
-    const activeItemsCount = await prisma.item.count({
-      where: {
-        categoryId: id,
-        deletedAt: null,
-      },
-    });
-
-    if (activeItemsCount > 0) {
-      throw new Error(
-        `Cannot archive category. It has ${activeItemsCount} active item(s) assigned to it.`,
-      );
-    }
+    // 2. We removed the validation check that throws "Cannot archive category. It has active items..."
+    // This allows the category to be archived (soft-deleted) while leaving the existing items safely attached.
 
     return prisma.category.update({
       where: { id },

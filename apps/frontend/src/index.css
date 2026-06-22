@@ -460,7 +460,6 @@ body {
   transform: translateY(1px);
 }
 
-
 .inventory-input-readonly {
   background: var(--background-tertiary);
   color: var(--text-tertiary);

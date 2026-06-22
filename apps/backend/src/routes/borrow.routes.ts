@@ -118,7 +118,10 @@ router.patch(
       // Check this first: 'Borrow record not found or no longer PENDING'
       // contains the substring 'not found', so it must be matched before
       // the plain not-found branch below or it would incorrectly 404.
-      if (message.includes('no longer PENDING') || message.includes('unavailable')) {
+      if (
+        message.includes('no longer PENDING') ||
+        message.includes('unavailable')
+      ) {
         // 409 Conflict — request/equipment is in a state that doesn't allow this action
         res.status(409).json({ message });
         return;

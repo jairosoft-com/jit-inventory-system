@@ -181,10 +181,9 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>(
-        '/equipment',
-        { params },
-      );
+      const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>('/equipment', {
+        params,
+      });
       set({
         equipment: response.data.data,
         meta: response.data.meta,
@@ -248,8 +247,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to update equipment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to update equipment';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -268,8 +266,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete equipment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete equipment';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -277,10 +274,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   addImage: async (equipmentId, data) => {
     try {
-      const response = await api.post<EquipmentImage>(
-        `/equipment/${equipmentId}/images`,
-        data,
-      );
+      const response = await api.post<EquipmentImage>(`/equipment/${equipmentId}/images`, data);
       const newImage = response.data;
       // Update local state with the new image
       set((state) => ({
@@ -330,8 +324,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete image';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete image';
       set({ error: errMsg });
       throw new Error(errMsg);
     }

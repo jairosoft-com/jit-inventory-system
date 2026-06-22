@@ -4,13 +4,13 @@ import { prisma } from '../lib/prisma.js';
 export interface CreateCategoryInput {
   name: string;
   type: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
-  description?: string;
+  description?: string | null ;
 }
 
 export interface UpdateCategoryInput {
   name?: string;
   type?: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
-  description?: string;
+  description?: string | null;
 }
 
 const CATEGORY_INCLUDE = {

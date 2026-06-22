@@ -103,15 +103,7 @@ function StatusBadge({ item }: { item: Item }) {
   );
 }
 
-function SummaryCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string;
-  value: ReactNode;
-  icon: string;
-}) {
+function SummaryCard({ title, value, icon }: { title: string; value: ReactNode; icon: string }) {
   return (
     <article className="flex items-center gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-2xl">
@@ -149,7 +141,6 @@ export default function InventoryManagementPage() {
     deleteImage,
     clearError,
   } = useItemsStore();
-
 
   // ── Local UI state ──────────────────────────────────────────────────────────
 
@@ -245,25 +236,16 @@ export default function InventoryManagementPage() {
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const consumableCategories = useMemo(
-    () =>
-      categories.filter(
-        (category) => !category.deletedAt && category.type === 'CONSUMABLE',
-      ),
+    () => categories.filter((category) => !category.deletedAt && category.type === 'CONSUMABLE'),
     [categories],
   );
 
   const hasActiveFilters =
-    Boolean(appliedSearchTerm.trim()) ||
-    appliedCategoryId !== 'all' ||
-    appliedStatus !== 'all';
+    Boolean(appliedSearchTerm.trim()) || appliedCategoryId !== 'all' || appliedStatus !== 'all';
 
   const summaries = useMemo(() => {
-    const inStock = items.filter(
-      (item) => item.consumableProfile?.status === 'IN_STOCK',
-    ).length;
-    const lowStock = items.filter(
-      (item) => item.consumableProfile?.status === 'LOW_STOCK',
-    ).length;
+    const inStock = items.filter((item) => item.consumableProfile?.status === 'IN_STOCK').length;
+    const lowStock = items.filter((item) => item.consumableProfile?.status === 'LOW_STOCK').length;
     const outOfStock = items.filter(
       (item) => item.consumableProfile?.status === 'OUT_OF_STOCK',
     ).length;
@@ -339,14 +321,18 @@ export default function InventoryManagementPage() {
     event.target.value = '';
 
     if (!file.type.startsWith('image/') || !ALLOWED_MIME_TYPES.includes(file.type)) {
-      setImageError(`"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`);
+      setImageError(
+        `"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`,
+      );
       return;
     }
 
     if (file.size > MAX_IMAGE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
 
-      setImageError(`"${file.name}" is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller image.`);
+      setImageError(
+        `"${file.name}" is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller image.`,
+      );
       return;
     }
 
@@ -540,9 +526,7 @@ export default function InventoryManagementPage() {
         {/* Header */}
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">
-              Stock Tracking
-            </p>
+            <p className="text-sm font-medium text-[var(--accent)]">Stock Tracking</p>
             <h1 className="mt-1 text-2xl font-semibold">Inventory Management</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
               Track stock levels, reorder points, and item movements across your organisation.
@@ -717,10 +701,7 @@ export default function InventoryManagementPage() {
                       </thead>
                       <tbody className="divide-y divide-[var(--surface-border)]">
                         {items.map((item) => (
-                          <tr
-                            key={item.id}
-                            className="transition hover:bg-[var(--surface-hover)]"
-                          >
+                          <tr key={item.id} className="transition hover:bg-[var(--surface-hover)]">
                             <td className="px-4 py-3">{renderItemImage(item)}</td>
                             <td className="px-4 py-3">
                               <p className="font-medium">{item.itemName}</p>
@@ -736,8 +717,7 @@ export default function InventoryManagementPage() {
                             <td className="px-4 py-3 text-[var(--text-secondary)]">
                               {item.consumableProfile ? (
                                 <span>
-                                  {item.consumableProfile.quantity}{' '}
-                                  {item.consumableProfile.unit}
+                                  {item.consumableProfile.quantity} {item.consumableProfile.unit}
                                   <span className="ml-1 text-xs text-[var(--text-tertiary)]">
                                     (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
                                     {item.consumableProfile.unit})
@@ -765,7 +745,7 @@ export default function InventoryManagementPage() {
                                       Edit
                                     </button>
                                   )}
-                                  
+
                                   {canUpdate && item.consumableProfile && (
                                     <button
                                       type="button"
@@ -837,15 +817,15 @@ export default function InventoryManagementPage() {
                             </button>
                           )}
 
-                            {canUpdate && item.consumableProfile && (
-                              <button
-                                type="button"
-                                onClick={() => setStockItem(item)}
-                                className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                              >
-                                Stock
-                              </button>
-                            )}
+                          {canUpdate && item.consumableProfile && (
+                            <button
+                              type="button"
+                              onClick={() => setStockItem(item)}
+                              className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                            >
+                              Stock
+                            </button>
+                          )}
                           {canDelete && (
                             <button
                               type="button"
@@ -913,8 +893,7 @@ export default function InventoryManagementPage() {
                             <td className="px-4 py-3 text-[var(--text-secondary)]">
                               {item.consumableProfile ? (
                                 <span>
-                                  {item.consumableProfile.quantity}{' '}
-                                  {item.consumableProfile.unit}
+                                  {item.consumableProfile.quantity} {item.consumableProfile.unit}
                                 </span>
                               ) : (
                                 '—'
@@ -992,9 +971,7 @@ export default function InventoryManagementPage() {
           <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
               <div>
-                <h2 className="text-lg font-semibold">
-                  {editingItem ? 'Edit Item' : 'Add Item'}
-                </h2>
+                <h2 className="text-lg font-semibold">{editingItem ? 'Edit Item' : 'Add Item'}</h2>
                 <p className="text-xs text-[var(--text-secondary)]">
                   {editingItem
                     ? `Editing "${editingItem.itemName}"`
@@ -1026,9 +1003,7 @@ export default function InventoryManagementPage() {
                 {/* Existing images (edit mode) */}
                 {editingItem && (editingItem.images?.length ?? 0) > 0 && (
                   <div className="mb-3">
-                    <p className="mb-2 text-xs text-[var(--text-tertiary)]">
-                      Current Images
-                    </p>
+                    <p className="mb-2 text-xs text-[var(--text-tertiary)]">Current Images</p>
                     <div className="flex flex-wrap gap-2">
                       {editingItem.images.map((image) => (
                         <div key={image.id} className="group relative">
@@ -1119,7 +1094,9 @@ export default function InventoryManagementPage() {
                     </button>
                   </div>
                 )}
-                <p className="text-xs text-[var(--text-tertiary)]">Max size: 5 MB. Formats: JPG, JPEG, PNG</p>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Max size: 5 MB. Formats: JPG, JPEG, PNG
+                </p>
               </div>
 
               {/* Common fields */}
@@ -1289,12 +1266,7 @@ export default function InventoryManagementPage() {
               className="absolute -top-12 right-0 cursor-pointer rounded-full bg-gray-800/50 p-2 text-white transition hover:bg-gray-800 hover:text-gray-300 focus:outline-none"
             >
               <span className="sr-only">Close Preview</span>
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

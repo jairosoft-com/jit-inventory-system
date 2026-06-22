@@ -15,6 +15,26 @@ const SUPPLIER_INCLUDE = {
   },
 } as const;
 
+type SupplierWithCount = Prisma.SupplierGetPayload<{
+  include: typeof SUPPLIER_INCLUDE;
+}>;
+
+function mapSupplier(supplier: SupplierWithCount) {
+  return {
+    id: supplier.id,
+    supplierName: supplier.supplierName,
+    contactPerson: supplier.contactPerson,
+    email: supplier.email,
+    phone: supplier.phone,
+    address: supplier.address,
+    createdAt: supplier.createdAt,
+    updatedAt: supplier.updatedAt,
+    deletedAt: supplier.deletedAt,
+    status: supplier.deletedAt ? 'inactive' : 'active',
+    purchaseOrderCount: supplier._count.purchaseOrders,
+  };
+}
+
 function buildSupplierStatusWhere(
   status: ListSuppliersQuery['status'] = 'active',
 ): Prisma.SupplierWhereInput {
@@ -111,6 +131,18 @@ export class SuppliersService {
   }
 
   static async findAll(query: ListSuppliersQuery) {
+    if (query.includeArchived) {
+      const suppliers = await prisma.supplier.findMany({
+        where: {},
+        orderBy: {
+          supplierName: 'asc',
+        },
+        include: SUPPLIER_INCLUDE,
+      });
+
+      return suppliers.map(mapSupplier);
+    }
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -136,19 +168,7 @@ export class SuppliersService {
     ]);
 
     return {
-      data: suppliers.map((supplier) => ({
-        id: supplier.id,
-        supplierName: supplier.supplierName,
-        contactPerson: supplier.contactPerson,
-        email: supplier.email,
-        phone: supplier.phone,
-        address: supplier.address,
-        createdAt: supplier.createdAt,
-        updatedAt: supplier.updatedAt,
-        deletedAt: supplier.deletedAt,
-        status: supplier.deletedAt ? 'inactive' : 'active',
-        purchaseOrderCount: supplier._count.purchaseOrders,
-      })),
+      data: suppliers.map(mapSupplier),
       meta: {
         page,
         limit,

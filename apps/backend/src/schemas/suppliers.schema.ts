@@ -50,6 +50,13 @@ export const supplierStatusFilterSchema = z
 export const listSuppliersQuerySchema = z.object({
   search: z.string().trim().max(100).optional().default(''),
   status: supplierStatusFilterSchema,
+  includeArchived: z
+    .preprocess((val) => {
+      if (val === 'true' || val === true) return true;
+      if (val === 'false' || val === false) return false;
+      return undefined;
+    }, z.boolean().optional())
+    .default(false),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });

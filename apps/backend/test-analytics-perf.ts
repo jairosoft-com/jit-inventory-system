@@ -6,7 +6,9 @@ const PASSWORD = 'admin123';
 const REQUESTS_COUNT = 50;
 
 async function runPerfTest() {
-  console.log('🏁 Starting API Performance Verification for /api/dashboard/analytics...');
+  console.log(
+    '🏁 Starting API Performance Verification for /api/dashboard/analytics...',
+  );
   console.log(`📡 Base URL: ${BASE_URL}`);
 
   // 1. Authenticate
@@ -19,7 +21,10 @@ async function runPerfTest() {
       body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
     });
   } catch (err: any) {
-    console.error(`❌ Failed to connect to server at ${BASE_URL}. Is the backend server running? Start it first using npm run dev.`, err.message);
+    console.error(
+      `❌ Failed to connect to server at ${BASE_URL}. Is the backend server running? Start it first using npm run dev.`,
+      err.message,
+    );
     process.exit(1);
   }
 
@@ -30,11 +35,13 @@ async function runPerfTest() {
     process.exit(1);
   }
 
-  const { accessToken } = await loginRes.json() as { accessToken: string };
+  const { accessToken } = (await loginRes.json()) as { accessToken: string };
   console.log('✅ Authenticated successfully!');
 
   // 2. Perform 50 requests
-  console.log(`⏱️  Sending ${REQUESTS_COUNT} sequential requests to /api/dashboard/analytics...`);
+  console.log(
+    `⏱️  Sending ${REQUESTS_COUNT} sequential requests to /api/dashboard/analytics...`,
+  );
   const latencies: number[] = [];
 
   for (let i = 1; i <= REQUESTS_COUNT; i++) {
@@ -43,7 +50,7 @@ async function runPerfTest() {
       const res = await fetch(`${BASE_URL}/dashboard/analytics`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
       });
@@ -58,7 +65,9 @@ async function runPerfTest() {
 
       latencies.push(duration);
       if (i % 10 === 0 || i === 1) {
-        console.log(`   Progress: ${i}/${REQUESTS_COUNT} requests completed...`);
+        console.log(
+          `   Progress: ${i}/${REQUESTS_COUNT} requests completed...`,
+        );
       }
     } catch (err: any) {
       console.error(`❌ Request ${i} encountered an error:`, err.message);
@@ -96,10 +105,14 @@ async function runPerfTest() {
 
   const p95Threshold = 500;
   if (p95 < p95Threshold) {
-    console.log(`🟢 SUCCESS: p95 latency (${p95.toFixed(2)} ms) is below the 500 ms threshold!`);
+    console.log(
+      `🟢 SUCCESS: p95 latency (${p95.toFixed(2)} ms) is below the 500 ms threshold!`,
+    );
     process.exit(0);
   } else {
-    console.log(`🔴 FAILURE: p95 latency (${p95.toFixed(2)} ms) exceeded the 500 ms threshold.`);
+    console.log(
+      `🔴 FAILURE: p95 latency (${p95.toFixed(2)} ms) exceeded the 500 ms threshold.`,
+    );
     process.exit(1);
   }
 }

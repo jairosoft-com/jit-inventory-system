@@ -6,12 +6,7 @@ import api from '../lib/api';
 export type ItemType = 'CONSUMABLE' | 'DIGITAL';
 export type ItemStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'ARCHIVED';
 export type DigitalStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED';
-export type DigitalAssetType =
-  | 'SOFTWARE'
-  | 'SUBSCRIPTION'
-  | 'DOMAIN'
-  | 'LICENSE'
-  | 'API_KEY';
+export type DigitalAssetType = 'SOFTWARE' | 'SUBSCRIPTION' | 'DOMAIN' | 'LICENSE' | 'API_KEY';
 export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'ONE_TIME';
 
 // ── Response types (match backend API shape) ─────────────────────────────────
@@ -154,10 +149,7 @@ export const useItemStore = create<ItemState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>(
-        '/items',
-        { params },
-      );
+      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>('/items', { params });
       set({
         items: response.data.data,
         meta: response.data.meta,
@@ -184,8 +176,7 @@ export const useItemStore = create<ItemState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to create item';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to create item';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -206,8 +197,7 @@ export const useItemStore = create<ItemState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to update item';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to update item';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -226,8 +216,7 @@ export const useItemStore = create<ItemState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete item';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete item';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -235,17 +224,12 @@ export const useItemStore = create<ItemState>((set, get) => ({
 
   addImage: async (itemId, data) => {
     try {
-      const response = await api.post<ItemImage>(
-        `/items/${itemId}/images`,
-        data,
-      );
+      const response = await api.post<ItemImage>(`/items/${itemId}/images`, data);
       const newImage = response.data;
       // Update local state with the new image
       set((state) => ({
         items: state.items.map((item) =>
-          item.id === itemId
-            ? { ...item, images: [...item.images, newImage] }
-            : item,
+          item.id === itemId ? { ...item, images: [...item.images, newImage] } : item,
         ),
       }));
       return newImage;
@@ -290,8 +274,7 @@ export const useItemStore = create<ItemState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete image';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete image';
       set({ error: errMsg });
       throw new Error(errMsg);
     }

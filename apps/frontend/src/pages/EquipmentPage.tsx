@@ -24,13 +24,7 @@ const EQUIPMENT_STATUSES: EquipmentStatus[] = [
   'RETIRED',
 ];
 
-const CONDITION_STATUSES: ConditionStatus[] = [
-  'NEW',
-  'GOOD',
-  'FAIR',
-  'POOR',
-  'DAMAGED',
-];
+const CONDITION_STATUSES: ConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
 const DISPOSAL_REASONS: DisposalReason[] = [
   'DAMAGED_BEYOND_REPAIR',
@@ -94,8 +88,6 @@ const DEFAULT_LOCATIONS = [
   'Finance Department',
   'Operations Room',
 ];
-
-
 
 const emptyForm: FormState = {
   itemName: '',
@@ -316,14 +308,18 @@ export default function EquipmentPage() {
     e.target.value = '';
 
     if (!file.type.startsWith('image/') || !ALLOWED_MIME_TYPES.includes(file.type)) {
-      setImageError(`"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`);
+      setImageError(
+        `"${file.name}" is not a supported image. Only JPG, JPEG, and PNG are allowed.`,
+      );
       return;
     }
 
     const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
     if (file.size > MAX_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      setImageError(`"${file.name}" is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller image.`);
+      setImageError(
+        `"${file.name}" is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller image.`,
+      );
       return;
     }
 
@@ -339,7 +335,8 @@ export default function EquipmentPage() {
         {
           url,
           label: file.name,
-          isPrimary: prev.length === 0 && (!editingEquipment || editingEquipment.images.length === 0),
+          isPrimary:
+            prev.length === 0 && (!editingEquipment || editingEquipment.images.length === 0),
           size: file.size,
         },
       ]);
@@ -368,7 +365,7 @@ export default function EquipmentPage() {
 
       // Update local editing state to remove the image immediately from the modal
       setEditingEquipment((prev) =>
-        prev ? { ...prev, images: prev.images.filter((img) => img.id !== imageId) } : prev
+        prev ? { ...prev, images: prev.images.filter((img) => img.id !== imageId) } : prev,
       );
     } catch {
       // error already set in store
@@ -412,9 +409,7 @@ export default function EquipmentPage() {
           warrantyStart: formData.warrantyStart || null,
           warrantyEnd: formData.warrantyEnd || null,
           warrantyProvider: formData.warrantyProvider.trim() || null,
-          purchasePrice: formData.purchasePrice
-            ? Number(formData.purchasePrice)
-            : null,
+          purchasePrice: formData.purchasePrice ? Number(formData.purchasePrice) : null,
           acquisitionDate: formData.acquisitionDate || null,
         });
 
@@ -444,9 +439,7 @@ export default function EquipmentPage() {
           warrantyStart: formData.warrantyStart || null,
           warrantyEnd: formData.warrantyEnd || null,
           warrantyProvider: formData.warrantyProvider.trim() || null,
-          purchasePrice: formData.purchasePrice
-            ? Number(formData.purchasePrice)
-            : null,
+          purchasePrice: formData.purchasePrice ? Number(formData.purchasePrice) : null,
           acquisitionDate: formData.acquisitionDate || null,
           images: pendingImages.map((img) => ({
             url: img.url,
@@ -595,13 +588,11 @@ export default function EquipmentPage() {
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">
-              Asset Management
-            </p>
+            <p className="text-sm font-medium text-[var(--accent)]">Asset Management</p>
             <h1 className="mt-1 text-2xl font-semibold">Equipment Management</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Register, track, and manage physical equipment assets. View status,
-              condition, warranty information, and assigned users.
+              Register, track, and manage physical equipment assets. View status, condition,
+              warranty information, and assigned users.
             </p>
           </div>
 
@@ -630,10 +621,7 @@ export default function EquipmentPage() {
         {storeError && !isFormOpen && (
           <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <span>{storeError}</span>
-            <button
-              onClick={clearError}
-              className="font-semibold text-red-800 hover:text-red-950"
-            >
+            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
               Dismiss
             </button>
           </div>
@@ -701,9 +689,7 @@ export default function EquipmentPage() {
           {isLoading ? (
             <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
               <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-              <h3 className="mt-3 font-medium text-[var(--text-primary)]">
-                Loading equipment...
-              </h3>
+              <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading equipment...</h3>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
                 Fetching data from the server.
               </p>
@@ -717,15 +703,11 @@ export default function EquipmentPage() {
                     <tr>
                       <th className="px-4 py-3.5 font-semibold w-14"></th>
                       <th className="px-4 py-3.5 font-semibold">Equipment</th>
-                      <th className="px-4 py-3.5 font-semibold">
-                        Serial &amp; Model
-                      </th>
+                      <th className="px-4 py-3.5 font-semibold">Serial &amp; Model</th>
                       <th className="px-4 py-3.5 font-semibold">Status</th>
                       <th className="px-4 py-3.5 font-semibold">Monitoring Info</th>
                       {(canUpdate || canDelete) && (
-                        <th className="px-4 py-3.5 font-semibold text-right">
-                          Actions
-                        </th>
+                        <th className="px-4 py-3.5 font-semibold text-right">Actions</th>
                       )}
                     </tr>
                   </thead>
@@ -773,9 +755,7 @@ export default function EquipmentPage() {
                           {/* Serial & Model */}
                           <td className="px-4 py-4 text-[var(--text-secondary)]">
                             <div>
-                              {eq.brand && (
-                                <span className="font-medium">{eq.brand} </span>
-                              )}
+                              {eq.brand && <span className="font-medium">{eq.brand} </span>}
                               {eq.model || '—'}
                             </div>
                             {eq.serialNumber && (
@@ -804,11 +784,15 @@ export default function EquipmentPage() {
                                     {new Date(eq.warrantyEnd).toLocaleDateString()}
                                   </div>
                                   {eq.warrantyProvider && (
-                                    <div className="text-[var(--text-disabled)]">{eq.warrantyProvider}</div>
+                                    <div className="text-[var(--text-disabled)]">
+                                      {eq.warrantyProvider}
+                                    </div>
                                   )}
                                 </>
                               ) : (
-                                <div className="text-[var(--text-disabled)] italic">No warranty</div>
+                                <div className="text-[var(--text-disabled)] italic">
+                                  No warranty
+                                </div>
                               )}
                             </div>
                           </td>
@@ -1014,7 +998,6 @@ export default function EquipmentPage() {
             </div>
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
-
               {/* Form Error */}
               {formError && (
                 <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1032,9 +1015,7 @@ export default function EquipmentPage() {
                   {/* Existing images (edit mode) */}
                   {editingEquipment && editingEquipment.images.length > 0 && (
                     <div className="mb-3">
-                      <p className="text-xs text-[var(--text-secondary)] mb-2">
-                        Current Images
-                      </p>
+                      <p className="text-xs text-[var(--text-secondary)] mb-2">Current Images</p>
                       <div className="flex flex-wrap gap-3">
                         {editingEquipment.images.map((img) => (
                           <div key={img.id} className="relative group">
@@ -1051,9 +1032,7 @@ export default function EquipmentPage() {
                             )}
                             <button
                               type="button"
-                              onClick={() =>
-                                handleDeleteExistingImage(editingEquipment.id, img.id)
-                              }
+                              onClick={() => handleDeleteExistingImage(editingEquipment.id, img.id)}
                               className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
                             >
                               ×
@@ -1108,10 +1087,18 @@ export default function EquipmentPage() {
                     {imageError && (
                       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
                         <span>{imageError}</span>
-                        <button type="button" onClick={() => setImageError(null)} className="font-bold text-red-800 hover:text-red-950">×</button>
+                        <button
+                          type="button"
+                          onClick={() => setImageError(null)}
+                          className="font-bold text-red-800 hover:text-red-950"
+                        >
+                          ×
+                        </button>
                       </div>
                     )}
-                    <p className="text-xs text-[var(--text-tertiary)]">Max size: 5MB. Formats: JPG, JPEG, PNG</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">
+                      Max size: 5MB. Formats: JPG, JPEG, PNG
+                    </p>
                   </div>
                 </fieldset>
 
@@ -1246,7 +1233,10 @@ export default function EquipmentPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => { setShowLocationInput(false); setNewLocationValue(''); }}
+                            onClick={() => {
+                              setShowLocationInput(false);
+                              setNewLocationValue('');
+                            }}
                             className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
                           >
                             Cancel
@@ -1262,7 +1252,9 @@ export default function EquipmentPage() {
                           >
                             <option value="">Select location...</option>
                             {locationOptions.map((loc) => (
-                              <option key={loc} value={loc}>{loc}</option>
+                              <option key={loc} value={loc}>
+                                {loc}
+                              </option>
                             ))}
                           </select>
                           <button
@@ -1401,7 +1393,8 @@ export default function EquipmentPage() {
                   </button>
                 </div>
               </form>
-            </div>{/* end scrollable body */}
+            </div>
+            {/* end scrollable body */}
           </section>
         </div>
       )}
@@ -1531,12 +1524,7 @@ export default function EquipmentPage() {
               className="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none transition p-2 bg-gray-800/50 hover:bg-gray-800 rounded-full cursor-pointer"
             >
               <span className="sr-only">Close Preview</span>
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -1644,9 +1632,5 @@ function ConditionBadge({ condition }: { condition: ConditionStatus }) {
     DAMAGED: 'text-red-600 font-bold',
   };
 
-  return (
-    <span className={`text-xs ${styles[condition] || 'text-gray-500'}`}>
-      {condition}
-    </span>
-  );
+  return <span className={`text-xs ${styles[condition] || 'text-gray-500'}`}>{condition}</span>;
 }

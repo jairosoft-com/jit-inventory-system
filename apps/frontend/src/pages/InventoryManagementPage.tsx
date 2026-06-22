@@ -719,7 +719,8 @@ export default function InventoryManagementPage() {
                                 <span>
                                   {item.consumableProfile.quantity} {item.consumableProfile.unit}
                                   <span className="ml-1 text-xs text-[var(--text-tertiary)]">
-                                    (reorder @ {item.consumableProfile.reorderPoint})
+                                    (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
+                                    {item.consumableProfile.unit})
                                   </span>
                                 </span>
                               ) : (
@@ -795,9 +796,11 @@ export default function InventoryManagementPage() {
 
                             {item.consumableProfile && (
                               <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                                {item.consumableProfile.quantity} {item.consumableProfile.unit}
-                                {' · reorder @ '}
-                                {item.consumableProfile.reorderPoint}
+                                {item.consumableProfile.quantity}{' '}
+                                {item.consumableProfile.unit}
+                                {' · '}
+                                (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
+                                {item.consumableProfile.unit})
                               </p>
                             )}
                           </div>

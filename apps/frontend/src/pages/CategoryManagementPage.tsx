@@ -41,9 +41,7 @@ export default function CategoryManagementPage() {
   // Resolve user permissions
   const permissions = useMemo(() => {
     if (!user || !user.permissions) return [];
-    return user.permissions.map((p) =>
-      typeof p === 'string' ? p : p.name || '',
-    );
+    return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
   }, [user]);
 
   const canCreate = permissions.includes('categories:create');
@@ -133,7 +131,8 @@ export default function CategoryManagementPage() {
       // Auto-fade success message
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'An error occurred while saving the category';
+      const errMsg =
+        err instanceof Error ? err.message : 'An error occurred while saving the category';
       setFormError(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -393,7 +392,10 @@ export default function CategoryManagementPage() {
                           )}
                         </p>
                         <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
-                          Linked Items: <span className="font-semibold text-[var(--text-primary)]">{cat._count?.items ?? 0}</span>
+                          Linked Items:{' '}
+                          <span className="font-semibold text-[var(--text-primary)]">
+                            {cat._count?.items ?? 0}
+                          </span>
                         </p>
                       </div>
                       <TypeBadge type={cat.type} />
@@ -444,18 +446,18 @@ export default function CategoryManagementPage() {
                     📁
                   </div>
                   <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    {filterTab === 'archived' ? 'No archived categories found' : 'No active categories found'}
+                    {filterTab === 'archived'
+                      ? 'No archived categories found'
+                      : 'No active categories found'}
                   </h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {filterTab === 'archived' ? (
-                      searchTerm || selectedType !== 'all'
+                    {filterTab === 'archived'
+                      ? searchTerm || selectedType !== 'all'
                         ? 'No archived categories match your search criteria.'
                         : 'There are no archived categories in the system.'
-                    ) : (
-                      searchTerm || selectedType !== 'all'
+                      : searchTerm || selectedType !== 'all'
                         ? 'Try refining your search query or selected type filter.'
-                        : 'No inventory categories have been created yet.'
-                    )}
+                        : 'No inventory categories have been created yet.'}
                   </p>
                   {canCreate && !searchTerm && selectedType === 'all' && filterTab === 'active' && (
                     <button

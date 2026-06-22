@@ -52,9 +52,7 @@ export default function SupplierManagementPage() {
   // Resolve user permissions
   const permissions = useMemo(() => {
     if (!user || !user.permissions) return [];
-    return user.permissions.map((p) =>
-      typeof p === 'string' ? p : p.name || ''
-    );
+    return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
   }, [user]);
 
   const canRead = permissions.includes('suppliers:read');
@@ -83,7 +81,9 @@ export default function SupplierManagementPage() {
   const summaries = useMemo(() => {
     const active = suppliers.filter((s) => !s.deletedAt);
     const archived = suppliers.filter((s) => !!s.deletedAt);
-    const linkedToPOs = active.filter((s) => s._count?.purchaseOrders && s._count.purchaseOrders > 0);
+    const linkedToPOs = active.filter(
+      (s) => s._count?.purchaseOrders && s._count.purchaseOrders > 0,
+    );
 
     return {
       total: active.length,
@@ -103,7 +103,8 @@ export default function SupplierManagementPage() {
           </div>
           <h1 className="mt-6 text-xl font-bold text-[var(--text-primary)]">Access Denied</h1>
           <p className="mt-3 text-sm text-[var(--text-secondary)]">
-            You do not have the required permissions to access supplier records. Please contact your administrator.
+            You do not have the required permissions to access supplier records. Please contact your
+            administrator.
           </p>
         </section>
       </main>
@@ -149,9 +150,31 @@ export default function SupplierManagementPage() {
       return;
     }
 
+    const contactPersonTrimmed = formData.contactPerson.trim();
+    if (!contactPersonTrimmed) {
+      setFormError('Contact person is required');
+      return;
+    }
+
     const emailTrimmed = formData.email.trim();
-    if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+    if (!emailTrimmed) {
+      setFormError('Email address is required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
       setFormError('Invalid email address format');
+      return;
+    }
+
+    const phoneTrimmed = formData.phone.trim();
+    if (!phoneTrimmed) {
+      setFormError('Phone number is required');
+      return;
+    }
+
+    const addressTrimmed = formData.address.trim();
+    if (!addressTrimmed) {
+      setFormError('Business address is required');
       return;
     }
 
@@ -159,10 +182,10 @@ export default function SupplierManagementPage() {
     try {
       const payload = {
         supplierName: nameTrimmed,
-        contactPerson: formData.contactPerson.trim() || null,
-        email: emailTrimmed || null,
-        phone: formData.phone.trim() || null,
-        address: formData.address.trim() || null,
+        contactPerson: contactPersonTrimmed,
+        email: emailTrimmed,
+        phone: phoneTrimmed,
+        address: addressTrimmed,
       };
 
       if (editingSupplier) {
@@ -295,8 +318,8 @@ export default function SupplierManagementPage() {
             <p className="text-sm font-medium text-[var(--accent)]">Procurement Settings</p>
             <h1 className="mt-1 text-2xl font-semibold">Supplier Management</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Register and manage supplier records, contact info, and addresses.
-              Track profile histories and view related active purchase orders.
+              Register and manage supplier records, contact info, and addresses. Track profile
+              histories and view related active purchase orders.
             </p>
           </div>
 
@@ -403,7 +426,9 @@ export default function SupplierManagementPage() {
             <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
               <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
               <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading suppliers...</h3>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">Please wait while we fetch the directory.</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Please wait while we fetch the directory.
+              </p>
             </div>
           ) : (
             <>
@@ -502,24 +527,38 @@ export default function SupplierManagementPage() {
                     className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
                   >
                     <div className="flex flex-col gap-1">
-                      <h3 className="font-semibold text-[var(--text-primary)]">{sup.supplierName}</h3>
+                      <h3 className="font-semibold text-[var(--text-primary)]">
+                        {sup.supplierName}
+                      </h3>
                       {sup.contactPerson && (
                         <p className="text-xs text-[var(--text-secondary)]">
-                          Contact: <span className="font-medium text-[var(--text-primary)]">{sup.contactPerson}</span>
+                          Contact:{' '}
+                          <span className="font-medium text-[var(--text-primary)]">
+                            {sup.contactPerson}
+                          </span>
                         </p>
                       )}
                       {sup.email && (
                         <p className="text-xs text-[var(--text-secondary)] truncate">
-                          Email: <span className="font-medium text-[var(--text-primary)]">{sup.email}</span>
+                          Email:{' '}
+                          <span className="font-medium text-[var(--text-primary)]">
+                            {sup.email}
+                          </span>
                         </p>
                       )}
                       {sup.phone && (
                         <p className="text-xs text-[var(--text-secondary)]">
-                          Phone: <span className="font-medium text-[var(--text-primary)]">{sup.phone}</span>
+                          Phone:{' '}
+                          <span className="font-medium text-[var(--text-primary)]">
+                            {sup.phone}
+                          </span>
                         </p>
                       )}
                       <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
-                        Linked POs: <span className="font-semibold text-[var(--text-primary)]">{sup._count?.purchaseOrders ?? 0}</span>
+                        Linked POs:{' '}
+                        <span className="font-semibold text-[var(--text-primary)]">
+                          {sup._count?.purchaseOrders ?? 0}
+                        </span>
                       </p>
                     </div>
 
@@ -575,18 +614,18 @@ export default function SupplierManagementPage() {
                     🏢
                   </div>
                   <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    {filterTab === 'archived' ? 'No archived suppliers found' : 'No active suppliers found'}
+                    {filterTab === 'archived'
+                      ? 'No archived suppliers found'
+                      : 'No active suppliers found'}
                   </h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {filterTab === 'archived' ? (
-                      searchTerm
+                    {filterTab === 'archived'
+                      ? searchTerm
                         ? 'No archived suppliers match your search criteria.'
                         : 'There are no archived suppliers in the system.'
-                    ) : (
-                      searchTerm
+                      : searchTerm
                         ? 'Try refining your search terms.'
-                        : 'No suppliers have been registered in the system yet.'
-                    )}
+                        : 'No suppliers have been registered in the system yet.'}
                   </p>
                   {canCreate && !searchTerm && filterTab === 'active' && (
                     <button
@@ -637,7 +676,10 @@ export default function SupplierManagementPage() {
             <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
               {/* Supplier Name */}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sup-name" className="text-xs font-semibold text-[var(--text-secondary)]">
+                <label
+                  htmlFor="sup-name"
+                  className="text-xs font-semibold text-[var(--text-secondary)]"
+                >
                   Supplier Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -652,11 +694,15 @@ export default function SupplierManagementPage() {
 
               {/* Contact Person */}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sup-contact" className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Contact Person
+                <label
+                  htmlFor="sup-contact"
+                  className="text-xs font-semibold text-[var(--text-secondary)]"
+                >
+                  Contact Person <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="sup-contact"
+                  required
                   value={formData.contactPerson}
                   onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
                   placeholder="e.g. John Doe, Sales Manager"
@@ -666,12 +712,16 @@ export default function SupplierManagementPage() {
 
               {/* Email */}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sup-email" className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Email Address
+                <label
+                  htmlFor="sup-email"
+                  className="text-xs font-semibold text-[var(--text-secondary)]"
+                >
+                  Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="sup-email"
-                  type="text"
+                  type="email"
+                  required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="e.g. sales@globex.com"
@@ -681,11 +731,15 @@ export default function SupplierManagementPage() {
 
               {/* Phone */}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sup-phone" className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Phone Number
+                <label
+                  htmlFor="sup-phone"
+                  className="text-xs font-semibold text-[var(--text-secondary)]"
+                >
+                  Phone Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="sup-phone"
+                  required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="e.g. +1 (555) 019-2834"
@@ -695,11 +749,15 @@ export default function SupplierManagementPage() {
 
               {/* Address */}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sup-address" className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Business Address
+                <label
+                  htmlFor="sup-address"
+                  className="text-xs font-semibold text-[var(--text-secondary)]"
+                >
+                  Business Address <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="sup-address"
+                  required
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Street, City, State, ZIP..."
@@ -742,7 +800,11 @@ export default function SupplierManagementPage() {
                   Supplier Profile History
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Chronological activity trail for <span className="font-semibold text-[var(--text-primary)]">{historySupplier.supplierName}</span>.
+                  Chronological activity trail for{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {historySupplier.supplierName}
+                  </span>
+                  .
                 </p>
               </div>
               <button
@@ -761,7 +823,9 @@ export default function SupplierManagementPage() {
               {isLoading ? (
                 <div className="py-12 text-center animate-pulse">
                   <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-                  <p className="mt-2 text-sm text-[var(--text-secondary)]">Fetching history records...</p>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                    Fetching history records...
+                  </p>
                 </div>
               ) : supplierHistory.length === 0 ? (
                 <div className="py-12 text-center text-[var(--text-secondary)] italic">
@@ -826,14 +890,18 @@ export default function SupplierManagementPage() {
                 Are you sure you want to archive the supplier{' '}
                 <span className="font-semibold text-[var(--text-primary)]">
                   "{archiveTargetSupplier.supplierName}"
-                </span>?
+                </span>
+                ?
               </p>
               <p>
-                This will move them to the Archived list. They will be marked as inactive and omitted from active selections.
+                This will move them to the Archived list. They will be marked as inactive and
+                omitted from active selections.
               </p>
 
               <div className="rounded-xl bg-[var(--background-tertiary)] p-3 border border-[var(--surface-border)] text-xs space-y-1">
-                <p className="font-semibold text-[var(--text-primary)]">System Integrity Summary:</p>
+                <p className="font-semibold text-[var(--text-primary)]">
+                  System Integrity Summary:
+                </p>
                 <ul className="list-disc pl-4 space-y-0.5">
                   <li>
                     Linked Purchase Orders:{' '}

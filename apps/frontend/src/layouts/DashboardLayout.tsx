@@ -259,7 +259,8 @@ function formatCountdown(totalSeconds: number) {
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } = useAuthStore();
+  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } =
+    useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const hasCheckedAuthRef = useRef(false);
@@ -495,9 +496,7 @@ export default function DashboardLayout() {
               <div className="dash-avatar">{getInitials()}</div>
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
-                <span className="dash-user-role">
-                  {formatRoleName(user.role?.name)}
-                </span>
+                <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
               </div>
             </div>
           )}

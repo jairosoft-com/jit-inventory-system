@@ -133,10 +133,9 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>(
-        '/items',
-        { params: buildItemQueryParams(query) },
-      );
+      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>('/items', {
+        params: buildItemQueryParams(query),
+      });
 
       set({
         items: response.data.data,
@@ -156,15 +155,12 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>(
-        '/items',
-        {
-          params: buildItemQueryParams({
-            ...query,
-            includeArchived: true,
-          }),
-        },
-      );
+      const response = await api.get<{ data: Item[]; meta: PaginationMeta }>('/items', {
+        params: buildItemQueryParams({
+          ...query,
+          includeArchived: true,
+        }),
+      });
 
       set({
         archivedItems: response.data.data,
@@ -255,18 +251,13 @@ export const useItemsStore = create<ItemsState>((set, _get) => ({
 
   addImage: async (itemId, data) => {
     try {
-      const response = await api.post<ItemImage>(
-        `/items/${itemId}/images`,
-        data,
-      );
+      const response = await api.post<ItemImage>(`/items/${itemId}/images`, data);
 
       const newImage = response.data;
 
       set((state) => ({
         items: state.items.map((item) =>
-          item.id === itemId
-            ? { ...item, images: [...item.images, newImage] }
-            : item,
+          item.id === itemId ? { ...item, images: [...item.images, newImage] } : item,
         ),
       }));
 

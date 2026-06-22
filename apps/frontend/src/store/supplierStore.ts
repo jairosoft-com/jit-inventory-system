@@ -29,18 +29,18 @@ export interface SupplierHistory {
 
 export interface CreateSupplierInput {
   supplierName: string;
-  contactPerson?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
 }
 
 export interface UpdateSupplierInput {
   supplierName?: string;
-  contactPerson?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
 }
 
 interface SupplierListResponse {

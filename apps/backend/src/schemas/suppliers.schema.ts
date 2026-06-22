@@ -5,18 +5,16 @@ export const createSupplierSchema = z.object({
   contactPerson: z
     .string()
     .trim()
-    .max(255)
-    .nullable()
-    .optional()
-    .or(z.literal('')),
+    .min(1, 'Contact person is required')
+    .max(255),
   email: z
-    .preprocess(
-      (val) => (val === '' ? null : val),
-      z.string().trim().email('Invalid email address').max(255).nullable(),
-    )
-    .optional(),
-  phone: z.string().trim().max(50).nullable().optional().or(z.literal('')),
-  address: z.string().trim().nullable().optional().or(z.literal('')),
+    .string()
+    .trim()
+    .min(1, 'Email address is required')
+    .email('Invalid email address')
+    .max(255),
+  phone: z.string().trim().min(1, 'Phone number is required').max(50),
+  address: z.string().trim().min(1, 'Business address is required'),
 });
 
 export const updateSupplierSchema = z.object({
@@ -29,18 +27,23 @@ export const updateSupplierSchema = z.object({
   contactPerson: z
     .string()
     .trim()
+    .min(1, 'Contact person is required')
     .max(255)
-    .nullable()
-    .optional()
-    .or(z.literal('')),
-  email: z
-    .preprocess(
-      (val) => (val === '' ? null : val),
-      z.string().trim().email('Invalid email address').max(255).nullable(),
-    )
     .optional(),
-  phone: z.string().trim().max(50).nullable().optional().or(z.literal('')),
-  address: z.string().trim().nullable().optional().or(z.literal('')),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email address is required')
+    .email('Invalid email address')
+    .max(255)
+    .optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Phone number is required')
+    .max(50)
+    .optional(),
+  address: z.string().trim().min(1, 'Business address is required').optional(),
 });
 
 export const supplierStatusFilterSchema = z

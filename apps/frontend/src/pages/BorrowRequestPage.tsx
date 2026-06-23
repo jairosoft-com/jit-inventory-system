@@ -227,7 +227,9 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
   );
 }
 
-// ── History panel ─────────────────────────────────────────────────────────────
+// ── History panel (staff: their own requests only) ───────────────────────────
+// Uses the dedicated `myRecords` / `myMeta` slice so it never shares state
+// with AdminPanel and won't flicker when tabs are switched.
 
 function HistoryPanel() {
   const { myRecords, myMeta, isLoading, fetchMyRecords } = useBorrowStore();
@@ -456,10 +458,12 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
   );
 }
 
-// ── Admin view ────────────────────────────────────────────────────────────────
+// ── Admin panel (managers/admins: all requests) ───────────────────────────────
+// Uses the dedicated `adminRecords` / `adminMeta` slice so it never shares
+// state with HistoryPanel and won't flicker when switching between tabs.
 
 function AdminPanel() {
-  const { records, meta, isLoading, error, fetchRecords, approveRequest, rejectRequest } =
+  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest } =
     useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
@@ -469,9 +473,9 @@ function AdminPanel() {
 
   const load = useCallback(
     (p: number, s: BorrowStatus | '') => {
-      void fetchRecords({ page: p, limit: 20, ...(s && { status: s }) });
+      void fetchAdminRecords({ page: p, limit: 20, ...(s && { status: s }) });
     },
-    [fetchRecords],
+    [fetchAdminRecords],
   );
 
   useEffect(() => {
@@ -530,7 +534,7 @@ function AdminPanel() {
             All Borrow Requests
           </h2>
           <p className="text-xs text-[var(--text-secondary)]">
-            {meta.total} total request{meta.total !== 1 ? 's' : ''}
+            {adminMeta.total} total request{adminMeta.total !== 1 ? 's' : ''}
           </p>
         </div>
         <select
@@ -559,7 +563,7 @@ function AdminPanel() {
         <div className="flex items-center justify-center py-12">
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-[var(--accent)]" />
         </div>
-      ) : records.length === 0 ? (
+      ) : adminRecords.length === 0 ? (
         <div className="py-12 text-center text-sm text-[var(--text-disabled)]">
           No requests found.
         </div>
@@ -578,12 +582,8 @@ function AdminPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--surface-border)]">
-                {records.map((rec) => {
+                {adminRecords.map((rec) => {
                   const isPending = rec.status === 'PENDING';
-                  // A PENDING request whose equipment is no longer AVAILABLE
-                  // can never be approved (another request already claimed
-                  // it). Surface this proactively instead of letting the
-                  // manager click Approve and hit the same 409 every time.
                   const isStale = isPending && rec.equipment.status !== 'AVAILABLE';
                   const isActioning = actioningId === rec.id;
                   return (
@@ -658,7 +658,7 @@ function AdminPanel() {
             </table>
           </div>
 
-          {meta.totalPages > 1 && (
+          {adminMeta.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between text-sm">
               <button
                 onClick={() => handlePageChange(page - 1)}
@@ -668,11 +668,11 @@ function AdminPanel() {
                 ← Previous
               </button>
               <span className="text-xs text-[var(--text-secondary)]">
-                Page {page} of {meta.totalPages}
+                Page {page} of {adminMeta.totalPages}
               </span>
               <button
                 onClick={() => handlePageChange(page + 1)}
-                disabled={page >= meta.totalPages}
+                disabled={page >= adminMeta.totalPages}
                 className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next →
@@ -886,6 +886,16 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+//
+// Tab layout by role:
+//
+//   STAFF           → "New Request" | "My Requests"
+//   ADMIN / MANAGER → "New Request" | "My Requests" | "All Requests"
+//
+// The previous layout exposed a redundant "My Requests" (cards) + "Borrow
+// History" (table) pair for staff — both showing the same data from
+// `myRecords`. That tab has been collapsed into a single "My Requests" entry
+// that maps to HistoryPanel.
 
 type Tab = 'request' | 'history' | 'admin';
 

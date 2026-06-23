@@ -65,16 +65,22 @@ interface PaginationMeta {
 // ── Store ────────────────────────────────────────────────────────────────────
 
 interface BorrowState {
-  records: BorrowRecord[];
+  /** All borrow records — admin/manager view only. Kept separate from
+   *  myRecords so switching between the History and All Requests tabs
+   *  never causes a flicker of cross-filtered data. */
+  adminRecords: BorrowRecord[];
+  adminMeta: PaginationMeta;
+
+  /** Current user's own borrow history. */
   myRecords: BorrowRecord[];
-  meta: PaginationMeta;
   myMeta: PaginationMeta;
+
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
 
   /** Fetch all borrow records (admin/manager view) */
-  fetchRecords: (query?: ListBorrowQuery) => Promise<void>;
+  fetchAdminRecords: (query?: ListBorrowQuery) => Promise<void>;
   /** Fetch only the current user's borrow history */
   fetchMyRecords: (query?: Omit<ListBorrowQuery, 'mine'>) => Promise<void>;
   /** Submit a new borrow request */
@@ -89,9 +95,9 @@ interface BorrowState {
 const emptyMeta: PaginationMeta = { total: 0, page: 1, limit: 20, totalPages: 0 };
 
 export const useBorrowStore = create<BorrowState>((set, get) => ({
-  records: [],
+  adminRecords: [],
+  adminMeta: emptyMeta,
   myRecords: [],
-  meta: emptyMeta,
   myMeta: emptyMeta,
   isLoading: false,
   isSubmitting: false,
@@ -99,7 +105,7 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  fetchRecords: async (query) => {
+  fetchAdminRecords: async (query) => {
     set({ isLoading: true, error: null });
     try {
       const params: Record<string, string> = {};
@@ -109,10 +115,11 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>('/borrow', {
-        params,
-      });
-      set({ records: response.data.data, meta: response.data.meta, isLoading: false });
+      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>(
+        '/borrow',
+        { params },
+      );
+      set({ adminRecords: response.data.data, adminMeta: response.data.meta, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
@@ -155,8 +162,8 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         isSubmitting: false,
       }));
       // Also refresh the admin records list if it has been loaded
-      if (get().records.length > 0) {
-        void get().fetchRecords();
+      if (get().adminRecords.length > 0) {
+        void get().fetchAdminRecords();
       }
       return created;
     } catch (error: unknown) {
@@ -175,22 +182,15 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
     try {
       const response = await api.patch<BorrowRecord>(`/borrow/${id}/approve`);
       const updated = response.data;
-      // Update both lists in-place: 'records' (All Requests tab) and
-      // 'myRecords' (My Requests tab) so a manager approving their own
-      // request — or anyone's request while both tabs have been loaded —
-      // sees the new status everywhere without a manual refresh. A record
-      // simply won't be present in the array it doesn't belong to, so the
-      // .map() is a no-op there.
+      // Update both arrays in-place so a manager who has both panels loaded
+      // sees the new status everywhere without a manual refresh.
       set((state) => ({
-        records: state.records.map((r) => (r.id === id ? updated : r)),
+        adminRecords: state.adminRecords.map((r) => (r.id === id ? updated : r)),
         myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
       }));
       return updated;
     } catch (error: unknown) {
-      // Intentionally does not set the global `error` state here — this is
-      // a row-scoped action and the caller (AdminPanel) already surfaces
-      // the failure inline under the affected row. Setting the global error
-      // too would render the same message twice (banner + row).
+      // Row-scoped failure — caller surfaces it inline; no global error banner.
       const err = error as {
         response?: { data?: { message?: string } };
         message?: string;
@@ -206,15 +206,14 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         reason: reason ?? null,
       });
       const updated = response.data;
-      // Same in-place dual-array update as approveRequest, for the same
-      // cross-tab sync reason.
+      // Same in-place dual-array update as approveRequest.
       set((state) => ({
-        records: state.records.map((r) => (r.id === id ? updated : r)),
+        adminRecords: state.adminRecords.map((r) => (r.id === id ? updated : r)),
         myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
       }));
       return updated;
     } catch (error: unknown) {
-      // See approveRequest above — no global error here, row-level only.
+      // Row-scoped failure — no global error banner.
       const err = error as {
         response?: { data?: { message?: string } };
         message?: string;

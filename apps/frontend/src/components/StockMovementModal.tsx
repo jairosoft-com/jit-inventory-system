@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,18 @@ function formatTs(iso: string) {
   }).format(new Date(iso));
 }
 
+// Fix 4 — History filter: both STOCK_IN + ADJUSTMENT_ADD are "Stock In";
+// both STOCK_OUT + ADJUSTMENT_REMOVE are "Stock Out".
+function matchesFilter(
+  movementType: StockMovement['movementType'],
+  filter: 'ALL' | 'STOCK_IN' | 'STOCK_OUT',
+): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'STOCK_IN') return movementType === 'STOCK_IN' || movementType === 'ADJUSTMENT_ADD';
+  if (filter === 'STOCK_OUT') return movementType === 'STOCK_OUT' || movementType === 'ADJUSTMENT_REMOVE';
+  return false;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -74,8 +87,8 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
 
   // ── Transaction form state ────────────────────────────────────────────────────
   const [txType, setTxType] = useState<TransactionType>('STOCK_IN');
-  const [delta, setDelta] = useState(0); 
-  const [inputValue, setInputValue] = useState('0'); 
+  const [delta, setDelta] = useState(0);
+  const [inputValue, setInputValue] = useState('0');
   const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -86,8 +99,8 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'STOCK_IN' | 'STOCK_OUT'>('ALL');
 
   // preview quantity
-  const previewQty = txType === 'STOCK_IN' 
-    ? profile.quantity + delta 
+  const previewQty = txType === 'STOCK_IN'
+    ? profile.quantity + delta
     : profile.quantity - delta;
 
   const previewSafe = Math.max(0, previewQty);
@@ -100,20 +113,15 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // Fix 1 + 2 — Use the shared authenticated Axios client instead of raw fetch.
+  // Fix 2 — Use GET /inventory/movements?consumableProfileId=<id> (correct endpoint).
   const fetchHistory = async () => {
     try {
       setIsLoadingHistory(true);
-      const token = localStorage.getItem('token');
-      // Adjust this endpoint based on your actual backend API route
-      const res = await fetch(`/api/inventory/items/${item.id}/movements`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+      const response = await api.get<MovementsResponse>('/inventory/movements', {
+        params: { consumableProfileId: profile.id },
       });
-      if (!res.ok) throw new Error('Failed to fetch history');
-      
-      const json: MovementsResponse = await res.json();
-      setMovements(json.data || []);
+      setMovements(response.data.data ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -128,6 +136,8 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
     setDelta(isNaN(parsed) ? 0 : parsed);
   };
 
+  // Fix 1 + 2 + 3 — Use the shared Axios client, correct endpoints, and
+  // correct payload shapes per stockInSchema / stockOutSchema.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -143,45 +153,44 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
 
     try {
       setIsSaving(true);
-      const token = localStorage.getItem('token');
-      
-      // Adjust this endpoint based on your actual backend API route
-      const res = await fetch(`/api/inventory/items/${item.id}/move`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          movementType: txType,
-          quantity: delta,
-          reason: reason
-        })
-      });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to update stock');
+      if (txType === 'STOCK_IN') {
+        // Fix 3 — stockInSchema expects `quantityAdded` + optional `notes`
+        await api.post('/inventory/stock-in', {
+          consumableProfileId: profile.id,
+          quantityAdded: delta,
+          notes: reason.trim() || null,
+        });
+      } else {
+        // Fix 3 — stockOutSchema expects `quantityRemoved` + required `purpose`
+        await api.post('/inventory/stock-out', {
+          consumableProfileId: profile.id,
+          quantityRemoved: delta,
+          purpose: reason.trim(),
+        });
       }
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setFormError(err.message || 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setFormError(
+        e.response?.data?.message || e.message || 'An unexpected error occurred.',
+      );
       setIsSaving(false);
     }
   };
 
-  // Filter the movements based on the selected filter
-  const displayedMovements = movements.filter((mov) => {
-    if (historyFilter === 'ALL') return true;
-    return mov.movementType.includes(historyFilter);
-  });
+  // Fix 4 — Use matchesFilter so ADJUSTMENT_ADD / ADJUSTMENT_REMOVE are
+  // correctly included when their respective parent filter is selected.
+  const displayedMovements = movements.filter((mov) =>
+    matchesFilter(mov.movementType, historyFilter),
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200">
-        
+
         {/* Header */}
         <div className="border-b border-gray-100 p-4 sm:p-6 pb-4">
           <div className="flex items-start justify-between">
@@ -281,14 +290,25 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">Reason / Notes</label>
+                {/* Label adapts: Stock Out requires a purpose; Stock In treats it as optional notes */}
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  {txType === 'STOCK_OUT' ? 'Purpose' : 'Notes'}
+                  {txType === 'STOCK_OUT' && <span className="text-rose-500 ml-0.5">*</span>}
+                  {txType === 'STOCK_IN' && (
+                    <span className="ml-1 font-normal text-gray-400">(optional)</span>
+                  )}
+                </label>
                 <input
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="E.g., new shipment, damaged, used for event..."
+                  placeholder={
+                    txType === 'STOCK_OUT'
+                      ? 'E.g., used for event, distributed to team…'
+                      : 'E.g., new shipment, restock…'
+                  }
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
+                  required={txType === 'STOCK_OUT'}
                 />
               </div>
             </div>
@@ -322,7 +342,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
         {/* ── History Tab ── */}
         {activeTab === 'history' && (
           <div className="flex h-[400px] flex-col p-4 sm:p-6">
-            
+
             {/* Filters */}
             <div className="mb-4 flex flex-wrap shrink-0 gap-2">
               <button
@@ -375,7 +395,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                   {displayedMovements.map((mov) => {
                     const status = movementLabel(mov.movementType);
                     const isPositive = mov.quantityChange > 0;
-                    
+
                     return (
                       <div key={mov.id} className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
                         <div className="flex justify-between items-start">
@@ -391,7 +411,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                             {isPositive ? '+' : '-'}{Math.abs(mov.quantityChange)}
                           </div>
                         </div>
-                        
+
                         <div className="flex justify-between items-end mt-1">
                           <div className="text-xs text-gray-500">
                             {formatTs(mov.createdAt)}

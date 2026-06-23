@@ -31,17 +31,19 @@ function formatDateTime(iso: string) {
 
 function BorrowStatusBadge({ status }: { status: BorrowStatus }) {
   const cfg: Record<BorrowStatus, { color: string; dot: string; label: string }> = {
-    PENDING:   { color: 'bg-amber-50 text-amber-700',   dot: 'bg-amber-500',  label: 'Pending' },
-    APPROVED:  { color: 'bg-blue-50 text-blue-700',     dot: 'bg-blue-500',   label: 'Approved' },
-    REJECTED:  { color: 'bg-red-50 text-red-700',       dot: 'bg-red-500',    label: 'Rejected' },
-    BORROWED:  { color: 'bg-purple-50 text-purple-700', dot: 'bg-purple-500', label: 'Borrowed' },
-    RETURNED:  { color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', label: 'Returned' },
-    OVERDUE:   { color: 'bg-red-100 text-red-800',      dot: 'bg-red-700',    label: 'Overdue' },
-    CANCELLED: { color: 'bg-gray-100 text-gray-500',    dot: 'bg-gray-400',   label: 'Cancelled' },
+    PENDING: { color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500', label: 'Pending' },
+    APPROVED: { color: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', label: 'Approved' },
+    REJECTED: { color: 'bg-red-50 text-red-700', dot: 'bg-red-500', label: 'Rejected' },
+    BORROWED: { color: 'bg-purple-50 text-purple-700', dot: 'bg-purple-500', label: 'Borrowed' },
+    RETURNED: { color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', label: 'Returned' },
+    OVERDUE: { color: 'bg-red-100 text-red-800', dot: 'bg-red-700', label: 'Overdue' },
+    CANCELLED: { color: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400', label: 'Cancelled' },
   };
   const { color, dot, label } = cfg[status] ?? cfg.CANCELLED;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${color}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
     </span>
@@ -53,9 +55,7 @@ function EquipmentStatusDot({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        available
-          ? 'bg-[var(--success-muted)] text-[var(--success)]'
-          : 'bg-gray-100 text-gray-500'
+        available ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-gray-100 text-gray-500'
       }`}
     >
       <span
@@ -137,9 +137,18 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
 
       {error && (
         <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
-          <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <svg
+            className="h-3.5 w-3.5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+            />
           </svg>
           {error}
         </p>
@@ -202,7 +211,10 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
             <div className="border-t border-[var(--surface-border)] p-2">
               <button
                 type="button"
-                onClick={() => { onSelect(null); setOpen(false); }}
+                onClick={() => {
+                  onSelect(null);
+                  setOpen(false);
+                }}
                 className="w-full rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
               >
                 Clear selection
@@ -215,7 +227,9 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
   );
 }
 
-// ── History panel ─────────────────────────────────────────────────────────────
+// ── History panel (staff: their own requests only) ───────────────────────────
+// Uses the dedicated `myRecords` / `myMeta` slice so it never shares state
+// with AdminPanel and won't flicker when tabs are switched.
 
 function HistoryPanel() {
   const { myRecords, myMeta, isLoading, fetchMyRecords } = useBorrowStore();
@@ -267,7 +281,9 @@ function HistoryPanel() {
           className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs outline-none transition focus:border-[var(--accent)]"
         >
           {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
       </div>
@@ -311,9 +327,7 @@ function HistoryPanel() {
                   <p className="truncate font-semibold text-[var(--text-primary)]">
                     {rec.equipment.item.itemName}
                   </p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {rec.equipment.assetId}
-                  </p>
+                  <p className="text-xs text-[var(--text-secondary)]">{rec.equipment.assetId}</p>
                 </div>
                 <BorrowStatusBadge status={rec.status} />
               </div>
@@ -444,10 +458,12 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
   );
 }
 
-// ── Admin view ────────────────────────────────────────────────────────────────
+// ── Admin panel (managers/admins: all requests) ───────────────────────────────
+// Uses the dedicated `adminRecords` / `adminMeta` slice so it never shares
+// state with HistoryPanel and won't flicker when switching between tabs.
 
 function AdminPanel() {
-  const { records, meta, isLoading, error, fetchRecords, approveRequest, rejectRequest } =
+  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest } =
     useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
@@ -457,9 +473,9 @@ function AdminPanel() {
 
   const load = useCallback(
     (p: number, s: BorrowStatus | '') => {
-      void fetchRecords({ page: p, limit: 20, ...(s && { status: s }) });
+      void fetchAdminRecords({ page: p, limit: 20, ...(s && { status: s }) });
     },
-    [fetchRecords],
+    [fetchAdminRecords],
   );
 
   useEffect(() => {
@@ -518,7 +534,7 @@ function AdminPanel() {
             All Borrow Requests
           </h2>
           <p className="text-xs text-[var(--text-secondary)]">
-            {meta.total} total request{meta.total !== 1 ? 's' : ''}
+            {adminMeta.total} total request{adminMeta.total !== 1 ? 's' : ''}
           </p>
         </div>
         <select
@@ -530,7 +546,9 @@ function AdminPanel() {
           className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--accent)]"
         >
           {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
       </div>
@@ -545,7 +563,7 @@ function AdminPanel() {
         <div className="flex items-center justify-center py-12">
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-[var(--accent)]" />
         </div>
-      ) : records.length === 0 ? (
+      ) : adminRecords.length === 0 ? (
         <div className="py-12 text-center text-sm text-[var(--text-disabled)]">
           No requests found.
         </div>
@@ -564,12 +582,8 @@ function AdminPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--surface-border)]">
-                {records.map((rec) => {
+                {adminRecords.map((rec) => {
                   const isPending = rec.status === 'PENDING';
-                  // A PENDING request whose equipment is no longer AVAILABLE
-                  // can never be approved (another request already claimed
-                  // it). Surface this proactively instead of letting the
-                  // manager click Approve and hit the same 409 every time.
                   const isStale = isPending && rec.equipment.status !== 'AVAILABLE';
                   const isActioning = actioningId === rec.id;
                   return (
@@ -644,7 +658,7 @@ function AdminPanel() {
             </table>
           </div>
 
-          {meta.totalPages > 1 && (
+          {adminMeta.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between text-sm">
               <button
                 onClick={() => handlePageChange(page - 1)}
@@ -654,11 +668,11 @@ function AdminPanel() {
                 ← Previous
               </button>
               <span className="text-xs text-[var(--text-secondary)]">
-                Page {page} of {meta.totalPages}
+                Page {page} of {adminMeta.totalPages}
               </span>
               <button
                 onClick={() => handlePageChange(page + 1)}
-                disabled={page >= meta.totalPages}
+                disabled={page >= adminMeta.totalPages}
                 className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next →
@@ -795,8 +809,7 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
           value={expectedReturn}
           onChange={(e) => {
             setExpectedReturn(e.target.value);
-            if (errors.expectedReturn)
-              setErrors((err) => ({ ...err, expectedReturn: undefined }));
+            if (errors.expectedReturn) setErrors((err) => ({ ...err, expectedReturn: undefined }));
           }}
           className={`w-full rounded-xl border ${
             errors.expectedReturn
@@ -806,9 +819,18 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
         />
         {errors.expectedReturn && (
           <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
-            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <svg
+              className="h-3.5 w-3.5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              />
             </svg>
             {errors.expectedReturn}
           </p>
@@ -864,6 +886,16 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+//
+// Tab layout by role:
+//
+//   STAFF           → "New Request" | "My Requests"
+//   ADMIN / MANAGER → "New Request" | "My Requests" | "All Requests"
+//
+// The previous layout exposed a redundant "My Requests" (cards) + "Borrow
+// History" (table) pair for staff — both showing the same data from
+// `myRecords`. That tab has been collapsed into a single "My Requests" entry
+// that maps to HistoryPanel.
 
 type Tab = 'request' | 'history' | 'admin';
 
@@ -871,8 +903,7 @@ export default function BorrowRequestPage() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('request');
 
-  const isAdminOrManager =
-    user?.role?.name === 'ADMIN' || user?.role?.name === 'MANAGER';
+  const isAdminOrManager = user?.role?.name === 'ADMIN' || user?.role?.name === 'MANAGER';
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'request', label: 'New Request' },
@@ -883,15 +914,14 @@ export default function BorrowRequestPage() {
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
       <section className="mx-auto flex max-w-5xl flex-col gap-6">
-
         {/* Page header */}
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-medium text-[var(--accent)]">Operations</p>
             <h1 className="mt-1 text-2xl font-semibold">Borrow Requests</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Request available equipment for a defined period. All requests require
-              manager or admin approval before the equipment is released.
+              Request available equipment for a defined period. All requests require manager or
+              admin approval before the equipment is released.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -938,9 +968,7 @@ export default function BorrowRequestPage() {
 
           {/* Tab content */}
           <div className="p-6">
-            {activeTab === 'request' && (
-              <BorrowForm onSuccess={() => setActiveTab('history')} />
-            )}
+            {activeTab === 'request' && <BorrowForm onSuccess={() => setActiveTab('history')} />}
             {activeTab === 'history' && <HistoryPanel />}
             {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
           </div>

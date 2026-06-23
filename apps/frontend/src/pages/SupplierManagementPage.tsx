@@ -1,13 +1,27 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { useSupplierStore, Supplier, SupplierHistory } from '../store/supplierStore';
+import { useSupplierStore } from '../store/supplierStore';
+import type {
+  Supplier,
+  SupplierHistory,
+  SupplierStatusFilter,
+} from '../store/supplierStore';
+
+const PAGE_LIMIT = 20;
+
+const STATUS_FILTER_OPTIONS: { value: SupplierStatusFilter; label: string }[] = [
+  { value: 'active', label: 'Active Suppliers' },
+  { value: 'inactive', label: 'Inactive Suppliers' },
+  { value: 'all', label: 'All Suppliers' },
+];
 
 export default function SupplierManagementPage() {
   const { user } = useAuthStore();
   const {
     suppliers,
     supplierHistory,
+    meta,
     isLoading,
     error: storeError,
     fetchSuppliers,
@@ -19,7 +33,11 @@ export default function SupplierManagementPage() {
   } = useSupplierStore();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterTab, setFilterTab] = useState<'active' | 'archived'>('active');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<SupplierStatusFilter>('active');
+  const [appliedStatusFilter, setAppliedStatusFilter] =
+    useState<SupplierStatusFilter>('active');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modal control states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -44,10 +62,6 @@ export default function SupplierManagementPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch all suppliers (active + archived) on mount
-  useEffect(() => {
-    fetchSuppliers(true);
-  }, [fetchSuppliers]);
 
   // Resolve user permissions
   const permissions = useMemo(() => {
@@ -55,43 +69,76 @@ export default function SupplierManagementPage() {
     return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
   }, [user]);
 
-  const canRead = permissions.includes('suppliers:read');
-  const canCreate = permissions.includes('suppliers:create');
-  const canUpdate = permissions.includes('suppliers:update');
-  const canDelete = permissions.includes('suppliers:delete');
+  const isAdmin = user?.role?.name === 'ADMIN';
+  const canRead = isAdmin || permissions.includes('suppliers:read');
+  const canCreate = isAdmin || permissions.includes('suppliers:create');
+  const canUpdate = isAdmin || permissions.includes('suppliers:update');
+  const canDelete = isAdmin || permissions.includes('suppliers:delete');
 
-  // Filter suppliers based on search criteria and active/archived tab
-  const filteredSuppliers = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    return suppliers.filter((sup) => {
-      const matchesSearch =
-        sup.supplierName.toLowerCase().includes(term) ||
-        (sup.contactPerson && sup.contactPerson.toLowerCase().includes(term)) ||
-        (sup.email && sup.email.toLowerCase().includes(term)) ||
-        (sup.phone && sup.phone.toLowerCase().includes(term)) ||
-        (sup.address && sup.address.toLowerCase().includes(term));
+  const loadSuppliers = useCallback(() => {
+    if (!canRead) return;
 
-      const matchesTab = filterTab === 'active' ? !sup.deletedAt : !!sup.deletedAt;
-
-      return matchesSearch && matchesTab;
+    void fetchSuppliers({
+      search: appliedSearchTerm,
+      status: appliedStatusFilter,
+      page: currentPage,
+      limit: PAGE_LIMIT,
     });
-  }, [suppliers, searchTerm, filterTab]);
+  }, [
+    appliedSearchTerm,
+    appliedStatusFilter,
+    canRead,
+    currentPage,
+    fetchSuppliers,
+  ]);
 
-  // Statistics summaries
+  useEffect(() => {
+    loadSuppliers();
+  }, [loadSuppliers]);
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCurrentPage(1);
+    setAppliedSearchTerm(searchTerm.trim());
+    setAppliedStatusFilter(statusFilter);
+  };
+
+  const handleStatusFilterChange = (value: SupplierStatusFilter) => {
+    setStatusFilter(value);
+    setAppliedStatusFilter(value);
+    setAppliedSearchTerm(searchTerm.trim());
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setAppliedSearchTerm('');
+    setStatusFilter('active');
+    setAppliedStatusFilter('active');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters =
+    Boolean(appliedSearchTerm) || appliedStatusFilter !== 'active';
+
+  const showingStart = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
+  const showingEnd = Math.min(meta.page * meta.limit, meta.total);
+
+  // Statistics summaries for the current server-side result set.
   const summaries = useMemo(() => {
     const active = suppliers.filter((s) => !s.deletedAt);
     const archived = suppliers.filter((s) => !!s.deletedAt);
-    const linkedToPOs = active.filter(
-      (s) => s._count?.purchaseOrders && s._count.purchaseOrders > 0,
+    const linkedToPOs = suppliers.filter(
+      (s) => (s.purchaseOrderCount ?? s._count?.purchaseOrders ?? 0) > 0,
     );
 
     return {
-      total: active.length,
-      active: active.length,
-      archived: archived.length,
+      total: meta.total,
+      active: appliedStatusFilter === 'active' ? meta.total : active.length,
+      archived: appliedStatusFilter === 'inactive' ? meta.total : archived.length,
       linkedToPOs: linkedToPOs.length,
     };
-  }, [suppliers]);
+  }, [appliedStatusFilter, meta.total, suppliers]);
 
   // If user has no read permission, block access immediately
   if (!canRead) {
@@ -196,6 +243,7 @@ export default function SupplierManagementPage() {
         setSuccessMessage('Supplier registered successfully');
       }
       setIsFormOpen(false);
+      loadSuppliers();
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'An error occurred while saving supplier';
@@ -229,6 +277,7 @@ export default function SupplierManagementPage() {
       setSuccessMessage(`Supplier "${archiveTargetSupplier.supplierName}" archived successfully`);
       setIsArchiveConfirmOpen(false);
       setArchiveTargetSupplier(null);
+      loadSuppliers();
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Failed to archive supplier';
@@ -276,8 +325,8 @@ export default function SupplierManagementPage() {
     }
     if (log.action === 'UPDATED' && log.oldData && log.newData) {
       const changes: string[] = [];
-      const oldObj = log.oldData;
-      const newObj = log.newData;
+      const oldObj = log.oldData as Record<string, unknown>;
+      const newObj = log.newData as Record<string, unknown>;
       const fields = [
         { key: 'supplierName', label: 'Supplier Name' },
         { key: 'contactPerson', label: 'Contact Person' },
@@ -287,10 +336,10 @@ export default function SupplierManagementPage() {
       ];
 
       fields.forEach((field) => {
-        const oldVal = oldObj[field.key];
-        const newVal = newObj[field.key];
+        const oldVal = String(oldObj[field.key] || 'N/A');
+        const newVal = String(newObj[field.key] || 'N/A');
         if (oldVal !== newVal) {
-          changes.push(`${field.label}: "${oldVal || 'N/A'}" → "${newVal || 'N/A'}"`);
+          changes.push(`${field.label}: "${oldVal}" → "${newVal}"`);
         }
       });
 
@@ -326,7 +375,7 @@ export default function SupplierManagementPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => fetchSuppliers(true)}
+              onClick={loadSuppliers}
               className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             >
               Refresh
@@ -370,54 +419,80 @@ export default function SupplierManagementPage() {
 
         {/* Main Section */}
         <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
-            {/* Filter Tabs */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setFilterTab('active')}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'active'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+          <div className="mb-6 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                  Supplier Directory
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Search and filter suppliers using the server-side supplier endpoint.
+                </p>
+              </div>
+
+              <div className="text-xs font-medium text-[var(--text-tertiary)]">
+                Showing {showingStart}-{showingEnd} of {meta.total} records
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleSearchSubmit}
+              className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_220px_auto_auto]"
+            >
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search suppliers by name, email, contact, phone, or address..."
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
+              />
+
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  handleStatusFilterChange(e.target.value as SupplierStatusFilter)
+                }
+                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
               >
-                Active
+                {STATUS_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+              >
+                Search
               </button>
 
               <button
                 type="button"
-                onClick={() => setFilterTab('archived')}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'archived'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                Archived
-              </button>
-            </div>
-
-            <div className="text-xs text-[var(--text-tertiary)] font-medium">
-              Showing {filteredSuppliers.length} of {suppliers.length} records
-            </div>
-          </div>
-
-          {/* Search Box */}
-          <div className="relative flex items-center">
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search suppliers by name, email, contact, phone, or address..."
-              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-medium"
+                onClick={handleClearFilters}
+                disabled={!hasActiveFilters && !searchTerm}
+                className="rounded-xl border border-[var(--surface-border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Clear
               </button>
+            </form>
+
+            {hasActiveFilters && (
+              <div className="rounded-xl bg-[var(--background-tertiary)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+                Server-side filters are active: status is{' '}
+                <span className="font-semibold capitalize text-[var(--text-primary)]">
+                  {appliedStatusFilter}
+                </span>
+                {appliedSearchTerm && (
+                  <>
+                    {' '}and search is{' '}
+                    <span className="font-semibold text-[var(--text-primary)]">
+                      “{appliedSearchTerm}”
+                    </span>
+                  </>
+                )}
+                .
+              </div>
             )}
           </div>
 
@@ -448,7 +523,7 @@ export default function SupplierManagementPage() {
                   </thead>
 
                   <tbody className="divide-y divide-[var(--surface-border)]">
-                    {filteredSuppliers.map((sup) => (
+                    {suppliers.map((sup) => (
                       <tr key={sup.id} className="transition hover:bg-[var(--surface-hover)] group">
                         <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
                           {sup.supplierName}
@@ -521,7 +596,7 @@ export default function SupplierManagementPage() {
 
               {/* Mobile Cards View */}
               <div className="mt-6 grid gap-4 md:hidden">
-                {filteredSuppliers.map((sup) => (
+                {suppliers.map((sup) => (
                   <article
                     key={sup.id}
                     className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
@@ -608,26 +683,20 @@ export default function SupplierManagementPage() {
               </div>
 
               {/* Empty State Screen */}
-              {filteredSuppliers.length === 0 && (
+              {suppliers.length === 0 && (
                 <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
                     🏢
                   </div>
                   <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    {filterTab === 'archived'
-                      ? 'No archived suppliers found'
-                      : 'No active suppliers found'}
+                    {appliedStatusFilter === 'inactive' ? 'No inactive suppliers found' : 'No suppliers found'}
                   </h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {filterTab === 'archived'
-                      ? searchTerm
-                        ? 'No archived suppliers match your search criteria.'
-                        : 'There are no archived suppliers in the system.'
-                      : searchTerm
-                        ? 'Try refining your search terms.'
-                        : 'No suppliers have been registered in the system yet.'}
+                    {appliedSearchTerm
+                      ? 'No suppliers match your current search and status filter.'
+                      : 'No suppliers match the selected status filter.'}
                   </p>
-                  {canCreate && !searchTerm && filterTab === 'active' && (
+                  {canCreate && !appliedSearchTerm && appliedStatusFilter === 'active' && (
                     <button
                       type="button"
                       onClick={handleOpenCreate}
@@ -636,6 +705,35 @@ export default function SupplierManagementPage() {
                       Register First Supplier
                     </button>
                   )}
+                </div>
+              )}
+
+              {meta.totalPages > 1 && (
+                <div className="mt-6 flex flex-col gap-3 border-t border-[var(--surface-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-[var(--text-tertiary)]">
+                    Page {meta.page} of {meta.totalPages}
+                  </p>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                      disabled={meta.page <= 1 || isLoading}
+                      className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((page) => Math.min(page + 1, meta.totalPages))
+                      }
+                      disabled={meta.page >= meta.totalPages || isLoading}
+                      className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </>

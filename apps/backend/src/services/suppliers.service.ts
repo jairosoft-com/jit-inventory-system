@@ -1,7 +1,9 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AuditLogService } from './audit-log.service.js';
 import {
   CreateSupplierInput,
+  ListSuppliersQuery,
   UpdateSupplierInput,
 } from '../schemas/suppliers.schema.js';
 
@@ -12,6 +14,83 @@ const SUPPLIER_INCLUDE = {
     },
   },
 } as const;
+
+type SupplierWithCount = Prisma.SupplierGetPayload<{
+  include: typeof SUPPLIER_INCLUDE;
+}>;
+
+function mapSupplier(supplier: SupplierWithCount) {
+  return {
+    id: supplier.id,
+    supplierName: supplier.supplierName,
+    contactPerson: supplier.contactPerson,
+    email: supplier.email,
+    phone: supplier.phone,
+    address: supplier.address,
+    createdAt: supplier.createdAt,
+    updatedAt: supplier.updatedAt,
+    deletedAt: supplier.deletedAt,
+    status: supplier.deletedAt ? 'inactive' : 'active',
+    purchaseOrderCount: supplier._count.purchaseOrders,
+  };
+}
+
+function buildSupplierStatusWhere(
+  status: ListSuppliersQuery['status'] = 'active',
+): Prisma.SupplierWhereInput {
+  if (status === 'active') {
+    return { deletedAt: null };
+  }
+
+  if (status === 'inactive') {
+    return { deletedAt: { not: null } };
+  }
+
+  return {};
+}
+
+function buildSupplierSearchWhere(search = ''): Prisma.SupplierWhereInput {
+  const trimmedSearch = search.trim();
+
+  if (!trimmedSearch) {
+    return {};
+  }
+
+  return {
+    OR: [
+      {
+        supplierName: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+      {
+        contactPerson: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+      {
+        email: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+      {
+        phone: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+      {
+        address: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+    ],
+  };
+}
 
 export class SuppliersService {
   static async create(data: CreateSupplierInput, performedById: number) {
@@ -51,14 +130,52 @@ export class SuppliersService {
     return supplier;
   }
 
-  static async findAll(includeArchived: boolean | string = false) {
-    const shouldInclude =
-      includeArchived === true || includeArchived === 'true';
-    return prisma.supplier.findMany({
-      where: shouldInclude ? {} : { deletedAt: null },
-      orderBy: { supplierName: 'asc' },
-      include: SUPPLIER_INCLUDE,
-    });
+  static async findAll(query: ListSuppliersQuery) {
+    if (query.includeArchived) {
+      const suppliers = await prisma.supplier.findMany({
+        where: {},
+        orderBy: {
+          supplierName: 'asc',
+        },
+        include: SUPPLIER_INCLUDE,
+      });
+
+      return suppliers.map(mapSupplier);
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.SupplierWhereInput = {
+      AND: [
+        buildSupplierStatusWhere(query.status),
+        buildSupplierSearchWhere(query.search),
+      ],
+    };
+
+    const [suppliers, total] = await Promise.all([
+      prisma.supplier.findMany({
+        where,
+        orderBy: {
+          supplierName: 'asc',
+        },
+        skip,
+        take: limit,
+        include: SUPPLIER_INCLUDE,
+      }),
+      prisma.supplier.count({ where }),
+    ]);
+
+    return {
+      data: suppliers.map(mapSupplier),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   static async findOne(id: number) {
@@ -145,7 +262,6 @@ export class SuppliersService {
   }
 
   static async getHistory(id: number) {
-    // Check if supplier exists (throws error if not found/archived)
     await this.findOne(id);
 
     const logs = await prisma.inventoryLog.findMany({

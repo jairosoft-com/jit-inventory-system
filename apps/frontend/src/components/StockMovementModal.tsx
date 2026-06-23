@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
-import type { Item } from '../store/itemsStore';
-
-/**
- * StockMovementModal.tsx
- *
- * Drop-in modal for the Inventory Management page.
- * Place between Edit and Archive in the actions column.
- */
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TransactionType = 'STOCK_IN' | 'STOCK_OUT';
+
+export interface ConsumableProfile {
+  id: number;
+  itemId: number;
+  quantity: number;
+  unit: string;
+}
+
+export interface Item {
+  id: number;
+  itemName: string;
+  consumableProfile?: ConsumableProfile;
+}
 
 interface StockMovement {
   id: number;
@@ -34,15 +39,13 @@ interface MovementsResponse {
 function movementLabel(type: StockMovement['movementType']) {
   switch (type) {
     case 'STOCK_IN':
-      return { text: 'Stock In', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-    case 'STOCK_OUT':
-      return { text: 'Stock Out', color: 'text-rose-700 bg-rose-50 border-rose-200' };
     case 'ADJUSTMENT_ADD':
-      return { text: 'Adjust (+)', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+      return { label: 'Stock In', color: 'text-emerald-700 bg-emerald-100 border-emerald-200' };
+    case 'STOCK_OUT':
     case 'ADJUSTMENT_REMOVE':
-      return { text: 'Adjust (-)', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+      return { label: 'Stock Out', color: 'text-rose-700 bg-rose-100 border-rose-200' };
     default:
-      return { text: 'Unknown', color: 'text-gray-700 bg-gray-50 border-gray-200' };
+      return { label: type, color: 'text-gray-700 bg-gray-100 border-gray-200' };
   }
 }
 
@@ -54,6 +57,18 @@ function formatTs(iso: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(iso));
+}
+
+// Fix 4 — History filter: both STOCK_IN + ADJUSTMENT_ADD are "Stock In";
+// both STOCK_OUT + ADJUSTMENT_REMOVE are "Stock Out".
+function matchesFilter(
+  movementType: StockMovement['movementType'],
+  filter: 'ALL' | 'STOCK_IN' | 'STOCK_OUT',
+): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'STOCK_IN') return movementType === 'STOCK_IN' || movementType === 'ADJUSTMENT_ADD';
+  if (filter === 'STOCK_OUT') return movementType === 'STOCK_OUT' || movementType === 'ADJUSTMENT_REMOVE';
+  return false;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -72,376 +87,351 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
 
   // ── Transaction form state ────────────────────────────────────────────────────
   const [txType, setTxType] = useState<TransactionType>('STOCK_IN');
-  const [delta, setDelta] = useState(0); // relative change (+/-)
-  const [inputValue, setInputValue] = useState('0'); // text in the editable field
-  const [purpose, setPurpose] = useState('');
-  const [notes, setNotes] = useState('');
+  const [delta, setDelta] = useState(0);
+  const [inputValue, setInputValue] = useState('0');
+  const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-
-  // preview quantity
-  const currentQty = profile.quantity;
-  const previewQty = txType === 'STOCK_IN' ? currentQty + delta : currentQty - delta;
 
   // ── History state ─────────────────────────────────────────────────────────────
   const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [histTotal, setHistTotal] = useState(0);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'ALL' | 'STOCK_IN' | 'STOCK_OUT'>('ALL');
 
-  useEffect(() => {
-    if (activeTab === 'history') {
-      loadHistory();
-    }
-  }, [activeTab]);
-
-  async function loadHistory() {
-    setIsLoadingHistory(true);
-    try {
-      const res = await api.get<MovementsResponse>('/inventory/movements', {
-        params: { consumableProfileId: profile.id, limit: 20 },
-      });
-      setMovements(res.data.data);
-      setHistTotal(res.data.pagination.total);
-    } catch (err) {
-      console.error('Failed to load history', err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }
-
-  // ── Input Handlers ────────────────────────────────────────────────────────────
-
-  function applyDelta(change: number) {
-    const newVal = Math.max(0, delta + change);
-    setDelta(newVal);
-    setInputValue(String(newVal));
-  }
-
-  function handleInputChange(val: string) {
-    setInputValue(val);
-    const parsed = parseInt(val, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setDelta(parsed);
-    }
-  }
-
-  function handleInputBlur() {
-    const parsed = parseInt(inputValue, 10);
-    const safe = isNaN(parsed) || parsed < 0 ? 0 : parsed;
-    setDelta(safe);
-    setInputValue(String(safe));
-  }
-
-  // ── Submit ────────────────────────────────────────────────────────────────────
-
-  async function handleSubmit() {
-    setFormError('');
-    setSuccessMsg('');
-
-    if (delta <= 0) {
-      setFormError('Quantity change must be greater than zero.');
-      return;
-    }
-    if (txType === 'STOCK_OUT' && !purpose.trim()) {
-      setFormError('Purpose is required for stock removal.');
-      return;
-    }
-    if (previewQty < 0) {
-      setFormError('Resulting quantity cannot be negative.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      if (txType === 'STOCK_IN') {
-        await api.post('/inventory/stock-in', {
-          consumableProfileId: profile.id,
-          quantityAdded: delta,
-          notes: notes.trim() || null,
-        });
-      } else {
-        await api.post('/inventory/stock-out', {
-          consumableProfileId: profile.id,
-          quantityRemoved: delta,
-          purpose: purpose.trim(),
-          notes: notes.trim() || null,
-        });
-      }
-
-      setSuccessMsg(
-        txType === 'STOCK_IN'
-          ? `Added ${delta} ${profile.unit}. New quantity: ${previewQty}.`
-          : `Removed ${delta} ${profile.unit}. New quantity: ${previewQty}.`,
-      );
-
-      // reset form
-      setDelta(0);
-      setInputValue('0');
-      setPurpose('');
-      setNotes('');
-
-      // Refresh parent table after a short delay
-      setTimeout(() => {
-        onSuccess();
-      }, 1500);
-    } catch (error: any) {
-      setFormError(error.response?.data?.message || 'Failed to process transaction.');
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // preview quantity
+  const previewQty = txType === 'STOCK_IN'
+    ? profile.quantity + delta
+    : profile.quantity - delta;
 
   const previewSafe = Math.max(0, previewQty);
 
+  // Fetch history when tab is switched
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Fix 1 + 2 — Use the shared authenticated Axios client instead of raw fetch.
+  // Fix 2 — Use GET /inventory/movements?consumableProfileId=<id> (correct endpoint).
+  const fetchHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const response = await api.get<MovementsResponse>('/inventory/movements', {
+        params: { consumableProfileId: profile.id },
+      });
+      setMovements(response.data.data ?? []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    const parsed = parseInt(val, 10);
+    setDelta(isNaN(parsed) ? 0 : parsed);
+  };
+
+  // Fix 1 + 2 + 3 — Use the shared Axios client, correct endpoints, and
+  // correct payload shapes per stockInSchema / stockOutSchema.
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (delta <= 0) {
+      setFormError('Quantity must be greater than zero.');
+      return;
+    }
+    if (txType === 'STOCK_OUT' && delta > profile.quantity) {
+      setFormError('Cannot remove more stock than currently available.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      if (txType === 'STOCK_IN') {
+        // Fix 3 — stockInSchema expects `quantityAdded` + optional `notes`
+        await api.post('/inventory/stock-in', {
+          consumableProfileId: profile.id,
+          quantityAdded: delta,
+          notes: reason.trim() || null,
+        });
+      } else {
+        // Fix 3 — stockOutSchema expects `quantityRemoved` + required `purpose`
+        await api.post('/inventory/stock-out', {
+          consumableProfileId: profile.id,
+          quantityRemoved: delta,
+          purpose: reason.trim(),
+        });
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setFormError(
+        e.response?.data?.message || e.message || 'An unexpected error occurred.',
+      );
+      setIsSaving(false);
+    }
+  };
+
+  // Fix 4 — Use matchesFilter so ADJUSTMENT_ADD / ADJUSTMENT_REMOVE are
+  // correctly included when their respective parent filter is selected.
+  const displayedMovements = movements.filter((mov) =>
+    matchesFilter(mov.movementType, historyFilter),
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-[var(--surface)] shadow-xl ring-1 ring-[var(--surface-border)]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--surface-border)] bg-[var(--background-secondary)] px-6 py-4">
-          <div>
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Manage Stock</h2>
-            <p className="text-sm font-medium text-[var(--text-secondary)]">{item.itemName}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-[var(--text-disabled)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-          >
-            ✕
-          </button>
-        </div>
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200">
 
-        {/* Tabs */}
-        <div className="flex border-b border-[var(--surface-border)] px-6">
-          {(['adjust', 'history'] as const).map((tab) => (
+        {/* Header */}
+        <div className="border-b border-gray-100 p-4 sm:p-6 pb-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Manage Stock</h2>
+              <p className="mt-1 text-sm text-gray-500">{item.itemName}</p>
+            </div>
             <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`-mb-px border-b-2 py-3 pr-4 text-sm font-medium transition ${
-                activeTab === tab
-                  ? 'border-[var(--primary,#3b82f6)] text-[var(--primary,#3b82f6)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              onClick={onClose}
+              className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="mt-6 flex space-x-4 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('adjust')}
+              className={`pb-2 text-sm font-medium transition-colors ${
+                activeTab === 'adjust'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'adjust'
-                ? 'Update Stock'
-                : `History${histTotal > 0 ? ` (${histTotal})` : ''}`}
+              Update Stock
             </button>
-          ))}
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`pb-2 text-sm font-medium transition-colors ${
+                activeTab === 'history'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              History
+            </button>
+          </div>
         </div>
 
-        {/* ── Update Stock Tab ── */}
+        {/* ── Adjust Tab ── */}
         {activeTab === 'adjust' && (
-          <div className="space-y-5 px-6 py-5">
-            {/* Transaction type selector */}
-            <div className="grid grid-cols-2 gap-2">
-              {(['STOCK_IN', 'STOCK_OUT'] as const).map((t) => (
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6 pt-4">
+            <div className="mb-6 rounded-xl bg-gray-50 p-4 border border-gray-100">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Current Quantity</span>
+                <span className="text-lg font-semibold text-gray-900">
+                  {profile.quantity} <span className="text-sm font-normal text-gray-500">{profile.unit}</span>
+                </span>
+              </div>
+              <div className="mt-2 flex justify-between items-center text-sm border-t border-gray-200 pt-2">
+                <span className="text-gray-500">New Quantity</span>
+                <span className={`text-lg font-semibold ${
+                  previewSafe > profile.quantity ? 'text-emerald-600' : previewSafe < profile.quantity ? 'text-rose-600' : 'text-gray-900'
+                }`}>
+                  {previewSafe} <span className="text-sm font-normal text-gray-500">{profile.unit}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <button
-                  key={t}
                   type="button"
-                  onClick={() => {
-                    setTxType(t);
-                    setDelta(0);
-                    setInputValue('0');
-                    setFormError('');
-                    setSuccessMsg('');
-                  }}
-                  className={`rounded-xl border py-2.5 text-xs font-semibold transition ${
-                    txType === t
-                      ? t === 'STOCK_IN'
-                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-                        : 'border-red-300 bg-red-50 text-red-700'
-                      : 'border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                  onClick={() => setTxType('STOCK_IN')}
+                  className={`flex items-center justify-center rounded-lg border py-2.5 text-sm font-medium transition-colors ${
+                    txType === 'STOCK_IN'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  {t === 'STOCK_IN' ? '+ Stock In' : '− Stock Out'}
+                  ➕ Stock In
                 </button>
-              ))}
-            </div>
-
-            {/* Quantity input */}
-            <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                {txType === 'STOCK_IN' ? 'Quantity to Add' : 'Quantity to Remove'}
-              </label>
-              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => applyDelta(-1)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] text-lg font-bold transition hover:bg-[var(--surface-hover)]"
+                  onClick={() => setTxType('STOCK_OUT')}
+                  className={`flex items-center justify-center rounded-lg border py-2.5 text-sm font-medium transition-colors ${
+                    txType === 'STOCK_OUT'
+                      ? 'border-rose-600 bg-rose-50 text-rose-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
                 >
-                  −
+                  ➖ Stock Out
                 </button>
-                <input
-                  type="number"
-                  min="0"
-                  value={inputValue}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onBlur={handleInputBlur}
-                  className="h-9 flex-1 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 text-center text-sm font-semibold"
-                />
-                <button
-                  type="button"
-                  onClick={() => applyDelta(1)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] text-lg font-bold transition hover:bg-[var(--surface-hover)]"
-                >
-                  +
-                </button>
-                <span className="text-xs text-[var(--text-secondary)]">{profile.unit}</span>
               </div>
 
-              {/* Preview */}
-              {delta !== 0 && (
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  Current: <span className="font-semibold">{currentQty}</span> → New:{' '}
-                  <span
-                    className={`font-bold ${previewQty < 0 ? 'text-red-600' : 'text-[var(--text-primary)]'}`}
-                  >
-                    {previewSafe}
-                  </span>
-                </p>
-              )}
-              {/* Inline Validation Warning */}
-              {previewQty < 0 && (
-                <p className="mt-1 flex items-center gap-1 text-sm font-medium text-red-500">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                  Cannot remove more than available stock.
-                </p>
-              )}
-            </div>
-
-            {/* Purpose — only for Stock Out */}
-            {txType === 'STOCK_OUT' && (
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                  Purpose <span className="text-red-500">*</span>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={inputValue}
+                  onChange={handleInputChange}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                {/* Label adapts: Stock Out requires a purpose; Stock In treats it as optional notes */}
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  {txType === 'STOCK_OUT' ? 'Purpose' : 'Notes'}
+                  {txType === 'STOCK_OUT' && <span className="text-rose-500 ml-0.5">*</span>}
+                  {txType === 'STOCK_IN' && (
+                    <span className="ml-1 font-normal text-gray-400">(optional)</span>
+                  )}
                 </label>
                 <input
                   type="text"
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="e.g. Used in maintenance, distributed..."
-                  className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm placeholder:text-[var(--text-disabled)] focus:outline-none focus:ring-2 focus:ring-[var(--primary,#3b82f6)]"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={
+                    txType === 'STOCK_OUT'
+                      ? 'E.g., used for event, distributed to team…'
+                      : 'E.g., new shipment, restock…'
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  required={txType === 'STOCK_OUT'}
                 />
               </div>
-            )}
-
-            {/* Notes */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                Optional Notes
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any additional details..."
-                className="w-full resize-none rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm placeholder:text-[var(--text-disabled)] focus:outline-none focus:ring-2 focus:ring-[var(--primary,#3b82f6)]"
-                rows={2}
-              />
             </div>
 
-            {/* Alerts */}
             {formError && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-100">
+              <p className="mt-4 text-sm text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-100">
                 {formError}
-              </div>
-            )}
-            {successMsg && (
-              <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700 border border-emerald-100">
-                {successMsg}
-              </div>
+              </p>
             )}
 
-            {/* Action Buttons */}
-            <div className="mt-6 flex justify-end gap-3 border-t border-[var(--surface-border)] pt-5">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                 disabled={isSaving}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSaving || delta === 0 || previewQty < 0}
-                className="rounded-xl bg-[var(--primary,#3b82f6)] px-5 py-2 text-sm font-bold text-white transition hover:bg-[var(--primary-hover,#2563eb)] disabled:opacity-50"
+                type="submit"
+                disabled={isSaving || delta <= 0 || (txType === 'STOCK_OUT' && delta > profile.quantity)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSaving ? 'Processing...' : 'Confirm Update'}
+                {isSaving ? 'Saving...' : 'Confirm Update'}
               </button>
             </div>
-          </div>
+          </form>
         )}
 
         {/* ── History Tab ── */}
         {activeTab === 'history' && (
-          <div className="h-[400px] overflow-y-auto p-4 sm:p-6">
-            {isLoadingHistory ? (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
-                Loading history...
-              </div>
-            ) : movements.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-disabled)]">
-                No stock history found.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {movements.map((mov) => {
-                  const lbl = movementLabel(mov.movementType);
-                  return (
-                    <div
-                      key={mov.id}
-                      className="flex gap-4 rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] p-4"
-                    >
-                      <div className="flex-1">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span
-                            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${lbl.color}`}
-                          >
-                            {lbl.text}
-                          </span>
-                          <span className="text-xs text-[var(--text-disabled)]">
+          <div className="flex h-[400px] flex-col p-4 sm:p-6">
+
+            {/* Filters */}
+            <div className="mb-4 flex flex-wrap shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setHistoryFilter('ALL')}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition tracking-wide ${
+                  historyFilter === 'ALL'
+                    ? 'bg-blue-600 text-white border border-transparent'
+                    : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter('STOCK_IN')}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition tracking-wide ${
+                  historyFilter === 'STOCK_IN'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                Stock In
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter('STOCK_OUT')}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition tracking-wide ${
+                  historyFilter === 'STOCK_OUT'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                Stock Out
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              {isLoadingHistory ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                  Loading history...
+                </div>
+              ) : displayedMovements.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                  {movements.length === 0 ? 'No stock history found.' : 'No matching stock history found.'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {displayedMovements.map((mov) => {
+                    const status = movementLabel(mov.movementType);
+                    const isPositive = mov.quantityChange > 0;
+
+                    return (
+                      <div key={mov.id} className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold border ${status.color}`}>
+                              {status.label}
+                            </span>
+                            <div className="mt-1.5 text-sm font-medium text-gray-900">
+                              {mov.performedBy.firstName} {mov.performedBy.lastName}
+                            </div>
+                          </div>
+                          <div className={`text-sm font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {isPositive ? '+' : '-'}{Math.abs(mov.quantityChange)}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-end mt-1">
+                          <div className="text-xs text-gray-500">
                             {formatTs(mov.createdAt)}
-                          </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Balance: <span className="font-medium text-gray-700">{mov.quantityAfter}</span>
+                          </div>
                         </div>
-                        <p className="text-sm text-[var(--text-primary)]">
-                          <span className="font-medium text-[var(--text-secondary)]">
-                            Performed by:{' '}
-                          </span>
-                          {mov.performedBy.firstName} {mov.performedBy.lastName}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
-                          <span className="text-[var(--text-secondary)]">{mov.quantityBefore}</span>
-                          <span className="text-[var(--text-disabled)] text-xs">→</span>
-                          <span className="text-[var(--text-primary)]">{mov.quantityAfter}</span>
-                          <span className="text-xs text-[var(--text-disabled)] font-normal ml-2">
-                            (Change:{' '}
-                            {mov.quantityChange > 0 ? `+${mov.quantityChange}` : mov.quantityChange}
-                            )
-                          </span>
-                        </div>
+
                         {mov.reason && (
-                          <p className="mt-2 text-xs italic text-[var(--text-secondary)] border-l-2 border-[var(--surface-border)] pl-2">
-                            "{mov.reason}"
-                          </p>
+                           <p className="mt-2 text-xs text-gray-600 border-l-2 border-gray-300 pl-2 py-0.5 bg-white rounded-r-md px-2 shadow-sm">
+                             "{mov.reason}"
+                           </p>
                         )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

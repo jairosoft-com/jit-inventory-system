@@ -267,8 +267,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const now = Date.now();
     const currentStatus = get().authCheckStatus;
-    const retryAfterSeconds =
-      get().authRetryAfterSeconds ?? BACKEND_RATE_LIMIT_FALLBACK_SECONDS;
+    const retryAfterSeconds = get().authRetryAfterSeconds ?? BACKEND_RATE_LIMIT_FALLBACK_SECONDS;
 
     if (
       currentStatus === RATE_LIMIT_STATUS &&

@@ -27,6 +27,19 @@ export interface WarrantyAlert {
   daysRemaining: number;
 }
 
+export interface ReplacementNeededItem {
+  id: number;
+  itemId: number;
+  itemName: string;
+  assetId: string;
+  condition: string;
+  status: string;
+  acquisitionDate: string | null;
+  lifecycleYears: number | null;
+  replacementRecommendation: string;
+  replacementReasons: string[];
+}
+
 export interface DashboardAlerts {
   lowStock: LowStockItem[];
   warrantyExpiring: WarrantyAlert[];
@@ -109,15 +122,18 @@ interface DashboardState {
   alerts: DashboardAlerts;
   recentActivity: RecentActivity[];
   equipmentBreakdown: EquipmentBreakdown[];
+  replacementNeeded: ReplacementNeededItem[];
   procurementSummary: ProcurementSummary | null;
   analytics: AnalyticsData | null;
   isLoading: boolean;
   isWarrantyAlertsLoading: boolean;
+  isReplacementNeededLoading: boolean;
   error: string | null;
 
   fetchSummary: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
   fetchWarrantyAlerts: () => Promise<void>;
+  fetchReplacementNeeded: () => Promise<void>;
   fetchRecentActivity: () => Promise<void>;
   fetchEquipmentBreakdown: () => Promise<void>;
   fetchProcurementSummary: () => Promise<void>;
@@ -131,10 +147,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   alerts: { lowStock: [], warrantyExpiring: [] },
   recentActivity: [],
   equipmentBreakdown: [],
+  replacementNeeded: [],
   procurementSummary: null,
   analytics: null,
   isLoading: false,
   isWarrantyAlertsLoading: false,
+  isReplacementNeededLoading: false,
   error: null,
 
   clearError: () => set({ error: null }),
@@ -146,8 +164,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
-        error:
-          err.response?.data?.message || 'Failed to fetch dashboard summary',
+        error: err.response?.data?.message || 'Failed to fetch dashboard summary',
       });
     }
   },
@@ -173,9 +190,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set({ isWarrantyAlertsLoading: true, error: null });
 
     try {
-      const response = await api.get<WarrantyAlert[]>(
-        '/dashboard/warranty-alerts',
-      );
+      const response = await api.get<WarrantyAlert[]>('/dashboard/warranty-alerts');
 
       set((state) => ({
         alerts: {
@@ -186,42 +201,55 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
-        error:
-          err.response?.data?.message ||
-          'Failed to fetch warranty expiration alerts',
+        error: err.response?.data?.message || 'Failed to fetch warranty expiration alerts',
       });
     } finally {
       set({ isWarrantyAlertsLoading: false });
     }
   },
 
+  fetchReplacementNeeded: async () => {
+    if (get().isReplacementNeededLoading) {
+      return;
+    }
+
+    set({ isReplacementNeededLoading: true, error: null });
+
+    try {
+      const response = await api.get<ReplacementNeededItem[]>('/dashboard/replacement-needed');
+
+      set({ replacementNeeded: response.data });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+
+      set({
+        error: err.response?.data?.message || 'Failed to fetch replacement-needed indicators',
+      });
+    } finally {
+      set({ isReplacementNeededLoading: false });
+    }
+  },
+
   fetchRecentActivity: async () => {
     try {
-      const response = await api.get<RecentActivity[]>(
-        '/dashboard/activity?limit=10',
-      );
+      const response = await api.get<RecentActivity[]>('/dashboard/activity?limit=10');
       set({ recentActivity: response.data });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
-        error:
-          err.response?.data?.message || 'Failed to fetch recent activity',
+        error: err.response?.data?.message || 'Failed to fetch recent activity',
       });
     }
   },
 
   fetchEquipmentBreakdown: async () => {
     try {
-      const response = await api.get<EquipmentBreakdown[]>(
-        '/dashboard/equipment-status',
-      );
+      const response = await api.get<EquipmentBreakdown[]>('/dashboard/equipment-status');
       set({ equipmentBreakdown: response.data });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
-        error:
-          err.response?.data?.message ||
-          'Failed to fetch equipment status breakdown',
+        error: err.response?.data?.message || 'Failed to fetch equipment status breakdown',
       });
     }
   },
@@ -249,16 +277,19 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   fetchAll: async (hasAnalyticsPermission = false) => {
     set({ isLoading: true, error: null });
 
+    await Promise.allSettled([
+      get().fetchSummary(),
+      get().fetchAlerts(),
+      get().fetchRecentActivity(),
+      get().fetchEquipmentBreakdown(),
+      get().fetchReplacementNeeded(),
+      get().fetchProcurementSummary(),
+      get().fetchAnalytics(),
+    ]);
     try {
       const response = await api.get(`/dashboard/all?analytics=${hasAnalyticsPermission}`);
-      const {
-        summary,
-        alerts,
-        recentActivity,
-        equipmentBreakdown,
-        procurementSummary,
-        analytics,
-      } = response.data;
+      const { summary, alerts, recentActivity, equipmentBreakdown, procurementSummary, analytics } =
+        response.data;
 
       set({
         summary,
@@ -271,8 +302,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
-        error:
-          err.response?.data?.message || 'Failed to fetch dashboard data',
+        error: err.response?.data?.message || 'Failed to fetch dashboard data',
       });
     } finally {
       set({ isLoading: false });

@@ -8,6 +8,8 @@ const router = Router();
 interface DashboardAccess {
   canReadInventory: boolean;
   canReadEquipment: boolean;
+  canViewLowStockDetails: boolean;
+  permissions: string[];
 }
 
 class DashboardRouteError extends Error {
@@ -28,7 +30,8 @@ async function getDashboardAccess(req: Request): Promise<DashboardAccess> {
     throw new DashboardRouteError('Forbidden: Insufficient permissions', 403);
   }
 
-  const permissions = await DashboardService.getRolePermissionNames(roleId);
+  const { roleName, permissions } =
+    await DashboardService.getRoleAccess(roleId);
 
   const canReadInventory =
     permissions.includes('inventory:read') ||
@@ -45,6 +48,11 @@ async function getDashboardAccess(req: Request): Promise<DashboardAccess> {
   return {
     canReadInventory,
     canReadEquipment,
+    canViewLowStockDetails: DashboardService.canViewLowStockAlertDetails(
+      roleName,
+      permissions,
+    ),
+    permissions,
   };
 }
 
@@ -63,24 +71,10 @@ function sendDashboardError(res: Response, error: unknown): void {
 // GET /api/dashboard/all
 router.get('/all', async (req: Request, res: Response): Promise<void> => {
   try {
-    const roleId = req.user?.roleId;
-    if (!roleId) {
-      res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
-      return;
-    }
-
-    const permissions = await DashboardService.getRolePermissionNames(roleId);
-    const canReadInventory = permissions.includes('inventory:read');
-    const canReadEquipment = permissions.includes('equipment:read');
-
-    if (!canReadInventory && !canReadEquipment) {
-      res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
-      return;
-    }
-
-    const access = { canReadInventory, canReadEquipment };
+    const access = await getDashboardAccess(req);
     const includeAnalytics =
-      req.query.analytics === 'true' && permissions.includes('reports:export');
+      req.query.analytics === 'true' &&
+      access.permissions.includes('reports:export');
 
     const [
       summary,
@@ -93,19 +87,19 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
     ] = await Promise.all([
       DashboardService.getSummary(access),
 
-      canReadInventory
+      access.canViewLowStockDetails
         ? DashboardService.getLowStockItems()
         : Promise.resolve([]),
 
-      canReadEquipment
+      access.canReadEquipment
         ? DashboardService.getWarrantyAlerts()
         : Promise.resolve([]),
 
-      canReadInventory || canReadEquipment
+      access.canReadInventory || access.canReadEquipment
         ? DashboardService.getRecentActivity(access, 10)
         : Promise.resolve([]),
 
-      canReadEquipment
+      access.canReadEquipment
         ? DashboardService.getEquipmentStatusBreakdown()
         : Promise.resolve([]),
 
@@ -150,7 +144,7 @@ router.get('/alerts', async (req: Request, res: Response): Promise<void> => {
     const access = await getDashboardAccess(req);
 
     const [lowStock, warrantyExpiring] = await Promise.all([
-      access.canReadInventory
+      access.canViewLowStockDetails
         ? DashboardService.getLowStockItems()
         : Promise.resolve([]),
       access.canReadEquipment

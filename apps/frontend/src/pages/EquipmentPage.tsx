@@ -154,13 +154,38 @@ function getDefaultRetirementReason(eq: Equipment): DisposalReason {
   return 'OUTDATED';
 }
 
+function getRetirementIneligibilityReason(eq: Equipment): string | null {
+  if (eq.status === 'RETIREMENT_PENDING') {
+    return 'Retirement request already pending.';
+  }
+
+  if (eq.status === 'RETIRED') {
+    return 'Equipment is already retired.';
+  }
+
+  if (eq.status === 'BORROWED' || eq.status === 'IN_USE') {
+    return 'Equipment must be returned before retirement can be requested.';
+  }
+
+  const hasRetirementStatus = eq.status === 'DAMAGED' || eq.status === 'LOST';
+  const hasRetirementCondition = ['FAIR', 'POOR', 'DAMAGED'].includes(eq.condition);
+
+  if (!hasRetirementStatus && !hasRetirementCondition) {
+    return 'Only fair, poor, damaged, or lost equipment can be retired.';
+  }
+
+  return null;
+}
+
 function isRetirementRequestLocked(eq: Equipment): boolean {
-  return eq.status === 'RETIREMENT_PENDING' || eq.status === 'RETIRED';
+  return getRetirementIneligibilityReason(eq) !== null;
 }
 
 function getRetirementActionLabel(eq: Equipment): string {
   if (eq.status === 'RETIREMENT_PENDING') return 'Retirement Pending';
   if (eq.status === 'RETIRED') return 'Retired';
+  if (eq.status === 'BORROWED' || eq.status === 'IN_USE') return 'Unavailable';
+  if (getRetirementIneligibilityReason(eq)) return 'Not Eligible';
   return 'Request Retirement';
 }
 
@@ -480,7 +505,13 @@ export default function EquipmentPage() {
 
   // ── Retirement Request Handlers ──────────────────────────────────────────
   const handleOpenRetirementRequest = (eq: Equipment) => {
-    if (isRetirementRequestLocked(eq)) return;
+    const ineligibilityReason = getRetirementIneligibilityReason(eq);
+
+    if (ineligibilityReason) {
+      setSuccessMessage(null);
+      setRetirementError(ineligibilityReason);
+      return;
+    }
 
     setRetiringEquipment(eq);
     setRetirementForm({
@@ -807,6 +838,7 @@ export default function EquipmentPage() {
                                       type="button"
                                       onClick={() => handleOpenRetirementRequest(eq)}
                                       disabled={isRetirementRequestLocked(eq)}
+                                      title={getRetirementIneligibilityReason(eq) ?? undefined}
                                       className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:border-[var(--surface-border)] disabled:bg-gray-100 disabled:text-gray-500"
                                     >
                                       {getRetirementActionLabel(eq)}
@@ -886,6 +918,7 @@ export default function EquipmentPage() {
                                 type="button"
                                 onClick={() => handleOpenRetirementRequest(eq)}
                                 disabled={isRetirementRequestLocked(eq)}
+                                title={getRetirementIneligibilityReason(eq) ?? undefined}
                                 className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:border-[var(--surface-border)] disabled:bg-gray-100 disabled:text-gray-500"
                               >
                                 {getRetirementActionLabel(eq)}

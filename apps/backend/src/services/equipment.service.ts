@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import {
   BorrowStatus,
+  ConditionStatus,
   EquipmentStatus,
   ItemType,
   Prisma,
@@ -44,6 +45,46 @@ const equipmentInclude = Prisma.validator<Prisma.EquipmentInclude>()({
     orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
   },
 });
+
+const retirementEligibleConditions = new Set<ConditionStatus>([
+  ConditionStatus.FAIR,
+  ConditionStatus.POOR,
+  ConditionStatus.DAMAGED,
+]);
+
+function getRetirementEligibilityError(equipment: {
+  status: EquipmentStatus;
+  condition: ConditionStatus;
+}) {
+  if (equipment.status === EquipmentStatus.BORROWED) {
+    return 'Equipment is currently borrowed and cannot be retired';
+  }
+
+  if (equipment.status === EquipmentStatus.IN_USE) {
+    return 'Equipment is currently in use and cannot be retired';
+  }
+
+  if (equipment.status === EquipmentStatus.RETIREMENT_PENDING) {
+    return 'Equipment already has a retirement request';
+  }
+
+  if (equipment.status === EquipmentStatus.RETIRED) {
+    return 'Equipment is already retired';
+  }
+
+  const hasRetirementStatus =
+    equipment.status === EquipmentStatus.DAMAGED ||
+    equipment.status === EquipmentStatus.LOST;
+  const hasRetirementCondition = retirementEligibleConditions.has(
+    equipment.condition,
+  );
+
+  if (!hasRetirementStatus && !hasRetirementCondition) {
+    return 'Equipment cannot be retired unless it is in FAIR, POOR, or DAMAGED condition';
+  }
+
+  return null;
+}
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -416,6 +457,7 @@ export class EquipmentService {
         select: {
           id: true,
           status: true,
+          condition: true,
           deletedAt: true,
         },
       });
@@ -424,18 +466,10 @@ export class EquipmentService {
         throw new Error('Equipment not found');
       }
 
-      if (equipment.status === EquipmentStatus.BORROWED) {
-        throw new Error(
-          'Equipment is currently borrowed and cannot be retired',
-        );
-      }
+      const eligibilityError = getRetirementEligibilityError(equipment);
 
-      if (equipment.status === EquipmentStatus.RETIREMENT_PENDING) {
-        throw new Error('Equipment already has a retirement request');
-      }
-
-      if (equipment.status === EquipmentStatus.RETIRED) {
-        throw new Error('Equipment is already retired');
+      if (eligibilityError) {
+        throw new Error(eligibilityError);
       }
 
       const activeBorrowRecord = await tx.borrowRecord.findFirst({
@@ -480,6 +514,26 @@ export class EquipmentService {
         },
         include: equipmentInclude,
       });
+
+      await AuditLogService.log(
+        'Equipment',
+        updatedEquipment.id,
+        LogAction.UPDATED,
+        requestedById,
+        equipment,
+        updatedEquipment,
+        tx,
+      );
+
+      await AuditLogService.log(
+        'Disposal',
+        disposal.id,
+        LogAction.CREATED,
+        requestedById,
+        null,
+        disposal,
+        tx,
+      );
 
       return {
         message: 'Equipment retirement request submitted successfully',

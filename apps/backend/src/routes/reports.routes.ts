@@ -65,8 +65,12 @@ function flattenRow(row: Record<string, unknown>): Record<string, string | numbe
       flat[key] = '';
     } else if (typeof value === 'number') {
       flat[key] = value;
-    } else {
+    } else if (typeof value === 'string' || typeof value === 'boolean') {
+      // FIX 1: explicitly handle string/boolean before falling through to JSON.stringify
+      // so we never call String() on an object (which would produce '[object Object]')
       flat[key] = String(value);
+    } else {
+      flat[key] = JSON.stringify(value);
     }
   }
   return flat;
@@ -215,7 +219,8 @@ router.get('/export/excel', async (req: Request, res: Response): Promise<void> =
     });
 
     // ── Apply computed column widths ──
-    columns.forEach((_col, i) => {
+    // FIX 2: rename unused `_col` parameter to `_` to satisfy no-unused-vars
+    columns.forEach((_, i) => {
       sheet.getColumn(i + 1).width = colWidths[i];
     });
 

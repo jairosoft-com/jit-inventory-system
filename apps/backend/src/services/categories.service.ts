@@ -1,17 +1,9 @@
 import { prisma } from '../lib/prisma.js';
-
-// Adjust these imports based on your actual validation/type file locations
-export interface CreateCategoryInput {
-  name: string;
-  type: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
-  description?: string | null ;
-}
-
-export interface UpdateCategoryInput {
-  name?: string;
-  type?: 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
-  description?: string | null;
-}
+// Updated to import the inferred types directly from your actual Zod schema file
+import { 
+  CreateCategoryInput, 
+  UpdateCategoryInput 
+} from '../schemas/categories.schema.js' // Adjust this relative path if needed
 
 const CATEGORY_INCLUDE = {
   _count: {
@@ -59,8 +51,12 @@ export class CategoriesService {
   }
 
   static async findOne(id: number) {
-    const category = await prisma.category.findUnique({
-      where: { id },
+    // Fixed: Uses findFirst to filter out soft-deleted/archived categories
+    const category = await prisma.category.findFirst({
+      where: { 
+        id, 
+        deletedAt: null 
+      },
       include: CATEGORY_INCLUDE,
     });
 
@@ -72,6 +68,7 @@ export class CategoriesService {
   }
 
   static async update(id: number, data: UpdateCategoryInput) {
+    // Ensures archived categories cannot be updated (will throw 'Category not found')
     await this.findOne(id);
 
     if (data.name) {
@@ -101,11 +98,8 @@ export class CategoriesService {
   }
 
   static async archive(id: number) {
-    // 1. Ensure the category actually exists
+    // Ensures category exists and isn't already archived before updating
     await this.findOne(id);
-
-    // 2. We removed the validation check that throws "Cannot archive category. It has active items..."
-    // This allows the category to be archived (soft-deleted) while leaving the existing items safely attached.
 
     return prisma.category.update({
       where: { id },

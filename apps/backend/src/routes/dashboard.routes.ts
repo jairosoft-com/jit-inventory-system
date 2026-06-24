@@ -30,8 +30,9 @@ async function getDashboardAccess(req: Request): Promise<DashboardAccess> {
     throw new DashboardRouteError('Forbidden: Insufficient permissions', 403);
   }
 
-  const { roleName, permissions } =
-    await DashboardService.getRoleAccess(roleId);
+  const roleAccess = await DashboardService.getRoleAccess(roleId);
+  const roleName = roleAccess.roleName;
+  const permissions = roleAccess.permissions;
 
   const canReadInventory =
     permissions.includes('inventory:read') ||
@@ -72,12 +73,13 @@ function sendDashboardError(res: Response, error: unknown): void {
 router.get('/all', async (req: Request, res: Response): Promise<void> => {
   try {
     const access = await getDashboardAccess(req);
+
     const includeAnalytics =
       req.query.analytics === 'true' &&
       access.permissions.includes('reports:export');
 
-    // Determine borrow scoping: STAFF users only see their own borrow data
-    const canApproveBorrows = permissions.includes('borrow:approve');
+    // Staff users only see their own borrow data unless they can approve borrows.
+    const canApproveBorrows = access.permissions.includes('borrow:approve');
     const borrowUserId = canApproveBorrows ? undefined : req.user?.id;
 
     const [
@@ -120,7 +122,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
 
       DashboardService.getMostBorrowedItems(5, borrowUserId),
 
-      canReadEquipment
+      access.canReadEquipment
         ? DashboardService.getReplacementNeededItems()
         : Promise.resolve([]),
     ]);
@@ -165,6 +167,7 @@ router.get('/alerts', async (req: Request, res: Response): Promise<void> => {
       access.canViewLowStockDetails
         ? DashboardService.getLowStockItems()
         : Promise.resolve([]),
+
       access.canReadEquipment
         ? DashboardService.getWarrantyAlerts()
         : Promise.resolve([]),
@@ -272,7 +275,7 @@ router.get(
 // GET /api/dashboard/procurement-summary
 router.get(
   '/procurement-summary',
-  async (req: Request, res: Response): Promise<void> => {
+  async (_req: Request, res: Response): Promise<void> => {
     try {
       const procurementSummary = await DashboardService.getProcurementSummary();
 
@@ -297,16 +300,13 @@ router.get(
         return;
       }
 
-      // STAFF users only see their own borrow data
-      const roleId = req.user?.roleId;
-      const permissions = roleId
-        ? await DashboardService.getRolePermissionNames(roleId)
-        : [];
-      const canApproveBorrows = permissions.includes('borrow:approve');
+      // Staff users only see their own borrow data unless they can approve borrows.
+      const canApproveBorrows = access.permissions.includes('borrow:approve');
       const borrowUserId = canApproveBorrows ? undefined : req.user?.id;
 
       const borrowSummary =
         await DashboardService.getBorrowSummary(borrowUserId);
+
       res.status(200).json(borrowSummary);
     } catch (error) {
       sendDashboardError(res, error);
@@ -326,12 +326,8 @@ router.get(
         return;
       }
 
-      // STAFF users only see their own most-borrowed items
-      const roleId = req.user?.roleId;
-      const permissions = roleId
-        ? await DashboardService.getRolePermissionNames(roleId)
-        : [];
-      const canApproveBorrows = permissions.includes('borrow:approve');
+      // Staff users only see their own most-borrowed items unless they can approve borrows.
+      const canApproveBorrows = access.permissions.includes('borrow:approve');
       const borrowUserId = canApproveBorrows ? undefined : req.user?.id;
 
       const limit = req.query.limit
@@ -354,13 +350,15 @@ router.get(
 router.get(
   '/analytics',
   authorize('reports:export'),
-  async (req: Request, res: Response): Promise<void> => {
+  async (_req: Request, res: Response): Promise<void> => {
     try {
       const analytics = await DashboardService.getAnalytics();
+
       res.status(200).json(analytics);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       res.status(500).json({ message });
     }
   },

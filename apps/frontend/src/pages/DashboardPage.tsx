@@ -202,6 +202,8 @@ export default function DashboardPage() {
     equipmentBreakdown,
     replacementNeeded,
     procurementSummary,
+    borrowSummary,
+    mostBorrowed,
     isLoading,
     isWarrantyAlertsLoading,
     isReplacementNeededLoading,
@@ -265,88 +267,175 @@ export default function DashboardPage() {
     })
     .filter((status) => status.count > 0 || totalEquipmentCount === 0);
 
-  const statCards = [
-    {
-      label: 'Total Items',
-      color: '#2563eb',
-      value: summary ? summary.totalItems.toLocaleString() : null,
-      subtext: 'total registered',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
-          <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
-          <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
-          <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Active Equipment',
-      color: '#8b5cf6',
-      value: summary ? summary.activeEquipment.toLocaleString() : null,
-      subtext: 'currently available',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Low Stock Alerts',
-      color: '#d97706',
-      value: summary ? summary.lowStockAlerts.toLocaleString() : null,
-      subtext: 'requires reorder',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Pending Borrows',
-      color: '#0891b2',
-      value: summary ? summary.pendingBorrows.toLocaleString() : null,
-      subtext: 'awaiting approval',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M17 2.1l4 4-4 4" />
-          <path d="M3 12.2v-2a4 4 0 014-4h14" />
-          <path d="M7 21.9l-4-4 4-4" />
-          <path d="M21 11.8v2a4 4 0 01-4 4H3" />
-        </svg>
-      ),
-    },
-  ];
+  const isStaff = userRole === 'STAFF';
+
+  const statCards = isStaff
+    ? [
+        {
+          label: 'Active Borrows',
+          color: '#8b5cf6',
+          value: borrowSummary ? borrowSummary.activeBorrows.toLocaleString() : null,
+          subtext: 'currently borrowed',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M17 2.1l4 4-4 4" />
+              <path d="M3 12.2v-2a4 4 0 014-4h14" />
+              <path d="M7 21.9l-4-4 4-4" />
+              <path d="M21 11.8v2a4 4 0 01-4 4H3" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Overdue Borrows',
+          color: '#ef4444',
+          value: borrowSummary ? borrowSummary.overdueBorrows.toLocaleString() : null,
+          subtext: 'past due date',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Pending Borrows',
+          color: '#d97706',
+          value: borrowSummary ? borrowSummary.pendingBorrows.toLocaleString() : null,
+          subtext: 'awaiting approval',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Total Items',
+          color: '#2563eb',
+          value: summary ? summary.totalItems.toLocaleString() : null,
+          subtext: 'total registered',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+              <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
+              <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
+              <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
+            </svg>
+          ),
+        },
+      ]
+    : [
+        {
+          label: 'Total Items',
+          color: '#2563eb',
+          value: summary ? summary.totalItems.toLocaleString() : null,
+          subtext: 'total registered',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+              <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
+              <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
+              <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Active Equipment',
+          color: '#8b5cf6',
+          value: summary ? summary.activeEquipment.toLocaleString() : null,
+          subtext: 'currently available',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Low Stock Alerts',
+          color: '#d97706',
+          value: summary ? summary.lowStockAlerts.toLocaleString() : null,
+          subtext: 'requires reorder',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Pending Borrows',
+          color: '#0891b2',
+          value: borrowSummary ? borrowSummary.pendingBorrows.toLocaleString() : summary ? summary.pendingBorrows.toLocaleString() : null,
+          subtext: 'awaiting approval',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M17 2.1l4 4-4 4" />
+              <path d="M3 12.2v-2a4 4 0 014-4h14" />
+              <path d="M7 21.9l-4-4 4-4" />
+              <path d="M21 11.8v2a4 4 0 01-4 4H3" />
+            </svg>
+          ),
+        },
+      ];
 
   return (
     <div className="dash-page animate-fade-in">
@@ -563,6 +652,99 @@ export default function DashboardPage() {
                 <h3 className="dash-empty-heading">No Registered Assets</h3>
                 <p className="dash-empty-text">
                   Register trackable equipment units to begin tracking operational status.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="dash-card">
+          <div className="dash-card-header">
+            <h2 className="dash-card-title">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#8b5cf6"
+                strokeWidth="2"
+                style={{ marginRight: '4px' }}
+              >
+                <path d="M17 2.1l4 4-4 4" />
+                <path d="M3 12.2v-2a4 4 0 014-4h14" />
+                <path d="M7 21.9l-4-4 4-4" />
+                <path d="M21 11.8v2a4 4 0 01-4 4H3" />
+              </svg>
+              Most Borrowed Items
+            </h2>
+          </div>
+
+          <div
+            className={mostBorrowed.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'}
+          >
+            {isLoading && mostBorrowed.length === 0 ? (
+              <div className="dash-skeleton-list">
+                {[1, 2, 3, 4, 5].map((id) => (
+                  <div key={id} className="dash-skeleton-row animate-pulse">
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-short" />
+                  </div>
+                ))}
+              </div>
+            ) : mostBorrowed.length > 0 ? (
+              <div className="dash-most-borrowed-list">
+                {mostBorrowed.map((item, index) => {
+                  const statusCfg = statusConfigs[item.currentStatus] || {
+                    label: item.currentStatus,
+                    color: '#6b7280',
+                  };
+                  return (
+                    <div key={item.equipmentId} className="dash-most-borrowed-row">
+                      <div className="dash-most-borrowed-rank">{index + 1}</div>
+                      <div className="dash-most-borrowed-info">
+                        <span className="dash-most-borrowed-name" title={item.itemName}>
+                          {item.itemName}
+                        </span>
+                        <span className="dash-most-borrowed-asset">{item.assetId}</span>
+                      </div>
+                      <div className="dash-most-borrowed-meta">
+                        <span
+                          className="dash-most-borrowed-status"
+                          style={{
+                            backgroundColor: `${statusCfg.color}08`,
+                            color: statusCfg.color,
+                            border: `1px solid ${statusCfg.color}15`,
+                          }}
+                        >
+                          {statusCfg.label}
+                        </span>
+                        <span className="dash-most-borrowed-count">
+                          {item.totalBorrows} borrow{item.totalBorrows === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="dash-empty-state">
+                <div className="dash-empty-icon">
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
+                <h3 className="dash-empty-heading">No Borrow Records</h3>
+                <p className="dash-empty-text">
+                  Equipment usage frequency details will show here once items are borrowed.
                 </p>
               </div>
             )}

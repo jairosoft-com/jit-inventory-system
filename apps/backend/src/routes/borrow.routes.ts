@@ -26,7 +26,9 @@ router.use(authenticate);
  * STAFF holds borrow:read (so they can list/filter their own history) but
  * not borrow:approve, so this returns false for them.
  */
-async function canViewAllBorrowRecords(roleId: number | undefined): Promise<boolean> {
+async function canViewAllBorrowRecords(
+  roleId: number | undefined,
+): Promise<boolean> {
   if (!roleId) return false;
   const grant = await prisma.rolePermission.findFirst({
     where: { roleId, permission: { name: 'borrow:approve' } },

@@ -1,8 +1,9 @@
 import { prisma } from '../lib/prisma.js';
-import {
-  CreateCategoryInput,
-  UpdateCategoryInput,
-} from '../schemas/categories.schema.js';
+// Updated to import the inferred types directly from your actual Zod schema file
+import { 
+  CreateCategoryInput, 
+  UpdateCategoryInput 
+} from '../schemas/categories.schema.js' // Adjust this relative path if needed
 
 const CATEGORY_INCLUDE = {
   _count: {
@@ -26,7 +27,7 @@ export class CategoriesService {
     });
 
     if (existing) {
-      throw new Error('Category name already exists');
+      throw new Error('Category already exists');
     }
 
     return prisma.category.create({
@@ -40,21 +41,26 @@ export class CategoriesService {
   }
 
   static async findAll(includeArchived: boolean | string = false) {
-    const shouldInclude =
-      includeArchived === true || includeArchived === 'true';
+    const shouldInclude = includeArchived === true || includeArchived === 'true';
+
     return prisma.category.findMany({
-      where: shouldInclude ? {} : { deletedAt: null },
-      orderBy: { name: 'asc' },
+      where: shouldInclude ? undefined : { deletedAt: null },
       include: CATEGORY_INCLUDE,
+      orderBy: { name: 'asc' },
     });
   }
 
   static async findOne(id: number) {
-    const category = await prisma.category.findUnique({
-      where: { id },
+    // Fixed: Uses findFirst to filter out soft-deleted/archived categories
+    const category = await prisma.category.findFirst({
+      where: { 
+        id, 
+        deletedAt: null 
+      },
+      include: CATEGORY_INCLUDE,
     });
 
-    if (!category || category.deletedAt) {
+    if (!category) {
       throw new Error('Category not found');
     }
 
@@ -62,6 +68,7 @@ export class CategoriesService {
   }
 
   static async update(id: number, data: UpdateCategoryInput) {
+    // Ensures archived categories cannot be updated (will throw 'Category not found')
     await this.findOne(id);
 
     if (data.name) {
@@ -91,20 +98,8 @@ export class CategoriesService {
   }
 
   static async archive(id: number) {
+    // Ensures category exists and isn't already archived before updating
     await this.findOne(id);
-
-    const activeItemsCount = await prisma.item.count({
-      where: {
-        categoryId: id,
-        deletedAt: null,
-      },
-    });
-
-    if (activeItemsCount > 0) {
-      throw new Error(
-        `Cannot archive category. It has ${activeItemsCount} active item(s) assigned to it.`,
-      );
-    }
 
     return prisma.category.update({
       where: { id },

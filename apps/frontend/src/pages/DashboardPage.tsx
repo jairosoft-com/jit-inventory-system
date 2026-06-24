@@ -226,14 +226,15 @@ export default function DashboardPage() {
 
   const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
     const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
+    const reorderPointText = `Reorder Point: ${item.reorderPoint} ${item.unit}`;
 
     return {
       id: `low-stock-${item.id}`,
       severity: isOutOfStock ? 'critical' : 'warning',
       itemName: item.itemName,
       detail: isOutOfStock
-        ? `Out of stock · ${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`
-        : `${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`,
+        ? `Out of stock · ${item.quantity} ${item.unit} remaining (${reorderPointText})`
+        : `${item.quantity} ${item.unit} remaining (${reorderPointText})`,
     };
   });
 

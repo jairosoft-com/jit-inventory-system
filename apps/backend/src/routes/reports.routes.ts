@@ -161,7 +161,7 @@ router.get('/export/excel', async (req: Request, res: Response): Promise<void> =
     const lastCol = sheet.getColumn(colCount).letter ?? String.fromCharCode(64 + colCount);
 
     // ── Compute natural column widths from actual content ──
-    const colWidths = columns.map((col, _i) => {
+    const colWidths = columns.map((col) => {
       const header = formatColumnHeader(col);
       const maxDataLen = flatRows.reduce((max, r) => {
         const len = String(r[col] ?? '').length;

@@ -158,41 +158,77 @@ export class DashboardService {
   }
 
   static async getSummary(access: DashboardAccess) {
-    const [totalItems, activeEquipment, lowStockAlerts, pendingBorrows] =
-      await Promise.all([
-        access.canReadInventory
-          ? prisma.item.count({
-              where: { deletedAt: null },
-            })
-          : Promise.resolve(0),
+    const [
+      totalItems,
+      activeEquipment,
+      lowStockAlerts,
+      pendingBorrows,
+      totalQuantityInStock,
+      availableItems,
+      lowStockItems,
+    ] = await Promise.all([
+      access.canReadInventory
+        ? prisma.item.count({
+            where: { deletedAt: null },
+          })
+        : Promise.resolve(0),
 
-        access.canReadEquipment
-          ? prisma.equipment.count({
-              where: {
-                status: EquipmentStatus.AVAILABLE,
-                deletedAt: null,
-              },
-            })
-          : Promise.resolve(0),
+      access.canReadEquipment
+        ? prisma.equipment.count({
+            where: {
+              status: EquipmentStatus.AVAILABLE,
+              deletedAt: null,
+            },
+          })
+        : Promise.resolve(0),
 
-        access.canReadInventory
-          ? DashboardService.countLowStockItems()
-          : Promise.resolve(0),
+      access.canReadInventory
+        ? DashboardService.countLowStockItems()
+        : Promise.resolve(0),
 
-        access.canReadEquipment
-          ? prisma.borrowRecord.count({
-              where: {
-                status: 'PENDING',
-              },
-            })
-          : Promise.resolve(0),
-      ]);
+      access.canReadEquipment
+        ? prisma.borrowRecord.count({
+            where: {
+              status: 'PENDING',
+            },
+          })
+        : Promise.resolve(0),
+
+      access.canReadInventory
+        ? prisma.consumableProfile.aggregate({
+            _sum: { quantity: true },
+            where: { item: { deletedAt: null } },
+          }).then((res) => res._sum.quantity || 0)
+        : Promise.resolve(0),
+
+      access.canReadInventory
+        ? prisma.consumableProfile.count({
+            where: {
+              status: 'IN_STOCK',
+              item: { deletedAt: null },
+            },
+          })
+        : Promise.resolve(0),
+
+      access.canReadInventory
+        ? prisma.consumableProfile.count({
+            where: {
+              status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
+              item: { deletedAt: null },
+            },
+          })
+        : Promise.resolve(0),
+    ]);
 
     return {
       totalItems,
       activeEquipment,
       lowStockAlerts,
       pendingBorrows,
+      totalInventoryItems: totalItems,
+      totalQuantityInStock,
+      availableItems,
+      lowStockItems,
     };
   }
 

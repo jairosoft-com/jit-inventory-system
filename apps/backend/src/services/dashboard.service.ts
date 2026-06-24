@@ -1,4 +1,4 @@
-import { ConditionStatus, EquipmentStatus } from '@prisma/client';
+import { ConditionStatus, EquipmentStatus, BorrowStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
 
@@ -657,8 +657,8 @@ export class DashboardService {
             SELECT 
               DATE(created_at) as date,
               COUNT(*)::int as total,
-              COUNT(CASE WHEN status = 'BORROWED' THEN 1 END)::int as active,
-              COUNT(CASE WHEN status = 'OVERDUE' THEN 1 END)::int as overdue,
+              COUNT(CASE WHEN status IN ('APPROVED', 'BORROWED') AND expected_return >= CURRENT_DATE THEN 1 END)::int as active,
+              COUNT(CASE WHEN status = 'OVERDUE' OR (status IN ('APPROVED', 'BORROWED') AND expected_return < CURRENT_DATE) THEN 1 END)::int as overdue,
               COUNT(CASE WHEN status = 'RETURNED' THEN 1 END)::int as returned
             FROM borrow_records
             WHERE created_at >= ${startDate}
@@ -731,16 +731,30 @@ export class DashboardService {
    */
   static async getBorrowSummary(userId?: number) {
     const userFilter = userId ? { borrowedById: userId } : {};
+    const today = startOfDay(new Date());
 
     const [activeBorrows, overdueBorrows, pendingBorrows] = await Promise.all([
       prisma.borrowRecord.count({
-        where: { status: 'BORROWED', ...userFilter },
+        where: {
+          status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+          expectedReturn: { gte: today },
+          ...userFilter,
+        },
       }),
       prisma.borrowRecord.count({
-        where: { status: 'OVERDUE', ...userFilter },
+        where: {
+          OR: [
+            { status: BorrowStatus.OVERDUE },
+            {
+              status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+              expectedReturn: { lt: today },
+            },
+          ],
+          ...userFilter,
+        },
       }),
       prisma.borrowRecord.count({
-        where: { status: 'PENDING', ...userFilter },
+        where: { status: BorrowStatus.PENDING, ...userFilter },
       }),
     ]);
 

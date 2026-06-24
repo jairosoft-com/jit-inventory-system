@@ -96,6 +96,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       analytics,
       borrowSummary,
       mostBorrowed,
+      replacementNeeded,
     ] = await Promise.all([
       DashboardService.getSummary(access),
 
@@ -124,6 +125,10 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       DashboardService.getBorrowSummary(borrowUserId),
 
       DashboardService.getMostBorrowedItems(5, borrowUserId),
+
+      canReadEquipment
+        ? DashboardService.getReplacementNeededItems()
+        : Promise.resolve([]),
     ]);
 
     res.status(200).json({
@@ -134,6 +139,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       },
       recentActivity: activity,
       equipmentBreakdown: equipmentStatus,
+      replacementNeeded,
       procurementSummary,
       analytics,
       borrowSummary,

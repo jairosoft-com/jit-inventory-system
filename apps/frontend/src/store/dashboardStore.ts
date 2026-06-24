@@ -321,17 +321,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   fetchAll: async (hasAnalyticsPermission = false) => {
     set({ isLoading: true, error: null });
 
-    await Promise.allSettled([
-      get().fetchSummary(),
-      get().fetchAlerts(),
-      get().fetchRecentActivity(),
-      get().fetchEquipmentBreakdown(),
-      get().fetchReplacementNeeded(),
-      get().fetchProcurementSummary(),
-      get().fetchAnalytics(),
-      get().fetchBorrowSummary(),
-      get().fetchMostBorrowed(),
-    ]);
     try {
       const response = await api.get(`/dashboard/all?analytics=${hasAnalyticsPermission}`);
       const {
@@ -339,6 +328,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         alerts,
         recentActivity,
         equipmentBreakdown,
+        replacementNeeded,
         procurementSummary,
         analytics,
         borrowSummary,
@@ -350,6 +340,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         alerts,
         recentActivity,
         equipmentBreakdown,
+        replacementNeeded,
         procurementSummary,
         analytics,
         borrowSummary,

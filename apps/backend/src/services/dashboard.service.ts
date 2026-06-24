@@ -724,4 +724,72 @@ export class DashboardService {
       inventoryDistribution,
     };
   }
+
+  /**
+   * Returns borrow KPI counts. When `userId` is provided the counts are
+   * scoped to that single user (employee / STAFF view).
+   */
+  static async getBorrowSummary(userId?: number) {
+    const userFilter = userId ? { borrowedById: userId } : {};
+
+    const [activeBorrows, overdueBorrows, pendingBorrows] = await Promise.all([
+      prisma.borrowRecord.count({
+        where: { status: 'BORROWED', ...userFilter },
+      }),
+      prisma.borrowRecord.count({
+        where: { status: 'OVERDUE', ...userFilter },
+      }),
+      prisma.borrowRecord.count({
+        where: { status: 'PENDING', ...userFilter },
+      }),
+    ]);
+
+    return { activeBorrows, overdueBorrows, pendingBorrows };
+  }
+
+  /**
+   * Returns equipment ranked by total number of borrow records.
+   * When `userId` is provided, only borrows by that user are counted.
+   */
+  static async getMostBorrowedItems(limit = 5, userId?: number) {
+    const userFilter = userId ? { borrowedById: userId } : {};
+
+    const grouped = await prisma.borrowRecord.groupBy({
+      by: ['equipmentId'],
+      where: { ...userFilter },
+      _count: { equipmentId: true },
+      orderBy: { _count: { equipmentId: 'desc' } },
+      take: limit,
+    });
+
+    if (grouped.length === 0) {
+      return [];
+    }
+
+    const equipmentIds = grouped.map((g) => g.equipmentId);
+
+    const equipmentList = await prisma.equipment.findMany({
+      where: { id: { in: equipmentIds } },
+      include: {
+        item: { select: { itemName: true } },
+      },
+    });
+
+    const equipmentMap = new Map(equipmentList.map((eq) => [eq.id, eq]));
+
+    return grouped
+      .map((g) => {
+        const equipment = equipmentMap.get(g.equipmentId);
+        if (!equipment) return null;
+
+        return {
+          equipmentId: equipment.id,
+          itemName: equipment.item.itemName,
+          assetId: equipment.assetId,
+          currentStatus: equipment.status,
+          totalBorrows: g._count.equipmentId,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }
 }

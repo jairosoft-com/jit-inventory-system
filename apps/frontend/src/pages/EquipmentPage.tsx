@@ -177,16 +177,8 @@ function getRetirementIneligibilityReason(eq: Equipment): string | null {
   return null;
 }
 
-function isRetirementRequestLocked(eq: Equipment): boolean {
-  return getRetirementIneligibilityReason(eq) !== null;
-}
-
-function getRetirementActionLabel(eq: Equipment): string {
-  if (eq.status === 'RETIREMENT_PENDING') return 'Retirement Pending';
-  if (eq.status === 'RETIRED') return 'Retired';
-  if (eq.status === 'BORROWED' || eq.status === 'IN_USE') return 'Unavailable';
-  if (getRetirementIneligibilityReason(eq)) return 'Not Eligible';
-  return 'Request Retirement';
+function canRequestRetirement(eq: Equipment): boolean {
+  return getRetirementIneligibilityReason(eq) === null;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -834,15 +826,15 @@ export default function EquipmentPage() {
                               <div className="flex items-center justify-end gap-2">
                                 {canUpdate && (
                                   <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenRetirementRequest(eq)}
-                                      disabled={isRetirementRequestLocked(eq)}
-                                      title={getRetirementIneligibilityReason(eq) ?? undefined}
-                                      className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:border-[var(--surface-border)] disabled:bg-gray-100 disabled:text-gray-500"
-                                    >
-                                      {getRetirementActionLabel(eq)}
-                                    </button>
+                                    {canRequestRetirement(eq) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenRetirementRequest(eq)}
+                                        className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                      >
+                                        Request Retirement
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => handleOpenEdit(eq)}
@@ -914,15 +906,15 @@ export default function EquipmentPage() {
                         <div className="flex items-center gap-2">
                           {canUpdate && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRetirementRequest(eq)}
-                                disabled={isRetirementRequestLocked(eq)}
-                                title={getRetirementIneligibilityReason(eq) ?? undefined}
-                                className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:border-[var(--surface-border)] disabled:bg-gray-100 disabled:text-gray-500"
-                              >
-                                {getRetirementActionLabel(eq)}
-                              </button>
+                              {canRequestRetirement(eq) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRetirementRequest(eq)}
+                                  className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                >
+                                  Request Retirement
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(eq)}

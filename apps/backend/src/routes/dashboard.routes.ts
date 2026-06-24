@@ -76,6 +76,10 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       req.query.analytics === 'true' &&
       access.permissions.includes('reports:export');
 
+    // Determine borrow scoping: STAFF users only see their own borrow data
+    const canApproveBorrows = permissions.includes('borrow:approve');
+    const borrowUserId = canApproveBorrows ? undefined : req.user?.id;
+
     const [
       summary,
       lowStock,
@@ -84,6 +88,9 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       equipmentStatus,
       procurementSummary,
       analytics,
+      borrowSummary,
+      mostBorrowed,
+      replacementNeeded,
     ] = await Promise.all([
       DashboardService.getSummary(access),
 
@@ -108,6 +115,14 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       includeAnalytics
         ? DashboardService.getAnalytics()
         : Promise.resolve(null),
+
+      DashboardService.getBorrowSummary(borrowUserId),
+
+      DashboardService.getMostBorrowedItems(5, borrowUserId),
+
+      canReadEquipment
+        ? DashboardService.getReplacementNeededItems()
+        : Promise.resolve([]),
     ]);
 
     res.status(200).json({
@@ -118,8 +133,11 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       },
       recentActivity: activity,
       equipmentBreakdown: equipmentStatus,
+      replacementNeeded,
       procurementSummary,
       analytics,
+      borrowSummary,
+      mostBorrowed,
     });
   } catch (error) {
     sendDashboardError(res, error);
@@ -259,6 +277,73 @@ router.get(
       const procurementSummary = await DashboardService.getProcurementSummary();
 
       res.status(200).json(procurementSummary);
+    } catch (error) {
+      sendDashboardError(res, error);
+    }
+  },
+);
+
+// GET /api/dashboard/borrow-summary
+router.get(
+  '/borrow-summary',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const access = await getDashboardAccess(req);
+
+      if (!access.canReadEquipment) {
+        res
+          .status(200)
+          .json({ activeBorrows: 0, overdueBorrows: 0, pendingBorrows: 0 });
+        return;
+      }
+
+      // STAFF users only see their own borrow data
+      const roleId = req.user?.roleId;
+      const permissions = roleId
+        ? await DashboardService.getRolePermissionNames(roleId)
+        : [];
+      const canApproveBorrows = permissions.includes('borrow:approve');
+      const borrowUserId = canApproveBorrows ? undefined : req.user?.id;
+
+      const borrowSummary =
+        await DashboardService.getBorrowSummary(borrowUserId);
+      res.status(200).json(borrowSummary);
+    } catch (error) {
+      sendDashboardError(res, error);
+    }
+  },
+);
+
+// GET /api/dashboard/most-borrowed
+router.get(
+  '/most-borrowed',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const access = await getDashboardAccess(req);
+
+      if (!access.canReadEquipment) {
+        res.status(200).json([]);
+        return;
+      }
+
+      // STAFF users only see their own most-borrowed items
+      const roleId = req.user?.roleId;
+      const permissions = roleId
+        ? await DashboardService.getRolePermissionNames(roleId)
+        : [];
+      const canApproveBorrows = permissions.includes('borrow:approve');
+      const borrowUserId = canApproveBorrows ? undefined : req.user?.id;
+
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string, 10)
+        : 5;
+
+      const mostBorrowed = await DashboardService.getMostBorrowedItems(
+        isNaN(limit) ? 5 : limit,
+        borrowUserId,
+      );
+
+      res.status(200).json(mostBorrowed);
     } catch (error) {
       sendDashboardError(res, error);
     }

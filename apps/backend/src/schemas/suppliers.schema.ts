@@ -46,7 +46,13 @@ export const updateSupplierSchema = z.object({
   address: z.string().trim().min(1, 'Business address is required').optional(),
 });
 
+export const supplierStatusFilterSchema = z
+  .enum(['all', 'active', 'inactive'])
+  .default('active');
+
 export const listSuppliersQuerySchema = z.object({
+  search: z.string().trim().max(100).optional().default(''),
+  status: supplierStatusFilterSchema,
   includeArchived: z
     .preprocess((val) => {
       if (val === 'true' || val === true) return true;
@@ -54,8 +60,11 @@ export const listSuppliersQuerySchema = z.object({
       return undefined;
     }, z.boolean().optional())
     .default(false),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
 export type CreateSupplierInput = z.infer<typeof createSupplierSchema>;
 export type UpdateSupplierInput = z.infer<typeof updateSupplierSchema>;
+export type SupplierStatusFilter = z.infer<typeof supplierStatusFilterSchema>;
 export type ListSuppliersQuery = z.infer<typeof listSuppliersQuerySchema>;

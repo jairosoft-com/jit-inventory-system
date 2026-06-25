@@ -128,10 +128,27 @@ export class ReportService {
       approvedBy: record.approvedBy
         ? `${record.approvedBy.firstName} ${record.approvedBy.lastName}`
         : null,
-      status: record.status,
-      borrowDate: record.borrowDate?.toISOString() ?? null,
-      expectedReturn: record.expectedReturn.toISOString(),
-      actualReturn: record.actualReturn?.toISOString() ?? null,
+      borrowDate: record.borrowDate
+  ? record.borrowDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  : null,
+
+expectedReturn: record.expectedReturn.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}),
+
+actualReturn: record.actualReturn
+  ? record.actualReturn.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  : null,
       returnCondition: record.returnCondition ?? null,
       notes: record.notes ?? null,
       createdAt: record.createdAt.toISOString(),

@@ -20,6 +20,37 @@ export interface ReportMeta {
 }
 
 // ─────────────────────────────────────────────
+// Formatting Helpers
+// ─────────────────────────────────────────────
+
+/** Format a numeric DB id as a zero-padded 6-digit string e.g. #000042 */
+function fmtId(id: number): string {
+  return `#${String(id).padStart(6, '0')}`;
+}
+
+/** Format a date-only field e.g. Jun 24, 2026 */
+function fmtDate(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+/** Format a datetime field e.g. Jun 24, 2026, 09:47 AM */
+function fmtDateTime(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+// ─────────────────────────────────────────────
 // Report Service
 // ─────────────────────────────────────────────
 
@@ -45,13 +76,13 @@ export class ReportService {
     });
 
     return items.map((item) => ({
-      id: item.id,
+      id: fmtId(item.id),
       itemName: item.itemName,
       itemType: item.itemType,
       category: item.category.name,
       categoryType: item.category.type,
       barcode: item.barcode ?? null,
-      createdAt: item.createdAt.toISOString(),
+      createdAt: fmtDateTime(item.createdAt),
       // consumable
       quantity: item.consumableProfile?.quantity ?? null,
       unit: item.consumableProfile?.unit ?? null,
@@ -65,7 +96,7 @@ export class ReportService {
       // digital
       digitalStatus: item.digitalAsset?.status ?? null,
       digitalType: item.digitalAsset?.assetType ?? null,
-      expiryDate: item.digitalAsset?.expiryDate?.toISOString() ?? null,
+      expiryDate: fmtDate(item.digitalAsset?.expiryDate),
     }));
   }
 
@@ -86,11 +117,11 @@ export class ReportService {
     });
 
     return orders.map((order) => ({
-      id: order.id,
+      id: fmtId(order.id),
       invoiceNumber: order.invoiceNumber ?? null,
       status: order.status,
       totalAmount: Number(order.totalAmount),
-      orderDate: order.orderDate.toISOString(),
+      orderDate: fmtDate(order.orderDate),
       supplier: order.supplier.supplierName,
       supplierContact: order.supplier.contactPerson ?? null,
       createdBy: `${order.createdBy.firstName} ${order.createdBy.lastName}`,
@@ -120,7 +151,7 @@ export class ReportService {
     });
 
     return records.map((record) => ({
-      id: record.id,
+      id: fmtId(record.id),
       equipmentName: record.equipment.item.itemName,
       assetId: record.equipment.assetId,
       borrowedBy: `${record.borrowedBy.firstName} ${record.borrowedBy.lastName}`,
@@ -128,30 +159,13 @@ export class ReportService {
       approvedBy: record.approvedBy
         ? `${record.approvedBy.firstName} ${record.approvedBy.lastName}`
         : null,
-      borrowDate: record.borrowDate
-  ? record.borrowDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  : null,
-
-expectedReturn: record.expectedReturn.toLocaleDateString('en-US', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-}),
-
-actualReturn: record.actualReturn
-  ? record.actualReturn.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  : null,
+      status: record.status,
+      borrowDate: fmtDateTime(record.borrowDate),
+      expectedReturn: fmtDate(record.expectedReturn),
+      actualReturn: fmtDateTime(record.actualReturn),
       returnCondition: record.returnCondition ?? null,
       notes: record.notes ?? null,
-      createdAt: record.createdAt.toISOString(),
+      createdAt: fmtDateTime(record.createdAt),
     }));
   }
 
@@ -169,20 +183,20 @@ actualReturn: record.actualReturn
     });
 
     return logs.map((log) => ({
-      id: log.id,
+      id: fmtId(log.id),
       equipmentName: log.equipment.item.itemName,
       assetId: log.equipment.assetId,
       description: log.description,
       status: log.status,
-      scheduledDate: log.scheduledDate?.toISOString() ?? null,
-      completedDate: log.completedDate?.toISOString() ?? null,
+      scheduledDate: fmtDate(log.scheduledDate),
+      completedDate: fmtDate(log.completedDate),
       cost: log.cost !== null ? Number(log.cost) : null,
       performedBy: log.performedBy
         ? `${log.performedBy.firstName} ${log.performedBy.lastName}`
         : null,
       performedByVendor: log.performedByVendor ?? null,
       notes: log.notes ?? null,
-      createdAt: log.createdAt.toISOString(),
+      createdAt: fmtDateTime(log.createdAt),
     }));
   }
 
@@ -200,12 +214,12 @@ actualReturn: record.actualReturn
     });
 
     return disposals.map((disposal) => ({
-      id: disposal.id,
+      id: fmtId(disposal.id),
       equipmentName: disposal.equipment.item.itemName,
       assetId: disposal.equipment.assetId,
       reason: disposal.reason,
       method: disposal.method,
-      disposalDate: disposal.disposalDate.toISOString(),
+      disposalDate: fmtDateTime(disposal.disposalDate),
       approvedBy: `${disposal.approvedBy.firstName} ${disposal.approvedBy.lastName}`,
       notes: disposal.notes ?? null,
     }));
@@ -232,7 +246,7 @@ actualReturn: record.actualReturn
     });
 
     return equipment.map((eq) => ({
-      id: eq.id,
+      id: fmtId(eq.id),
       itemName: eq.item.itemName,
       category: eq.item.category.name,
       assetId: eq.assetId,
@@ -242,9 +256,9 @@ actualReturn: record.actualReturn
       condition: eq.condition,
       status: eq.status,
       location: eq.location ?? null,
-      acquisitionDate: eq.acquisitionDate?.toISOString() ?? null,
+      acquisitionDate: fmtDate(eq.acquisitionDate),
       purchasePrice: eq.purchasePrice !== null ? Number(eq.purchasePrice) : null,
-      warrantyEnd: eq.warrantyEnd?.toISOString() ?? null,
+      warrantyEnd: fmtDate(eq.warrantyEnd),
       assignedTo: eq.assignedToUser
         ? `${eq.assignedToUser.firstName} ${eq.assignedToUser.lastName}`
         : null,
@@ -274,7 +288,7 @@ actualReturn: record.actualReturn
     const lowStock = profiles.filter((p) => p.quantity <= p.reorderPoint);
 
     return lowStock.map((profile) => ({
-      id: profile.id,
+      id: fmtId(profile.id),
       itemName: profile.item.itemName,
       category: profile.item.category.name,
       currentQuantity: profile.quantity,

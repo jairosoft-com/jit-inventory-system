@@ -378,10 +378,10 @@ export default function DashboardPage() {
           ),
         },
         {
-          label: 'Active Equipment',
+          label: 'Available Equipment',
           color: '#8b5cf6',
           value: summary ? summary.activeEquipment.toLocaleString() : null,
-          subtext: 'currently available',
+          subtext: 'available assets',
           icon: (
             <svg
               width="16"

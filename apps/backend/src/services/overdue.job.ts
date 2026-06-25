@@ -98,6 +98,8 @@ export async function checkOverdueBorrows() {
 
 export function startOverdueJob() {
   console.log('[OverdueJob] Started — checking every hour.');
-  checkOverdueBorrows(); // run immediately on boot
-  setInterval(checkOverdueBorrows, 3_600_000);
+  void checkOverdueBorrows();
+  setInterval(() => {
+  void checkOverdueBorrows();
+}, 3_600_000);
 }

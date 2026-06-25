@@ -10,11 +10,13 @@ import {
   listEquipmentQuerySchema,
   equipmentImageSchema,
   updateImageSchema,
+  retirementRequestSchema,
   type CreateEquipmentInput,
   type UpdateEquipmentInput,
   type EquipmentImageInput,
   type UpdateImageInput,
   type ListEquipmentQuery,
+  type RetirementRequestInput,
 } from '../schemas/equipment.schema.js';
 
 const router = Router();
@@ -35,13 +37,16 @@ router.post(
         req.body as CreateEquipmentInput,
         req.user!.id,
       );
+
       res.status(201).json(equipment);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       if (
         message.includes('already in use') ||
         message.includes('already exists')
@@ -49,10 +54,12 @@ router.post(
         res.status(409).json({ message });
         return;
       }
+
       if (message.includes('must be of type')) {
         res.status(422).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
@@ -68,10 +75,12 @@ router.get(
       const result = await EquipmentService.findAll(
         req.query as unknown as ListEquipmentQuery,
       );
+
       res.status(200).json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       res.status(500).json({ message });
     }
   },
@@ -84,20 +93,69 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
+
       if (isNaN(id)) {
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
+
       const equipment = await EquipmentService.findOne(id);
+
       res.status(200).json(equipment);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(500).json({ message });
+    }
+  },
+);
+
+// POST /equipment/:id/retirement-request
+router.post(
+  '/:id/retirement-request',
+  authorize('equipment:update'),
+  validate(retirementRequestSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid equipment ID' });
+        return;
+      }
+
+      const result = await EquipmentService.submitRetirementRequest(
+        id,
+        req.body as RetirementRequestInput,
+        req.user!.id,
+      );
+
+      res.status(201).json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bad request';
+
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+
+      if (
+        message.includes('borrowed') ||
+        message.includes('already') ||
+        message.includes('cannot be retired') ||
+        message.includes('disposal record')
+      ) {
+        res.status(409).json({ message });
+        return;
+      }
+
+      res.status(400).json({ message });
     }
   },
 );
@@ -110,6 +168,7 @@ router.patch(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
+
       if (isNaN(id)) {
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
@@ -140,10 +199,12 @@ router.patch(
       res.status(200).json(equipment);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       if (
         message.includes('already in use') ||
         message.includes('already exists')
@@ -151,10 +212,12 @@ router.patch(
         res.status(409).json({ message });
         return;
       }
+
       if (message.includes('must be of type')) {
         res.status(422).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
@@ -167,6 +230,7 @@ router.delete(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
+
       if (isNaN(id)) {
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
@@ -176,10 +240,12 @@ router.delete(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(500).json({ message });
     }
   },
@@ -195,21 +261,26 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const equipmentId = parseInt(req.params.id as string, 10);
+
       if (isNaN(equipmentId)) {
         res.status(400).json({ message: 'Invalid equipment ID' });
         return;
       }
+
       const image = await EquipmentService.addImage(
         equipmentId,
         req.body as EquipmentImageInput,
       );
+
       res.status(201).json(image);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
@@ -224,22 +295,27 @@ router.patch(
     try {
       const equipmentId = parseInt(req.params.id as string, 10);
       const imageId = parseInt(req.params.imageId as string, 10);
+
       if (isNaN(equipmentId) || isNaN(imageId)) {
         res.status(400).json({ message: 'Invalid equipment or image ID' });
         return;
       }
+
       const image = await EquipmentService.updateImage(
         equipmentId,
         imageId,
         req.body as UpdateImageInput,
       );
+
       res.status(200).json(image);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
@@ -253,19 +329,24 @@ router.delete(
     try {
       const equipmentId = parseInt(req.params.id as string, 10);
       const imageId = parseInt(req.params.imageId as string, 10);
+
       if (isNaN(equipmentId) || isNaN(imageId)) {
         res.status(400).json({ message: 'Invalid equipment or image ID' });
         return;
       }
+
       const result = await EquipmentService.deleteImage(equipmentId, imageId);
+
       res.status(200).json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(500).json({ message });
     }
   },

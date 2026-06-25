@@ -248,6 +248,10 @@ export default function EquipmentPage() {
   const [retirementError, setRetirementError] = useState<string | null>(null);
   const [isRetiring, setIsRetiring] = useState(false);
 
+  const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
+  const [replacementError, setReplacementError] = useState<string | null>(null);
+  const [isMarkingReplacement, setIsMarkingReplacement] = useState(false);
+
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -582,28 +586,44 @@ export default function EquipmentPage() {
   };
 
 
-  const handleSetReplacementNeeded = async (eq: Equipment) => {
+  const handleOpenReplacementNeeded = (eq: Equipment) => {
     if (!canTagReplacementNeeded(eq)) return;
 
-    if (
-      !window.confirm(
-        `Mark "${eq.item.itemName}" (${eq.assetId}) as replacement needed?`,
-      )
-    ) {
-      return;
-    }
+    setReplacementEquipment(eq);
+    setReplacementError(null);
+  };
 
+  const handleCloseReplacementNeeded = () => {
+    if (isMarkingReplacement) return;
+
+    setReplacementEquipment(null);
+    setReplacementError(null);
+  };
+
+  const handleConfirmReplacementNeeded = async () => {
+    if (!replacementEquipment) return;
+
+    setReplacementError(null);
     setSuccessMessage(null);
     clearError();
+    setIsMarkingReplacement(true);
 
     try {
-      await setReplacementNeeded(eq.id, true);
+      await setReplacementNeeded(replacementEquipment.id, true);
       setSuccessMessage(
-        `"${eq.item.itemName}" has been tagged as replacement needed.`,
+        `"${replacementEquipment.item.itemName}" has been tagged as replacement needed.`,
       );
+      setReplacementEquipment(null);
+      setReplacementError(null);
       setTimeout(() => setSuccessMessage(null), 4000);
-    } catch {
-      // error already set in store
+    } catch (err: unknown) {
+      clearError();
+      const message = err instanceof Error
+        ? err.message
+        : 'Failed to mark equipment as replacement needed.';
+      setReplacementError(message);
+    } finally {
+      setIsMarkingReplacement(false);
     }
   };
 
@@ -865,7 +885,7 @@ export default function EquipmentPage() {
                                     {canTagReplacementNeeded(eq) && (
                                       <button
                                         type="button"
-                                        onClick={() => void handleSetReplacementNeeded(eq)}
+                                        onClick={() => handleOpenReplacementNeeded(eq)}
                                         className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
                                       >
                                         Mark Replacement
@@ -959,7 +979,7 @@ export default function EquipmentPage() {
                               {canTagReplacementNeeded(eq) && (
                                 <button
                                   type="button"
-                                  onClick={() => void handleSetReplacementNeeded(eq)}
+                                  onClick={() => handleOpenReplacementNeeded(eq)}
                                   className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
                                 >
                                   Mark Replacement
@@ -1479,6 +1499,89 @@ export default function EquipmentPage() {
               </form>
             </div>
             {/* end scrollable body */}
+          </section>
+        </div>
+      )}
+
+      {/* ── Replacement Needed Confirmation Modal ─────────────────────── */}
+      {replacementEquipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Mark Replacement Needed
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {replacementEquipment.item.itemName} · {replacementEquipment.assetId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseReplacementNeeded}
+                disabled={isMarkingReplacement}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {replacementError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {replacementError}
+                </div>
+              )}
+
+              <div className="mb-4 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800">
+                This will tag the equipment as <span className="font-semibold">Replacement Needed </span>for procurement planning only.
+              </div>
+
+              <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                <p className="font-semibold text-[var(--text-primary)]">
+                  {replacementEquipment.item.itemName}
+                </p>
+                <p className="mt-1 font-mono text-xs text-[var(--text-tertiary)]">
+                  {replacementEquipment.assetId}
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                  <div>
+                    <span className="text-[var(--text-tertiary)]">Status: </span>
+                    <span className="font-semibold">{replacementEquipment.status.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-tertiary)]">Condition: </span>
+                    <span className="font-semibold">{replacementEquipment.condition}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                This action does not change equipment status and does not automatically trigger retirement or disposal.
+              </p>
+
+              <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseReplacementNeeded}
+                  disabled={isMarkingReplacement}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmReplacementNeeded()}
+                  disabled={isMarkingReplacement}
+                  className="rounded-xl bg-purple-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
+                >
+                  {isMarkingReplacement && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  )}
+                  Confirm Tag
+                </button>
+              </div>
+            </div>
           </section>
         </div>
       )}

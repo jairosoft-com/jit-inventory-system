@@ -2,7 +2,7 @@
 
 # 1. Run the Login request below, copy the "accessToken" from the response.
 # 2. Paste it directly below (replace the text after the equals sign).
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc3OTc4NjMzNSwiZXhwIjoxNzc5Nzg3MjM1fQ.u6cjXvTWywyFduTbNpPvMhNsxfdvpvgTf6rydZw5kqA
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc4MjM1NzA3NCwiZXhwIjoxNzgyMzU3OTc0fQ.FDcfyfTPsy-4UXDnZxo7-8Jzhp0le12b9zpYr5UWYGQ
 
 # ── AUTHENTICATION ───────────────────────────────────────────────────────────
 

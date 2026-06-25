@@ -4,6 +4,8 @@ import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import { prisma } from '../lib/prisma.js';
+import { z } from 'zod';
+import { ConditionStatus } from '@prisma/client';
 import {
   createBorrowSchema,
   listBorrowQuerySchema,
@@ -202,6 +204,45 @@ router.patch(
         error instanceof Error ? error.message : 'Internal server error';
       // Check this first: see comment in the approve handler above.
       if (message.includes('no longer PENDING')) {
+        res.status(409).json({ message });
+        return;
+      }
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// ── PATCH /borrow/:id/return ──────────────────────────────────────────────────
+// Marks a APPROVED/BORROWED/OVERDUE record as returned.
+// Requires borrow:approve (MANAGER/ADMIN only).
+
+const returnBorrowSchema = z.object({
+  returnCondition: z.nativeEnum(ConditionStatus),
+});
+
+router.patch(
+  '/:id/return',
+  authorize('borrow:approve'),
+  validate(returnBorrowSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid borrow record ID' });
+        return;
+      }
+
+      const { returnCondition } = req.body as z.infer<typeof returnBorrowSchema>;
+      const record = await BorrowService.return(id, returnCondition);
+      res.status(200).json(record);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      if (message.includes('cannot be returned')) {
         res.status(409).json({ message });
         return;
       }

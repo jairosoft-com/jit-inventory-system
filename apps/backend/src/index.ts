@@ -15,6 +15,8 @@ import inventoryRouter from './routes/inventory.routes.js';
 import dashboardRouter from './routes/dashboard.routes.js';
 import borrowRouter from './routes/borrow.routes.js';
 import suppliersRouter from './routes/suppliers.routes.js';
+import notificationsRouter from './routes/notifications.routes.js';
+import { startOverdueJob } from './services/overdue.job.js';
 
 const app = express();
 
@@ -50,6 +52,7 @@ app.use('/api/borrow', mutativeLimiter); // Bucket 2
 app.use('/api/categories', mutativeLimiter); // Bucket 2
 app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
+app.use('/api/notifications', mutativeLimiter);
 
 // Body Parser
 app.use(express.json());
@@ -64,6 +67,7 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/borrow', borrowRouter);
 app.use('/api/suppliers', suppliersRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {
@@ -72,6 +76,7 @@ app.get('/api/healthz', (req, res) => {
 
 // Start Server
 const port = env.BACKEND_PORT || 3001;
+startOverdueJob();
 const server = app.listen(port, () => {
   console.log(
     `[Server] Backend listening on port ${port} in ${env.NODE_ENV} mode`,

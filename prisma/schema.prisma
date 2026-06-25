@@ -134,6 +134,11 @@ enum LogAction {
   RENEWED
 }
 
+enum NotificationType {
+  BORROW_OVERDUE
+  BORROW_RETURNED
+}
+
 // ────────────────────────────────────────────
 // 1. Roles
 // ────────────────────────────────────────────
@@ -208,6 +213,7 @@ model User {
   activityLogs      InventoryLog[]
   stockAdjustments  StockAdjustment[] @relation("AdjustedByUser")
   stockMovements    StockMovement[]   @relation("StockMovementPerformedBy")
+  notifications Notification[]
 
   @@index([isActive])
   @@index([roleId])
@@ -576,6 +582,7 @@ model BorrowRecord {
   equipment  Equipment @relation(fields: [equipmentId], references: [id])
   borrowedBy User      @relation("BorrowedByUser", fields: [borrowedById], references: [id])
   approvedBy User?     @relation("ApprovedByUser", fields: [approvedById], references: [id])
+  notifications Notification[]
 
   @@index([equipmentId])
   @@index([expectedReturn])
@@ -647,4 +654,27 @@ model InventoryLog {
   @@index([performedBy])
   @@index([performedAt])
   @@map("inventory_logs")
+}
+
+// ────────────────────────────────────────────
+// 19. Notifications
+// ────────────────────────────────────────────
+model Notification {
+  id             Int              @id @default(autoincrement())
+  userId         Int              @map("user_id")
+  borrowRecordId Int              @map("borrow_record_id")
+  type           NotificationType
+  message        String           @db.Text
+  isResolved     Boolean          @default(false) @map("is_resolved")
+  resolvedAt     DateTime?        @map("resolved_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  user         User         @relation(fields: [userId], references: [id])
+  borrowRecord BorrowRecord @relation(fields: [borrowRecordId], references: [id])
+
+  @@index([userId])
+  @@index([borrowRecordId])
+  @@index([isResolved])
+  @@index([type])
+  @@map("notifications")
 }

@@ -1,0 +1,55 @@
+@baseUrl = http://localhost:3001/api
+
+# 1. Run Login first, copy the accessToken, paste it below
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoic2FtQGppdGltcy5jb20iLCJyb2xlSWQiOjEsImlhdCI6MTc4MjM1ODMxNywiZXhwIjoxNzgyMzU5MjE3fQ.4RNQMjHe0i5fm6DqvSb76yMlJcUnSg_ycXZVH3Ln86s
+
+# ── AUTHENTICATION ───────────────────────────────────────────────────────────
+
+### Login (Get Token)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "sam@jitims.com",
+  "password": "admin123"
+}
+
+# ── BORROW ───────────────────────────────────────────────────────────────────
+
+### Create Borrow Request (change equipmentId to an available one)
+POST {{baseUrl}}/borrow
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "equipmentId": 1,
+  "expectedReturn": "2026-07-30",
+  "notes": "For testing"
+}
+
+### Approve Borrow Request (change 1 to actual borrow record ID)
+PATCH {{baseUrl}}/borrow/1/approve
+Authorization: Bearer {{token}}
+
+### Return Equipment (change 1 to actual borrow record ID)
+PATCH {{baseUrl}}/borrow/1/return
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "returnCondition": "GOOD"
+}
+
+# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+
+### Get My Notifications
+GET {{baseUrl}}/notifications
+Authorization: Bearer {{token}}
+
+### Get Only Unresolved Notifications
+GET {{baseUrl}}/notifications?unresolved=true
+Authorization: Bearer {{token}}
+
+### Resolve a Notification (change 1 to actual notification ID)
+PATCH {{baseUrl}}/notifications/1/resolve
+Authorization: Bearer {{token}}

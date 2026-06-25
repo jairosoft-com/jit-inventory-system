@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import NotificationPanel from '../components/NotificationPanel';
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
 
@@ -535,20 +536,8 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div className="dash-topbar-right">
-            <button className="dash-topbar-btn" title="Notifications">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-              <span className="dash-notif-badge">3</span>
-            </button>
-          </div>
+  <NotificationPanel />
+</div>
         </header>
 
         {/* Page content */}

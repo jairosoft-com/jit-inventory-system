@@ -4,13 +4,16 @@ import {
   BorrowStatus,
   Prisma,
   LogAction,
+  NotificationType,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
+import { NotificationService } from './notification.service.js';
 import type {
   CreateBorrowInput,
   ListBorrowQuery,
   RejectBorrowInput,
 } from '../schemas/borrow.schema.js';
+import type { ConditionStatus } from '@prisma/client';
 
 // ── Shared include ────────────────────────────────────────────────────────────
 
@@ -232,4 +235,84 @@ export class BorrowService {
       });
     });
   }
-}
+
+  // ── Return ───────────────────────────────────────────────────────────────────
+
+  static async return(
+    id: number,
+    returnCondition: ConditionStatus,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.borrowRecord.findUnique({
+        where: { id },
+        select: { id: true, equipmentId: true, status: true, borrowedById: true },
+      });
+
+      if (!existing) {
+        throw new Error('Borrow record not found');
+      }
+
+      if (
+        existing.status !== BorrowStatus.APPROVED &&
+        existing.status !== BorrowStatus.BORROWED &&
+        existing.status !== BorrowStatus.OVERDUE
+      ) {
+        throw new Error('Borrow record cannot be returned in its current status');
+      }
+
+      // Mark equipment back to AVAILABLE and update condition
+      await tx.equipment.update({
+        where: { id: existing.equipmentId },
+        data: {
+          status: EquipmentStatus.AVAILABLE,
+          condition: returnCondition,
+        },
+      });
+
+      // Mark borrow record as RETURNED
+      const updated = await tx.borrowRecord.update({
+        where: { id },
+        data: {
+          status: BorrowStatus.RETURNED,
+          actualReturn: new Date(),
+          returnCondition,
+        },
+        include: borrowInclude,
+      });
+
+      // Resolve any open overdue notifications for this borrow record
+      await NotificationService.resolveAllByBorrowRecord(id);
+
+      // Notify the borrower that return was recorded
+      const managers = await tx.user.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          role: { name: { in: ['ADMIN', 'MANAGER'] } },
+        },
+        select: { id: true },
+      });
+
+      const equipmentName = updated.equipment.item.itemName;
+
+      await NotificationService.create(
+        existing.borrowedById,
+        id,
+        NotificationType.BORROW_RETURNED,
+        `Your return of "${equipmentName}" has been recorded successfully.`,
+      );
+
+      for (const manager of managers) {
+        await NotificationService.create(
+          manager.id,
+          id,
+          NotificationType.BORROW_RETURNED,
+          `Equipment "${equipmentName}" has been returned and is now available.`,
+        );
+      }
+
+      return updated;
+    });
+  }
+
+} // ← class closing brace

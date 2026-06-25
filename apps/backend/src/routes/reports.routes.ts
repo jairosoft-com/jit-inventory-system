@@ -1,97 +1,97 @@
-  import { Router, Request, Response } from 'express';
-  import { authenticate } from '../middleware/authenticate.js';
-  import { authorize } from '../middleware/authorize.js';
-  import { validate } from '../middleware/validate.js';
-  import { reportTypeQuerySchema, type ReportTypeQuery } from '../schemas/reports.schema.js';
-  import { ReportService, ReportType } from '../services/report.service.js';
-  import { prisma } from '../lib/prisma.js';
-  import type { Cell } from 'exceljs';
-  const router = Router();
+import { Router, Request, Response } from 'express';
+import type { ZodType, ZodTypeDef } from 'zod';
+import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
+import { validate } from '../middleware/validate.js';
+import { reportTypeQuerySchema, type ReportTypeQuery } from '../schemas/reports.schema.js';
+import { ReportService, ReportType } from '../services/report.service.js';
+import { prisma } from '../lib/prisma.js';
+import type { Cell } from 'exceljs';
 
-  router.use(authenticate);
-  router.use(authorize('reports:export'));
+const router = Router();
 
-  function getReportTitle(type: ReportType): string {
-    const titles: Record<ReportType, string> = {
-      inventory: 'Inventory Summary Report',
-      procurement: 'Procurement Report',
-      borrowing: 'Borrowing Report',
-      maintenance: 'Maintenance Report',
-      disposal: 'Disposal Report',
-      employee_equipment: 'Employee Equipment Report',
-      low_stock: 'Low Stock Report',
-    };
-    return titles[type];
-  }
+router.use(authenticate);
+router.use(authorize('reports:export'));
 
-  async function resolveGeneratedBy(userId: number | undefined): Promise<string> {
-    if (!userId) return 'Unknown';
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { firstName: true, lastName: true },
-      });
-      return user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown';
-    } catch {
-      return 'Unknown';
-    }
-  }
+// Cast once — satisfies @typescript-eslint/no-unsafe-argument at all validate() call sites
+const typedSchema = reportTypeQuerySchema as ZodType<ReportTypeQuery, ZodTypeDef, unknown>;
 
-  function formatColumnHeader(key: string): string {
-    return key
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/_/g, ' ')
-      .replace(/^\w/, (c) => c.toUpperCase())
-      .trim();
-  }
+function getReportTitle(type: ReportType): string {
+  const titles: Record<ReportType, string> = {
+    inventory: 'Inventory Summary Report',
+    procurement: 'Procurement Report',
+    borrowing: 'Borrowing Report',
+    maintenance: 'Maintenance Report',
+    disposal: 'Disposal Report',
+    employee_equipment: 'Employee Equipment Report',
+    low_stock: 'Low Stock Report',
+  };
+  return titles[type];
+}
 
-  function formatExportDate(value: Date | string): string {
-    const d = value instanceof Date ? value : new Date(String(value));
-    if (isNaN(d.getTime())) return String(value);
-    return new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).format(d);
-  }
-
-  function flattenRow(row: Record<string, unknown>): Record<string, string | number> {
-    const flat: Record<string, string | number> = {};
-    for (const [key, value] of Object.entries(row)) {
-      if (Array.isArray(value)) continue;
-      if (value === null || value === undefined) {
-        flat[key] = '';
-      } else if (typeof value === 'number') {
-        flat[key] = value;
-      } else if (value instanceof Date) {
-        flat[key] = formatExportDate(value);
-      } else if (typeof value === 'boolean') {
-        flat[key] = value ? 'Yes' : 'No';
-      } else if (typeof value === 'string') {
-        // Detect ISO date strings coming from JSON serialization
-        if (/^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]+)?$/.test(value)) {
-          flat[key] = formatExportDate(value);
-        } else {
-          flat[key] = value;
-        }
-      } else {
-        flat[key] = JSON.stringify(value);
-      }
-    }
-    return flat;
-  }
-
-  // ── GET /api/reports/types ────────────────────────────────────────────────────
-  router.get('/types', (_req: Request, res: Response): void => {
-    const reportTypes = reportTypeQuerySchema.shape.type.options as ReportTypeQuery['type'][];
-    res.status(200).json({
-      types: reportTypes.map((type) => ({
-        value: type,
-        label: getReportTitle(type),
-      })),
+async function resolveGeneratedBy(userId: number | undefined): Promise<string> {
+  if (!userId) return 'Unknown';
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
     });
-  });
+    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+}
 
-  // ── GET /api/reports/preview?type=X ──────────────────────────────────────────
-  router.get('/preview', validate(reportTypeQuerySchema, 'query'), async (req: Request, res: Response): Promise<void> => {
+function formatColumnHeader(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^\w/, (c) => c.toUpperCase())
+    .trim();
+}
+
+function flattenRow(row: Record<string, unknown>): Record<string, string | number> {
+  const flat: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (Array.isArray(value)) continue;
+    if (value === null || value === undefined) {
+      flat[key] = '';
+    } else if (typeof value === 'number') {
+      flat[key] = value;
+    } else if (typeof value === 'string' || typeof value === 'boolean') {
+      flat[key] = String(value);
+    } else {
+      flat[key] = JSON.stringify(value);
+    }
+  }
+  return flat;
+}
+
+// ── GET /api/reports/types ────────────────────────────────────────────────────
+router.get('/types', (_req: Request, res: Response): void => {
+  // Cast through unknown to safely access Zod's internal .shape without
+  // triggering @typescript-eslint/no-unsafe-member-access
+  const schemaShape = (reportTypeQuerySchema as unknown as {
+    shape: { type: { options: ReportTypeQuery['type'][] } };
+  }).shape;
+  const reportTypes = schemaShape.type.options;
+
+  res.status(200).json({
+    types: reportTypes.map((type) => ({
+      value: type,
+      label: getReportTitle(type),
+    })),
+  });
+});
+
+// ── GET /api/reports/preview?type=X ──────────────────────────────────────────
+router.get(
+  '/preview',
+  validate(typedSchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      const { type } = req.query as { type: ReportType };
+      // Use bracket access + explicit cast to avoid @typescript-eslint/no-unsafe-assignment
+      const type = req.query['type'] as ReportType;
 
       const [data, generatedBy] = await Promise.all([
         ReportService.generateReport(type),
@@ -109,12 +109,16 @@
     } catch (error) {
       res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
     }
-  });
+  },
+);
 
-  // ── GET /api/reports/export/excel?type=X ─────────────────────────────────────
-  router.get('/export/excel', validate(reportTypeQuerySchema, 'query'), async (req: Request, res: Response): Promise<void> => {
+// ── GET /api/reports/export/excel?type=X ─────────────────────────────────────
+router.get(
+  '/export/excel',
+  validate(typedSchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      const { type } = req.query as { type: ReportType };
+      const type = req.query['type'] as ReportType;
 
       const [{ default: ExcelJS }, [data, generatedBy]] = await Promise.all([
         import('exceljs'),
@@ -227,12 +231,16 @@
         res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
       }
     }
-  });
+  },
+);
 
-  // ── GET /api/reports/export/pdf?type=X ───────────────────────────────────────
-  router.get('/export/pdf', validate(reportTypeQuerySchema, 'query'), async (req: Request, res: Response): Promise<void> => {
+// ── GET /api/reports/export/pdf?type=X ───────────────────────────────────────
+router.get(
+  '/export/pdf',
+  validate(typedSchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      const { type } = req.query as { type: ReportType };
+      const type = req.query['type'] as ReportType;
 
       const [{ default: PDFDocument }, [data, generatedBy]] = await Promise.all([
         import('pdfkit'),
@@ -412,6 +420,7 @@
         res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
       }
     }
-  });
+  },
+);
 
-  export default router;
+export default router;

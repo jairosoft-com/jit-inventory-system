@@ -117,6 +117,20 @@ export interface AnalyticsData {
   inventoryDistribution: InventoryDistribution[];
 }
 
+export interface BorrowSummary {
+  activeBorrows: number;
+  overdueBorrows: number;
+  pendingBorrows: number;
+}
+
+export interface MostBorrowedItem {
+  equipmentId: number;
+  itemName: string;
+  assetId: string;
+  currentStatus: string;
+  totalBorrows: number;
+}
+
 interface DashboardState {
   summary: DashboardSummary | null;
   alerts: DashboardAlerts;
@@ -125,6 +139,8 @@ interface DashboardState {
   replacementNeeded: ReplacementNeededItem[];
   procurementSummary: ProcurementSummary | null;
   analytics: AnalyticsData | null;
+  borrowSummary: BorrowSummary | null;
+  mostBorrowed: MostBorrowedItem[];
   isLoading: boolean;
   isWarrantyAlertsLoading: boolean;
   isReplacementNeededLoading: boolean;
@@ -138,6 +154,8 @@ interface DashboardState {
   fetchEquipmentBreakdown: () => Promise<void>;
   fetchProcurementSummary: () => Promise<void>;
   fetchAnalytics: () => Promise<void>;
+  fetchBorrowSummary: () => Promise<void>;
+  fetchMostBorrowed: () => Promise<void>;
   fetchAll: (hasAnalyticsPermission?: boolean) => Promise<void>;
   clearError: () => void;
 }
@@ -150,6 +168,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   replacementNeeded: [],
   procurementSummary: null,
   analytics: null,
+  borrowSummary: null,
+  mostBorrowed: [],
   isLoading: false,
   isWarrantyAlertsLoading: false,
   isReplacementNeededLoading: false,
@@ -274,30 +294,57 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
+  fetchBorrowSummary: async () => {
+    try {
+      const response = await api.get<BorrowSummary>('/dashboard/borrow-summary');
+      set({ borrowSummary: response.data });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({
+        error: err.response?.data?.message || 'Failed to fetch borrow summary',
+      });
+    }
+  },
+
+  fetchMostBorrowed: async () => {
+    try {
+      const response = await api.get<MostBorrowedItem[]>('/dashboard/most-borrowed');
+      set({ mostBorrowed: response.data });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      set({
+        error: err.response?.data?.message || 'Failed to fetch most borrowed items',
+      });
+    }
+  },
+
   fetchAll: async (hasAnalyticsPermission = false) => {
     set({ isLoading: true, error: null });
 
-    await Promise.allSettled([
-      get().fetchSummary(),
-      get().fetchAlerts(),
-      get().fetchRecentActivity(),
-      get().fetchEquipmentBreakdown(),
-      get().fetchReplacementNeeded(),
-      get().fetchProcurementSummary(),
-      get().fetchAnalytics(),
-    ]);
     try {
       const response = await api.get(`/dashboard/all?analytics=${hasAnalyticsPermission}`);
-      const { summary, alerts, recentActivity, equipmentBreakdown, procurementSummary, analytics } =
-        response.data;
+      const {
+        summary,
+        alerts,
+        recentActivity,
+        equipmentBreakdown,
+        replacementNeeded,
+        procurementSummary,
+        analytics,
+        borrowSummary,
+        mostBorrowed,
+      } = response.data;
 
       set({
         summary,
         alerts,
         recentActivity,
         equipmentBreakdown,
+        replacementNeeded,
         procurementSummary,
         analytics,
+        borrowSummary,
+        mostBorrowed,
       });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

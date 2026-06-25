@@ -37,6 +37,7 @@ enum EquipmentStatus {
   DAMAGED
   LOST
   BORROWED
+  RETIREMENT_PENDING
   RETIRED
 }
 

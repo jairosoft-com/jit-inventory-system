@@ -1,5 +1,12 @@
 import { prisma } from '../lib/prisma.js';
-import { ItemType, Prisma, LogAction } from '@prisma/client';
+import {
+  BorrowStatus,
+  ConditionStatus,
+  EquipmentStatus,
+  ItemType,
+  Prisma,
+  LogAction,
+} from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
 import type {
   CreateEquipmentInput,
@@ -7,6 +14,7 @@ import type {
   EquipmentImageInput,
   UpdateImageInput,
   ListEquipmentQuery,
+  RetirementRequestInput,
 } from '../schemas/equipment.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -38,6 +46,46 @@ const equipmentInclude = Prisma.validator<Prisma.EquipmentInclude>()({
   },
 });
 
+const retirementEligibleConditions = new Set<ConditionStatus>([
+  ConditionStatus.FAIR,
+  ConditionStatus.POOR,
+  ConditionStatus.DAMAGED,
+]);
+
+function getRetirementEligibilityError(equipment: {
+  status: EquipmentStatus;
+  condition: ConditionStatus;
+}) {
+  if (equipment.status === EquipmentStatus.BORROWED) {
+    return 'Equipment is currently borrowed and cannot be retired';
+  }
+
+  if (equipment.status === EquipmentStatus.IN_USE) {
+    return 'Equipment is currently in use and cannot be retired';
+  }
+
+  if (equipment.status === EquipmentStatus.RETIREMENT_PENDING) {
+    return 'Equipment already has a retirement request';
+  }
+
+  if (equipment.status === EquipmentStatus.RETIRED) {
+    return 'Equipment is already retired';
+  }
+
+  const hasRetirementStatus =
+    equipment.status === EquipmentStatus.DAMAGED ||
+    equipment.status === EquipmentStatus.LOST;
+  const hasRetirementCondition = retirementEligibleConditions.has(
+    equipment.condition,
+  );
+
+  if (!hasRetirementStatus && !hasRetirementCondition) {
+    return 'Equipment cannot be retired unless it is in FAIR, POOR, or DAMAGED condition';
+  }
+
+  return null;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class EquipmentService {
@@ -47,9 +95,11 @@ export class EquipmentService {
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });
+
     if (!category || category.deletedAt) {
       throw new Error('Category not found');
     }
+
     if (category.type !== ItemType.EQUIPMENT) {
       throw new Error('Category must be of type EQUIPMENT');
     }
@@ -59,7 +109,10 @@ export class EquipmentService {
     assetId: string,
     excludeId?: number,
   ) {
-    const existing = await prisma.equipment.findUnique({ where: { assetId } });
+    const existing = await prisma.equipment.findUnique({
+      where: { assetId },
+    });
+
     if (existing && existing.id !== excludeId) {
       throw new Error(`Asset ID '${assetId}' is already in use`);
     }
@@ -69,10 +122,15 @@ export class EquipmentService {
     serialNumber: string,
     excludeId?: number,
   ) {
-    // Case-insensitive lookup: treat 'SN-ABC-123' and 'sn-abc-123' as duplicates
     const existing = await prisma.equipment.findFirst({
-      where: { serialNumber: { equals: serialNumber, mode: 'insensitive' } },
+      where: {
+        serialNumber: {
+          equals: serialNumber,
+          mode: 'insensitive',
+        },
+      },
     });
+
     if (existing && existing.id !== excludeId) {
       throw new Error('Serial number already exists');
     }
@@ -83,9 +141,11 @@ export class EquipmentService {
       where: { id },
       include: equipmentInclude,
     });
+
     if (!equipment || equipment.deletedAt) {
       throw new Error('Equipment not found');
     }
+
     return equipment;
   }
 
@@ -103,6 +163,7 @@ export class EquipmentService {
       const existingBarcode = await prisma.item.findUnique({
         where: { barcode: data.barcode },
       });
+
       if (existingBarcode) {
         throw new Error(`Barcode '${data.barcode}' is already in use`);
       }
@@ -110,16 +171,26 @@ export class EquipmentService {
 
     if (data.assignedTo) {
       const user = await prisma.user.findFirst({
-        where: { id: data.assignedTo, isActive: true, deletedAt: null },
+        where: {
+          id: data.assignedTo,
+          isActive: true,
+          deletedAt: null,
+        },
       });
-      if (!user) throw new Error('Assigned user not found or inactive');
+
+      if (!user) {
+        throw new Error('Assigned user not found or inactive');
+      }
     }
 
     if (data.purchaseOrderId) {
       const po = await prisma.purchaseOrder.findUnique({
         where: { id: data.purchaseOrderId },
       });
-      if (!po) throw new Error('Purchase order not found');
+
+      if (!po) {
+        throw new Error('Purchase order not found');
+      }
     }
 
     try {
@@ -186,21 +257,24 @@ export class EquipmentService {
         error.code === 'P2002'
       ) {
         const target = error.meta?.target as string[] | undefined;
+
         if (
           target?.includes('asset_id') ||
           target?.includes('assetId') ||
-          target?.some((t) => t.includes('asset_id'))
+          target?.some((field) => field.includes('asset_id'))
         ) {
           throw new Error('Asset ID is already in use');
         }
+
         if (
           target?.includes('serial_number') ||
           target?.includes('serialNumber') ||
-          target?.some((t) => t.includes('serial_number'))
+          target?.some((field) => field.includes('serial_number'))
         ) {
           throw new Error('Serial number is already in use');
         }
       }
+
       throw error;
     }
   }
@@ -208,6 +282,7 @@ export class EquipmentService {
   static async findAll(query: ListEquipmentQuery) {
     const { status, condition, categoryId, assignedTo, search, page, limit } =
       query;
+
     const skip = (page - 1) * limit;
 
     const where: Prisma.EquipmentWhereInput = {
@@ -250,7 +325,12 @@ export class EquipmentService {
 
     return {
       data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -278,6 +358,7 @@ export class EquipmentService {
         const existingBarcode = await prisma.item.findUnique({
           where: { barcode: data.barcode },
         });
+
         if (existingBarcode) {
           throw new Error(`Barcode '${data.barcode}' is already in use`);
         }
@@ -286,16 +367,26 @@ export class EquipmentService {
 
     if (data.assignedTo) {
       const user = await prisma.user.findFirst({
-        where: { id: data.assignedTo, isActive: true, deletedAt: null },
+        where: {
+          id: data.assignedTo,
+          isActive: true,
+          deletedAt: null,
+        },
       });
-      if (!user) throw new Error('Assigned user not found or inactive');
+
+      if (!user) {
+        throw new Error('Assigned user not found or inactive');
+      }
     }
 
     if (data.purchaseOrderId) {
       const po = await prisma.purchaseOrder.findUnique({
         where: { id: data.purchaseOrderId },
       });
-      if (!po) throw new Error('Purchase order not found');
+
+      if (!po) {
+        throw new Error('Purchase order not found');
+      }
     }
 
     const {
@@ -309,82 +400,161 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
-    try {
-      const updated = await prisma.equipment.update({
+    const updated = await prisma.equipment.update({
+      where: { id },
+      data: {
+        ...equipmentFields,
+        ...(purchasePrice !== undefined && {
+          purchasePrice:
+            purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
+        }),
+        ...(assignedTo !== undefined && {
+          assignedToUser:
+            assignedTo != null
+              ? { connect: { id: assignedTo } }
+              : { disconnect: true },
+        }),
+        ...(purchaseOrderId !== undefined && {
+          purchaseOrder:
+            purchaseOrderId != null
+              ? { connect: { id: purchaseOrderId } }
+              : { disconnect: true },
+        }),
+        item: {
+          update: {
+            ...(itemName !== undefined && { itemName }),
+            ...(description !== undefined && { description }),
+            ...(categoryId !== undefined && { categoryId }),
+            ...(barcode !== undefined && { barcode }),
+          },
+        },
+      },
+      include: equipmentInclude,
+    });
+
+    await AuditLogService.log(
+      'Equipment',
+      updated.id,
+      LogAction.UPDATED,
+      userId,
+      equipment,
+      updated,
+    );
+
+    return updated;
+  }
+
+  // ── Retirement request ──────────────────────────────────────────────────────
+
+  static async submitRetirementRequest(
+    id: number,
+    data: RetirementRequestInput,
+    requestedById: number,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const equipment = await tx.equipment.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+          condition: true,
+          deletedAt: true,
+        },
+      });
+
+      if (!equipment || equipment.deletedAt) {
+        throw new Error('Equipment not found');
+      }
+
+      const eligibilityError = getRetirementEligibilityError(equipment);
+
+      if (eligibilityError) {
+        throw new Error(eligibilityError);
+      }
+
+      const activeBorrowRecord = await tx.borrowRecord.findFirst({
+        where: {
+          equipmentId: id,
+          status: {
+            in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+          },
+        },
+        select: { id: true },
+      });
+
+      if (activeBorrowRecord) {
+        throw new Error(
+          'Equipment is currently borrowed and cannot be retired',
+        );
+      }
+
+      const existingDisposal = await tx.disposal.findUnique({
+        where: { equipmentId: id },
+        select: { id: true },
+      });
+
+      if (existingDisposal) {
+        throw new Error('Equipment already has a disposal record');
+      }
+
+      const disposal = await tx.disposal.create({
+        data: {
+          equipmentId: id,
+          approvedById: requestedById,
+          reason: data.reason,
+          method: data.method,
+          notes: data.notes ?? null,
+        },
+      });
+
+      const updatedEquipment = await tx.equipment.update({
         where: { id },
         data: {
-          ...equipmentFields,
-          ...(purchasePrice !== undefined && {
-            purchasePrice:
-              purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
-          }),
-          ...(assignedTo !== undefined && {
-            assignedToUser:
-              assignedTo != null
-                ? { connect: { id: assignedTo } }
-                : { disconnect: true },
-          }),
-          ...(purchaseOrderId !== undefined && {
-            purchaseOrder:
-              purchaseOrderId != null
-                ? { connect: { id: purchaseOrderId } }
-                : { disconnect: true },
-          }),
-          item: {
-            update: {
-              ...(itemName !== undefined && { itemName }),
-              ...(description !== undefined && { description }),
-              ...(categoryId !== undefined && { categoryId }),
-              ...(barcode !== undefined && { barcode }),
-            },
-          },
+          status: EquipmentStatus.RETIREMENT_PENDING,
         },
         include: equipmentInclude,
       });
 
       await AuditLogService.log(
         'Equipment',
-        updated.id,
+        updatedEquipment.id,
         LogAction.UPDATED,
-        userId,
+        requestedById,
         equipment,
-        updated,
+        updatedEquipment,
+        tx,
       );
 
-      return updated;
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target as string[] | undefined;
-        if (
-          target?.includes('asset_id') ||
-          target?.includes('assetId') ||
-          target?.some((t) => t.includes('asset_id'))
-        ) {
-          throw new Error('Asset ID is already in use');
-        }
-        if (
-          target?.includes('serial_number') ||
-          target?.includes('serialNumber') ||
-          target?.some((t) => t.includes('serial_number'))
-        ) {
-          throw new Error('Serial number is already in use');
-        }
-      }
-      throw error;
-    }
+      await AuditLogService.log(
+        'Disposal',
+        disposal.id,
+        LogAction.CREATED,
+        requestedById,
+        null,
+        disposal,
+        tx,
+      );
+
+      return {
+        message: 'Equipment retirement request submitted successfully',
+        equipment: updatedEquipment,
+        disposal,
+      };
+    });
   }
 
   static async softDelete(id: number, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
 
+    const deletedAt = new Date();
+
     const deleted = await prisma.equipment.update({
       where: { id },
       data: {
-        deletedAt: new Date(),
-        item: { update: { deletedAt: new Date() } },
+        deletedAt,
+        item: {
+          update: { deletedAt },
+        },
       },
       include: equipmentInclude,
     });
@@ -408,7 +578,11 @@ export class EquipmentService {
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
-        where: { equipmentId, isPrimary: true, deletedAt: null },
+        where: {
+          equipmentId,
+          isPrimary: true,
+          deletedAt: null,
+        },
         data: { isPrimary: false },
       });
     }
@@ -431,13 +605,24 @@ export class EquipmentService {
     await this.findActiveOrThrow(equipmentId);
 
     const image = await prisma.equipmentImage.findFirst({
-      where: { id: imageId, equipmentId, deletedAt: null },
+      where: {
+        id: imageId,
+        equipmentId,
+        deletedAt: null,
+      },
     });
-    if (!image) throw new Error('Image not found');
+
+    if (!image) {
+      throw new Error('Image not found');
+    }
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
-        where: { equipmentId, isPrimary: true, deletedAt: null },
+        where: {
+          equipmentId,
+          isPrimary: true,
+          deletedAt: null,
+        },
         data: { isPrimary: false },
       });
     }
@@ -452,9 +637,16 @@ export class EquipmentService {
     await this.findActiveOrThrow(equipmentId);
 
     const image = await prisma.equipmentImage.findFirst({
-      where: { id: imageId, equipmentId, deletedAt: null },
+      where: {
+        id: imageId,
+        equipmentId,
+        deletedAt: null,
+      },
     });
-    if (!image) throw new Error('Image not found');
+
+    if (!image) {
+      throw new Error('Image not found');
+    }
 
     await prisma.equipmentImage.update({
       where: { id: imageId },

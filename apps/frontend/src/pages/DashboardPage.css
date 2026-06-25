@@ -810,3 +810,94 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Most Borrowed Items ──────────────── */
+
+.dash-most-borrowed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dash-most-borrowed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--background-secondary);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.dash-most-borrowed-row:hover {
+  border-color: var(--surface-border-hover);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.dash-most-borrowed-rank {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent);
+  background: rgba(37, 99, 235, 0.08);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.dash-most-borrowed-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-most-borrowed-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-most-borrowed-asset {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, monospace);
+}
+
+.dash-most-borrowed-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dash-most-borrowed-status {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dash-most-borrowed-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.08);
+  color: #8b5cf6;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+}
+

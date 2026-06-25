@@ -1,4 +1,9 @@
-import { ConditionStatus, EquipmentStatus, BorrowStatus } from '@prisma/client';
+import {
+  ConditionStatus,
+  EquipmentStatus,
+  BorrowStatus,
+  ItemType,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
 
@@ -162,7 +167,10 @@ export class DashboardService {
       await Promise.all([
         access.canReadInventory
           ? prisma.item.count({
-              where: { deletedAt: null },
+              where: {
+                deletedAt: null,
+                itemType: ItemType.CONSUMABLE,
+              },
             })
           : Promise.resolve(0),
 
@@ -204,6 +212,7 @@ export class DashboardService {
         },
         item: {
           deletedAt: null,
+          itemType: ItemType.CONSUMABLE,
         },
       },
       include: {

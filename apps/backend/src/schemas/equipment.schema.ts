@@ -90,6 +90,10 @@ export const retirementRequestSchema = z.object({
   notes: z.string().trim().max(1000).optional().nullable(),
 });
 
+export const replacementNeededSchema = z.object({
+  replacementNeeded: z.boolean(),
+});
+
 export const listEquipmentQuerySchema = z.object({
   status: z.nativeEnum(EquipmentStatus).optional(),
   condition: z.nativeEnum(ConditionStatus).optional(),
@@ -105,6 +109,7 @@ export const listEquipmentQuerySchema = z.object({
 export type CreateEquipmentInput = z.infer<typeof createEquipmentSchema>;
 export type UpdateEquipmentInput = z.infer<typeof updateEquipmentSchema>;
 export type RetirementRequestInput = z.infer<typeof retirementRequestSchema>;
+export type ReplacementNeededInput = z.infer<typeof replacementNeededSchema>;
 export type EquipmentImageInput = z.infer<typeof equipmentImageSchema>;
 export type UpdateImageInput = z.infer<typeof updateImageSchema>;
 export type ListEquipmentQuery = z.infer<typeof listEquipmentQuerySchema>;

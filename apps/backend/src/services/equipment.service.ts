@@ -15,6 +15,7 @@ import type {
   UpdateImageInput,
   ListEquipmentQuery,
   RetirementRequestInput,
+  ReplacementNeededInput,
 } from '../schemas/equipment.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -428,6 +429,36 @@ export class EquipmentService {
             ...(barcode !== undefined && { barcode }),
           },
         },
+      },
+      include: equipmentInclude,
+    });
+
+    await AuditLogService.log(
+      'Equipment',
+      updated.id,
+      LogAction.UPDATED,
+      userId,
+      equipment,
+      updated,
+    );
+
+    return updated;
+  }
+
+  // ── Replacement needed tagging ──────────────────────────────────────────────
+
+  static async setReplacementNeeded(
+    id: number,
+    data: ReplacementNeededInput,
+    userId: number,
+  ) {
+    const equipment = await this.findActiveOrThrow(id);
+
+    const updated = await prisma.equipment.update({
+      where: { id },
+      data: {
+        replacementNeeded: data.replacementNeeded,
+        replacementNeededAt: data.replacementNeeded ? new Date() : null,
       },
       include: equipmentInclude,
     });

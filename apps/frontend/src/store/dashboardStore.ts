@@ -35,6 +35,8 @@ export interface ReplacementNeededItem {
   condition: string;
   status: string;
   acquisitionDate: string | null;
+  replacementNeeded: boolean;
+  replacementNeededAt: string | null;
   lifecycleYears: number | null;
   replacementRecommendation: string;
   replacementReasons: string[];

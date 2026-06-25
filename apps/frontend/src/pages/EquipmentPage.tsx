@@ -181,6 +181,10 @@ function canRequestRetirement(eq: Equipment): boolean {
   return getRetirementIneligibilityReason(eq) === null;
 }
 
+function canTagReplacementNeeded(eq: Equipment): boolean {
+  return !eq.replacementNeeded;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EquipmentPage() {
@@ -195,6 +199,7 @@ export default function EquipmentPage() {
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
+    setReplacementNeeded,
     deleteEquipment,
     addImage,
     deleteImage,
@@ -576,6 +581,32 @@ export default function EquipmentPage() {
     }
   };
 
+
+  const handleSetReplacementNeeded = async (eq: Equipment) => {
+    if (!canTagReplacementNeeded(eq)) return;
+
+    if (
+      !window.confirm(
+        `Mark "${eq.item.itemName}" (${eq.assetId}) as replacement needed?`,
+      )
+    ) {
+      return;
+    }
+
+    setSuccessMessage(null);
+    clearError();
+
+    try {
+      await setReplacementNeeded(eq.id, true);
+      setSuccessMessage(
+        `"${eq.item.itemName}" has been tagged as replacement needed.`,
+      );
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch {
+      // error already set in store
+    }
+  };
+
   // ── Filter Handlers ──────────────────────────────────────────────────────
   const handleSearch = () => {
     setCurrentPage(1);
@@ -770,6 +801,11 @@ export default function EquipmentPage() {
                             <div className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5">
                               {eq.assetId}
                             </div>
+                            {eq.replacementNeeded && (
+                              <div className="mt-1 inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                                Replacement Needed
+                              </div>
+                            )}
                             <div className="text-[var(--text-disabled)] text-xs mt-0.5">
                               {eq.item.category.name}
                             </div>
@@ -826,6 +862,15 @@ export default function EquipmentPage() {
                               <div className="flex items-center justify-end gap-2">
                                 {canUpdate && (
                                   <>
+                                    {canTagReplacementNeeded(eq) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleSetReplacementNeeded(eq)}
+                                        className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+                                      >
+                                        Mark Replacement
+                                      </button>
+                                    )}
                                     {canRequestRetirement(eq) && (
                                       <button
                                         type="button"
@@ -892,6 +937,11 @@ export default function EquipmentPage() {
                           <p className="text-xs text-[var(--text-tertiary)] font-mono">
                             {eq.assetId}
                           </p>
+                          {eq.replacementNeeded && (
+                            <span className="mt-1 inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                              Replacement Needed
+                            </span>
+                          )}
                           <p className="text-xs text-[var(--text-disabled)]">
                             {eq.item.category.name}
                           </p>
@@ -906,6 +956,15 @@ export default function EquipmentPage() {
                         <div className="flex items-center gap-2">
                           {canUpdate && (
                             <>
+                              {canTagReplacementNeeded(eq) && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleSetReplacementNeeded(eq)}
+                                  className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+                                >
+                                  Mark Replacement
+                                </button>
+                              )}
                               {canRequestRetirement(eq) && (
                                 <button
                                   type="button"

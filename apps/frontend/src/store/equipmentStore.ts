@@ -62,6 +62,8 @@ export interface Equipment {
   warrantyEnd: string | null;
   warrantyProvider: string | null;
   warrantyDocUrl: string | null;
+  replacementNeeded: boolean;
+  replacementNeededAt: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -188,6 +190,10 @@ interface EquipmentState {
     id: number,
     data: RetirementRequestInput,
   ) => Promise<RetirementRequestResponse>;
+  setReplacementNeeded: (
+    id: number,
+    replacementNeeded: boolean,
+  ) => Promise<Equipment>;
   deleteEquipment: (id: number) => Promise<void>;
   addImage: (
     equipmentId: number,
@@ -331,6 +337,40 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         err.response?.data?.message ||
         err.message ||
         'Failed to submit retirement request';
+
+      set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+
+  setReplacementNeeded: async (id, replacementNeeded) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await api.patch<Equipment>(
+        `/equipment/${id}/replacement-needed`,
+        { replacementNeeded },
+      );
+
+      const updated = response.data;
+
+      set((state) => ({
+        equipment: state.equipment.map((eq) => (eq.id === id ? updated : eq)),
+        isLoading: false,
+      }));
+
+      return updated;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to update replacement-needed tag';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);

@@ -86,6 +86,24 @@ router.get(
   },
 );
 
+// GET /equipment/disposal-history
+router.get(
+  '/disposal-history',
+  authorize('equipment:read'),
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const history = await EquipmentService.getDisposalHistory();
+
+      res.status(200).json(history);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+
+      res.status(500).json({ message });
+    }
+  },
+);
+
 // GET /equipment/:id
 router.get(
   '/:id',

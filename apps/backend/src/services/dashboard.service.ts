@@ -14,6 +14,7 @@ const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 interface DashboardAccess {
   canReadInventory: boolean;
   canReadEquipment: boolean;
+  canViewLowStockDetails: boolean;
 }
 
 function startOfDay(date: Date): Date {
@@ -146,19 +147,53 @@ function getDisplayStockStatus(
 
 export class DashboardService {
   static async getRolePermissionNames(roleId: number): Promise<string[]> {
-    const rolePermissions = await prisma.rolePermission.findMany({
-      where: { roleId },
+    const { permissions } = await DashboardService.getRoleAccess(roleId);
+
+    return permissions;
+  }
+
+  static async getRoleAccess(roleId: number): Promise<{
+    roleName: string;
+    permissions: string[];
+  }> {
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
       select: {
-        permission: {
+        name: true,
+        rolePermissions: {
           select: {
-            name: true,
+            permission: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
     });
 
-    return rolePermissions.map(
-      (rolePermission) => rolePermission.permission.name,
+    if (!role) {
+      return { roleName: '', permissions: [] };
+    }
+
+    return {
+      roleName: role.name,
+      permissions: role.rolePermissions.map(
+        (rolePermission) => rolePermission.permission.name,
+      ),
+    };
+  }
+
+  static canViewLowStockAlertDetails(
+    roleName: string,
+    permissions: string[],
+  ): boolean {
+    const normalizedRoleName = roleName.toUpperCase();
+
+    return (
+      normalizedRoleName === 'ADMIN' ||
+      normalizedRoleName === 'MANAGER' ||
+      permissions.includes('inventory:manage')
     );
   }
 
@@ -183,7 +218,7 @@ export class DashboardService {
             })
           : Promise.resolve(0),
 
-        access.canReadInventory
+        access.canViewLowStockDetails
           ? DashboardService.countLowStockItems()
           : Promise.resolve(0),
 

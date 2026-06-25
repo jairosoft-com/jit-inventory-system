@@ -922,90 +922,69 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="dash-card dash-card--wide">
-          <div className="dash-card-header">
-            <h2 className="dash-card-title">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#d97706"
-                strokeWidth="2"
-              >
-                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              Low Stock Alerts
-            </h2>
-          </div>
+        {(isLoading || lowStockAlertsMapped.length > 0) && (
+          <div className="dash-card dash-card--wide">
+            <div className="dash-card-header">
+              <h2 className="dash-card-title">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#d97706"
+                  strokeWidth="2"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Low Stock Alerts
+              </h2>
+            </div>
 
-          <div
-            className={
-              lowStockAlertsMapped.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'
-            }
-          >
-            {isLoading && lowStockAlertsMapped.length === 0 ? (
-              <div className="dash-skeleton-list">
-                {[1, 2, 3].map((id) => (
-                  <div key={id} className="dash-skeleton-row animate-pulse">
-                    <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
-                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
-                  </div>
-                ))}
-              </div>
-            ) : lowStockAlertsMapped.length > 0 ? (
-              <div className="dash-alerts-list">
-                {lowStockAlertsMapped.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={`dash-alert-row dash-alert-row--${alert.severity}`}
-                  >
-                    <div className="dash-alert-badge">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke={alert.severity === 'critical' ? '#ef4444' : '#d97706'}
-                        strokeWidth="2"
-                      >
-                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                      </svg>
+            <div className="dash-card-content">
+              {isLoading && lowStockAlertsMapped.length === 0 ? (
+                <div className="dash-skeleton-list">
+                  {[1, 2, 3].map((id) => (
+                    <div key={id} className="dash-skeleton-row animate-pulse">
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
                     </div>
-
-                    <div className="dash-alert-content">
-                      <span className="dash-alert-itemName">{alert.itemName}</span>
-                      <span className="dash-alert-detail">{alert.detail}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="dash-empty-state">
-                <div className="dash-empty-icon">
-                  <svg
-                    width="40"
-                    height="40"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  >
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
+                  ))}
                 </div>
-                <h3 className="dash-empty-heading">No Low Stock Alerts</h3>
-                <p className="dash-empty-text">
-                  Consumable inventory levels are currently within acceptable thresholds.
-                </p>
-              </div>
-            )}
+              ) : (
+                <div className="dash-alerts-list">
+                  {lowStockAlertsMapped.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`dash-alert-row dash-alert-row--${alert.severity}`}
+                    >
+                      <div className="dash-alert-badge">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke={alert.severity === 'critical' ? '#ef4444' : '#d97706'}
+                          strokeWidth="2"
+                        >
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      </div>
+
+                      <div className="dash-alert-content">
+                        <span className="dash-alert-itemName">{alert.itemName}</span>
+                        <span className="dash-alert-detail">{alert.detail}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="dash-card">
           <div className="dash-card-header">

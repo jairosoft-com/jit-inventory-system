@@ -7,6 +7,7 @@ import {
   type EquipmentStatus,
   type ConditionStatus,
   type ListEquipmentQuery,
+  type DisposalReason,
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 
@@ -19,10 +20,27 @@ const EQUIPMENT_STATUSES: EquipmentStatus[] = [
   'DAMAGED',
   'LOST',
   'BORROWED',
+  'RETIREMENT_PENDING',
   'RETIRED',
 ];
 
 const CONDITION_STATUSES: ConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
+
+const DISPOSAL_REASONS: DisposalReason[] = [
+  'DAMAGED_BEYOND_REPAIR',
+  'OUTDATED',
+  'LOST',
+  'STOLEN',
+  'DONATED',
+];
+
+const DISPOSAL_REASON_LABELS: Record<DisposalReason, string> = {
+  DAMAGED_BEYOND_REPAIR: 'Damaged beyond repair',
+  OUTDATED: 'Outdated',
+  LOST: 'Lost',
+  STOLEN: 'Stolen',
+  DONATED: 'Donated',
+};
 
 const PAGE_SIZE = 20;
 
@@ -44,6 +62,12 @@ interface FormState {
   warrantyProvider: string;
   purchasePrice: string;
   acquisitionDate: string;
+}
+
+interface RetirementFormState {
+  reason: DisposalReason;
+  method: string;
+  notes: string;
 }
 
 interface PendingImage {
@@ -83,6 +107,12 @@ const emptyForm: FormState = {
   acquisitionDate: '',
 };
 
+const emptyRetirementForm: RetirementFormState = {
+  reason: 'OUTDATED',
+  method: 'For disposal review',
+  notes: '',
+};
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** ISO date string → YYYY-MM-DD for <input type="date"> */
@@ -116,6 +146,41 @@ function getPrimaryImage(eq: Equipment) {
   return eq.images.find((img) => img.isPrimary) || eq.images[0] || null;
 }
 
+function getDefaultRetirementReason(eq: Equipment): DisposalReason {
+  if (eq.status === 'LOST') return 'LOST';
+  if (eq.condition === 'DAMAGED' || eq.status === 'DAMAGED') {
+    return 'DAMAGED_BEYOND_REPAIR';
+  }
+  return 'OUTDATED';
+}
+
+function getRetirementIneligibilityReason(eq: Equipment): string | null {
+  if (eq.status === 'RETIREMENT_PENDING') {
+    return 'Retirement request already pending.';
+  }
+
+  if (eq.status === 'RETIRED') {
+    return 'Equipment is already retired.';
+  }
+
+  if (eq.status === 'BORROWED' || eq.status === 'IN_USE') {
+    return 'Equipment must be returned before retirement can be requested.';
+  }
+
+  const hasRetirementStatus = eq.status === 'DAMAGED' || eq.status === 'LOST';
+  const hasRetirementCondition = ['FAIR', 'POOR', 'DAMAGED'].includes(eq.condition);
+
+  if (!hasRetirementStatus && !hasRetirementCondition) {
+    return 'Only fair, poor, damaged, or lost equipment can be retired.';
+  }
+
+  return null;
+}
+
+function canRequestRetirement(eq: Equipment): boolean {
+  return getRetirementIneligibilityReason(eq) === null;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EquipmentPage() {
@@ -129,6 +194,7 @@ export default function EquipmentPage() {
     fetchEquipment,
     createEquipment,
     updateEquipment,
+    submitRetirementRequest,
     deleteEquipment,
     addImage,
     deleteImage,
@@ -170,6 +236,12 @@ export default function EquipmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [retiringEquipment, setRetiringEquipment] = useState<Equipment | null>(null);
+  const [retirementForm, setRetirementForm] =
+    useState<RetirementFormState>(emptyRetirementForm);
+  const [retirementError, setRetirementError] = useState<string | null>(null);
+  const [isRetiring, setIsRetiring] = useState(false);
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
@@ -423,6 +495,95 @@ export default function EquipmentPage() {
     }
   };
 
+  // ── Retirement Request Handlers ──────────────────────────────────────────
+  const handleOpenRetirementRequest = (eq: Equipment) => {
+    const ineligibilityReason = getRetirementIneligibilityReason(eq);
+
+    if (ineligibilityReason) {
+      setSuccessMessage(null);
+      setRetirementError(ineligibilityReason);
+      return;
+    }
+
+    setRetiringEquipment(eq);
+    setRetirementForm({
+      ...emptyRetirementForm,
+      reason: getDefaultRetirementReason(eq),
+    });
+    setRetirementError(null);
+    setSuccessMessage(null);
+    clearError();
+  };
+
+  const handleCloseRetirementRequest = () => {
+    setRetiringEquipment(null);
+    setRetirementForm(emptyRetirementForm);
+    setRetirementError(null);
+  };
+
+  const handleRetirementInputChange = (
+    e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+
+    if (name === 'reason') {
+      setRetirementForm((prev) => ({
+        ...prev,
+        reason: value as DisposalReason,
+      }));
+      return;
+    }
+
+    if (name === 'method' || name === 'notes') {
+      setRetirementForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSubmitRetirementRequest = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!retiringEquipment) return;
+
+    setRetirementError(null);
+    setSuccessMessage(null);
+
+    const method = retirementForm.method.trim();
+    if (!method) {
+      setRetirementError('Disposal method is required.');
+      return;
+    }
+
+    setIsRetiring(true);
+    try {
+      const result = await submitRetirementRequest(retiringEquipment.id, {
+        reason: retirementForm.reason,
+        method,
+        notes: retirementForm.notes.trim() || null,
+      });
+
+      if (result.equipment.status !== 'RETIREMENT_PENDING') {
+        throw new Error(
+          'Retirement request was saved, but equipment status was not updated to Retirement Pending.',
+        );
+      }
+
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
+
+      setSuccessMessage(
+        `Retirement request submitted for "${retiringEquipment.item.itemName}". Status is now Retirement Pending.`,
+      );
+      handleCloseRetirementRequest();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: unknown) {
+      clearError();
+      const message = err instanceof Error
+        ? err.message
+        : 'Failed to submit retirement request.';
+      setRetirementError(message);
+    } finally {
+      setIsRetiring(false);
+    }
+  };
+
   // ── Filter Handlers ──────────────────────────────────────────────────────
   const handleSearch = () => {
     setCurrentPage(1);
@@ -672,13 +833,24 @@ export default function EquipmentPage() {
                             <td className="px-4 py-4 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 {canUpdate && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(eq)}
-                                    className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                                  >
-                                    Edit
-                                  </button>
+                                  <>
+                                    {canRequestRetirement(eq) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenRetirementRequest(eq)}
+                                        className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                      >
+                                        Request Retirement
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEdit(eq)}
+                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                                    >
+                                      Edit
+                                    </button>
+                                  </>
                                 )}
                                 {canDelete && (
                                   <button
@@ -741,13 +913,24 @@ export default function EquipmentPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {canUpdate && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(eq)}
-                              className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
-                            >
-                              Edit
-                            </button>
+                            <>
+                              {canRequestRetirement(eq) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRetirementRequest(eq)}
+                                  className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                >
+                                  Request Retirement
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(eq)}
+                                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                              >
+                                Edit
+                              </button>
+                            </>
                           )}
                           {canDelete && (
                             <button
@@ -1249,6 +1432,118 @@ export default function EquipmentPage() {
         </div>
       )}
 
+      {/* ── Retirement Request Modal ────────────────────────────────────── */}
+      {retiringEquipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Submit Retirement Request
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {retiringEquipment.item.itemName} · {retiringEquipment.assetId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseRetirementRequest}
+                disabled={isRetiring}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitRetirementRequest} className="px-6 py-5">
+              {retirementError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {retirementError}
+                </div>
+              )}
+
+              <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                This will create a disposal record and change the equipment status to
+                <span className="font-semibold"> RETIREMENT PENDING</span>.
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                    Disposal Reason <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    name="reason"
+                    value={retirementForm.reason}
+                    onChange={handleRetirementInputChange}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  >
+                    {DISPOSAL_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {DISPOSAL_REASON_LABELS[reason]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                    Disposal Method <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    name="method"
+                    value={retirementForm.method}
+                    onChange={handleRetirementInputChange}
+                    maxLength={100}
+                    placeholder="e.g. For disposal review"
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                    Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={retirementForm.notes}
+                    onChange={handleRetirementInputChange}
+                    maxLength={1000}
+                    rows={4}
+                    placeholder="Optional retirement/disposal notes..."
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseRetirementRequest}
+                  disabled={isRetiring}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRetiring}
+                  className="rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
+                >
+                  {isRetiring && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  )}
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
       {/* ── Lightbox ────────────────────────────────────────────────────── */}
       {previewImageUrl && (
         <div
@@ -1332,6 +1627,7 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
     DAMAGED: 'bg-red-50 text-red-600',
     LOST: 'bg-red-50 text-red-700',
     BORROWED: 'bg-purple-50 text-purple-600',
+    RETIREMENT_PENDING: 'bg-orange-50 text-orange-700',
     RETIRED: 'bg-gray-100 text-gray-500',
   };
 
@@ -1340,19 +1636,20 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          status === 'AVAILABLE'
-            ? 'bg-[var(--success)]'
-            : status === 'IN_USE'
-              ? 'bg-[var(--info)]'
-              : status === 'UNDER_MAINTENANCE'
-                ? 'bg-[var(--warning)]'
-                : status === 'DAMAGED' || status === 'LOST'
-                  ? 'bg-red-600'
-                  : status === 'BORROWED'
-                    ? 'bg-purple-600'
+        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
+          ? 'bg-[var(--success)]'
+          : status === 'IN_USE'
+            ? 'bg-[var(--info)]'
+            : status === 'UNDER_MAINTENANCE'
+              ? 'bg-[var(--warning)]'
+              : status === 'DAMAGED' || status === 'LOST'
+                ? 'bg-red-600'
+                : status === 'BORROWED'
+                  ? 'bg-purple-600'
+                  : status === 'RETIREMENT_PENDING'
+                    ? 'bg-orange-600'
                     : 'bg-gray-400'
-        }`}
+          }`}
       />
       {status.replace(/_/g, ' ')}
     </span>

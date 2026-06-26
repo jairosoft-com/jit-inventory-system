@@ -152,6 +152,22 @@ function IconUsers() {
   );
 }
 
+function IconReports() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
+      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+    </svg>
+  );
+}
+
 function IconLogs() {
   return (
     <svg
@@ -227,6 +243,7 @@ const NAV_SECTIONS = [
     items: [
       { name: 'Users & Roles', href: '/dashboard/users', icon: IconUsers },
       { name: 'Audit Logs', href: '/dashboard/logs', icon: IconLogs },
+      { name: 'Reports', href: '/dashboard/reports', icon: IconReports },
     ],
   },
 ];
@@ -259,8 +276,7 @@ function formatCountdown(totalSeconds: number) {
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } =
-    useAuthStore();
+  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const hasCheckedAuthRef = useRef(false);
@@ -496,7 +512,9 @@ export default function DashboardLayout() {
               <div className="dash-avatar">{getInitials()}</div>
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
-                <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
+                <span className="dash-user-role">
+                  {formatRoleName(user.role?.name)}
+                </span>
               </div>
             </div>
           )}

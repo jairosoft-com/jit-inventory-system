@@ -37,7 +37,6 @@ enum EquipmentStatus {
   DAMAGED
   LOST
   BORROWED
-  RETIREMENT_PENDING
   RETIRED
 }
 
@@ -117,6 +116,17 @@ enum AdjustmentReason {
   LOST
   COUNT_CORRECTION
   OTHER
+}
+
+enum AlertPriority {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
 }
 
 enum LogAction {
@@ -307,11 +317,12 @@ model ConsumableProfile {
   reorderPoint Int        @default(0) @map("reorder_point")
   status       ItemStatus @default(IN_STOCK)
 
-  item     Item      @relation(fields: [itemId], references: [id])
-  stockIns StockIn[]
-  stockOuts StockOut[]
+  item             Item              @relation(fields: [itemId], references: [id])
+  stockIns         StockIn[]
+  stockOuts        StockOut[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
+  inventoryAlerts  InventoryAlert[]
 
   @@index([status])
   @@map("consumable_profiles")
@@ -647,4 +658,27 @@ model InventoryLog {
   @@index([performedBy])
   @@index([performedAt])
   @@map("inventory_logs")
+}
+
+// ────────────────────────────────────────────
+// 19. Inventory Alerts
+// ────────────────────────────────────────────
+model InventoryAlert {
+  id                  Int           @id @default(autoincrement())
+  alertType           AlertType     @map("alert_type")
+  priority            AlertPriority @default(WARNING)
+  consumableProfileId Int           @map("consumable_profile_id")
+  message             String        @db.Text
+  isRead              Boolean       @default(false) @map("is_read")
+  readAt              DateTime?     @map("read_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  resolvedAt          DateTime?     @map("resolved_at")
+
+  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+
+  @@index([consumableProfileId])
+  @@index([isRead])
+  @@index([alertType])
+  @@index([createdAt])
+  @@map("inventory_alerts")
 }

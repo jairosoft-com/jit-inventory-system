@@ -181,8 +181,9 @@ function canRequestRetirement(eq: Equipment): boolean {
   return getRetirementIneligibilityReason(eq) === null;
 }
 
-function canTagReplacementNeeded(eq: Equipment): boolean {
-  return !eq.replacementNeeded;
+function canManageReplacementNeededTag(eq: Equipment): boolean {
+  void eq;
+  return true;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -243,8 +244,7 @@ export default function EquipmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [retiringEquipment, setRetiringEquipment] = useState<Equipment | null>(null);
-  const [retirementForm, setRetirementForm] =
-    useState<RetirementFormState>(emptyRetirementForm);
+  const [retirementForm, setRetirementForm] = useState<RetirementFormState>(emptyRetirementForm);
   const [retirementError, setRetirementError] = useState<string | null>(null);
   const [isRetiring, setIsRetiring] = useState(false);
 
@@ -584,18 +584,15 @@ export default function EquipmentPage() {
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       clearError();
-      const message = err instanceof Error
-        ? err.message
-        : 'Failed to submit retirement request.';
+      const message = err instanceof Error ? err.message : 'Failed to submit retirement request.';
       setRetirementError(message);
     } finally {
       setIsRetiring(false);
     }
   };
 
-
   const handleOpenReplacementNeeded = (eq: Equipment) => {
-    if (!canTagReplacementNeeded(eq)) return;
+    if (!canManageReplacementNeededTag(eq)) return;
 
     setReplacementEquipment(eq);
     setReplacementError(null);
@@ -611,24 +608,31 @@ export default function EquipmentPage() {
   const handleConfirmReplacementNeeded = async () => {
     if (!replacementEquipment) return;
 
+    const nextReplacementNeeded = !replacementEquipment.replacementNeeded;
+
     setReplacementError(null);
     setSuccessMessage(null);
     clearError();
     setIsMarkingReplacement(true);
 
     try {
-      await setReplacementNeeded(replacementEquipment.id, true);
+      await setReplacementNeeded(replacementEquipment.id, nextReplacementNeeded);
       setSuccessMessage(
-        `"${replacementEquipment.item.itemName}" has been tagged as replacement needed.`,
+        nextReplacementNeeded
+          ? `"${replacementEquipment.item.itemName}" has been tagged as replacement needed.`
+          : `"${replacementEquipment.item.itemName}" has been removed from replacement planning.`,
       );
       setReplacementEquipment(null);
       setReplacementError(null);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       clearError();
-      const message = err instanceof Error
-        ? err.message
-        : 'Failed to mark equipment as replacement needed.';
+      const message =
+        err instanceof Error
+          ? err.message
+          : nextReplacementNeeded
+            ? 'Failed to mark equipment as replacement needed.'
+            : 'Failed to clear replacement needed tag.';
       setReplacementError(message);
     } finally {
       setIsMarkingReplacement(false);
@@ -890,13 +894,19 @@ export default function EquipmentPage() {
                               <div className="flex items-center justify-end gap-2">
                                 {canUpdate && (
                                   <>
-                                    {canTagReplacementNeeded(eq) && (
+                                    {canManageReplacementNeededTag(eq) && (
                                       <button
                                         type="button"
                                         onClick={() => handleOpenReplacementNeeded(eq)}
-                                        className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+                                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                          eq.replacementNeeded
+                                            ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                            : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                        }`}
                                       >
-                                        Mark Replacement
+                                        {eq.replacementNeeded
+                                          ? 'Clear Planning Tag'
+                                          : 'Mark Replacement'}
                                       </button>
                                     )}
                                     {canRequestRetirement(eq) && (
@@ -984,13 +994,17 @@ export default function EquipmentPage() {
                         <div className="flex items-center gap-2">
                           {canUpdate && (
                             <>
-                              {canTagReplacementNeeded(eq) && (
+                              {canManageReplacementNeededTag(eq) && (
                                 <button
                                   type="button"
                                   onClick={() => handleOpenReplacementNeeded(eq)}
-                                  className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+                                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                    eq.replacementNeeded
+                                      ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                      : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                  }`}
                                 >
-                                  Mark Replacement
+                                  {eq.replacementNeeded ? 'Clear Planning Tag' : 'Mark Replacement'}
                                 </button>
                               )}
                               {canRequestRetirement(eq) && (
@@ -1518,7 +1532,9 @@ export default function EquipmentPage() {
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  Mark Replacement Needed
+                  {replacementEquipment.replacementNeeded
+                    ? 'Clear Replacement Needed Tag'
+                    : 'Mark Replacement Needed'}
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)]">
                   {replacementEquipment.item.itemName} · {replacementEquipment.assetId}
@@ -1542,7 +1558,9 @@ export default function EquipmentPage() {
               )}
 
               <div className="mb-4 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800">
-                This will tag the equipment as <span className="font-semibold">Replacement Needed </span>for procurement planning only.
+                This will tag the equipment as{' '}
+                <span className="font-semibold">Replacement Needed </span>for procurement planning
+                only.
               </div>
 
               <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]">
@@ -1555,7 +1573,9 @@ export default function EquipmentPage() {
                 <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                   <div>
                     <span className="text-[var(--text-tertiary)]">Status: </span>
-                    <span className="font-semibold">{replacementEquipment.status.replace(/_/g, ' ')}</span>
+                    <span className="font-semibold">
+                      {replacementEquipment.status.replace(/_/g, ' ')}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[var(--text-tertiary)]">Condition: </span>
@@ -1565,7 +1585,8 @@ export default function EquipmentPage() {
               </div>
 
               <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                This action does not change equipment status and does not automatically trigger retirement or disposal.
+                This action does not change equipment status and does not automatically trigger
+                retirement or disposal.
               </p>
 
               <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
@@ -1581,12 +1602,16 @@ export default function EquipmentPage() {
                   type="button"
                   onClick={() => void handleConfirmReplacementNeeded()}
                   disabled={isMarkingReplacement}
-                  className="rounded-xl bg-purple-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
+                  className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2 ${
+                    replacementEquipment.replacementNeeded
+                      ? 'bg-slate-700 hover:bg-slate-800'
+                      : 'bg-purple-600 hover:bg-purple-700'
+                  }`}
                 >
                   {isMarkingReplacement && (
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                   )}
-                  Confirm Tag
+                  {replacementEquipment.replacementNeeded ? 'Clear Tag' : 'Confirm Tag'}
                 </button>
               </div>
             </div>
@@ -1798,20 +1823,21 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
-          ? 'bg-[var(--success)]'
-          : status === 'IN_USE'
-            ? 'bg-[var(--info)]'
-            : status === 'UNDER_MAINTENANCE'
-              ? 'bg-[var(--warning)]'
-              : status === 'DAMAGED' || status === 'LOST'
-                ? 'bg-red-600'
-                : status === 'BORROWED'
-                  ? 'bg-purple-600'
-                  : status === 'RETIREMENT_PENDING'
-                    ? 'bg-orange-600'
-                    : 'bg-gray-400'
-          }`}
+        className={`h-1.5 w-1.5 rounded-full ${
+          status === 'AVAILABLE'
+            ? 'bg-[var(--success)]'
+            : status === 'IN_USE'
+              ? 'bg-[var(--info)]'
+              : status === 'UNDER_MAINTENANCE'
+                ? 'bg-[var(--warning)]'
+                : status === 'DAMAGED' || status === 'LOST'
+                  ? 'bg-red-600'
+                  : status === 'BORROWED'
+                    ? 'bg-purple-600'
+                    : status === 'RETIREMENT_PENDING'
+                      ? 'bg-orange-600'
+                      : 'bg-gray-400'
+        }`}
       />
       {status.replace(/_/g, ' ')}
     </span>

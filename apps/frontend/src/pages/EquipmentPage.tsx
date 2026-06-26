@@ -575,14 +575,22 @@ export default function EquipmentPage() {
 
     setIsRetiring(true);
     try {
-      await submitRetirementRequest(retiringEquipment.id, {
+      const result = await submitRetirementRequest(retiringEquipment.id, {
         reason: retirementForm.reason,
         method,
         notes: retirementForm.notes.trim() || null,
       });
 
+      if (result.equipment.status !== 'RETIREMENT_PENDING') {
+        throw new Error(
+          'Retirement request was saved, but equipment status was not updated to Retirement Pending.',
+        );
+      }
+
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
+
       setSuccessMessage(
-        `Retirement request submitted for "${retiringEquipment.item.itemName}".`,
+        `Retirement request submitted for "${retiringEquipment.item.itemName}". Status is now Retirement Pending.`,
       );
       handleCloseRetirementRequest();
       setTimeout(() => setSuccessMessage(null), 4000);

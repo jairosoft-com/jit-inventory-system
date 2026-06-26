@@ -6,6 +6,10 @@ export interface DashboardSummary {
   activeEquipment: number;
   lowStockAlerts: number;
   pendingBorrows: number;
+  totalInventoryItems: number;
+  totalQuantityInStock: number;
+  availableItems: number;
+  lowStockItems: number;
 }
 
 export interface LowStockItem {

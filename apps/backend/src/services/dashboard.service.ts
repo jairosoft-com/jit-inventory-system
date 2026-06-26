@@ -1,4 +1,9 @@
-import { ConditionStatus, EquipmentStatus, BorrowStatus } from '@prisma/client';
+import {
+  ConditionStatus,
+  EquipmentStatus,
+  BorrowStatus,
+  ItemType,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
 
@@ -9,6 +14,7 @@ const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 interface DashboardAccess {
   canReadInventory: boolean;
   canReadEquipment: boolean;
+  canViewLowStockDetails: boolean;
 }
 
 function startOfDay(date: Date): Date {
@@ -141,19 +147,53 @@ function getDisplayStockStatus(
 
 export class DashboardService {
   static async getRolePermissionNames(roleId: number): Promise<string[]> {
-    const rolePermissions = await prisma.rolePermission.findMany({
-      where: { roleId },
+    const { permissions } = await DashboardService.getRoleAccess(roleId);
+
+    return permissions;
+  }
+
+  static async getRoleAccess(roleId: number): Promise<{
+    roleName: string;
+    permissions: string[];
+  }> {
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
       select: {
-        permission: {
+        name: true,
+        rolePermissions: {
           select: {
-            name: true,
+            permission: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
     });
 
-    return rolePermissions.map(
-      (rolePermission) => rolePermission.permission.name,
+    if (!role) {
+      return { roleName: '', permissions: [] };
+    }
+
+    return {
+      roleName: role.name,
+      permissions: role.rolePermissions.map(
+        (rolePermission) => rolePermission.permission.name,
+      ),
+    };
+  }
+
+  static canViewLowStockAlertDetails(
+    roleName: string,
+    permissions: string[],
+  ): boolean {
+    const normalizedRoleName = roleName.toUpperCase();
+
+    return (
+      normalizedRoleName === 'ADMIN' ||
+      normalizedRoleName === 'MANAGER' ||
+      permissions.includes('inventory:manage')
     );
   }
 
@@ -169,54 +209,54 @@ export class DashboardService {
     ] = await Promise.all([
       access.canReadInventory
         ? prisma.item.count({
-            where: { deletedAt: null },
-          })
+          where: { deletedAt: null, itemType: ItemType.CONSUMABLE },
+        })
         : Promise.resolve(0),
 
       access.canReadEquipment
         ? prisma.equipment.count({
-            where: {
-              status: EquipmentStatus.AVAILABLE,
-              deletedAt: null,
-            },
-          })
+          where: {
+            status: EquipmentStatus.AVAILABLE,
+            deletedAt: null,
+          },
+        })
         : Promise.resolve(0),
 
-      access.canReadInventory
+      access.canViewLowStockDetails
         ? DashboardService.countLowStockItems()
         : Promise.resolve(0),
 
       access.canReadEquipment
         ? prisma.borrowRecord.count({
-            where: {
-              status: 'PENDING',
-            },
-          })
+          where: {
+            status: 'PENDING',
+          },
+        })
         : Promise.resolve(0),
 
       access.canReadInventory
         ? prisma.consumableProfile.aggregate({
-            _sum: { quantity: true },
-            where: { item: { deletedAt: null } },
-          }).then((res) => res._sum.quantity || 0)
+          _sum: { quantity: true },
+          where: { item: { deletedAt: null } },
+        }).then((res) => res._sum.quantity || 0)
         : Promise.resolve(0),
 
       access.canReadInventory
         ? prisma.consumableProfile.count({
-            where: {
-              status: 'IN_STOCK',
-              item: { deletedAt: null },
-            },
-          })
+          where: {
+            status: 'IN_STOCK',
+            item: { deletedAt: null },
+          },
+        })
         : Promise.resolve(0),
 
       access.canReadInventory
         ? prisma.consumableProfile.count({
-            where: {
-              status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
-              item: { deletedAt: null },
-            },
-          })
+          where: {
+            status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
+            item: { deletedAt: null },
+          },
+        })
         : Promise.resolve(0),
     ]);
 
@@ -240,6 +280,7 @@ export class DashboardService {
         },
         item: {
           deletedAt: null,
+          itemType: ItemType.CONSUMABLE,
         },
       },
       include: {

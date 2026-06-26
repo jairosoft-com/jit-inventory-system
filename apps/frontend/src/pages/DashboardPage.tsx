@@ -228,14 +228,15 @@ export default function DashboardPage() {
 
   const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
     const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
+    const reorderPointText = `Reorder Point: ${item.reorderPoint} ${item.unit}`;
 
     return {
       id: `low-stock-${item.id}`,
       severity: isOutOfStock ? 'critical' : 'warning',
       itemName: item.itemName,
       detail: isOutOfStock
-        ? `Out of stock · ${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`
-        : `${item.quantity} ${item.unit} remaining (Reorder at ${item.reorderPoint})`,
+        ? `Out of stock · ${item.quantity} ${item.unit} remaining (${reorderPointText})`
+        : `${item.quantity} ${item.unit} remaining (${reorderPointText})`,
     };
   });
 
@@ -269,90 +270,175 @@ export default function DashboardPage() {
 
   const isStaff = userRole === 'STAFF';
 
-  const statCards = [
-    {
-      label: 'Total Inventory Items',
-      color: '#2563eb',
-      value: summary ? summary.totalInventoryItems.toLocaleString() : null,
-      subtext: 'total registered',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
-          <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
-          <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
-          <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Total Stock Quantity',
-      color: '#8b5cf6',
-      value: summary ? summary.totalQuantityInStock.toLocaleString() : null,
-      subtext: 'quantity in stock',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <line x1="9" y1="3" x2="9" y2="21" />
-          <line x1="15" y1="3" x2="15" y2="21" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="3" y1="15" x2="21" y2="15" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Available Assets',
-      color: '#10b981',
-      value: summary ? summary.availableItems.toLocaleString() : null,
-      subtext: 'available in stock',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-          <polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Low Stock Alerts',
-      color: '#d97706',
-      value: summary ? summary.lowStockItems.toLocaleString() : null,
-      subtext: 'requires attention',
-      icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-      ),
-    },
-  ];
+  const statCards = isStaff
+    ? [
+        {
+          label: 'Active Borrows',
+          color: '#8b5cf6',
+          value: borrowSummary ? borrowSummary.activeBorrows.toLocaleString() : null,
+          subtext: 'currently borrowed',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M17 2.1l4 4-4 4" />
+              <path d="M3 12.2v-2a4 4 0 014-4h14" />
+              <path d="M7 21.9l-4-4 4-4" />
+              <path d="M21 11.8v2a4 4 0 01-4 4H3" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Overdue Borrows',
+          color: '#ef4444',
+          value: borrowSummary ? borrowSummary.overdueBorrows.toLocaleString() : null,
+          subtext: 'past due date',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Pending Borrows',
+          color: '#d97706',
+          value: borrowSummary ? borrowSummary.pendingBorrows.toLocaleString() : null,
+          subtext: 'awaiting approval',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Total Items',
+          color: '#2563eb',
+          value: summary ? summary.totalItems.toLocaleString() : null,
+          subtext: 'total registered',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+              <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
+              <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
+              <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
+            </svg>
+          ),
+        },
+      ]
+    : [
+        {
+          label: 'Total Inventory Items',
+          color: '#2563eb',
+          value: summary ? summary.totalInventoryItems.toLocaleString() : null,
+          subtext: 'total registered',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+              <polygon points="12 22.08 12 12 3 6.8 3 17.2 12 22.08" />
+              <polygon points="12 22.08 12 12 21 6.8 21 17.2 12 22.08" />
+              <polygon points="12 12 3 6.8 12 1.58 21 6.8 12 12" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Total Stock Quantity',
+          color: '#8b5cf6',
+          value: summary ? summary.totalQuantityInStock.toLocaleString() : null,
+          subtext: 'quantity in stock',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+              <line x1="15" y1="3" x2="15" y2="21" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="3" y1="15" x2="21" y2="15" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Available Assets',
+          color: '#10b981',
+          value: summary ? summary.availableItems.toLocaleString() : null,
+          subtext: 'available in stock',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Low Stock Alerts',
+          color: '#d97706',
+          value: summary ? summary.lowStockItems.toLocaleString() : null,
+          subtext: 'requires attention',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          ),
+        },
+      ];
 
   return (
     <div className="dash-page animate-fade-in">
@@ -859,90 +945,69 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="dash-card dash-card--wide">
-          <div className="dash-card-header">
-            <h2 className="dash-card-title">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#d97706"
-                strokeWidth="2"
-              >
-                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              Low Stock Alerts
-            </h2>
-          </div>
+        {(isLoading || lowStockAlertsMapped.length > 0) && (
+          <div className="dash-card dash-card--wide">
+            <div className="dash-card-header">
+              <h2 className="dash-card-title">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#d97706"
+                  strokeWidth="2"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Low Stock Alerts
+              </h2>
+            </div>
 
-          <div
-            className={
-              lowStockAlertsMapped.length > 0 ? 'dash-card-content' : 'dash-card-content-empty'
-            }
-          >
-            {isLoading && lowStockAlertsMapped.length === 0 ? (
-              <div className="dash-skeleton-list">
-                {[1, 2, 3].map((id) => (
-                  <div key={id} className="dash-skeleton-row animate-pulse">
-                    <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
-                    <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
-                  </div>
-                ))}
-              </div>
-            ) : lowStockAlertsMapped.length > 0 ? (
-              <div className="dash-alerts-list">
-                {lowStockAlertsMapped.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={`dash-alert-row dash-alert-row--${alert.severity}`}
-                  >
-                    <div className="dash-alert-badge">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke={alert.severity === 'critical' ? '#ef4444' : '#d97706'}
-                        strokeWidth="2"
-                      >
-                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                      </svg>
+            <div className="dash-card-content">
+              {isLoading && lowStockAlertsMapped.length === 0 ? (
+                <div className="dash-skeleton-list">
+                  {[1, 2, 3].map((id) => (
+                    <div key={id} className="dash-skeleton-row animate-pulse">
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
                     </div>
-
-                    <div className="dash-alert-content">
-                      <span className="dash-alert-itemName">{alert.itemName}</span>
-                      <span className="dash-alert-detail">{alert.detail}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="dash-empty-state">
-                <div className="dash-empty-icon">
-                  <svg
-                    width="40"
-                    height="40"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  >
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
+                  ))}
                 </div>
-                <h3 className="dash-empty-heading">No Low Stock Alerts</h3>
-                <p className="dash-empty-text">
-                  Consumable inventory levels are currently within acceptable thresholds.
-                </p>
-              </div>
-            )}
+              ) : (
+                <div className="dash-alerts-list">
+                  {lowStockAlertsMapped.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`dash-alert-row dash-alert-row--${alert.severity}`}
+                    >
+                      <div className="dash-alert-badge">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke={alert.severity === 'critical' ? '#ef4444' : '#d97706'}
+                          strokeWidth="2"
+                        >
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      </div>
+
+                      <div className="dash-alert-content">
+                        <span className="dash-alert-itemName">{alert.itemName}</span>
+                        <span className="dash-alert-detail">{alert.detail}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="dash-card">
           <div className="dash-card-header">

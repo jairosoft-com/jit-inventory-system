@@ -63,6 +63,33 @@
   line-height: 1;
 }
 
+/* ── Zero-State Banner ──────────────── */
+
+.dash-zero-state-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  background: var(--background-secondary);
+  border: 1px dashed var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 14.5px;
+  font-weight: 500;
+  margin-bottom: 28px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.dash-zero-state-icon {
+  color: var(--text-disabled);
+}
+
+.dash-zero-state-text {
+  letter-spacing: -0.01em;
+}
+
 /* ── Buttons ─────────────────────────── */
 
 .dash-btn {

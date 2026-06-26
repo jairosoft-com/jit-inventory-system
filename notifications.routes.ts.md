@@ -44,17 +44,13 @@ router.patch(
         return;
       }
 
-      const notification = await NotificationService.resolve(id, req.user!.id);
+      const notification = await NotificationService.resolve(id);
       res.status(200).json(notification);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
       if (message.includes('not found')) {
         res.status(404).json({ message });
-        return;
-      }
-      if (message.includes('Forbidden')) {
-        res.status(403).json({ message });
         return;
       }
       res.status(500).json({ message });

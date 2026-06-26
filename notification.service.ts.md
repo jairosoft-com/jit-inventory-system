@@ -34,15 +34,11 @@ export class NotificationService {
 
   // ── Resolve ──────────────────────────────────────────────────────────────────
 
-static async resolve(id: number, userId: number) {
+  static async resolve(id: number) {
     const notification = await prisma.notification.findUnique({ where: { id } });
 
     if (!notification) {
       throw new Error('Notification not found');
-    }
-
-    if (notification.userId !== userId) {
-      throw new Error('Forbidden: you do not own this notification');
     }
 
     return prisma.notification.update({

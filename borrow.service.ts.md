@@ -186,21 +186,10 @@ export class BorrowService {
         throw new Error('Borrow record not found or no longer PENDING');
       }
 
-const approved = await tx.borrowRecord.findUniqueOrThrow({
+      return tx.borrowRecord.findUniqueOrThrow({
         where: { id },
         include: borrowInclude,
       });
-
-      await AuditLogService.log(
-        'BorrowRecord',
-        id,
-        LogAction.APPROVED,
-        approverId,
-        null,
-        approved,
-      );
-
-      return approved;
     });
   }
 
@@ -240,21 +229,10 @@ const approved = await tx.borrowRecord.findUniqueOrThrow({
         throw new Error('Borrow record not found or no longer PENDING');
       }
 
-const rejected = await tx.borrowRecord.findUniqueOrThrow({
+      return tx.borrowRecord.findUniqueOrThrow({
         where: { id },
         include: borrowInclude,
       });
-
-      await AuditLogService.log(
-        'BorrowRecord',
-        id,
-        LogAction.REJECTED,
-        approverId,
-        null,
-        rejected,
-      );
-
-      return rejected;
     });
   }
 
@@ -332,15 +310,6 @@ const rejected = await tx.borrowRecord.findUniqueOrThrow({
           `Equipment "${equipmentName}" has been returned and is now available.`,
         );
       }
-
-await AuditLogService.log(
-        'BorrowRecord',
-        id,
-        LogAction.RETURNED,
-        existing.borrowedById,
-        null,
-        updated,
-      );
 
       return updated;
     });

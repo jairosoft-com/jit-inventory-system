@@ -52,8 +52,7 @@ app.use('/api/borrow', mutativeLimiter); // Bucket 2
 app.use('/api/categories', mutativeLimiter); // Bucket 2
 app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
-app.use('/api/notifications', globalLimiter);         // GET — read, use global bucket
-app.use('/api/notifications/:id/resolve', mutativeLimiter); // PATCH — write, use mutative bucket
+app.use('/api/notifications', mutativeLimiter);
 
 // Body Parser
 app.use(express.json());

@@ -6,10 +6,7 @@ import { NotificationService } from './notification.service.js';
 // the borrower and all managers/admins.
 
 export async function checkOverdueBorrows() {
-// Set threshold to start of today (UTC midnight) so equipment is
-  // only flagged overdue the day AFTER the due date, not on the due date itself.
-  const startOfToday = new Date();
-  startOfToday.setUTCHours(0, 0, 0, 0);
+  const now = new Date();
 
   // Find all APPROVED/BORROWED records past their expected return date
   const overdueRecords = await prisma.borrowRecord.findMany({
@@ -18,7 +15,7 @@ export async function checkOverdueBorrows() {
         in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED],
       },
       expectedReturn: {
-        lt: startOfToday,
+        lt: now,
       },
     },
     include: {

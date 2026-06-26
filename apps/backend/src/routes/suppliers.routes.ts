@@ -161,6 +161,40 @@ router.patch(
   },
 );
 
+// PATCH /suppliers/:id/restore
+router.patch(
+  '/:id/restore',
+  authorize('suppliers:delete'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+
+      if (Number.isNaN(id)) {
+        res.status(400).json({ message: 'Invalid supplier ID' });
+        return;
+      }
+
+      const supplier = await SuppliersService.restore(id, req.user!.id);
+      res.status(200).json(supplier);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+
+      if (message.includes('already exists')) {
+        res.status(409).json({ message });
+        return;
+      }
+
+      res.status(500).json({ message });
+    }
+  },
+);
+
 // GET /suppliers/:id/history
 router.get(
   '/:id/history',

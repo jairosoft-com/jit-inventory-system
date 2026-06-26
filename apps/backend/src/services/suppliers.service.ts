@@ -100,6 +100,7 @@ export class SuppliersService {
           equals: data.supplierName,
           mode: 'insensitive',
         },
+        deletedAt: null,
       },
     });
 
@@ -178,13 +179,13 @@ export class SuppliersService {
     };
   }
 
-  static async findOne(id: number) {
+  static async findOne(id: number, includeArchived = false) {
     const supplier = await prisma.supplier.findUnique({
       where: { id },
       include: SUPPLIER_INCLUDE,
     });
 
-    if (!supplier || supplier.deletedAt) {
+    if (!supplier || (!includeArchived && supplier.deletedAt)) {
       throw new Error('Supplier not found');
     }
 
@@ -205,6 +206,7 @@ export class SuppliersService {
             equals: data.supplierName,
             mode: 'insensitive',
           },
+          deletedAt: null,
         },
       });
 
@@ -261,8 +263,53 @@ export class SuppliersService {
     return archived;
   }
 
+  static async restore(id: number, performedById: number) {
+    const supplier = await prisma.supplier.findUnique({
+      where: { id },
+      include: SUPPLIER_INCLUDE,
+    });
+
+    if (!supplier || !supplier.deletedAt) {
+      throw new Error('Archived supplier not found');
+    }
+
+    const duplicate = await prisma.supplier.findFirst({
+      where: {
+        supplierName: {
+          equals: supplier.supplierName,
+          mode: 'insensitive',
+        },
+        deletedAt: null,
+        id: { not: id },
+      },
+    });
+
+    if (duplicate) {
+      throw new Error(
+        `Cannot restore: an active supplier with the name "${duplicate.supplierName}" already exists`,
+      );
+    }
+
+    const restored = await prisma.supplier.update({
+      where: { id },
+      data: { deletedAt: null },
+      include: SUPPLIER_INCLUDE,
+    });
+
+    await AuditLogService.log(
+      'Supplier',
+      id,
+      'CREATED',
+      performedById,
+      supplier,
+      restored,
+    );
+
+    return restored;
+  }
+
   static async getHistory(id: number) {
-    await this.findOne(id);
+    await this.findOne(id, true);
 
     const logs = await prisma.inventoryLog.findMany({
       where: {

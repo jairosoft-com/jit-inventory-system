@@ -85,6 +85,7 @@ interface SupplierState {
   createSupplier: (data: CreateSupplierInput) => Promise<Supplier>;
   updateSupplier: (id: number, data: UpdateSupplierInput) => Promise<Supplier>;
   archiveSupplier: (id: number) => Promise<void>;
+  restoreSupplier: (id: number) => Promise<void>;
   fetchSupplierHistory: (id: number) => Promise<void>;
   clearError: () => void;
 }
@@ -250,6 +251,26 @@ export const useSupplierStore = create<SupplierState>((set) => ({
       }));
     } catch (error: unknown) {
       const errMsg = getErrorMessage(error, 'Failed to archive supplier');
+      set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  restoreSupplier: async (id) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await api.patch<Supplier>(`/suppliers/${id}/restore`);
+      const updatedSupplier = normalizeSupplier(response.data);
+
+      set((state) => ({
+        suppliers: state.suppliers.map((supplier) =>
+          supplier.id === id ? updatedSupplier : supplier,
+        ),
+        isLoading: false,
+      }));
+    } catch (error: unknown) {
+      const errMsg = getErrorMessage(error, 'Failed to restore supplier');
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }

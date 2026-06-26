@@ -28,6 +28,7 @@ export default function SupplierManagementPage() {
     createSupplier,
     updateSupplier,
     archiveSupplier,
+    restoreSupplier,
     fetchSupplierHistory,
     clearError,
   } = useSupplierStore();
@@ -48,6 +49,9 @@ export default function SupplierManagementPage() {
 
   const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
   const [archiveTargetSupplier, setArchiveTargetSupplier] = useState<Supplier | null>(null);
+
+  const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
+  const [restoreTargetSupplier, setRestoreTargetSupplier] = useState<Supplier | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -285,10 +289,39 @@ export default function SupplierManagementPage() {
     }
   };
 
+  const handleOpenRestoreConfirm = (supplier: Supplier) => {
+    if (!canDelete || !supplier.deletedAt) return;
+    setRestoreTargetSupplier(supplier);
+    setIsRestoreConfirmOpen(true);
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreTargetSupplier) return;
+    setSuccessMessage(null);
+    try {
+      await restoreSupplier(restoreTargetSupplier.id);
+      setSuccessMessage(`Supplier "${restoreTargetSupplier.supplierName}" restored successfully`);
+      setIsRestoreConfirmOpen(false);
+      setRestoreTargetSupplier(null);
+      loadSuppliers();
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to restore supplier';
+      alert(errMsg);
+    }
+  };
+
   // Helper timeline items badges
-  const getActionBadge = (action: string) => {
-    switch (action) {
+  const getActionBadge = (log: SupplierHistory) => {
+    switch (log.action) {
       case 'CREATED':
+        if (log.oldData) {
+          return (
+            <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+              Restored
+            </span>
+          );
+        }
         return (
           <span className="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
             Created
@@ -309,7 +342,7 @@ export default function SupplierManagementPage() {
       default:
         return (
           <span className="inline-flex rounded-full bg-gray-50 px-2 py-0.5 text-xs font-semibold text-gray-700">
-            {action}
+            {log.action}
           </span>
         );
     }
@@ -318,6 +351,9 @@ export default function SupplierManagementPage() {
   // Render log changes diff list
   const renderLogChanges = (log: SupplierHistory) => {
     if (log.action === 'CREATED') {
+      if (log.oldData) {
+        return <p className="text-xs text-[var(--text-secondary)] mt-1">Supplier record restored.</p>;
+      }
       return <p className="text-xs text-[var(--text-secondary)] mt-1">New supplier registered.</p>;
     }
     if (log.action === 'DELETED') {
@@ -586,6 +622,15 @@ export default function SupplierManagementPage() {
                                 Archive
                               </button>
                             )}
+                            {canDelete && sup.deletedAt && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRestoreConfirm(sup)}
+                                className="rounded-lg border border-[var(--accent)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-blue-50 hover:border-[var(--accent-hover)]"
+                              >
+                                Restore
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -674,6 +719,15 @@ export default function SupplierManagementPage() {
                             className="rounded-lg border border-red-200 text-red-600 px-2.5 py-1.5 text-xs font-semibold transition hover:bg-red-50"
                           >
                             Archive
+                          </button>
+                        )}
+                        {canDelete && sup.deletedAt && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRestoreConfirm(sup)}
+                            className="rounded-lg border border-[var(--accent)] bg-white text-[var(--accent)] px-2.5 py-1.5 text-xs font-semibold transition hover:bg-blue-50 hover:border-[var(--accent-hover)]"
+                          >
+                            Restore
                           </button>
                         )}
                       </div>
@@ -938,7 +992,7 @@ export default function SupplierManagementPage() {
 
                       <div className="flex flex-col gap-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          {getActionBadge(log.action)}
+                          {getActionBadge(log)}
                           <span className="text-xs text-[var(--text-secondary)] font-medium">
                             by {log.performedBy}
                           </span>
@@ -1030,6 +1084,55 @@ export default function SupplierManagementPage() {
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
               >
                 Archive Supplier
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Restore Confirmation Dialog */}
+      {isRestoreConfirmOpen && restoreTargetSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+            <div className="mb-4 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-2xl text-[var(--accent)]">
+                🔄
+              </div>
+              <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
+                Restore Supplier Record
+              </h2>
+            </div>
+
+            <div className="space-y-3 text-sm text-[var(--text-secondary)]">
+              <p>
+                Are you sure you want to restore the supplier{' '}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  "{restoreTargetSupplier.supplierName}"
+                </span>
+                ?
+              </p>
+              <p>
+                This will reactivate their profile, moving them back to the Active list and making them available for procurement operations.
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreConfirmOpen(false);
+                  setRestoreTargetSupplier(null);
+                }}
+                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRestoreConfirm}
+                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+              >
+                Restore Supplier
               </button>
             </div>
           </section>

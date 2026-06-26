@@ -17,7 +17,9 @@ router.get('/unread', async (_req: Request, res: Response): Promise<void> => {
     const alerts = await AlertService.getUnreadAlerts();
     res.status(200).json({ alerts, count: alerts.length });
   } catch (error) {
-    res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
 
@@ -28,7 +30,9 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
     const count = await AlertService.getUnreadCount();
     res.status(200).json({ count });
   } catch (error) {
-    res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
 
@@ -36,41 +40,62 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
 // All alerts paginated
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10));
-    const pageSize = Math.min(50, Math.max(1, parseInt(String(req.query.pageSize ?? '30'), 10)));
+    const page =
+      typeof req.query.page === 'string'
+        ? Math.max(1, Number.parseInt(req.query.page, 10))
+        : 1;
+
+    const pageSize =
+      typeof req.query.pageSize === 'string'
+        ? Math.min(50, Math.max(1, Number.parseInt(req.query.pageSize, 10)))
+        : 30;
     const result = await AlertService.getAllAlerts(page, pageSize);
     res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
 
 // ── PATCH /api/alerts/:id/read ────────────────────────────────────────────────
 // Mark a single alert as read
-router.patch('/:id/read', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const id = parseInt(String(req.params.id), 10);
-    if (isNaN(id)) {
-      res.status(400).json({ message: 'Invalid alert ID' });
-      return;
+router.patch(
+  '/:id/read',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(String(req.params.id), 10);
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid alert ID' });
+        return;
+      }
+      const alert = await AlertService.markAsRead(id);
+      res.status(200).json({ alert });
+    } catch (error) {
+      res.status(500).json({
+        message:
+          error instanceof Error ? error.message : 'Internal server error',
+      });
     }
-    const alert = await AlertService.markAsRead(id);
-    res.status(200).json({ alert });
-  } catch (error) {
-    res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
-  }
-});
+  },
+);
 
 // ── PATCH /api/alerts/read-all ────────────────────────────────────────────────
 // Mark all unread alerts as read
-router.patch('/read-all', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await AlertService.markAllAsRead();
-    res.status(200).json({ updated: result.count });
-  } catch (error) {
-    res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
-  }
-});
+router.patch(
+  '/read-all',
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await AlertService.markAllAsRead();
+      res.status(200).json({ updated: result.count });
+    } catch (error) {
+      res.status(500).json({
+        message:
+          error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
+  },
+);
 
 // ── POST /api/alerts/scan ─────────────────────────────────────────────────────
 // Trigger a full scan of all consumable profiles (manual or scheduled)
@@ -80,7 +105,9 @@ router.post('/scan', async (_req: Request, res: Response): Promise<void> => {
     await AlertService.runFullScan();
     res.status(200).json({ message: 'Stock scan completed successfully.' });
   } catch (error) {
-    res.status(500).json({ message: error instanceof Error ? error.message : 'Internal server error' });
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
 

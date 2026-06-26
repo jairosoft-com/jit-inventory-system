@@ -93,6 +93,21 @@ function buildSupplierSearchWhere(search = ''): Prisma.SupplierWhereInput {
 }
 
 export class SuppliersService {
+  static async getSummary() {
+    const [total, active, archived, linkedToPOs] = await Promise.all([
+      prisma.supplier.count(),
+      prisma.supplier.count({ where: { deletedAt: null } }),
+      prisma.supplier.count({ where: { deletedAt: { not: null } } }),
+      prisma.supplier.count({
+        where: {
+          purchaseOrders: { some: {} },
+        },
+      }),
+    ]);
+
+    return { total, active, archived, linkedToPOs };
+  }
+
   static async create(data: CreateSupplierInput, performedById: number) {
     const existing = await prisma.supplier.findFirst({
       where: {

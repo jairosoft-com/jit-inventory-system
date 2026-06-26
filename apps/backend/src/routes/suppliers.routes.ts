@@ -64,6 +64,22 @@ router.get(
   },
 );
 
+// GET /suppliers/summary
+router.get(
+  '/summary',
+  authorize('suppliers:read'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const summary = await SuppliersService.getSummary();
+      res.status(200).json(summary);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
+
 // GET /suppliers/:id
 router.get(
   '/:id',
@@ -77,7 +93,8 @@ router.get(
         return;
       }
 
-      const supplier = await SuppliersService.findOne(id);
+      const includeArchived = req.query.includeArchived === 'true';
+      const supplier = await SuppliersService.findOne(id, includeArchived);
       res.status(200).json(supplier);
     } catch (error) {
       const message =

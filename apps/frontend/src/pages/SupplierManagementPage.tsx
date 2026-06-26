@@ -22,6 +22,7 @@ export default function SupplierManagementPage() {
     suppliers,
     supplierHistory,
     meta,
+    summary,
     isLoading,
     error: storeError,
     fetchSuppliers,
@@ -30,6 +31,7 @@ export default function SupplierManagementPage() {
     archiveSupplier,
     restoreSupplier,
     fetchSupplierHistory,
+    fetchSupplierSummary,
     clearError,
   } = useSupplierStore();
 
@@ -98,7 +100,10 @@ export default function SupplierManagementPage() {
 
   useEffect(() => {
     loadSuppliers();
-  }, [loadSuppliers]);
+    if (canRead) {
+      void fetchSupplierSummary();
+    }
+  }, [loadSuppliers, canRead, fetchSupplierSummary]);
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -128,21 +133,8 @@ export default function SupplierManagementPage() {
   const showingStart = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
   const showingEnd = Math.min(meta.page * meta.limit, meta.total);
 
-  // Statistics summaries for the current server-side result set.
-  const summaries = useMemo(() => {
-    const active = suppliers.filter((s) => !s.deletedAt);
-    const archived = suppliers.filter((s) => !!s.deletedAt);
-    const linkedToPOs = suppliers.filter(
-      (s) => (s.purchaseOrderCount ?? s._count?.purchaseOrders ?? 0) > 0,
-    );
-
-    return {
-      total: meta.total,
-      active: appliedStatusFilter === 'active' ? meta.total : active.length,
-      archived: appliedStatusFilter === 'inactive' ? meta.total : archived.length,
-      linkedToPOs: linkedToPOs.length,
-    };
-  }, [appliedStatusFilter, meta.total, suppliers]);
+  // Global stats summaries from the store.
+  const summaries = summary;
 
   // If user has no read permission, block access immediately
   if (!canRead) {

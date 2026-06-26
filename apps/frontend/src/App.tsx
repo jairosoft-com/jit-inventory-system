@@ -8,6 +8,7 @@ import EquipmentPage from './pages/EquipmentPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
+import BorrowHistoryPage from './pages/BorrowHistoryPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
 
 export default function App() {
@@ -16,7 +17,7 @@ export default function App() {
       <Routes>
         {/* Public Login Route */}
         <Route path="/" element={<LoginPage />} />
-
+ 
         {/* Dashboard Shell Route */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
@@ -25,19 +26,20 @@ export default function App() {
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<BorrowRequestPage />} />
+          <Route path="borrow-history" element={<BorrowHistoryPage />} />
           <Route path="orders" element={<PlaceholderPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="maintenance" element={<PlaceholderPage />} />
           <Route path="logs" element={<PlaceholderPage />} />
         </Route>
-
+ 
         {/* Catch-all Redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
+ 
 
 
 

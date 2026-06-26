@@ -400,7 +400,7 @@ export default function DashboardPage() {
           ),
         },
         {
-          label: 'Available Assets',
+          label: 'Available Inventory Items',
           color: '#10b981',
           value: summary ? summary.availableItems.toLocaleString() : null,
           subtext: 'available in stock',

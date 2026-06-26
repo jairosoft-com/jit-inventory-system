@@ -71,8 +71,8 @@
   justify-content: center;
   gap: 12px;
   padding: 24px;
-  background: var(--bg-secondary);
-  border: 1px dashed var(--border-color);
+  background: var(--background-secondary);
+  border: 1px dashed var(--surface-border);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 14.5px;
@@ -83,7 +83,7 @@
 }
 
 .dash-zero-state-icon {
-  color: var(--text-muted);
+  color: var(--text-disabled);
 }
 
 .dash-zero-state-text {

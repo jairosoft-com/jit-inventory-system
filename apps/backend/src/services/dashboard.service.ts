@@ -244,7 +244,7 @@ export class DashboardService {
       access.canReadInventory
         ? prisma.consumableProfile.count({
           where: {
-            status: 'IN_STOCK',
+            quantity: { gt: 0 },
             item: { deletedAt: null },
           },
         })

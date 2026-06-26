@@ -19,24 +19,6 @@ const router = Router();
 // All borrow routes require authentication
 router.use(authenticate);
 
-/**
- * Determines whether the requesting user is allowed to view borrow records
- * belonging to other people. `borrow:approve` is used as the signal here —
- * it's already restricted to MANAGER/ADMIN in the seed, and anyone who can
- * approve/reject other people's requests reasonably needs to see them too.
- * STAFF holds borrow:read (so they can list/filter their own history) but
- * not borrow:approve, so this returns false for them.
- */
-async function canViewAllBorrowRecords(
-  roleId: number | undefined,
-): Promise<boolean> {
-  if (!roleId) return false;
-  const grant = await prisma.rolePermission.findFirst({
-    where: { roleId, permission: { name: 'borrow:approve' } },
-  });
-  return grant !== null;
-}
-
 // ── POST /borrow ──────────────────────────────────────────────────────────────
 // Submit a new borrow request. Any authenticated user with borrow:submit can do this.
 
@@ -138,7 +120,10 @@ router.patch(
       // Check this first: 'Borrow record not found or no longer PENDING'
       // contains the substring 'not found', so it must be matched before
       // the plain not-found branch below or it would incorrectly 404.
-      if (message.includes('no longer PENDING') || message.includes('unavailable')) {
+      if (
+        message.includes('no longer PENDING') ||
+        message.includes('unavailable')
+      ) {
         // 409 Conflict — request/equipment is in a state that doesn't allow this action
         res.status(409).json({ message });
         return;
@@ -214,7 +199,8 @@ router.patch(
       );
       res.status(200).json(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       if (message.includes('already been returned')) {
         res.status(409).json({ message });
         return;

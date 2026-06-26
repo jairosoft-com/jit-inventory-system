@@ -313,7 +313,9 @@ export class BorrowService {
       });
 
       if (recordUpdate.count === 0) {
-        throw new Error('Return could not be processed — record state changed concurrently');
+        throw new Error(
+          'Return could not be processed — record state changed concurrently',
+        );
       }
 
       // Always restore equipment to AVAILABLE so it reappears in the

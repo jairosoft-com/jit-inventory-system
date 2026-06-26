@@ -8,6 +8,7 @@ import {
   type ConditionStatus,
   type ListEquipmentQuery,
   type DisposalReason,
+  type DisposalApprovalStatus,
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 
@@ -40,6 +41,12 @@ const DISPOSAL_REASON_LABELS: Record<DisposalReason, string> = {
   LOST: 'Lost',
   STOLEN: 'Stolen',
   DONATED: 'Donated',
+};
+
+const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = {
+  PENDING: 'Pending',
+  COMPLETED: 'Completed',
+  REJECTED: 'Rejected',
 };
 
 const PAGE_SIZE = 20;
@@ -181,6 +188,12 @@ function canRequestRetirement(eq: Equipment): boolean {
   return getRetirementIneligibilityReason(eq) === null;
 }
 
+function formatDisplayDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+
+  return new Date(dateStr).toLocaleDateString();
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EquipmentPage() {
@@ -191,7 +204,10 @@ export default function EquipmentPage() {
     meta,
     isLoading,
     error: storeError,
+    disposalHistory,
+    isDisposalHistoryLoading,
     fetchEquipment,
+    fetchDisposalHistory,
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
@@ -218,6 +234,7 @@ export default function EquipmentPage() {
 
   const roleName = user?.role?.name?.toUpperCase() || '';
   const isAdmin = roleName.includes('ADMIN');
+  const canRead = isAdmin || permissions.includes('equipment:read');
   const canCreate = isAdmin || permissions.includes('equipment:create');
   const canUpdate = isAdmin || permissions.includes('equipment:update');
   const canDelete = false; // deletion is disabled
@@ -242,6 +259,10 @@ export default function EquipmentPage() {
     useState<RetirementFormState>(emptyRetirementForm);
   const [retirementError, setRetirementError] = useState<string | null>(null);
   const [isRetiring, setIsRetiring] = useState(false);
+  const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
+  const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(
+    null,
+  );
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
@@ -612,6 +633,26 @@ export default function EquipmentPage() {
     loadEquipment(page, searchInput.trim(), statusFilter);
   };
 
+
+  const handleOpenDisposalHistory = async () => {
+    setIsDisposalHistoryOpen(true);
+    setDisposalHistoryError(null);
+
+    try {
+      await fetchDisposalHistory();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch disposal history';
+
+      setDisposalHistoryError(message);
+    }
+  };
+
+  const handleCloseDisposalHistory = () => {
+    setIsDisposalHistoryOpen(false);
+    setDisposalHistoryError(null);
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
@@ -635,6 +676,16 @@ export default function EquipmentPage() {
             >
               Refresh
             </button>
+
+            {canRead && (
+              <button
+                type="button"
+                onClick={handleOpenDisposalHistory}
+                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              >
+                Disposal History
+              </button>
+            )}
 
             {canCreate && (
               <button
@@ -1428,6 +1479,121 @@ export default function EquipmentPage() {
               </form>
             </div>
             {/* end scrollable body */}
+          </section>
+        </div>
+      )}
+
+
+      {/* ── Disposal History Modal ──────────────────────────────────────── */}
+      {isDisposalHistoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-5xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Disposal History
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Review completed and rejected equipment disposal records.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseDisposalHistory}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+              {disposalHistoryError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {disposalHistoryError}
+                </div>
+              )}
+
+              {isDisposalHistoryLoading ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                  <h3 className="mt-3 font-medium text-[var(--text-primary)]">
+                    Loading disposal history...
+                  </h3>
+                </div>
+              ) : disposalHistory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <h3 className="font-semibold text-[var(--text-primary)]">
+                    No Disposal History
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Completed and rejected disposal records will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Equipment</th>
+                        <th className="px-4 py-3 font-semibold">Reason</th>
+                        <th className="px-4 py-3 font-semibold">User</th>
+                        <th className="px-4 py-3 font-semibold">Date</th>
+                        <th className="px-4 py-3 font-semibold">Approval Status</th>
+                        <th className="px-4 py-3 font-semibold">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--surface-border)]">
+                      {disposalHistory.map((record) => (
+                        <tr key={record.id}>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-[var(--text-primary)]">
+                              {record.equipment.item.itemName}
+                            </div>
+                            <div className="text-xs font-mono text-[var(--text-tertiary)]">
+                              {record.equipment.assetId}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {DISPOSAL_REASON_LABELS[record.reason]}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            <div>
+                              {record.approvedBy.firstName} {record.approvedBy.lastName}
+                            </div>
+                            <div className="text-xs text-[var(--text-tertiary)]">
+                              {record.approvedBy.email}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {formatDisplayDate(record.disposalDate)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                record.approvalStatus === 'COMPLETED'
+                                  ? 'border border-green-200 bg-green-50 text-green-700'
+                                  : record.approvalStatus === 'PENDING'
+                                    ? 'border border-yellow-200 bg-yellow-50 text-yellow-700'
+                                    : 'border border-red-200 bg-red-50 text-red-700'
+                              }`}
+                            >
+                              {
+                                DISPOSAL_APPROVAL_STATUS_LABELS[
+                                  record.approvalStatus
+                                ]
+                              }
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {record.notes || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </section>
         </div>
       )}

@@ -357,9 +357,9 @@ export default function DashboardPage() {
       ]
     : [
         {
-          label: 'Total Items',
+          label: 'Total Inventory Items',
           color: '#2563eb',
-          value: summary ? summary.totalItems.toLocaleString() : null,
+          value: summary ? summary.totalInventoryItems.toLocaleString() : null,
           subtext: 'total registered',
           icon: (
             <svg
@@ -378,10 +378,10 @@ export default function DashboardPage() {
           ),
         },
         {
-          label: 'Available Equipment',
+          label: 'Total Stock Quantity',
           color: '#8b5cf6',
-          value: summary ? summary.activeEquipment.toLocaleString() : null,
-          subtext: 'available assets',
+          value: summary ? summary.totalQuantityInStock.toLocaleString() : null,
+          subtext: 'quantity in stock',
           icon: (
             <svg
               width="16"
@@ -391,15 +391,38 @@ export default function DashboardPage() {
               stroke="currentColor"
               strokeWidth="2"
             >
-              <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+              <line x1="15" y1="3" x2="15" y2="21" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="3" y1="15" x2="21" y2="15" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Available Inventory Items',
+          color: '#10b981',
+          value: summary ? summary.availableItems.toLocaleString() : null,
+          subtext: 'available in stock',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           ),
         },
         {
           label: 'Low Stock Alerts',
           color: '#d97706',
-          value: summary ? summary.lowStockAlerts.toLocaleString() : null,
-          subtext: 'requires reorder',
+          value: summary ? summary.lowStockItems.toLocaleString() : null,
+          subtext: 'requires attention',
           icon: (
             <svg
               width="16"
@@ -412,27 +435,6 @@ export default function DashboardPage() {
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          ),
-        },
-        {
-          label: 'Pending Borrows',
-          color: '#0891b2',
-          value: borrowSummary ? borrowSummary.pendingBorrows.toLocaleString() : summary ? summary.pendingBorrows.toLocaleString() : null,
-          subtext: 'awaiting approval',
-          icon: (
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M17 2.1l4 4-4 4" />
-              <path d="M3 12.2v-2a4 4 0 014-4h14" />
-              <path d="M7 21.9l-4-4 4-4" />
-              <path d="M21 11.8v2a4 4 0 01-4 4H3" />
             </svg>
           ),
         },
@@ -470,44 +472,65 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="dash-stats stagger-children">
-        {statCards.map((stat) => (
-          <div key={stat.label} className="dash-stat-card">
-            <div className="dash-stat-header">
-              <span className="dash-stat-label">{stat.label}</span>
-              <div
-                className="dash-stat-icon"
-                style={{
-                  background: `${stat.color}08`,
-                  color: stat.color,
-                }}
-              >
-                {stat.icon}
+      {!isLoading && summary && summary.totalInventoryItems === 0 ? (
+        <div className="dash-zero-state-banner animate-fade-in" id="zero-state-banner">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="dash-zero-state-icon"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+            <line x1="15" y1="3" x2="15" y2="21" />
+            <line x1="3" y1="9" x2="21" y2="9" />
+            <line x1="3" y1="15" x2="21" y2="15" />
+          </svg>
+          <span className="dash-zero-state-text">no inventory data available</span>
+        </div>
+      ) : (
+        <div className="dash-stats stagger-children">
+          {statCards.map((stat) => (
+            <div key={stat.label} className="dash-stat-card">
+              <div className="dash-stat-header">
+                <span className="dash-stat-label">{stat.label}</span>
+                <div
+                  className="dash-stat-icon"
+                  style={{
+                    background: `${stat.color}08`,
+                    color: stat.color,
+                  }}
+                >
+                  {stat.icon}
+                </div>
               </div>
-            </div>
 
-            {isLoading && !summary ? (
-              <div className="dash-skeleton-wrapper">
-                <div className="dash-skeleton-pulse dash-skeleton-pulse--value animate-pulse" />
-              </div>
-            ) : stat.value !== null ? (
-              <div className="dash-stat-val" style={{ color: 'var(--text-primary)' }}>
-                {stat.value}
-              </div>
-            ) : (
-              <div className="dash-stat-empty-val">—</div>
-            )}
-
-            <div className="dash-stat-footer">
               {isLoading && !summary ? (
-                <div className="dash-skeleton-pulse dash-skeleton-pulse--small animate-pulse" />
+                <div className="dash-skeleton-wrapper">
+                  <div className="dash-skeleton-pulse dash-skeleton-pulse--value animate-pulse" />
+                </div>
+              ) : stat.value !== null ? (
+                <div className="dash-stat-val" style={{ color: 'var(--text-primary)' }}>
+                  {stat.value}
+                </div>
               ) : (
-                <span className="dash-stat-subtext">{stat.subtext}</span>
+                <div className="dash-stat-empty-val">—</div>
               )}
+
+              <div className="dash-stat-footer">
+                {isLoading && !summary ? (
+                  <div className="dash-skeleton-pulse dash-skeleton-pulse--small animate-pulse" />
+                ) : (
+                  <span className="dash-stat-subtext">{stat.subtext}</span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="dash-grid">
         <div className="dash-card dash-card--wide">

@@ -17,6 +17,7 @@ import borrowRouter from './routes/borrow.routes.js';
 import suppliersRouter from './routes/suppliers.routes.js';
 import notificationsRouter from './routes/notifications.routes.js';
 import { startOverdueJob } from './services/overdue.job.js';
+import reportsRouter from './routes/reports.routes.js';
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
 app.use('/api/notifications', globalLimiter);         // GET — read, use global bucket
 app.use('/api/notifications/:id/resolve', mutativeLimiter); // PATCH — write, use mutative bucket
+app.use('/api/reports', heavyLimiter);     // Bucket 4: report generation is heavy
 
 // Body Parser
 app.use(express.json());
@@ -69,6 +71,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/borrow', borrowRouter);
 app.use('/api/suppliers', suppliersRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/reports', reportsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

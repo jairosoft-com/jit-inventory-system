@@ -42,7 +42,10 @@ function formatDate(iso: string) {
 }
 
 function isOverdue(expectedReturn: string): boolean {
-  return new Date() > new Date(expectedReturn);
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const expectedStr = new Date(expectedReturn).toISOString().split('T')[0];
+  return todayStr > expectedStr;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

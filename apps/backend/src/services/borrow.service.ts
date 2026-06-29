@@ -268,6 +268,7 @@ export class BorrowService {
           equipmentId: true,
           status: true,
           expectedReturn: true,
+          notes: true,
         },
       });
 
@@ -291,8 +292,19 @@ export class BorrowService {
       }
 
       const now = new Date();
-      const isLate = now > new Date(existing.expectedReturn);
-      const finalStatus = isLate ? BorrowStatus.OVERDUE : BorrowStatus.RETURNED;
+
+      // Compare as YYYY-MM-DD strings in local time to avoid false-positive
+      // late returns when expectedReturn is a date-only column (stored as UTC
+      // midnight by Prisma). A raw `now > new Date(expectedReturn)` comparison
+      // would flag a same-day return at 9 AM as overdue.
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const expectedStr = new Date(existing.expectedReturn).toISOString().split('T')[0];
+      const isLate = todayStr > expectedStr;
+
+      // Always use RETURNED regardless of lateness so the user is never
+      // permanently locked out of borrowing. Lateness is captured via the
+      // audit log action and the actualReturn vs expectedReturn comparison.
+      const finalStatus = BorrowStatus.RETURNED;
       const auditAction = isLate ? LogAction.UPDATED : LogAction.RETURNED;
 
       // Atomic check-and-set: only matches if the record is still
@@ -307,8 +319,8 @@ export class BorrowService {
           actualReturn: now,
           returnCondition: data.returnCondition,
           notes: data.notes
-            ? [existing.status, data.notes].filter(Boolean).join('\n')
-            : undefined,
+            ? [existing.notes, `[Return Notes] ${data.notes}`].filter(Boolean).join('\n')
+            : existing.notes,
         },
       });
 

@@ -102,6 +102,12 @@ const PERMISSIONS = [
     action: 'read',
     description: 'View borrow records',
   },
+  {
+    name: 'borrow:return',
+    resource: 'borrow',
+    action: 'return',
+    description: 'Process equipment returns',
+  },
 
   // Disposal
   {
@@ -296,6 +302,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'borrow:submit',
     'borrow:approve',
     'borrow:read',
+    'borrow:return',
     'disposal:read',
     'users:read',
     'roles:read',
@@ -321,7 +328,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'reports:export',
   ],
 
-  STAFF: ['inventory:read', 'equipment:read', 'borrow:submit', 'borrow:read', 'categories:read'],
+  STAFF: ['inventory:read', 'equipment:read', 'borrow:submit', 'borrow:read', 'borrow:return', 'categories:read'],
 };
 
 async function main() {

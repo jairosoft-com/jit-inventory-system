@@ -64,20 +64,6 @@ interface PaginationMeta {
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
-// ── Return input ─────────────────────────────────────────────────────────────
-
-export type ConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
-
-export interface ProcessReturnInput {
-  returnCondition: ConditionStatus;
-  notes?: string | null;
-}
-
-export interface ProcessReturnResult {
-  record: BorrowRecord;
-  isLate: boolean;
-}
-
 interface BorrowState {
   /** All borrow records — admin/manager view only. Kept separate from
    *  myRecords so switching between the History and All Requests tabs
@@ -103,8 +89,8 @@ interface BorrowState {
   approveRequest: (id: number) => Promise<BorrowRecord>;
   /** Reject a PENDING request (requires borrow:approve) */
   rejectRequest: (id: number, reason?: string) => Promise<BorrowRecord>;
-  /** Process the physical return of BORROWED equipment (requires borrow:return) */
-  processReturn: (id: number, data: ProcessReturnInput) => Promise<ProcessReturnResult>;
+  /** Mark a BORROWED/OVERDUE record as returned (requires borrow:return) */
+  returnEquipment: (id: number, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => Promise<BorrowRecord>;
   clearError: () => void;
 }
 
@@ -153,10 +139,9 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>(
-        '/borrow',
-        { params },
-      );
+      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>('/borrow', {
+        params,
+      });
       set({ myRecords: response.data.data, myMeta: response.data.meta, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -212,8 +197,7 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to approve request';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to approve request';
       throw new Error(errMsg);
     }
   },
@@ -236,32 +220,29 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to reject request';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to reject request';
       throw new Error(errMsg);
     }
   },
 
-  processReturn: async (id, data) => {
+  returnEquipment: async (id, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => {
     try {
-      const response = await api.patch<ProcessReturnResult>(`/borrow/${id}/return`, data);
-      const result = response.data;
-      const updated = result.record;
-      // Update both slices in-place so the UI reflects the new RETURNED/OVERDUE
-      // status without a full refresh. Equipment disappears from BORROWED list
-      // automatically on next fetchEquipment call (handled by the caller).
+      const response = await api.patch<BorrowRecord>(`/borrow/${id}/return`, {
+        returnCondition,
+        notes,
+      });
+      const updated = response.data;
       set((state) => ({
         adminRecords: state.adminRecords.map((r) => (r.id === id ? updated : r)),
         myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
       }));
-      return result;
+      return updated;
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to process return';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to process return';
       throw new Error(errMsg);
     }
   },

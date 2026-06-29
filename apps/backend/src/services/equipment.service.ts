@@ -193,6 +193,40 @@ export class EquipmentService {
     return equipment;
   }
 
+  private static async syncCompletedRetirements() {
+    const completedRetirements = await prisma.disposal.findMany({
+      where: {
+        approvalStatus: DisposalApprovalStatus.COMPLETED,
+        equipment: {
+          status: EquipmentStatus.RETIREMENT_PENDING,
+          deletedAt: null,
+        },
+      },
+      select: {
+        equipmentId: true,
+      },
+    });
+
+    const equipmentIds = completedRetirements.map(
+      (record) => record.equipmentId,
+    );
+
+    if (equipmentIds.length === 0) {
+      return;
+    }
+
+    await prisma.equipment.updateMany({
+      where: {
+        id: { in: equipmentIds },
+        status: EquipmentStatus.RETIREMENT_PENDING,
+        deletedAt: null,
+      },
+      data: {
+        status: EquipmentStatus.RETIRED,
+      },
+    });
+  }
+
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   static async create(data: CreateEquipmentInput, registeredBy: number) {
@@ -324,6 +358,8 @@ export class EquipmentService {
   }
 
   static async findAll(query: ListEquipmentQuery) {
+    await this.syncCompletedRetirements();
+
     const { status, condition, categoryId, assignedTo, search, page, limit } =
       query;
 
@@ -621,6 +657,8 @@ export class EquipmentService {
   }
 
   static async getDisposalHistory() {
+    await this.syncCompletedRetirements();
+
     return prisma.disposal.findMany({
       where: {
         approvalStatus: {

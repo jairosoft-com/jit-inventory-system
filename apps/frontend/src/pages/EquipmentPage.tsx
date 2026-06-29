@@ -336,7 +336,7 @@ export default function EquipmentPage() {
       const st = status ?? statusFilter;
       if (s) query.search = s;
       if (st) query.status = st as EquipmentStatus;
-      fetchEquipment(query);
+      return fetchEquipment(query);
     },
     [currentPage, searchInput, statusFilter, fetchEquipment],
   );
@@ -741,6 +741,7 @@ export default function EquipmentPage() {
 
     try {
       await fetchDisposalHistory();
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to fetch disposal history';
 

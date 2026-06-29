@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
+import { CalendarIcon, X } from 'lucide-react';
 import { useReportStore, type ReportType } from '../store/reportStore';
 import { useAuthStore } from '../store/authStore';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import '../index.css';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
@@ -103,7 +117,122 @@ function ReportTypeCard({
   );
 }
 
-// Columns to show in the preview table per report type (exports still get all columns)
+// ── Filter Bar ────────────────────────────────────────────────────────────────
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface FilterBarProps {
+  dateRange: DateRange | undefined;
+  onDateRangeChange: (range: DateRange | undefined) => void;
+  categoryId: string;
+  onCategoryChange: (id: string) => void;
+  categories: Category[];
+  isLoadingCategories: boolean;
+  onClearFilters: () => void;
+  hasActiveFilters: boolean;
+}
+
+function FilterBar({
+  dateRange,
+  onDateRangeChange,
+  categoryId,
+  onCategoryChange,
+  categories,
+  isLoadingCategories,
+  onClearFilters,
+  hasActiveFilters,
+}: FilterBarProps) {
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const dateLabel =
+    dateRange?.from && dateRange?.to
+      ? `${format(dateRange.from, 'MMM d, yyyy')} – ${format(dateRange.to, 'MMM d, yyyy')}`
+      : dateRange?.from
+        ? `From ${format(dateRange.from, 'MMM d, yyyy')}`
+        : 'Pick date range';
+
+  return (
+    <div className="rp-filter-bar">
+      <span className="rp-filter-label">FILTERS</span>
+
+      {/* Date Range Picker */}
+      <div className="rp-filter-field">
+        <span className="rp-filter-field-label">Date Range</span>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="rp-filter-date-btn"
+            >
+              <CalendarIcon size={14} />
+              <span className={dateRange?.from ? 'rp-filter-date-active' : 'rp-filter-date-placeholder'}>
+                {dateLabel}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="rp-filter-calendar-popover" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={(range) => {
+                onDateRangeChange(range);
+                if (range?.from && range?.to) setCalendarOpen(false);
+              }}
+              numberOfMonths={2}
+              disabled={{ after: new Date() }}
+            />
+            {dateRange?.from && (
+              <div className="rp-filter-calendar-footer">
+                <button
+                  type="button"
+                  className="rp-filter-clear-date"
+                  onClick={() => {
+                    onDateRangeChange(undefined);
+                    setCalendarOpen(false);
+                  }}
+                >
+                  Clear dates
+                </button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Category Select */}
+      <div className="rp-filter-field">
+        <span className="rp-filter-field-label">Category</span>
+        <Select value={categoryId} onValueChange={onCategoryChange} disabled={isLoadingCategories}>
+          <SelectTrigger className="rp-filter-select">
+            <SelectValue placeholder={isLoadingCategories ? 'Loading…' : 'All categories'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={String(cat.id)}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Clear all */}
+      {hasActiveFilters && (
+        <button type="button" className="rp-filter-clear-all" onClick={onClearFilters}>
+          <X size={13} />
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Columns to show in preview table per report type ──────────────────────────
+
 const PREVIEW_COLUMNS: Record<string, string[]> = {
   inventory: ['itemName', 'itemType', 'category', 'quantity', 'unit', 'stockStatus', 'equipmentStatus', 'condition'],
   procurement: ['invoiceNumber', 'status', 'totalAmount', 'orderDate', 'supplier', 'itemCount'],
@@ -194,13 +323,19 @@ export default function ReportsPage() {
     isLoadingPreview,
     isExporting,
     error,
+    filters,
     fetchTypes,
     selectType,
     generatePreview,
     exportExcel,
     exportPdf,
+    setFilters,
+    clearFilters,
     clearPreview,
     clearError,
+    fetchCategories,
+    categories,
+    isLoadingCategories,
   } = useReportStore();
 
   const canExport =
@@ -210,12 +345,34 @@ export default function ReportsPage() {
 
   useEffect(() => {
     void fetchTypes();
-  }, [fetchTypes]);
+    void fetchCategories();
+  }, [fetchTypes, fetchCategories]);
 
   const handleSelectType = (type: ReportType) => {
     clearPreview();
     clearError();
     selectType(type);
+  };
+
+  const dateRange: DateRange | undefined =
+    filters.startDate || filters.endDate
+      ? {
+          from: filters.startDate ? new Date(filters.startDate) : undefined,
+          to: filters.endDate ? new Date(filters.endDate) : undefined,
+        }
+      : undefined;
+
+  const hasActiveFilters = !!(filters.startDate || filters.endDate || filters.categoryId);
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setFilters({
+      startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : undefined,
+      endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : undefined,
+    });
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setFilters({ categoryId: value === 'all' ? undefined : value });
   };
 
   if (!canExport) {
@@ -271,7 +428,7 @@ export default function ReportsPage() {
           )}
         </aside>
 
-        {/* Right panel: generate + preview */}
+        {/* Right panel: filters + generate + preview */}
         <section className="rp-main">
           {!selectedType ? (
             <div className="rp-placeholder">
@@ -281,6 +438,18 @@ export default function ReportsPage() {
             </div>
           ) : (
             <>
+              {/* Filter bar */}
+              <FilterBar
+                dateRange={dateRange}
+                onDateRangeChange={handleDateRangeChange}
+                categoryId={filters.categoryId ?? 'all'}
+                onCategoryChange={handleCategoryChange}
+                categories={categories}
+                isLoadingCategories={isLoadingCategories}
+                onClearFilters={clearFilters}
+                hasActiveFilters={hasActiveFilters}
+              />
+
               {/* Report actions bar */}
               <div className="rp-actions-bar">
                 <div className="rp-actions-info">

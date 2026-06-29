@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import type { ReportFilters } from '../schemas/reports.schema.js';
 
 // ─────────────────────────────────────────────
 // Types
@@ -51,15 +52,44 @@ function fmtDateTime(value: Date | string | null | undefined): string | null {
 }
 
 // ─────────────────────────────────────────────
+// Filter Helpers
+// ─────────────────────────────────────────────
+
+/** Build a Prisma date range filter for a given field name. */
+function dateRange(startDate?: Date, endDate?: Date) {
+  if (!startDate && !endDate) return undefined;
+
+  // endDate is set to start-of-day UTC; shift it to end-of-day so the
+  // entire selected day is included in the range.
+  const endOfDay = endDate
+    ? new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1)
+    : undefined;
+
+  return {
+    ...(startDate && { gte: startDate }),
+    ...(endOfDay && { lte: endOfDay }),
+  };
+}
+
+// ─────────────────────────────────────────────
 // Report Service
 // ─────────────────────────────────────────────
 
 export class ReportService {
   // ── 1. Inventory Summary ──────────────────
+  // Date filter: item.createdAt
+  // Category filter: item.categoryId
 
-  static async getInventoryReport() {
+  static async getInventoryReport(filters: ReportFilters = {}) {
+    const { startDate, endDate, categoryId } = filters;
+    const datef = dateRange(startDate, endDate);
+
     const items = await prisma.item.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(datef && { createdAt: datef }),
+        ...(categoryId && { categoryId }),
+      },
       include: {
         category: { select: { name: true, type: true } },
         consumableProfile: {
@@ -101,9 +131,20 @@ export class ReportService {
   }
 
   // ── 2. Procurement Report ─────────────────
+  // Date filter: orderDate
+  // Category filter: any line item belonging to that category
 
-  static async getProcurementReport() {
+  static async getProcurementReport(filters: ReportFilters = {}) {
+    const { startDate, endDate, categoryId } = filters;
+    const datef = dateRange(startDate, endDate);
+
     const orders = await prisma.purchaseOrder.findMany({
+      where: {
+        ...(datef && { orderDate: datef }),
+        ...(categoryId && {
+          lineItems: { some: { item: { categoryId } } },
+        }),
+      },
       include: {
         supplier: { select: { supplierName: true, contactPerson: true } },
         createdBy: { select: { firstName: true, lastName: true } },
@@ -137,9 +178,20 @@ export class ReportService {
   }
 
   // ── 3. Borrowing Report ───────────────────
+  // Date filter: borrowDate
+  // Category filter: equipment.item.categoryId
 
-  static async getBorrowingReport() {
+  static async getBorrowingReport(filters: ReportFilters = {}) {
+    const { startDate, endDate, categoryId } = filters;
+    const datef = dateRange(startDate, endDate);
+
     const records = await prisma.borrowRecord.findMany({
+      where: {
+        ...(datef && { borrowDate: datef }),
+        ...(categoryId && {
+          equipment: { item: { categoryId } },
+        }),
+      },
       include: {
         equipment: {
           include: { item: { select: { itemName: true } } },
@@ -170,9 +222,20 @@ export class ReportService {
   }
 
   // ── 4. Maintenance Report ─────────────────
+  // Date filter: scheduledDate
+  // Category filter: equipment.item.categoryId
 
-  static async getMaintenanceReport() {
+  static async getMaintenanceReport(filters: ReportFilters = {}) {
+    const { startDate, endDate, categoryId } = filters;
+    const datef = dateRange(startDate, endDate);
+
     const logs = await prisma.maintenanceLog.findMany({
+      where: {
+        ...(datef && { scheduledDate: datef }),
+        ...(categoryId && {
+          equipment: { item: { categoryId } },
+        }),
+      },
       include: {
         equipment: {
           include: { item: { select: { itemName: true } } },
@@ -201,9 +264,20 @@ export class ReportService {
   }
 
   // ── 5. Disposal Report ────────────────────
+  // Date filter: disposalDate
+  // Category filter: equipment.item.categoryId
 
-  static async getDisposalReport() {
+  static async getDisposalReport(filters: ReportFilters = {}) {
+    const { startDate, endDate, categoryId } = filters;
+    const datef = dateRange(startDate, endDate);
+
     const disposals = await prisma.disposal.findMany({
+      where: {
+        ...(datef && { disposalDate: datef }),
+        ...(categoryId && {
+          equipment: { item: { categoryId } },
+        }),
+      },
       include: {
         equipment: {
           include: { item: { select: { itemName: true } } },
@@ -226,12 +300,19 @@ export class ReportService {
   }
 
   // ── 6. Employee Equipment Report ──────────
+  // Date filter: equipment.createdAt (acquisition date)
+  // Category filter: item.categoryId
 
-  static async getEmployeeEquipmentReport() {
+  static async getEmployeeEquipmentReport(filters: ReportFilters = {}) {
+    const { startDate, endDate, categoryId } = filters;
+    const datef = dateRange(startDate, endDate);
+
     const equipment = await prisma.equipment.findMany({
       where: {
         deletedAt: null,
         assignedTo: { not: null },
+        ...(datef && { createdAt: datef }),
+        ...(categoryId && { item: { categoryId } }),
       },
       include: {
         item: { select: { itemName: true, category: { select: { name: true } } } },
@@ -267,11 +348,18 @@ export class ReportService {
   }
 
   // ── 7. Low Stock Report ───────────────────
+  // Date filter: not applicable (no meaningful date field)
+  // Category filter: item.categoryId
 
-  static async getLowStockReport() {
+  static async getLowStockReport(filters: ReportFilters = {}) {
+    const { categoryId } = filters;
+
     const profiles = await prisma.consumableProfile.findMany({
       where: {
-        item: { deletedAt: null },
+        item: {
+          deletedAt: null,
+          ...(categoryId && { categoryId }),
+        },
         status: { not: 'ARCHIVED' },
       },
       include: {
@@ -301,22 +389,22 @@ export class ReportService {
 
   // ── Dispatcher ────────────────────────────
 
-  static async generateReport(type: ReportType) {
+  static async generateReport(type: ReportType, filters: ReportFilters = {}) {
     switch (type) {
       case 'inventory':
-        return ReportService.getInventoryReport();
+        return ReportService.getInventoryReport(filters);
       case 'procurement':
-        return ReportService.getProcurementReport();
+        return ReportService.getProcurementReport(filters);
       case 'borrowing':
-        return ReportService.getBorrowingReport();
+        return ReportService.getBorrowingReport(filters);
       case 'maintenance':
-        return ReportService.getMaintenanceReport();
+        return ReportService.getMaintenanceReport(filters);
       case 'disposal':
-        return ReportService.getDisposalReport();
+        return ReportService.getDisposalReport(filters);
       case 'employee_equipment':
-        return ReportService.getEmployeeEquipmentReport();
+        return ReportService.getEmployeeEquipmentReport(filters);
       case 'low_stock':
-        return ReportService.getLowStockReport();
+        return ReportService.getLowStockReport(filters);
       default:
         throw new Error(`Unknown report type: ${String(type)}`);
     }

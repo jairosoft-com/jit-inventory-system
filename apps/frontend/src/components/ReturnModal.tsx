@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { useBorrowStore, type BorrowRecord, type ConditionStatus } from '../store/borrowStore';
+import { useBorrowStore, type BorrowRecord } from '../store/borrowStore';
+
+// ── Local type (mirrors backend ConditionStatus enum) ──────────────────────────
+export type ConditionStatus = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -51,7 +54,7 @@ function isOverdue(expectedReturn: string): boolean {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ReturnModal({ record, onClose, onSuccess }: Props) {
-  const { processReturn } = useBorrowStore();
+  const { returnEquipment } = useBorrowStore();
 
   const [condition, setCondition] = useState<ConditionStatus | null>(null);
   const [notes, setNotes] = useState('');
@@ -75,11 +78,13 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
     setIsSubmitting(true);
 
     try {
-      const result = await processReturn(record.id, {
-        returnCondition: condition,
-        notes: notes.trim() || null,
-      });
-      onSuccess(result.isLate);
+      const updated = await returnEquipment(record.id, condition, notes.trim() || undefined);
+      // Compute isLate client-side: compare actualReturn date string vs expectedReturn
+      const actualStr = updated.actualReturn
+        ? new Date(updated.actualReturn).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+      const expectedStr = new Date(record.expectedReturn).toISOString().split('T')[0];
+      onSuccess(actualStr > expectedStr);
     } catch (err: unknown) {
       const e = err as Error;
       setError(e.message || 'Failed to process return. Please try again.');

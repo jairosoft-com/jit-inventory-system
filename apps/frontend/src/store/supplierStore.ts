@@ -52,6 +52,13 @@ export interface SupplierPaginationMeta {
   totalPages: number;
 }
 
+export interface SupplierSummary {
+  total: number;
+  active: number;
+  archived: number;
+  linkedToPOs: number;
+}
+
 export interface SupplierListQuery {
   search?: string;
   status?: SupplierStatusFilter;
@@ -78,6 +85,7 @@ interface SupplierState {
   suppliers: Supplier[];
   supplierHistory: SupplierHistory[];
   meta: SupplierPaginationMeta;
+  summary: SupplierSummary;
   isLoading: boolean;
   error: string | null;
 
@@ -85,7 +93,9 @@ interface SupplierState {
   createSupplier: (data: CreateSupplierInput) => Promise<Supplier>;
   updateSupplier: (id: number, data: UpdateSupplierInput) => Promise<Supplier>;
   archiveSupplier: (id: number) => Promise<void>;
+  restoreSupplier: (id: number) => Promise<void>;
   fetchSupplierHistory: (id: number) => Promise<void>;
+  fetchSupplierSummary: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -155,10 +165,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return err.response?.data?.message || err.message || fallback;
 }
 
-export const useSupplierStore = create<SupplierState>((set) => ({
+export const useSupplierStore = create<SupplierState>((set, get) => ({
   suppliers: [],
   supplierHistory: [],
   meta: DEFAULT_META,
+  summary: { total: 0, active: 0, archived: 0, linkedToPOs: 0 },
   isLoading: false,
   error: null,
 
@@ -203,6 +214,7 @@ export const useSupplierStore = create<SupplierState>((set) => ({
         isLoading: false,
       }));
 
+      void get().fetchSupplierSummary();
       return newSupplier;
     } catch (error: unknown) {
       const errMsg = getErrorMessage(error, 'Failed to create supplier');
@@ -248,8 +260,32 @@ export const useSupplierStore = create<SupplierState>((set) => ({
         ),
         isLoading: false,
       }));
+
+      void get().fetchSupplierSummary();
     } catch (error: unknown) {
       const errMsg = getErrorMessage(error, 'Failed to archive supplier');
+      set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  restoreSupplier: async (id) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await api.patch<Supplier>(`/suppliers/${id}/restore`);
+      const updatedSupplier = normalizeSupplier(response.data);
+
+      set((state) => ({
+        suppliers: state.suppliers.map((supplier) =>
+          supplier.id === id ? updatedSupplier : supplier,
+        ),
+        isLoading: false,
+      }));
+
+      void get().fetchSupplierSummary();
+    } catch (error: unknown) {
+      const errMsg = getErrorMessage(error, 'Failed to restore supplier');
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -272,6 +308,15 @@ export const useSupplierStore = create<SupplierState>((set) => ({
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
+    }
+  },
+
+  fetchSupplierSummary: async () => {
+    try {
+      const response = await api.get<SupplierSummary>('/suppliers/summary');
+      set({ summary: response.data });
+    } catch (error: unknown) {
+      console.error('Failed to fetch supplier summary:', error);
     }
   },
 }));

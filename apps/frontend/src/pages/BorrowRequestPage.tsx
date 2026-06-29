@@ -889,13 +889,8 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
 //
 // Tab layout by role:
 //
-//   STAFF           → "New Request" | "My Requests"
-//   ADMIN / MANAGER → "New Request" | "My Requests" | "All Requests"
-//
-// The previous layout exposed a redundant "My Requests" (cards) + "Borrow
-// History" (table) pair for staff — both showing the same data from
-// `myRecords`. That tab has been collapsed into a single "My Requests" entry
-// that maps to HistoryPanel.
+//   STAFF           → "New Request" | "Borrow History"
+//   ADMIN / MANAGER → "New Request" | "Borrow History" | "All Requests"
 
 type Tab = 'request' | 'history' | 'admin';
 
@@ -907,7 +902,7 @@ export default function BorrowRequestPage() {
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'request', label: 'New Request' },
-    { id: 'history', label: 'My Requests' },
+    { id: 'history', label: 'Borrow History' },
     ...(isAdminOrManager ? [{ id: 'admin' as Tab, label: 'All Requests' }] : []),
   ];
 

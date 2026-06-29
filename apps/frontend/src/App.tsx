@@ -8,7 +8,6 @@ import EquipmentPage from './pages/EquipmentPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
-import BorrowHistoryPage from './pages/BorrowHistoryPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
 
 export default function App() {
@@ -26,7 +25,6 @@ export default function App() {
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<BorrowRequestPage />} />
-          <Route path="borrow-history" element={<BorrowHistoryPage />} />
           <Route path="orders" element={<PlaceholderPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="maintenance" element={<PlaceholderPage />} />
@@ -39,11 +37,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
- 
-
-
-
-
-
-
-

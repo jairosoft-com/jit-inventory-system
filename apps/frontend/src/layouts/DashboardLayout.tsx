@@ -236,7 +236,6 @@ const NAV_SECTIONS = [
     label: 'OPERATIONS',
     items: [
       { name: 'Borrow Requests', href: '/dashboard/borrow', icon: IconBorrow },
-      { name: 'Borrow History', href: '/dashboard/borrow-history', icon: IconBorrowHistory },
       { name: 'Purchase Orders', href: '/dashboard/orders', icon: IconOrders },
       { name: 'Suppliers', href: '/dashboard/suppliers', icon: IconSuppliers },
       { name: 'Maintenance', href: '/dashboard/maintenance', icon: IconMaintenance },

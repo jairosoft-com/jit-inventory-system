@@ -133,6 +133,7 @@ interface FilterBarProps {
   isLoadingCategories: boolean;
   onClearFilters: () => void;
   hasActiveFilters: boolean;
+  showDateFilter: boolean;
 }
 
 function FilterBar({
@@ -144,6 +145,7 @@ function FilterBar({
   isLoadingCategories,
   onClearFilters,
   hasActiveFilters,
+  showDateFilter,
 }: FilterBarProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -158,53 +160,53 @@ function FilterBar({
     <div className="rp-filter-bar">
       <span className="rp-filter-label">FILTERS</span>
 
-      {/* Date Range Picker */}
-      <div className="rp-filter-field">
-        <span className="rp-filter-field-label">Date Range</span>
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="rp-filter-date-btn"
-            >
-              <CalendarIcon size={14} />
-              <span className={dateRange?.from ? 'rp-filter-date-active' : 'rp-filter-date-placeholder'}>
-                {dateLabel}
-              </span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="rp-filter-calendar-popover" align="start">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={(range) => {
-                onDateRangeChange(range);
-                if (range?.from && range?.to) setCalendarOpen(false);
-              }}
-              numberOfMonths={2}
-              disabled={{ after: new Date() }}
-            />
-            {dateRange?.from && (
-              <div className="rp-filter-calendar-footer">
-                <button
-                  type="button"
-                  className="rp-filter-clear-date"
-                  onClick={() => {
-                    onDateRangeChange(undefined);
-                    setCalendarOpen(false);
-                  }}
-                >
-                  Clear dates
-                </button>
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
-      </div>
+      {/* Date Range Picker — hidden for Low Stock since dates are irrelevant */}
+      {showDateFilter && (
+        <div className="rp-filter-field">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="rp-filter-date-btn"
+              >
+                <CalendarIcon size={14} />
+                <span className={dateRange?.from ? 'rp-filter-date-active' : 'rp-filter-date-placeholder'}>
+                  {dateLabel}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="rp-filter-calendar-popover" align="start">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => {
+                  onDateRangeChange(range);
+                  if (range?.from && range?.to) setCalendarOpen(false);
+                }}
+                numberOfMonths={2}
+                disabled={{ after: new Date() }}
+              />
+              {dateRange?.from && (
+                <div className="rp-filter-calendar-footer">
+                  <button
+                    type="button"
+                    className="rp-filter-clear-date"
+                    onClick={() => {
+                      onDateRangeChange(undefined);
+                      setCalendarOpen(false);
+                    }}
+                  >
+                    Clear dates
+                  </button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
 
       {/* Category Select */}
       <div className="rp-filter-field">
-        <span className="rp-filter-field-label">Category</span>
         <Select value={categoryId} onValueChange={onCategoryChange} disabled={isLoadingCategories}>
           <SelectTrigger className="rp-filter-select">
             <SelectValue placeholder={isLoadingCategories ? 'Loading…' : 'All categories'} />
@@ -344,9 +346,11 @@ export default function ReportsPage() {
     ) ?? ['ADMIN', 'MANAGER'].includes(user?.role?.name ?? '');
 
   useEffect(() => {
-    void fetchTypes();
-    void fetchCategories();
-  }, [fetchTypes, fetchCategories]);
+    if (canExport) {
+      void fetchTypes();
+      void fetchCategories();
+    }
+  }, [fetchTypes, fetchCategories, canExport]);
 
   const handleSelectType = (type: ReportType) => {
     clearPreview();
@@ -354,13 +358,19 @@ export default function ReportsPage() {
     selectType(type);
   };
 
-  const dateRange: DateRange | undefined =
-    filters.startDate || filters.endDate
-      ? {
-          from: filters.startDate ? new Date(filters.startDate) : undefined,
-          to: filters.endDate ? new Date(filters.endDate) : undefined,
-        }
-      : undefined;
+  // Parses 'yyyy-MM-dd' into a local Date to avoid UTC timezone shifting
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+const dateRange: DateRange | undefined =
+  filters.startDate || filters.endDate
+    ? {
+        from: filters.startDate ? parseLocalDate(filters.startDate) : undefined,
+        to: filters.endDate ? parseLocalDate(filters.endDate) : undefined,
+      }
+    : undefined;
 
   const hasActiveFilters = !!(filters.startDate || filters.endDate || filters.categoryId);
 
@@ -448,6 +458,7 @@ export default function ReportsPage() {
                 isLoadingCategories={isLoadingCategories}
                 onClearFilters={clearFilters}
                 hasActiveFilters={hasActiveFilters}
+                showDateFilter={selectedType !== 'low_stock'}
               />
 
               {/* Report actions bar */}

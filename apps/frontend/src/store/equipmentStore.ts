@@ -15,12 +15,7 @@ export type EquipmentStatus =
   | 'RETIREMENT_PENDING'
   | 'RETIRED';
 
-export type DisposalReason =
-  | 'DAMAGED_BEYOND_REPAIR'
-  | 'OUTDATED'
-  | 'LOST'
-  | 'STOLEN'
-  | 'DONATED';
+export type DisposalReason = 'DAMAGED_BEYOND_REPAIR' | 'OUTDATED' | 'LOST' | 'STOLEN' | 'DONATED';
 
 export type DisposalApprovalStatus = 'PENDING' | 'COMPLETED' | 'REJECTED';
 
@@ -63,6 +58,47 @@ export interface DisposalHistoryRecord extends Disposal {
     lastName: string;
     email: string;
   };
+}
+
+export interface RetiredEquipmentArchiveRecord extends Disposal {
+  equipment: {
+    id: number;
+    assetId: string;
+    serialNumber: string | null;
+    brand: string | null;
+    model: string | null;
+    status: EquipmentStatus;
+    condition: ConditionStatus;
+    location: string | null;
+    item: {
+      id: number;
+      itemName: string;
+      description: string | null;
+      categoryId: number;
+      category: {
+        id: number;
+        name: string;
+        type: string;
+      };
+    };
+    images: EquipmentImage[];
+  };
+  approvedBy: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+export interface RetiredEquipmentArchiveQuery {
+  search?: string;
+  reason?: DisposalReason;
+  categoryId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface EquipmentImage {
@@ -212,9 +248,15 @@ interface EquipmentState {
   error: string | null;
   disposalHistory: DisposalHistoryRecord[];
   isDisposalHistoryLoading: boolean;
+  retiredArchive: RetiredEquipmentArchiveRecord[];
+  retiredArchiveMeta: PaginationMeta;
+  isRetiredArchiveLoading: boolean;
 
   fetchEquipment: (query?: ListEquipmentQuery) => Promise<void>;
   fetchDisposalHistory: () => Promise<DisposalHistoryRecord[]>;
+  fetchRetiredEquipmentArchive: (
+    query?: RetiredEquipmentArchiveQuery,
+  ) => Promise<{ data: RetiredEquipmentArchiveRecord[]; meta: PaginationMeta }>;
   createEquipment: (data: CreateEquipmentInput) => Promise<Equipment>;
   updateEquipment: (id: number, data: UpdateEquipmentInput) => Promise<Equipment>;
   submitRetirementRequest: (
@@ -237,6 +279,9 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
   error: null,
   disposalHistory: [],
   isDisposalHistoryLoading: false,
+  retiredArchive: [],
+  retiredArchiveMeta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+  isRetiredArchiveLoading: false,
 
   clearError: () => set({ error: null }),
 
@@ -254,10 +299,9 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>(
-        '/equipment',
-        { params },
-      );
+      const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>('/equipment', {
+        params,
+      });
 
       set({
         equipment: response.data.data,
@@ -274,14 +318,11 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
     }
   },
 
-
   fetchDisposalHistory: async () => {
     set({ isDisposalHistoryLoading: true, error: null });
 
     try {
-      const response = await api.get<DisposalHistoryRecord[]>(
-        '/equipment/disposal-history',
-      );
+      const response = await api.get<DisposalHistoryRecord[]>('/equipment/disposal-history');
 
       set({
         disposalHistory: response.data,
@@ -296,11 +337,49 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       };
 
       const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to fetch disposal history';
+        err.response?.data?.message || err.message || 'Failed to fetch disposal history';
 
       set({ error: errMsg, isDisposalHistoryLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  fetchRetiredEquipmentArchive: async (query) => {
+    set({ isRetiredArchiveLoading: true, error: null });
+
+    try {
+      const params: Record<string, string> = {};
+
+      if (query?.search) params.search = query.search;
+      if (query?.reason) params.reason = query.reason;
+      if (query?.categoryId) params.categoryId = String(query.categoryId);
+      if (query?.dateFrom) params.dateFrom = query.dateFrom;
+      if (query?.dateTo) params.dateTo = query.dateTo;
+      if (query?.page) params.page = String(query.page);
+      if (query?.limit) params.limit = String(query.limit);
+
+      const response = await api.get<{
+        data: RetiredEquipmentArchiveRecord[];
+        meta: PaginationMeta;
+      }>('/equipment/retired-archive', { params });
+
+      set({
+        retiredArchive: response.data.data,
+        retiredArchiveMeta: response.data.meta,
+        isRetiredArchiveLoading: false,
+      });
+
+      return response.data;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to fetch retired equipment archive';
+
+      set({ error: errMsg, isRetiredArchiveLoading: false });
       throw new Error(errMsg);
     }
   },
@@ -360,8 +439,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         message?: string;
       };
 
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to update equipment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to update equipment';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
@@ -380,9 +458,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       const result = response.data;
 
       set((state) => ({
-        equipment: state.equipment.map((eq) =>
-          eq.id === id ? result.equipment : eq,
-        ),
+        equipment: state.equipment.map((eq) => (eq.id === id ? result.equipment : eq)),
         isLoading: false,
       }));
 
@@ -394,9 +470,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       };
 
       const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to submit retirement request';
+        err.response?.data?.message || err.message || 'Failed to submit retirement request';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
@@ -419,8 +493,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         message?: string;
       };
 
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete equipment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete equipment';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
@@ -429,10 +502,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   addImage: async (equipmentId, data) => {
     try {
-      const response = await api.post<EquipmentImage>(
-        `/equipment/${equipmentId}/images`,
-        data,
-      );
+      const response = await api.post<EquipmentImage>(`/equipment/${equipmentId}/images`, data);
 
       const newImage = response.data;
 
@@ -486,8 +556,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         message?: string;
       };
 
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete image';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete image';
 
       set({ error: errMsg });
       throw new Error(errMsg);

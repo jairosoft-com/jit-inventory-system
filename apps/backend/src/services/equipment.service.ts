@@ -15,6 +15,7 @@ import type {
   EquipmentImageInput,
   UpdateImageInput,
   ListEquipmentQuery,
+  RetiredEquipmentArchiveQuery,
   RetirementRequestInput,
 } from '../schemas/equipment.schema.js';
 
@@ -342,6 +343,22 @@ export class EquipmentService {
   static async update(id: number, data: UpdateEquipmentInput, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
 
+    if (equipment.status === EquipmentStatus.RETIRED) {
+      const completedDisposal = await prisma.disposal.findFirst({
+        where: {
+          equipmentId: id,
+          approvalStatus: DisposalApprovalStatus.COMPLETED,
+        },
+        select: { id: true },
+      });
+
+      if (completedDisposal) {
+        throw new Error(
+          'Archived retired equipment records are read-only and cannot be modified',
+        );
+      }
+    }
+
     if (data.categoryId) {
       await this.assertCategoryIsEquipment(data.categoryId);
     }
@@ -584,6 +601,101 @@ export class EquipmentService {
         },
       },
     });
+  }
+
+  static async getRetiredEquipmentArchive(query: RetiredEquipmentArchiveQuery) {
+    const { search, reason, categoryId, dateFrom, dateTo, page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    const disposalDateFilter: Prisma.DateTimeFilter = {};
+    if (dateFrom) {
+      disposalDateFilter.gte = dateFrom;
+    }
+
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      disposalDateFilter.lte = endOfDay;
+    }
+
+    const equipmentWhere: Prisma.EquipmentWhereInput = {
+      status: EquipmentStatus.RETIRED,
+      item: {
+        ...(categoryId && { categoryId }),
+      },
+      ...(search && {
+        OR: [
+          { assetId: { contains: search, mode: 'insensitive' } },
+          {
+            item: {
+              itemName: { contains: search, mode: 'insensitive' },
+            },
+          },
+        ],
+      }),
+    };
+
+    const where: Prisma.DisposalWhereInput = {
+      approvalStatus: DisposalApprovalStatus.COMPLETED,
+      ...(reason && { reason }),
+      ...(Object.keys(disposalDateFilter).length > 0 && {
+        disposalDate: disposalDateFilter,
+      }),
+      equipment: equipmentWhere,
+    };
+
+    const [data, total] = await Promise.all([
+      prisma.disposal.findMany({
+        where,
+        orderBy: [{ disposalDate: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+        include: {
+          equipment: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  itemName: true,
+                  description: true,
+                  categoryId: true,
+                  category: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true,
+                    },
+                  },
+                },
+              },
+              images: {
+                where: { deletedAt: null },
+                orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
+              },
+            },
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      prisma.disposal.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   static async softDelete(id: number, userId: number) {

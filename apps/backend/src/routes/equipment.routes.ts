@@ -8,6 +8,7 @@ import {
   createEquipmentSchema,
   updateEquipmentSchema,
   listEquipmentQuerySchema,
+  retiredEquipmentArchiveQuerySchema,
   equipmentImageSchema,
   updateImageSchema,
   retirementRequestSchema,
@@ -16,6 +17,7 @@ import {
   type EquipmentImageInput,
   type UpdateImageInput,
   type ListEquipmentQuery,
+  type RetiredEquipmentArchiveQuery,
   type RetirementRequestInput,
 } from '../schemas/equipment.schema.js';
 
@@ -95,6 +97,27 @@ router.get(
       const history = await EquipmentService.getDisposalHistory();
 
       res.status(200).json(history);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// GET /equipment/retired-archive
+router.get(
+  '/retired-archive',
+  authorize('equipment:read'),
+  validate(retiredEquipmentArchiveQuerySchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const archive = await EquipmentService.getRetiredEquipmentArchive(
+        req.query as unknown as RetiredEquipmentArchiveQuery,
+      );
+
+      res.status(200).json(archive);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';

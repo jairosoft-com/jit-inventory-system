@@ -9,6 +9,7 @@ import {
   type ListEquipmentQuery,
   type DisposalReason,
   type DisposalApprovalStatus,
+  type RetiredEquipmentArchiveQuery,
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 
@@ -50,6 +51,7 @@ const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = 
 };
 
 const PAGE_SIZE = 20;
+const RETIRED_ARCHIVE_PAGE_SIZE = 20;
 
 // ── Form State ───────────────────────────────────────────────────────────────
 
@@ -206,8 +208,12 @@ export default function EquipmentPage() {
     error: storeError,
     disposalHistory,
     isDisposalHistoryLoading,
+    retiredArchive,
+    retiredArchiveMeta,
+    isRetiredArchiveLoading,
     fetchEquipment,
     fetchDisposalHistory,
+    fetchRetiredEquipmentArchive,
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
@@ -255,14 +261,19 @@ export default function EquipmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [retiringEquipment, setRetiringEquipment] = useState<Equipment | null>(null);
-  const [retirementForm, setRetirementForm] =
-    useState<RetirementFormState>(emptyRetirementForm);
+  const [retirementForm, setRetirementForm] = useState<RetirementFormState>(emptyRetirementForm);
   const [retirementError, setRetirementError] = useState<string | null>(null);
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
-  const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(
-    null,
-  );
+  const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(null);
+
+  const [isRetiredArchiveOpen, setIsRetiredArchiveOpen] = useState(false);
+  const [retiredArchiveError, setRetiredArchiveError] = useState<string | null>(null);
+  const [retiredArchiveSearch, setRetiredArchiveSearch] = useState('');
+  const [retiredArchiveReason, setRetiredArchiveReason] = useState('');
+  const [retiredArchiveCategoryId, setRetiredArchiveCategoryId] = useState('');
+  const [retiredArchiveDateFrom, setRetiredArchiveDateFrom] = useState('');
+  const [retiredArchiveDateTo, setRetiredArchiveDateTo] = useState('');
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
@@ -285,6 +296,34 @@ export default function EquipmentPage() {
     [currentPage, searchInput, statusFilter, fetchEquipment],
   );
 
+  const loadRetiredArchive = useCallback(
+    async (page = 1) => {
+      const query: RetiredEquipmentArchiveQuery = {
+        page,
+        limit: RETIRED_ARCHIVE_PAGE_SIZE,
+      };
+
+      const search = retiredArchiveSearch.trim();
+      if (search) query.search = search;
+      if (retiredArchiveReason) query.reason = retiredArchiveReason as DisposalReason;
+      if (retiredArchiveCategoryId) {
+        query.categoryId = Number(retiredArchiveCategoryId);
+      }
+      if (retiredArchiveDateFrom) query.dateFrom = retiredArchiveDateFrom;
+      if (retiredArchiveDateTo) query.dateTo = retiredArchiveDateTo;
+
+      await fetchRetiredEquipmentArchive(query);
+    },
+    [
+      retiredArchiveSearch,
+      retiredArchiveReason,
+      retiredArchiveCategoryId,
+      retiredArchiveDateFrom,
+      retiredArchiveDateTo,
+      fetchRetiredEquipmentArchive,
+    ],
+  );
+
   useEffect(() => {
     loadEquipment(1);
     fetchCategories();
@@ -304,6 +343,12 @@ export default function EquipmentPage() {
   };
 
   const handleOpenEdit = (eq: Equipment) => {
+    if (eq.status === 'RETIRED') {
+      setSuccessMessage(null);
+      setFormError('Archived retired equipment records are read-only and cannot be modified.');
+      return;
+    }
+
     setEditingEquipment(eq);
     setFormData(equipmentToForm(eq));
     setPendingImages([]);
@@ -596,9 +641,7 @@ export default function EquipmentPage() {
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       clearError();
-      const message = err instanceof Error
-        ? err.message
-        : 'Failed to submit retirement request.';
+      const message = err instanceof Error ? err.message : 'Failed to submit retirement request.';
       setRetirementError(message);
     } finally {
       setIsRetiring(false);
@@ -633,7 +676,6 @@ export default function EquipmentPage() {
     loadEquipment(page, searchInput.trim(), statusFilter);
   };
 
-
   const handleOpenDisposalHistory = async () => {
     setIsDisposalHistoryOpen(true);
     setDisposalHistoryError(null);
@@ -641,8 +683,7 @@ export default function EquipmentPage() {
     try {
       await fetchDisposalHistory();
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to fetch disposal history';
+      const message = error instanceof Error ? error.message : 'Failed to fetch disposal history';
 
       setDisposalHistoryError(message);
     }
@@ -651,6 +692,78 @@ export default function EquipmentPage() {
   const handleCloseDisposalHistory = () => {
     setIsDisposalHistoryOpen(false);
     setDisposalHistoryError(null);
+  };
+
+  const handleOpenRetiredArchive = async () => {
+    setIsRetiredArchiveOpen(true);
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(1);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleCloseRetiredArchive = () => {
+    setIsRetiredArchiveOpen(false);
+    setRetiredArchiveError(null);
+  };
+
+  const handleRetiredArchiveSearch = async () => {
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(1);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleRetiredArchiveSearchKeyDown = async (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      await handleRetiredArchiveSearch();
+    }
+  };
+
+  const handleRetiredArchiveClearFilters = async () => {
+    setRetiredArchiveSearch('');
+    setRetiredArchiveReason('');
+    setRetiredArchiveCategoryId('');
+    setRetiredArchiveDateFrom('');
+    setRetiredArchiveDateTo('');
+    setRetiredArchiveError(null);
+
+    try {
+      await fetchRetiredEquipmentArchive({
+        page: 1,
+        limit: RETIRED_ARCHIVE_PAGE_SIZE,
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleRetiredArchivePageChange = async (page: number) => {
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(page);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+
+      setRetiredArchiveError(message);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -684,6 +797,16 @@ export default function EquipmentPage() {
                 className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
               >
                 Disposal History
+              </button>
+            )}
+
+            {canRead && (
+              <button
+                type="button"
+                onClick={handleOpenRetiredArchive}
+                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              >
+                Retired Archive
               </button>
             )}
 
@@ -894,13 +1017,15 @@ export default function EquipmentPage() {
                                         Request Retirement
                                       </button>
                                     )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEdit(eq)}
-                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                                    >
-                                      Edit
-                                    </button>
+                                    {eq.status !== 'RETIRED' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEdit(eq)}
+                                        className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
                                   </>
                                 )}
                                 {canDelete && (
@@ -974,13 +1099,15 @@ export default function EquipmentPage() {
                                   Request Retirement
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(eq)}
-                                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
-                              >
-                                Edit
-                              </button>
+                              {eq.status !== 'RETIRED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(eq)}
+                                  className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                                >
+                                  Edit
+                                </button>
+                              )}
                             </>
                           )}
                           {canDelete && (
@@ -1483,6 +1610,207 @@ export default function EquipmentPage() {
         </div>
       )}
 
+      {/* ── Retired Equipment Archive Modal ─────────────────────────────── */}
+      {isRetiredArchiveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Retired Equipment Archive
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Review historical retired assets. Archived retired equipment is read-only.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseRetiredArchive}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {retiredArchiveError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {retiredArchiveError}
+                </div>
+              )}
+
+              <div className="mb-5 rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] p-4">
+                <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px_160px_160px_auto_auto]">
+                  <input
+                    value={retiredArchiveSearch}
+                    onChange={(e) => setRetiredArchiveSearch(e.target.value)}
+                    onKeyDown={handleRetiredArchiveSearchKeyDown}
+                    placeholder="Search by equipment name or asset ID..."
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
+                  />
+
+                  <select
+                    value={retiredArchiveReason}
+                    onChange={(e) => setRetiredArchiveReason(e.target.value)}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  >
+                    <option value="">All Reasons</option>
+                    {DISPOSAL_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {DISPOSAL_REASON_LABELS[reason]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={retiredArchiveCategoryId}
+                    onChange={(e) => setRetiredArchiveCategoryId(e.target.value)}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  >
+                    <option value="">All Categories</option>
+                    {equipmentCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={retiredArchiveDateFrom}
+                    onChange={(e) => setRetiredArchiveDateFrom(e.target.value)}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    title="Retirement date from"
+                  />
+
+                  <input
+                    type="date"
+                    value={retiredArchiveDateTo}
+                    onChange={(e) => setRetiredArchiveDateTo(e.target.value)}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    title="Retirement date to"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => void handleRetiredArchiveSearch()}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+                  >
+                    Apply
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleRetiredArchiveClearFilters()}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-3 text-xs font-medium text-[var(--text-tertiary)]">
+                Showing {retiredArchive.length} of {retiredArchiveMeta.total} retired records
+                {retiredArchiveMeta.totalPages > 1 &&
+                  ` · Page ${retiredArchiveMeta.page} of ${retiredArchiveMeta.totalPages}`}
+              </div>
+
+              {isRetiredArchiveLoading ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                  <h3 className="mt-3 font-medium text-[var(--text-primary)]">
+                    Loading retired equipment archive...
+                  </h3>
+                </div>
+              ) : retiredArchive.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <h3 className="font-semibold text-[var(--text-primary)]">
+                    No Retired Equipment Found
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Fully retired equipment records will appear here once disposal is completed.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Equipment</th>
+                        <th className="px-4 py-3 font-semibold">Asset ID</th>
+                        <th className="px-4 py-3 font-semibold">Category</th>
+                        <th className="px-4 py-3 font-semibold">Disposal Reason</th>
+                        <th className="px-4 py-3 font-semibold">Retirement Date</th>
+                        <th className="px-4 py-3 font-semibold">Final Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--surface-border)]">
+                      {retiredArchive.map((record) => (
+                        <tr key={record.id}>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-[var(--text-primary)]">
+                              {record.equipment.item.itemName}
+                            </div>
+                            <div className="text-xs text-[var(--text-tertiary)]">
+                              {record.equipment.brand || '—'} {record.equipment.model || ''}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">
+                            {record.equipment.assetId}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {record.equipment.item.category.name}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {DISPOSAL_REASON_LABELS[record.reason]}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {formatDisplayDate(record.disposalDate)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={record.equipment.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {retiredArchiveMeta.totalPages > 1 && (
+                <div className="mt-5 flex items-center justify-between">
+                  <p className="text-xs text-[var(--text-tertiary)]">
+                    Page {retiredArchiveMeta.page} of {retiredArchiveMeta.totalPages} ·{' '}
+                    {retiredArchiveMeta.total} total archived records
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={retiredArchiveMeta.page <= 1}
+                      onClick={() =>
+                        void handleRetiredArchivePageChange(retiredArchiveMeta.page - 1)
+                      }
+                      className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      type="button"
+                      disabled={retiredArchiveMeta.page >= retiredArchiveMeta.totalPages}
+                      onClick={() =>
+                        void handleRetiredArchivePageChange(retiredArchiveMeta.page + 1)
+                      }
+                      className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* ── Disposal History Modal ──────────────────────────────────────── */}
       {isDisposalHistoryOpen && (
@@ -1522,9 +1850,7 @@ export default function EquipmentPage() {
                 </div>
               ) : disposalHistory.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
-                  <h3 className="font-semibold text-[var(--text-primary)]">
-                    No Disposal History
-                  </h3>
+                  <h3 className="font-semibold text-[var(--text-primary)]">No Disposal History</h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     Completed and rejected disposal records will appear here.
                   </p>
@@ -1577,11 +1903,7 @@ export default function EquipmentPage() {
                                     : 'border border-red-200 bg-red-50 text-red-700'
                               }`}
                             >
-                              {
-                                DISPOSAL_APPROVAL_STATUS_LABELS[
-                                  record.approvalStatus
-                                ]
-                              }
+                              {DISPOSAL_APPROVAL_STATUS_LABELS[record.approvalStatus]}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-[var(--text-secondary)]">
@@ -1802,20 +2124,21 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
-          ? 'bg-[var(--success)]'
-          : status === 'IN_USE'
-            ? 'bg-[var(--info)]'
-            : status === 'UNDER_MAINTENANCE'
-              ? 'bg-[var(--warning)]'
-              : status === 'DAMAGED' || status === 'LOST'
-                ? 'bg-red-600'
-                : status === 'BORROWED'
-                  ? 'bg-purple-600'
-                  : status === 'RETIREMENT_PENDING'
-                    ? 'bg-orange-600'
-                    : 'bg-gray-400'
-          }`}
+        className={`h-1.5 w-1.5 rounded-full ${
+          status === 'AVAILABLE'
+            ? 'bg-[var(--success)]'
+            : status === 'IN_USE'
+              ? 'bg-[var(--info)]'
+              : status === 'UNDER_MAINTENANCE'
+                ? 'bg-[var(--warning)]'
+                : status === 'DAMAGED' || status === 'LOST'
+                  ? 'bg-red-600'
+                  : status === 'BORROWED'
+                    ? 'bg-purple-600'
+                    : status === 'RETIREMENT_PENDING'
+                      ? 'bg-orange-600'
+                      : 'bg-gray-400'
+        }`}
       />
       {status.replace(/_/g, ' ')}
     </span>

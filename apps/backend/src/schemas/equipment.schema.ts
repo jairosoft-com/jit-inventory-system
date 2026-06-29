@@ -100,6 +100,16 @@ export const listEquipmentQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
+export const retiredEquipmentArchiveQuerySchema = z.object({
+  search: z.string().trim().optional(),
+  reason: z.nativeEnum(DisposalReason).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CreateEquipmentInput = z.infer<typeof createEquipmentSchema>;
@@ -108,3 +118,6 @@ export type RetirementRequestInput = z.infer<typeof retirementRequestSchema>;
 export type EquipmentImageInput = z.infer<typeof equipmentImageSchema>;
 export type UpdateImageInput = z.infer<typeof updateImageSchema>;
 export type ListEquipmentQuery = z.infer<typeof listEquipmentQuerySchema>;
+export type RetiredEquipmentArchiveQuery = z.infer<
+  typeof retiredEquipmentArchiveQuerySchema
+>;

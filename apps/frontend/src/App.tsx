@@ -9,11 +9,8 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
-<<<<<<< Updated upstream
 import ReportsPage from './pages/ReportsPage';
-=======
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
->>>>>>> Stashed changes
 
 export default function App() {
   return (

@@ -903,7 +903,6 @@ export default function DashboardPage() {
                               text: '#6b7280',
                             };
 
-<<<<<<< Updated upstream
                             return (
                               <tr key={po.id}>
                                 <td className="dash-po-invoice">
@@ -923,48 +922,13 @@ export default function DashboardPage() {
                                       color: color.text,
                                     }}
                                   >
-                                    {po.status}
+                                    {purchaseOrderStatusLabels[po.status] || po.status}
                                   </span>
                                 </td>
                                 <td className="dash-po-date">{formatDate(po.orderDate)}</td>
                               </tr>
                             );
                           })}
-=======
-                              return (
-                                <tr key={po.id}>
-                                  <td className="dash-po-invoice">
-                                    <strong>
-                                      {po.invoiceNumber || `#${po.id}`}
-                                    </strong>
-                                    <span className="dash-po-item-count">
-                                      {po.itemCount} item
-                                      {po.itemCount === 1 ? '' : 's'}
-                                    </span>
-                                  </td>
-                                  <td>{po.supplier.name}</td>
-                                  <td className="dash-po-amount">
-                                    {formatCurrency(po.totalAmount)}
-                                  </td>
-                                  <td>
-                                    <span
-                                      className="dash-po-status-badge"
-                                      style={{
-                                        backgroundColor: color.bg,
-                                        color: color.text,
-                                      }}
-                                    >
-                                      {purchaseOrderStatusLabels[po.status] || po.status}
-                                    </span>
-                                  </td>
-                                  <td className="dash-po-date">
-                                    {formatDate(po.orderDate)}
-                                  </td>
-                                </tr>
-                              );
-                            },
-                          )}
->>>>>>> Stashed changes
                         </tbody>
                       </table>
                     </div>

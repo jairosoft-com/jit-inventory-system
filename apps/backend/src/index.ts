@@ -15,11 +15,8 @@ import inventoryRouter from './routes/inventory.routes.js';
 import dashboardRouter from './routes/dashboard.routes.js';
 import borrowRouter from './routes/borrow.routes.js';
 import suppliersRouter from './routes/suppliers.routes.js';
-<<<<<<< Updated upstream
 import reportsRouter from './routes/reports.routes.js';
-=======
 import procurementRouter from './routes/procurement.routes.js';
->>>>>>> Stashed changes
 
 const app = express();
 
@@ -55,11 +52,8 @@ app.use('/api/borrow', mutativeLimiter); // Bucket 2
 app.use('/api/categories', mutativeLimiter); // Bucket 2
 app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
-<<<<<<< Updated upstream
 app.use('/api/reports', heavyLimiter);     // Bucket 4: report generation is heavy
-=======
 app.use('/api/procurement', mutativeLimiter); // Bucket 2
->>>>>>> Stashed changes
 
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
@@ -74,11 +68,8 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/borrow', borrowRouter);
 app.use('/api/suppliers', suppliersRouter);
-<<<<<<< Updated upstream
 app.use('/api/reports', reportsRouter);
-=======
 app.use('/api/procurement', procurementRouter);
->>>>>>> Stashed changes
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

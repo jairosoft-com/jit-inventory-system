@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useAlertStore, ALERT_POLL_INTERVAL_MS } from '../store/alertStore';
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
 
@@ -282,42 +281,6 @@ export default function DashboardLayout() {
   const [retryCountdown, setRetryCountdown] = useState(0);
   const hasCheckedAuthRef = useRef(false);
 
-  const {
-    unreadCount,
-    alerts,
-    isOpen: alertsOpen,
-    isLoading: alertsLoading,
-    fetchUnreadCount,
-    fetchUnread,
-    markAsRead,
-    markAllAsRead,
-    toggleOpen,
-    close: closeAlerts,
-  } = useAlertStore();
-
-  const canSeeAlerts = ['ADMIN', 'MANAGER'].includes(user?.role?.name ?? '');
-
-  // Poll badge count every 60s
-  useEffect(() => {
-    if (!user || !canSeeAlerts) return;
-    void fetchUnreadCount();
-    const interval = setInterval(() => void fetchUnreadCount(), ALERT_POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [user, canSeeAlerts, fetchUnreadCount]);
-
-  // Close dropdown on outside click
-  const alertDropdownRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!alertsOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (alertDropdownRef.current && !alertDropdownRef.current.contains(e.target as Node)) {
-        closeAlerts();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [alertsOpen, closeAlerts]);
-
   useEffect(() => {
     if (hasCheckedAuthRef.current) {
       return;
@@ -590,94 +553,19 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div className="dash-topbar-right">
-            {canSeeAlerts && (
-              <div className="dash-alert-wrapper" ref={alertDropdownRef}>
-                <button
-                  className="dash-topbar-btn"
-                  title="Inventory Alerts"
-                  onClick={toggleOpen}
-                  type="button"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-                  </svg>
-                  {unreadCount > 0 && (
-                    <span className="dash-notif-badge">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {alertsOpen && (
-                  <div className="dash-alert-dropdown">
-                    {/* Header */}
-                    <div className="dash-alert-hdr">
-                      <span className="dash-alert-hdr-title">Inventory Alerts</span>
-                      {unreadCount > 0 && (
-                        <button
-                          className="dash-alert-mark-all"
-                          onClick={() => void markAllAsRead()}
-                          type="button"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Alert list */}
-                    <div className="dash-alert-list">
-                      {alertsLoading && (
-                        <div className="dash-alert-empty">Loading…</div>
-                      )}
-                      {!alertsLoading && alerts.length === 0 && (
-                        <div className="dash-alert-empty">
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, marginBottom: 8 }}>
-                            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-                          </svg>
-                          <span>All caught up! No new alerts.</span>
-                        </div>
-                      )}
-                      {!alertsLoading && alerts.map((alert) => {
-                        const ageMs = Date.now() - new Date(alert.createdAt).getTime();
-                        const ageMin = Math.floor(ageMs / 60000);
-                        const ageHr = Math.floor(ageMin / 60);
-                        const timeAgo = ageHr >= 1 ? `${ageHr}h ago` : ageMin <= 1 ? 'Just now' : `${ageMin}m ago`;
-
-                        return (
-                          <div
-                            key={alert.id}
-                            className={[
-                              'dash-alert-item',
-                              `dash-alert-item--${alert.priority.toLowerCase()}`,
-                              alert.isRead ? 'dash-alert-item--read' : '',
-                            ].join(' ')}
-                            onClick={() => { if (!alert.isRead) void markAsRead(alert.id); }}
-                          >
-                            <div className="dash-alert-dot" />
-                            <div className="dash-alert-body">
-                              <p className="dash-alert-msg">{alert.message}</p>
-                              <span className="dash-alert-time">{timeAgo}</span>
-                            </div>
-                            {!alert.isRead && <div className="dash-alert-unread-dot" />}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="dash-alert-footer">
-                      <button
-                        className="dash-alert-view-all"
-                        onClick={() => { navigate('/dashboard/reports?type=low_stock'); closeAlerts(); }}
-                        type="button"
-                      >
-                        View Low Stock Report →
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <button className="dash-topbar-btn" title="Notifications">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+              </svg>
+              <span className="dash-notif-badge">3</span>
+            </button>
           </div>
         </header>
 
@@ -1019,149 +907,6 @@ export default function DashboardLayout() {
           justify-content: center;
           border: 2px solid var(--sidebar-bg);
         }
-
-        /* ------ Alert Dropdown ------ */
-
-        .dash-alert-wrapper {
-          position: relative;
-        }
-
-        .dash-alert-dropdown {
-          position: absolute;
-          top: calc(100% + 8px);
-          right: 0;
-          width: 360px;
-          background: var(--surface);
-          border: 1px solid var(--surface-border);
-          border-radius: var(--radius-lg);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.14);
-          z-index: 300;
-          overflow: hidden;
-        }
-
-        .dash-alert-hdr {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 16px 10px;
-        }
-
-        .dash-alert-hdr-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .dash-alert-mark-all {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--accent);
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-family: inherit;
-          padding: 0;
-        }
-        .dash-alert-mark-all:hover { text-decoration: underline; }
-
-        .dash-alert-list {
-          max-height: 400px;
-          overflow-y: auto;
-        }
-
-        .dash-alert-empty {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-          padding: 32px 16px;
-          font-size: 13px;
-          color: var(--text-tertiary);
-          text-align: center;
-        }
-
-        .dash-alert-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          padding: 10px 16px;
-          cursor: pointer;
-          transition: background var(--transition-fast);
-          border-bottom: 1px solid var(--surface-border);
-          background: var(--accent-muted);
-        }
-        .dash-alert-item:last-child { border-bottom: none; }
-        .dash-alert-item:hover { filter: brightness(0.97); }
-        .dash-alert-item--read {
-          background: var(--surface);
-          cursor: default;
-        }
-
-        .dash-alert-dot {
-          flex-shrink: 0;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-top: 5px;
-        }
-        .dash-alert-item--warning .dash-alert-dot { background: #f59e0b; }
-        .dash-alert-item--critical .dash-alert-dot { background: var(--danger); }
-        .dash-alert-item--info .dash-alert-dot { background: var(--accent); }
-
-        .dash-alert-body {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .dash-alert-msg {
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text-primary);
-          margin: 0 0 3px;
-          line-height: 1.45;
-        }
-        .dash-alert-item--read .dash-alert-msg {
-          font-weight: 400;
-          color: var(--text-secondary);
-        }
-
-        .dash-alert-time {
-          font-size: 11px;
-          color: var(--accent);
-          font-weight: 500;
-        }
-        .dash-alert-item--read .dash-alert-time {
-          color: var(--text-tertiary);
-          font-weight: 400;
-        }
-
-        .dash-alert-unread-dot {
-          flex-shrink: 0;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: var(--accent);
-          margin-top: 4px;
-        }
-
-        .dash-alert-footer {
-          padding: 10px 16px;
-          border-top: 1px solid var(--surface-border);
-          text-align: center;
-        }
-
-        .dash-alert-view-all {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--accent);
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-family: inherit;
-          padding: 0;
-        }
-        .dash-alert-view-all:hover { text-decoration: underline; }
 
         /* ------ Page Content Area ------ */
 

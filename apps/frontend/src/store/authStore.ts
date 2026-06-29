@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api, { authActions } from '../lib/api';
+import { useAlertStore } from './alertStore';
 
 export interface User {
   id: number;
@@ -250,6 +251,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logoutStateOnly: () => {
     saveCachedUser(null);
+    useAlertStore.getState().reset();
 
     set({
       accessToken: null,

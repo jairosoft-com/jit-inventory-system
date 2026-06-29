@@ -38,14 +38,14 @@ export class AlertService {
       message = `"${profile.item.itemName}" is running low (${profile.quantity} ${profile.unit} remaining, reorder point: ${profile.reorderPoint} ${profile.unit}).`;
     }
 
-    // Stock is healthy — resolve any open alerts for this item
+    // Stock is healthy — resolve and mark-read any open alerts for this item
     if (!alertType) {
       await prisma.inventoryAlert.updateMany({
         where: {
           consumableProfileId,
           resolvedAt: null,
         },
-        data: { resolvedAt: new Date() },
+        data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
       });
       return;
     }
@@ -67,7 +67,7 @@ export class AlertService {
       return;
     }
 
-    // Resolve any old open alerts of a different type for this item
+    // Resolve and mark-read any old open alerts of a different type for this item
     // e.g. upgrading from LOW_STOCK to OUT_OF_STOCK
     await prisma.inventoryAlert.updateMany({
       where: {
@@ -75,7 +75,7 @@ export class AlertService {
         alertType: { not: alertType },
         resolvedAt: null,
       },
-      data: { resolvedAt: new Date() },
+      data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
     });
 
     // Create the new alert
@@ -106,7 +106,10 @@ export class AlertService {
           },
         },
       },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
   }
 

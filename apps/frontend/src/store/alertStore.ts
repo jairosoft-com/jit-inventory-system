@@ -34,6 +34,7 @@ interface AlertState {
   markAllAsRead: () => Promise<void>;
   toggleOpen: () => void;
   close: () => void;
+  reset: () => void;
 }
 
 // Filter out alerts older than 24 hours client-side as a safety net
@@ -108,4 +109,12 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   },
 
   close: () => set({ isOpen: false }),
+
+  reset: () => set({
+    alerts: [],
+    unreadCount: 0,
+    isOpen: false,
+    isLoading: false,
+    error: null,
+  }),
 }));

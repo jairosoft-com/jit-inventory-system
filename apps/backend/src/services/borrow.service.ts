@@ -190,7 +190,78 @@ export class BorrowService {
     });
   }
 
-  // ── Reject ───────────────────────────────────────────────────────────────────
+  // ── Return ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Marks a BORROWED (or OVERDUE) borrow record as RETURNED, sets
+   * actualReturn to now, and transitions the equipment back to AVAILABLE.
+   *
+   * Uses the same atomic updateMany() pattern as approve/reject so
+   * concurrent return calls cannot double-process the same record.
+   */
+  static async returnEquipment(
+    id: number,
+    returnedById: number,
+    input: { returnCondition?: string; notes?: string },
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.borrowRecord.findUnique({
+        where: { id },
+        select: { id: true, equipmentId: true, status: true },
+      });
+
+      if (!existing) {
+        throw new Error('Borrow record not found');
+      }
+
+      if (
+        existing.status !== BorrowStatus.BORROWED &&
+        existing.status !== BorrowStatus.OVERDUE
+      ) {
+        throw new Error(
+          'Borrow record is not in a returnable state (must be BORROWED or OVERDUE)',
+        );
+      }
+
+      // Return the equipment to AVAILABLE atomically
+      await tx.equipment.update({
+        where: { id: existing.equipmentId },
+        data: { status: EquipmentStatus.AVAILABLE },
+      });
+
+      // Mark the record as RETURNED
+      await tx.borrowRecord.update({
+        where: { id },
+        data: {
+          status: BorrowStatus.RETURNED,
+          actualReturn: new Date(),
+          ...(input.returnCondition !== undefined && {
+            returnCondition: input.returnCondition,
+          }),
+          ...(input.notes !== undefined && { notes: input.notes }),
+        },
+      });
+
+      const updated = await tx.borrowRecord.findUniqueOrThrow({
+        where: { id },
+        include: borrowInclude,
+      });
+
+      await AuditLogService.log(
+        'BorrowRecord',
+        updated.id,
+        LogAction.UPDATED,
+        returnedById,
+        existing,
+        updated,
+        tx,
+      );
+
+      return updated;
+    });
+  }
+
+
 
   /**
    * Rejects a PENDING borrow request. The equipment is never touched — it
@@ -233,3 +304,4 @@ export class BorrowService {
     });
   }
 }
+

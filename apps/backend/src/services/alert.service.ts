@@ -1,4 +1,8 @@
+import { PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+
+// Typed alias ensures ESLint's type-checker resolves all Prisma model methods
+const db: PrismaClient = prisma;
 
 // How long to suppress duplicate alerts for the same item (24 hours)
 const ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -13,7 +17,7 @@ export class AlertService {
   static async checkAndCreateStockAlert(
     consumableProfileId: number,
   ): Promise<void> {
-    const profile = await prisma.consumableProfile.findUnique({
+    const profile = await db.consumableProfile.findUnique({
       where: { id: consumableProfileId },
       include: {
         item: { select: { itemName: true } },
@@ -39,7 +43,7 @@ export class AlertService {
 
     // Stock is healthy — resolve and mark-read any open alerts for this item
     if (!alertType) {
-      await prisma.inventoryAlert.updateMany({
+      await db.inventoryAlert.updateMany({
         where: {
           consumableProfileId,
           resolvedAt: null,
@@ -52,7 +56,7 @@ export class AlertService {
     // Deduplication: check if an unresolved alert of this type already exists
     // within the cooldown window
     const cooldownFrom = new Date(Date.now() - ALERT_COOLDOWN_MS);
-    const existing = await prisma.inventoryAlert.findFirst({
+    const existing = await db.inventoryAlert.findFirst({
       where: {
         consumableProfileId,
         alertType,
@@ -68,7 +72,7 @@ export class AlertService {
 
     // Resolve and mark-read any old open alerts of a different type for this item
     // e.g. upgrading from LOW_STOCK to OUT_OF_STOCK
-    await prisma.inventoryAlert.updateMany({
+    await db.inventoryAlert.updateMany({
       where: {
         consumableProfileId,
         alertType: { not: alertType },
@@ -78,7 +82,7 @@ export class AlertService {
     });
 
     // Create the new alert
-    await prisma.inventoryAlert.create({
+    await db.inventoryAlert.create({
       data: {
         consumableProfileId,
         alertType,
@@ -93,7 +97,7 @@ export class AlertService {
    * Only Admin and Manager users should call this.
    */
   static getUnreadAlerts() {
-    return prisma.inventoryAlert.findMany({
+    return db.inventoryAlert.findMany({
       where: { isRead: false, resolvedAt: null },
       include: {
         consumableProfile: {
@@ -118,7 +122,7 @@ export class AlertService {
   static async getAllAlerts(page = 1, pageSize = 30) {
     const skip = (page - 1) * pageSize;
     const [alerts, total] = await Promise.all([
-      prisma.inventoryAlert.findMany({
+      db.inventoryAlert.findMany({
         skip,
         take: pageSize,
         include: {
@@ -133,7 +137,7 @@ export class AlertService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.inventoryAlert.count(),
+      db.inventoryAlert.count(),
     ]);
     return { alerts, total, page, pageSize };
   }
@@ -142,7 +146,7 @@ export class AlertService {
    * Mark a single alert as read.
    */
   static markAsRead(alertId: number) {
-    return prisma.inventoryAlert.update({
+    return db.inventoryAlert.update({
       where: { id: alertId },
       data: { isRead: true, readAt: new Date() },
     });
@@ -152,7 +156,7 @@ export class AlertService {
    * Mark all unread alerts as read.
    */
   static markAllAsRead() {
-    return prisma.inventoryAlert.updateMany({
+    return db.inventoryAlert.updateMany({
       where: { isRead: false },
       data: { isRead: true, readAt: new Date() },
     });
@@ -162,7 +166,7 @@ export class AlertService {
    * Count of unread, unresolved alerts — used for the bell badge.
    */
   static getUnreadCount() {
-    return prisma.inventoryAlert.count({
+    return db.inventoryAlert.count({
       where: { isRead: false, resolvedAt: null },
     });
   }
@@ -173,7 +177,7 @@ export class AlertService {
    */
   static async purgeOldAlerts(): Promise<void> {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    await prisma.inventoryAlert.deleteMany({
+    await db.inventoryAlert.deleteMany({
       where: {
         isRead: true,
         readAt: { lt: cutoff },
@@ -187,7 +191,7 @@ export class AlertService {
    * Useful for a startup sync or a scheduled job.
    */
   static async runFullScan(): Promise<void> {
-    const profiles = await prisma.consumableProfile.findMany({
+    const profiles = await db.consumableProfile.findMany({
       where: {
         item: { deletedAt: null },
         status: { not: 'ARCHIVED' },

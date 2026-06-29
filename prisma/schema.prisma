@@ -134,6 +134,16 @@ enum LogAction {
   RENEWED
 }
 
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+}
+
+enum AlertPriority {
+  WARNING
+  CRITICAL
+}
+
 // ────────────────────────────────────────────
 // 1. Roles
 // ────────────────────────────────────────────
@@ -312,6 +322,8 @@ model ConsumableProfile {
   stockOuts StockOut[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
+  alerts InventoryAlert[]
+
 
   @@index([status])
   @@map("consumable_profiles")
@@ -647,4 +659,25 @@ model InventoryLog {
   @@index([performedBy])
   @@index([performedAt])
   @@map("inventory_logs")
+}
+// ────────────────────────────────────────────
+// 19. Inventory Alerts
+// ────────────────────────────────────────────
+model InventoryAlert {
+  id                  Int           @id @default(autoincrement())
+  consumableProfileId Int           @map("consumable_profile_id")
+  alertType           AlertType     @map("alert_type")
+  priority            AlertPriority
+  message             String        @db.Text
+  isRead              Boolean       @default(false) @map("is_read")
+  readAt              DateTime?     @map("read_at")
+  resolvedAt          DateTime?     @map("resolved_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+
+  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+
+  @@index([isRead])
+  @@index([resolvedAt])
+  @@index([consumableProfileId])
+  @@map("inventory_alerts")
 }

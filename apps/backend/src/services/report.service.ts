@@ -93,10 +93,20 @@ export class ReportService {
       include: {
         category: { select: { name: true, type: true } },
         consumableProfile: {
-          select: { quantity: true, reorderPoint: true, unit: true, status: true },
+          select: {
+            quantity: true,
+            reorderPoint: true,
+            unit: true,
+            status: true,
+          },
         },
         equipment: {
-          select: { status: true, condition: true, assetId: true, location: true },
+          select: {
+            status: true,
+            condition: true,
+            assetId: true,
+            location: true,
+          },
         },
         digitalAsset: {
           select: { status: true, assetType: true, expiryDate: true },
@@ -196,7 +206,9 @@ export class ReportService {
         equipment: {
           include: { item: { select: { itemName: true } } },
         },
-        borrowedBy: { select: { firstName: true, lastName: true, email: true } },
+        borrowedBy: {
+          select: { firstName: true, lastName: true, email: true },
+        },
         approvedBy: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -315,7 +327,9 @@ export class ReportService {
         ...(categoryId && { item: { categoryId } }),
       },
       include: {
-        item: { select: { itemName: true, category: { select: { name: true } } } },
+        item: {
+          select: { itemName: true, category: { select: { name: true } } },
+        },
         assignedToUser: {
           select: { firstName: true, lastName: true, email: true },
         },
@@ -338,7 +352,8 @@ export class ReportService {
       status: eq.status,
       location: eq.location ?? null,
       acquisitionDate: fmtDate(eq.acquisitionDate),
-      purchasePrice: eq.purchasePrice !== null ? Number(eq.purchasePrice) : null,
+      purchasePrice:
+        eq.purchasePrice !== null ? Number(eq.purchasePrice) : null,
       warrantyEnd: fmtDate(eq.warrantyEnd),
       assignedTo: eq.assignedToUser
         ? `${eq.assignedToUser.firstName} ${eq.assignedToUser.lastName}`

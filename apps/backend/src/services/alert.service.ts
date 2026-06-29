@@ -1,4 +1,3 @@
-import { AlertType, AlertPriority, ItemStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 // How long to suppress duplicate alerts for the same item (24 hours)
@@ -21,20 +20,20 @@ export class AlertService {
       },
     });
 
-    if (!profile || profile.status === ItemStatus.ARCHIVED) return;
+    if (!profile || profile.status === 'ARCHIVED') return;
 
     // Determine alert type and message based on current status
-    let alertType: AlertType | null = null;
-    let priority: AlertPriority = AlertPriority.WARNING;
+    let alertType: 'LOW_STOCK' | 'OUT_OF_STOCK' | null = null;
+    let priority: 'WARNING' | 'CRITICAL' = 'WARNING';
     let message = '';
 
-    if (profile.status === ItemStatus.OUT_OF_STOCK) {
-      alertType = AlertType.OUT_OF_STOCK;
-      priority = AlertPriority.CRITICAL;
+    if (profile.status === 'OUT_OF_STOCK') {
+      alertType = 'OUT_OF_STOCK';
+      priority = 'CRITICAL';
       message = `"${profile.item.itemName}" is out of stock (current quantity: 0 ${profile.unit}). Immediate restocking required.`;
-    } else if (profile.status === ItemStatus.LOW_STOCK) {
-      alertType = AlertType.LOW_STOCK;
-      priority = AlertPriority.WARNING;
+    } else if (profile.status === 'LOW_STOCK') {
+      alertType = 'LOW_STOCK';
+      priority = 'WARNING';
       message = `"${profile.item.itemName}" is running low (${profile.quantity} ${profile.unit} remaining, reorder point: ${profile.reorderPoint} ${profile.unit}).`;
     }
 
@@ -93,7 +92,7 @@ export class AlertService {
    * Fetch all unread alerts, newest first.
    * Only Admin and Manager users should call this.
    */
-  static async getUnreadAlerts() {
+  static getUnreadAlerts() {
     return prisma.inventoryAlert.findMany({
       where: { isRead: false, resolvedAt: null },
       include: {
@@ -142,7 +141,7 @@ export class AlertService {
   /**
    * Mark a single alert as read.
    */
-  static async markAsRead(alertId: number) {
+  static markAsRead(alertId: number) {
     return prisma.inventoryAlert.update({
       where: { id: alertId },
       data: { isRead: true, readAt: new Date() },
@@ -152,7 +151,7 @@ export class AlertService {
   /**
    * Mark all unread alerts as read.
    */
-  static async markAllAsRead() {
+  static markAllAsRead() {
     return prisma.inventoryAlert.updateMany({
       where: { isRead: false },
       data: { isRead: true, readAt: new Date() },
@@ -162,7 +161,7 @@ export class AlertService {
   /**
    * Count of unread, unresolved alerts — used for the bell badge.
    */
-  static async getUnreadCount(): Promise<number> {
+  static getUnreadCount() {
     return prisma.inventoryAlert.count({
       where: { isRead: false, resolvedAt: null },
     });
@@ -191,7 +190,7 @@ export class AlertService {
     const profiles = await prisma.consumableProfile.findMany({
       where: {
         item: { deletedAt: null },
-        status: { not: ItemStatus.ARCHIVED },
+        status: { not: 'ARCHIVED' },
       },
       select: { id: true },
     });

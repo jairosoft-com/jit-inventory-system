@@ -10,6 +10,7 @@ import type {
   CreateBorrowInput,
   ListBorrowQuery,
   RejectBorrowInput,
+  ReturnEquipmentInput,
 } from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ export class BorrowService {
   static async returnEquipment(
     id: number,
     returnedById: number,
-    input: { returnCondition?: string; notes?: string },
+    input: ReturnEquipmentInput,
   ) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
@@ -304,4 +305,3 @@ export class BorrowService {
     });
   }
 }
-

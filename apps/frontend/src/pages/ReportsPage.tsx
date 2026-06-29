@@ -313,6 +313,12 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   );
 }
 
+  // Parses 'yyyy-MM-dd' into a local Date to avoid UTC timezone shifting
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -357,12 +363,6 @@ export default function ReportsPage() {
     clearError();
     selectType(type);
   };
-
-  // Parses 'yyyy-MM-dd' into a local Date to avoid UTC timezone shifting
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
 
 const dateRange: DateRange | undefined =
   filters.startDate || filters.endDate

@@ -11,12 +11,14 @@ import {
   equipmentImageSchema,
   updateImageSchema,
   retirementRequestSchema,
+  replacementNeededSchema,
   type CreateEquipmentInput,
   type UpdateEquipmentInput,
   type EquipmentImageInput,
   type UpdateImageInput,
   type ListEquipmentQuery,
   type RetirementRequestInput,
+  type ReplacementNeededInput,
 } from '../schemas/equipment.schema.js';
 
 const router = Router();
@@ -77,6 +79,24 @@ router.get(
       );
 
       res.status(200).json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// GET /equipment/disposal-history
+router.get(
+  '/disposal-history',
+  authorize('equipment:read'),
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const history = await EquipmentService.getDisposalHistory();
+
+      res.status(200).json(history);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
@@ -152,6 +172,40 @@ router.post(
         message.includes('disposal record')
       ) {
         res.status(409).json({ message });
+        return;
+      }
+
+      res.status(400).json({ message });
+    }
+  },
+);
+
+// PATCH /equipment/:id/replacement-needed
+router.patch(
+  '/:id/replacement-needed',
+  authorize('equipment:update'),
+  validate(replacementNeededSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid equipment ID' });
+        return;
+      }
+
+      const equipment = await EquipmentService.setReplacementNeeded(
+        id,
+        req.body as ReplacementNeededInput,
+        req.user!.id,
+      );
+
+      res.status(200).json(equipment);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bad request';
+
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
         return;
       }
 

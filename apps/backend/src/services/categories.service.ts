@@ -1,9 +1,9 @@
 import { prisma } from '../lib/prisma.js';
 // Updated to import the inferred types directly from your actual Zod schema file
-import { 
-  CreateCategoryInput, 
-  UpdateCategoryInput 
-} from '../schemas/categories.schema.js' // Adjust this relative path if needed
+import {
+  CreateCategoryInput,
+  UpdateCategoryInput,
+} from '../schemas/categories.schema.js'; // Adjust this relative path if needed
 
 const CATEGORY_INCLUDE = {
   _count: {
@@ -41,7 +41,8 @@ export class CategoriesService {
   }
 
   static async findAll(includeArchived: boolean | string = false) {
-    const shouldInclude = includeArchived === true || includeArchived === 'true';
+    const shouldInclude =
+      includeArchived === true || includeArchived === 'true';
 
     return prisma.category.findMany({
       where: shouldInclude ? undefined : { deletedAt: null },
@@ -53,9 +54,9 @@ export class CategoriesService {
   static async findOne(id: number) {
     // Fixed: Uses findFirst to filter out soft-deleted/archived categories
     const category = await prisma.category.findFirst({
-      where: { 
-        id, 
-        deletedAt: null 
+      where: {
+        id,
+        deletedAt: null,
       },
       include: CATEGORY_INCLUDE,
     });

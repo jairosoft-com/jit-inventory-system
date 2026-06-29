@@ -16,6 +16,7 @@ import type {
   UpdateImageInput,
   ListEquipmentQuery,
   RetirementRequestInput,
+  ReplacementNeededInput,
 } from '../schemas/equipment.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -53,9 +54,44 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
   ConditionStatus.DAMAGED,
 ]);
 
+const EQUIPMENT_LIFECYCLE_YEARS = 5;
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addCalendarYears(date: Date, years: number) {
+  const result = startOfDay(date);
+  result.setFullYear(result.getFullYear() + years);
+
+  return result;
+}
+
+function hasExceededLifecycle(
+  acquisitionDate: Date | string | null | undefined,
+) {
+  if (!acquisitionDate) return false;
+
+  const parsedDate =
+    acquisitionDate instanceof Date
+      ? acquisitionDate
+      : new Date(acquisitionDate);
+
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  const replacementDate = addCalendarYears(
+    parsedDate,
+    EQUIPMENT_LIFECYCLE_YEARS,
+  );
+
+  return startOfDay(new Date()) >= replacementDate;
+}
+
 function getRetirementEligibilityError(equipment: {
   status: EquipmentStatus;
   condition: ConditionStatus;
+  replacementNeeded?: boolean | null;
+  acquisitionDate?: Date | string | null;
 }) {
   if (equipment.status === EquipmentStatus.BORROWED) {
     return 'Equipment is currently borrowed and cannot be retired';
@@ -79,9 +115,16 @@ function getRetirementEligibilityError(equipment: {
   const hasRetirementCondition = retirementEligibleConditions.has(
     equipment.condition,
   );
+  const hasManualReplacementTag = Boolean(equipment.replacementNeeded);
+  const hasLifecycleExceeded = hasExceededLifecycle(equipment.acquisitionDate);
 
-  if (!hasRetirementStatus && !hasRetirementCondition) {
-    return 'Equipment cannot be retired unless it is in FAIR, POOR, or DAMAGED condition';
+  if (
+    !hasRetirementStatus &&
+    !hasRetirementCondition &&
+    !hasManualReplacementTag &&
+    !hasLifecycleExceeded
+  ) {
+    return 'Equipment cannot be retired unless it has a replacement, lifecycle, damaged, lost, fair, or poor indicator';
   }
 
   return null;
@@ -148,6 +191,40 @@ export class EquipmentService {
     }
 
     return equipment;
+  }
+
+  private static async syncCompletedRetirements() {
+    const completedRetirements = await prisma.disposal.findMany({
+      where: {
+        approvalStatus: DisposalApprovalStatus.COMPLETED,
+        equipment: {
+          status: EquipmentStatus.RETIREMENT_PENDING,
+          deletedAt: null,
+        },
+      },
+      select: {
+        equipmentId: true,
+      },
+    });
+
+    const equipmentIds = completedRetirements.map(
+      (record) => record.equipmentId,
+    );
+
+    if (equipmentIds.length === 0) {
+      return;
+    }
+
+    await prisma.equipment.updateMany({
+      where: {
+        id: { in: equipmentIds },
+        status: EquipmentStatus.RETIREMENT_PENDING,
+        deletedAt: null,
+      },
+      data: {
+        status: EquipmentStatus.RETIRED,
+      },
+    });
   }
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
@@ -281,6 +358,8 @@ export class EquipmentService {
   }
 
   static async findAll(query: ListEquipmentQuery) {
+    await this.syncCompletedRetirements();
+
     const { status, condition, categoryId, assignedTo, search, page, limit } =
       query;
 
@@ -445,6 +524,36 @@ export class EquipmentService {
     return updated;
   }
 
+  // ── Replacement needed tagging ──────────────────────────────────────────────
+
+  static async setReplacementNeeded(
+    id: number,
+    data: ReplacementNeededInput,
+    userId: number,
+  ) {
+    const equipment = await this.findActiveOrThrow(id);
+
+    const updated = await prisma.equipment.update({
+      where: { id },
+      data: {
+        replacementNeeded: data.replacementNeeded,
+        replacementNeededAt: data.replacementNeeded ? new Date() : null,
+      },
+      include: equipmentInclude,
+    });
+
+    await AuditLogService.log(
+      'Equipment',
+      updated.id,
+      LogAction.UPDATED,
+      userId,
+      equipment,
+      updated,
+    );
+
+    return updated;
+  }
+
   // ── Retirement request ──────────────────────────────────────────────────────
 
   static async submitRetirementRequest(
@@ -459,6 +568,8 @@ export class EquipmentService {
           id: true,
           status: true,
           condition: true,
+          acquisitionDate: true,
+          replacementNeeded: true,
           deletedAt: true,
         },
       });
@@ -546,6 +657,8 @@ export class EquipmentService {
   }
 
   static async getDisposalHistory() {
+    await this.syncCompletedRetirements();
+
     return prisma.disposal.findMany({
       where: {
         approvalStatus: {

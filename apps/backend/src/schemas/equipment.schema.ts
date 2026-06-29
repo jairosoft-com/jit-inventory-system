@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { EquipmentStatus, ConditionStatus } from '@prisma/client';
+import {
+  EquipmentStatus,
+  ConditionStatus,
+  DisposalReason,
+} from '@prisma/client';
 
 // ── Image sub-schema ──────────────────────────────────────────────────────────
 
@@ -74,6 +78,18 @@ export const updateEquipmentSchema = z
   })
   .partial();
 
+export const retirementRequestSchema = z.object({
+  reason: z.nativeEnum(DisposalReason, {
+    required_error: 'Disposal reason is required',
+  }),
+  method: z
+    .string({ required_error: 'Disposal method is required' })
+    .trim()
+    .min(1, 'Disposal method is required')
+    .max(100, 'Disposal method must be 100 characters or less'),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
 export const listEquipmentQuerySchema = z.object({
   status: z.nativeEnum(EquipmentStatus).optional(),
   condition: z.nativeEnum(ConditionStatus).optional(),
@@ -88,6 +104,7 @@ export const listEquipmentQuerySchema = z.object({
 
 export type CreateEquipmentInput = z.infer<typeof createEquipmentSchema>;
 export type UpdateEquipmentInput = z.infer<typeof updateEquipmentSchema>;
+export type RetirementRequestInput = z.infer<typeof retirementRequestSchema>;
 export type EquipmentImageInput = z.infer<typeof equipmentImageSchema>;
 export type UpdateImageInput = z.infer<typeof updateImageSchema>;
 export type ListEquipmentQuery = z.infer<typeof listEquipmentQuerySchema>;

@@ -1,4 +1,9 @@
-import { ConditionStatus, EquipmentStatus } from '@prisma/client';
+import {
+  ConditionStatus,
+  EquipmentStatus,
+  BorrowStatus,
+  ItemType,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
 
@@ -9,6 +14,7 @@ const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
 interface DashboardAccess {
   canReadInventory: boolean;
   canReadEquipment: boolean;
+  canViewLowStockDetails: boolean;
 }
 
 function startOfDay(date: Date): Date {
@@ -141,58 +147,128 @@ function getDisplayStockStatus(
 
 export class DashboardService {
   static async getRolePermissionNames(roleId: number): Promise<string[]> {
-    const rolePermissions = await prisma.rolePermission.findMany({
-      where: { roleId },
+    const { permissions } = await DashboardService.getRoleAccess(roleId);
+
+    return permissions;
+  }
+
+  static async getRoleAccess(roleId: number): Promise<{
+    roleName: string;
+    permissions: string[];
+  }> {
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
       select: {
-        permission: {
+        name: true,
+        rolePermissions: {
           select: {
-            name: true,
+            permission: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
     });
 
-    return rolePermissions.map(
-      (rolePermission) => rolePermission.permission.name,
+    if (!role) {
+      return { roleName: '', permissions: [] };
+    }
+
+    return {
+      roleName: role.name,
+      permissions: role.rolePermissions.map(
+        (rolePermission) => rolePermission.permission.name,
+      ),
+    };
+  }
+
+  static canViewLowStockAlertDetails(
+    roleName: string,
+    permissions: string[],
+  ): boolean {
+    const normalizedRoleName = roleName.toUpperCase();
+
+    return (
+      normalizedRoleName === 'ADMIN' ||
+      normalizedRoleName === 'MANAGER' ||
+      permissions.includes('inventory:manage')
     );
   }
 
   static async getSummary(access: DashboardAccess) {
-    const [totalItems, activeEquipment, lowStockAlerts, pendingBorrows] =
-      await Promise.all([
-        access.canReadInventory
-          ? prisma.item.count({
-              where: { deletedAt: null },
-            })
-          : Promise.resolve(0),
+    const [
+      totalItems,
+      activeEquipment,
+      lowStockAlerts,
+      pendingBorrows,
+      totalQuantityInStock,
+      availableItems,
+      lowStockItems,
+    ] = await Promise.all([
+      access.canReadInventory
+        ? prisma.item.count({
+          where: { deletedAt: null, itemType: ItemType.CONSUMABLE },
+        })
+        : Promise.resolve(0),
 
-        access.canReadEquipment
-          ? prisma.equipment.count({
-              where: {
-                status: EquipmentStatus.AVAILABLE,
-                deletedAt: null,
-              },
-            })
-          : Promise.resolve(0),
+      access.canReadEquipment
+        ? prisma.equipment.count({
+          where: {
+            status: EquipmentStatus.AVAILABLE,
+            deletedAt: null,
+          },
+        })
+        : Promise.resolve(0),
 
-        access.canReadInventory
-          ? DashboardService.countLowStockItems()
-          : Promise.resolve(0),
+      access.canViewLowStockDetails
+        ? DashboardService.countLowStockItems()
+        : Promise.resolve(0),
 
-        access.canReadEquipment
-          ? prisma.borrowRecord.count({
-              where: {
-                status: 'PENDING',
-              },
-            })
-          : Promise.resolve(0),
-      ]);
+      access.canReadEquipment
+        ? prisma.borrowRecord.count({
+          where: {
+            status: 'PENDING',
+          },
+        })
+        : Promise.resolve(0),
+
+      access.canReadInventory
+        ? prisma.consumableProfile.aggregate({
+          _sum: { quantity: true },
+          where: { item: { deletedAt: null } },
+        }).then((res) => res._sum.quantity || 0)
+        : Promise.resolve(0),
+
+      access.canReadInventory
+        ? prisma.consumableProfile.count({
+          where: {
+            quantity: { gt: 0 },
+            item: { deletedAt: null },
+          },
+        })
+        : Promise.resolve(0),
+
+      access.canReadInventory
+        ? prisma.consumableProfile.count({
+          where: {
+            status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
+            item: { deletedAt: null },
+          },
+        })
+        : Promise.resolve(0),
+    ]);
 
     return {
       totalItems,
       activeEquipment,
       lowStockAlerts,
       pendingBorrows,
+      totalInventoryItems: totalItems,
+      totalQuantityInStock,
+      availableItems,
+      lowStockItems,
     };
   }
 
@@ -204,6 +280,7 @@ export class DashboardService {
         },
         item: {
           deletedAt: null,
+          itemType: ItemType.CONSUMABLE,
         },
       },
       include: {
@@ -657,8 +734,8 @@ export class DashboardService {
             SELECT 
               DATE(created_at) as date,
               COUNT(*)::int as total,
-              COUNT(CASE WHEN status = 'BORROWED' THEN 1 END)::int as active,
-              COUNT(CASE WHEN status = 'OVERDUE' THEN 1 END)::int as overdue,
+              COUNT(CASE WHEN status IN ('APPROVED', 'BORROWED') AND expected_return >= CURRENT_DATE THEN 1 END)::int as active,
+              COUNT(CASE WHEN status = 'OVERDUE' OR (status IN ('APPROVED', 'BORROWED') AND expected_return < CURRENT_DATE) THEN 1 END)::int as overdue,
               COUNT(CASE WHEN status = 'RETURNED' THEN 1 END)::int as returned
             FROM borrow_records
             WHERE created_at >= ${startDate}
@@ -723,5 +800,87 @@ export class DashboardService {
       borrowActivity,
       inventoryDistribution,
     };
+  }
+
+  /**
+   * Returns borrow KPI counts. When `userId` is provided the counts are
+   * scoped to that single user (employee / STAFF view).
+   */
+  static async getBorrowSummary(userId?: number) {
+    const userFilter = userId ? { borrowedById: userId } : {};
+    const today = startOfDay(new Date());
+
+    const [activeBorrows, overdueBorrows, pendingBorrows] = await Promise.all([
+      prisma.borrowRecord.count({
+        where: {
+          status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+          expectedReturn: { gte: today },
+          ...userFilter,
+        },
+      }),
+      prisma.borrowRecord.count({
+        where: {
+          OR: [
+            { status: BorrowStatus.OVERDUE },
+            {
+              status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+              expectedReturn: { lt: today },
+            },
+          ],
+          ...userFilter,
+        },
+      }),
+      prisma.borrowRecord.count({
+        where: { status: BorrowStatus.PENDING, ...userFilter },
+      }),
+    ]);
+
+    return { activeBorrows, overdueBorrows, pendingBorrows };
+  }
+
+  /**
+   * Returns equipment ranked by total number of borrow records.
+   * When `userId` is provided, only borrows by that user are counted.
+   */
+  static async getMostBorrowedItems(limit = 5, userId?: number) {
+    const userFilter = userId ? { borrowedById: userId } : {};
+
+    const grouped = await prisma.borrowRecord.groupBy({
+      by: ['equipmentId'],
+      where: { ...userFilter },
+      _count: { equipmentId: true },
+      orderBy: { _count: { equipmentId: 'desc' } },
+      take: limit,
+    });
+
+    if (grouped.length === 0) {
+      return [];
+    }
+
+    const equipmentIds = grouped.map((g) => g.equipmentId);
+
+    const equipmentList = await prisma.equipment.findMany({
+      where: { id: { in: equipmentIds } },
+      include: {
+        item: { select: { itemName: true } },
+      },
+    });
+
+    const equipmentMap = new Map(equipmentList.map((eq) => [eq.id, eq]));
+
+    return grouped
+      .map((g) => {
+        const equipment = equipmentMap.get(g.equipmentId);
+        if (!equipment) return null;
+
+        return {
+          equipmentId: equipment.id,
+          itemName: equipment.item.itemName,
+          assetId: equipment.assetId,
+          currentStatus: equipment.status,
+          totalBorrows: g._count.equipmentId,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   }
 }

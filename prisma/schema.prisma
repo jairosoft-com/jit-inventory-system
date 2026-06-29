@@ -37,6 +37,7 @@ enum EquipmentStatus {
   DAMAGED
   LOST
   BORROWED
+  RETIREMENT_PENDING
   RETIRED
 }
 
@@ -86,6 +87,12 @@ enum DisposalReason {
   LOST
   STOLEN
   DONATED
+}
+
+enum DisposalApprovalStatus {
+  PENDING
+  COMPLETED
+  REJECTED
 }
 
 enum MaintenanceStatus {
@@ -616,14 +623,17 @@ model Disposal {
   equipmentId  Int            @unique @map("equipment_id")
   approvedById Int            @map("approved_by_id")
   disposalDate DateTime       @default(now()) @map("disposal_date")
-  reason       DisposalReason
-  method       String         @db.VarChar(100)
-  notes        String?        @db.Text
-  createdAt    DateTime       @default(now()) @map("created_at")
+  reason         DisposalReason
+  approvalStatus DisposalApprovalStatus @default(PENDING) @map("approval_status")
+  method         String         @db.VarChar(100)
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   equipment  Equipment @relation(fields: [equipmentId], references: [id])
   approvedBy User      @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
 
+  @@index([approvalStatus])
+  @@index([disposalDate])
   @@map("disposals")
 }
 

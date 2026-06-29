@@ -5,11 +5,12 @@ import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import {
   createSupplierSchema,
-  updateSupplierSchema,
   listSuppliersQuerySchema,
+  updateSupplierSchema,
+} from '../schemas/suppliers.schema.js';
+import type {
   CreateSupplierInput,
   UpdateSupplierInput,
-  ListSuppliersQuery,
 } from '../schemas/suppliers.schema.js';
 
 const router = Router();
@@ -28,13 +29,16 @@ router.post(
         req.body as CreateSupplierInput,
         req.user!.id,
       );
+
       res.status(201).json(supplier);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('already exists')) {
         res.status(409).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
@@ -47,12 +51,14 @@ router.get(
   validate(listSuppliersQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const query = req.query as unknown as ListSuppliersQuery;
-      const suppliers = await SuppliersService.findAll(query.includeArchived);
+      const query = listSuppliersQuerySchema.parse(req.query);
+      const suppliers = await SuppliersService.findAll(query);
+
       res.status(200).json(suppliers);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       res.status(500).json({ message });
     }
   },
@@ -65,19 +71,23 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      if (isNaN(id)) {
+
+      if (Number.isNaN(id)) {
         res.status(400).json({ message: 'Invalid supplier ID' });
         return;
       }
+
       const supplier = await SuppliersService.findOne(id);
       res.status(200).json(supplier);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(500).json({ message });
     }
   },
@@ -91,26 +101,32 @@ router.put(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      if (isNaN(id)) {
+
+      if (Number.isNaN(id)) {
         res.status(400).json({ message: 'Invalid supplier ID' });
         return;
       }
+
       const supplier = await SuppliersService.update(
         id,
         req.body as UpdateSupplierInput,
         req.user!.id,
       );
+
       res.status(200).json(supplier);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bad request';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       if (message.includes('already exists')) {
         res.status(409).json({ message });
         return;
       }
+
       res.status(400).json({ message });
     }
   },
@@ -123,19 +139,23 @@ router.patch(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      if (isNaN(id)) {
+
+      if (Number.isNaN(id)) {
         res.status(400).json({ message: 'Invalid supplier ID' });
         return;
       }
+
       const supplier = await SuppliersService.archive(id, req.user!.id);
       res.status(200).json(supplier);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(500).json({ message });
     }
   },
@@ -148,19 +168,23 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
-      if (isNaN(id)) {
+
+      if (Number.isNaN(id)) {
         res.status(400).json({ message: 'Invalid supplier ID' });
         return;
       }
+
       const history = await SuppliersService.getHistory(id);
       res.status(200).json(history);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
+
       if (message.includes('not found')) {
         res.status(404).json({ message });
         return;
       }
+
       res.status(500).json({ message });
     }
   },

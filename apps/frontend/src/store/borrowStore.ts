@@ -89,6 +89,8 @@ interface BorrowState {
   approveRequest: (id: number) => Promise<BorrowRecord>;
   /** Reject a PENDING request (requires borrow:approve) */
   rejectRequest: (id: number, reason?: string) => Promise<BorrowRecord>;
+  /** Mark a BORROWED/OVERDUE record as returned (requires borrow:return) */
+  returnEquipment: (id: number, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => Promise<BorrowRecord>;
   clearError: () => void;
 }
 
@@ -219,6 +221,28 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
         message?: string;
       };
       const errMsg = err.response?.data?.message || err.message || 'Failed to reject request';
+      throw new Error(errMsg);
+    }
+  },
+
+  returnEquipment: async (id, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => {
+    try {
+      const response = await api.patch<BorrowRecord>(`/borrow/${id}/return`, {
+        returnCondition,
+        notes,
+      });
+      const updated = response.data;
+      set((state) => ({
+        adminRecords: state.adminRecords.map((r) => (r.id === id ? updated : r)),
+        myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
+      }));
+      return updated;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errMsg = err.response?.data?.message || err.message || 'Failed to process return';
       throw new Error(errMsg);
     }
   },

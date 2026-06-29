@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import { prisma } from '../lib/prisma.js';
+import { ConditionStatus } from '@prisma/client';
 import {
   createBorrowSchema,
   listBorrowQuerySchema,
@@ -202,6 +203,45 @@ router.patch(
         error instanceof Error ? error.message : 'Internal server error';
       // Check this first: see comment in the approve handler above.
       if (message.includes('no longer PENDING')) {
+        res.status(409).json({ message });
+        return;
+      }
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// ── PATCH /borrow/:id/return ──────────────────────────────────────────────────
+// Mark a BORROWED or OVERDUE record as returned, restoring the equipment to
+// AVAILABLE. Requires borrow:return (ADMIN/MANAGER only).
+
+router.patch(
+  '/:id/return',
+  authorize('borrow:return'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid borrow record ID' });
+        return;
+      }
+      const { returnCondition, notes } = req.body as {
+        returnCondition?: ConditionStatus;
+        notes?: string;
+      };
+      const record = await BorrowService.returnEquipment(id, req.user!.id, {
+        returnCondition,
+        notes,
+      });
+      res.status(200).json(record);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      if (message.includes('not returnable') || message.includes('not in a returnable')) {
         res.status(409).json({ message });
         return;
       }

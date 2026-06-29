@@ -53,9 +53,44 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
   ConditionStatus.DAMAGED,
 ]);
 
+const EQUIPMENT_LIFECYCLE_YEARS = 5;
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addCalendarYears(date: Date, years: number) {
+  const result = startOfDay(date);
+  result.setFullYear(result.getFullYear() + years);
+
+  return result;
+}
+
+function hasExceededLifecycle(
+  acquisitionDate: Date | string | null | undefined,
+) {
+  if (!acquisitionDate) return false;
+
+  const parsedDate =
+    acquisitionDate instanceof Date
+      ? acquisitionDate
+      : new Date(acquisitionDate);
+
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  const replacementDate = addCalendarYears(
+    parsedDate,
+    EQUIPMENT_LIFECYCLE_YEARS,
+  );
+
+  return startOfDay(new Date()) >= replacementDate;
+}
+
 function getRetirementEligibilityError(equipment: {
   status: EquipmentStatus;
   condition: ConditionStatus;
+  replacementNeeded?: boolean | null;
+  acquisitionDate?: Date | string | null;
 }) {
   if (equipment.status === EquipmentStatus.BORROWED) {
     return 'Equipment is currently borrowed and cannot be retired';
@@ -79,9 +114,16 @@ function getRetirementEligibilityError(equipment: {
   const hasRetirementCondition = retirementEligibleConditions.has(
     equipment.condition,
   );
+  const hasManualReplacementTag = Boolean(equipment.replacementNeeded);
+  const hasLifecycleExceeded = hasExceededLifecycle(equipment.acquisitionDate);
 
-  if (!hasRetirementStatus && !hasRetirementCondition) {
-    return 'Equipment cannot be retired unless it is in FAIR, POOR, or DAMAGED condition';
+  if (
+    !hasRetirementStatus &&
+    !hasRetirementCondition &&
+    !hasManualReplacementTag &&
+    !hasLifecycleExceeded
+  ) {
+    return 'Equipment cannot be retired unless it has a replacement, lifecycle, damaged, lost, fair, or poor indicator';
   }
 
   return null;
@@ -489,6 +531,8 @@ export class EquipmentService {
           id: true,
           status: true,
           condition: true,
+          acquisitionDate: true,
+          replacementNeeded: true,
           deletedAt: true,
         },
       });

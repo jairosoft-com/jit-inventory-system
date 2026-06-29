@@ -52,7 +52,7 @@ app.use('/api/borrow', mutativeLimiter); // Bucket 2
 app.use('/api/categories', mutativeLimiter); // Bucket 2
 app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
-app.use('/api/reports', heavyLimiter);     // Bucket 4: report generation is heavy
+app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/procurement', mutativeLimiter); // Bucket 2
 
 // Body Parser

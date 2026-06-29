@@ -291,7 +291,14 @@ router.put(
       const result = await ProcurementService.updateEquipmentDetails(
         id,
         equipmentId,
-        req.body,
+        req.body as {
+          serialNumber?: string | null;
+          location?: string | null;
+          brand?: string | null;
+          model?: string | null;
+          condition?: string;
+          warrantyEnd?: string | null;
+        },
         req.user!.id,
       );
       res.status(200).json(result);

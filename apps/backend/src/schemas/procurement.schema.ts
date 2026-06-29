@@ -80,30 +80,61 @@ export const listPurchaseOrdersQuerySchema = z.object({
 
 // ── Attachment ───────────────────────────────────────────────────────────────
 export const addAttachmentSchema = z.object({
-  fileUrl: z.string().trim().min(1, 'File URL is required')
-    .refine((val) => {
-      const allowedTypes = ['data:image/jpeg', 'data:image/jpg', 'data:image/png'];
-      return allowedTypes.some(type => val.startsWith(type)) || /\.(jpg|jpeg|png)$/i.test(val);
-    }, { message: 'Unsupported file type. Only JPG, JPEG, and PNG files are allowed.' })
-    .refine((val) => {
-      if (val.startsWith('data:')) {
-        const base64Data = val.split(',')[1];
-        if (!base64Data) return false;
-        const size = Math.round((base64Data.length * 3) / 4);
-        return size <= 5 * 1024 * 1024;
-      }
-      return true;
-    }, { message: 'Your image exceeds the 5MB limit.' }),
+  fileUrl: z
+    .string()
+    .trim()
+    .min(1, 'File URL is required')
+    .refine(
+      (val) => {
+        const allowedTypes = [
+          'data:image/jpeg',
+          'data:image/jpg',
+          'data:image/png',
+        ];
+        return (
+          allowedTypes.some((type) => val.startsWith(type)) ||
+          /\.(jpg|jpeg|png)$/i.test(val)
+        );
+      },
+      {
+        message:
+          'Unsupported file type. Only JPG, JPEG, and PNG files are allowed.',
+      },
+    )
+    .refine(
+      (val) => {
+        if (val.startsWith('data:')) {
+          const base64Data = val.split(',')[1];
+          if (!base64Data) return false;
+          const size = Math.round((base64Data.length * 3) / 4);
+          return size <= 5 * 1024 * 1024;
+        }
+        return true;
+      },
+      { message: 'Your image exceeds the 5MB limit.' },
+    ),
   fileName: z.string().trim().min(1, 'File name is required').max(255),
-  fileSize: z.number().int().positive().optional()
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .optional()
     .refine((val) => !val || val <= 5 * 1024 * 1024, {
       message: 'Your image exceeds the 5MB limit.',
     }),
 });
 
 // ── Export types ─────────────────────────────────────────────────────────────
-export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
-export type UpdatePurchaseOrderInput = z.infer<typeof updatePurchaseOrderSchema>;
-export type UpdatePurchaseOrderStatusInput = z.infer<typeof updatePurchaseOrderStatusSchema>;
-export type ListPurchaseOrdersQuery = z.infer<typeof listPurchaseOrdersQuerySchema>;
+export type CreatePurchaseOrderInput = z.infer<
+  typeof createPurchaseOrderSchema
+>;
+export type UpdatePurchaseOrderInput = z.infer<
+  typeof updatePurchaseOrderSchema
+>;
+export type UpdatePurchaseOrderStatusInput = z.infer<
+  typeof updatePurchaseOrderStatusSchema
+>;
+export type ListPurchaseOrdersQuery = z.infer<
+  typeof listPurchaseOrdersQuerySchema
+>;
 export type AddAttachmentInput = z.infer<typeof addAttachmentSchema>;

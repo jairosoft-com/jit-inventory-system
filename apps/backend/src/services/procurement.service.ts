@@ -1,4 +1,12 @@
-import { PurchaseOrderStatus, Prisma, ItemStatus, MovementType, ItemType, ConditionStatus, EquipmentStatus } from '@prisma/client';
+import {
+  PurchaseOrderStatus,
+  Prisma,
+  ItemStatus,
+  MovementType,
+  ItemType,
+  ConditionStatus,
+  EquipmentStatus,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AuditLogService } from './audit-log.service.js';
 import type {
@@ -9,15 +17,16 @@ import type {
 } from '../schemas/procurement.schema.js';
 
 // ── Allowed status transitions (state machine) ──────────────────────────────
-const ALLOWED_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> = {
-  DRAFT: ['PENDING'],
-  PENDING: ['APPROVED', 'REJECTED'],
-  APPROVED: ['COMPLETED', 'CANCELLED'],
-  REJECTED: [],
-  COMPLETED: ['ARCHIVED'],
-  CANCELLED: ['ARCHIVED'],
-  ARCHIVED: [],
-};
+const ALLOWED_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> =
+  {
+    DRAFT: ['PENDING'],
+    PENDING: ['APPROVED', 'REJECTED'],
+    APPROVED: ['COMPLETED', 'CANCELLED'],
+    REJECTED: [],
+    COMPLETED: ['ARCHIVED'],
+    CANCELLED: ['ARCHIVED'],
+    ARCHIVED: [],
+  };
 
 // ── Role checks ──────────────────────────────────────────────────────────────
 // Actions that require Manager/Admin role
@@ -224,9 +233,7 @@ export class ProcurementService {
     const existing = await this.findOne(id);
 
     if (existing.status !== 'DRAFT') {
-      throw new Error(
-        'Only purchase orders in DRAFT status can be edited',
-      );
+      throw new Error('Only purchase orders in DRAFT status can be edited');
     }
 
     // If changing supplier, validate it
@@ -353,8 +360,10 @@ export class ProcurementService {
       }
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const hasEquipment = existing.lineItems.some((li) => li.item.itemType === 'EQUIPMENT');
+    await prisma.$transaction(async (tx) => {
+      const hasEquipment = existing.lineItems.some(
+        (li) => li.item.itemType === 'EQUIPMENT',
+      );
       let statusToSave = newStatus;
       if (newStatus === 'COMPLETED') {
         statusToSave = hasEquipment ? 'COMPLETED' : 'ARCHIVED';
@@ -444,10 +453,11 @@ export class ProcurementService {
           select: { assetId: true },
           where: { assetId: { startsWith: 'EQ-' } },
         });
-        let nextAssetNum = equipmentList.reduce((max, eq) => {
-          const match = eq.assetId.match(/^EQ-(\d+)$/);
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0) + 1;
+        let nextAssetNum =
+          equipmentList.reduce((max, eq) => {
+            const match = eq.assetId.match(/^EQ-(\d+)$/);
+            return match ? Math.max(max, Number(match[1])) : max;
+          }, 0) + 1;
 
         for (const li of existing.lineItems) {
           if (li.item.itemType === 'CONSUMABLE') {
@@ -521,7 +531,7 @@ export class ProcurementService {
                   purchasePrice: li.unitCost,
                   deletedAt: new Date(),
                   purchaseOrder: {
-                    connect: { id }
+                    connect: { id },
                   },
                   item: {
                     create: {
@@ -623,7 +633,19 @@ export class ProcurementService {
     });
   }
 
-  static async updateEquipmentDetails(purchaseOrderId: number, equipmentId: number, data: any, userId: number) {
+  static async updateEquipmentDetails(
+    purchaseOrderId: number,
+    equipmentId: number,
+    data: {
+      serialNumber?: string | null;
+      location?: string | null;
+      brand?: string | null;
+      model?: string | null;
+      condition?: string;
+      warrantyEnd?: string | null;
+    },
+    userId: number,
+  ) {
     const equipment = await prisma.equipment.findFirst({
       where: {
         id: equipmentId,
@@ -644,7 +666,9 @@ export class ProcurementService {
         },
       });
       if (duplicate) {
-        throw new Error(`Serial number "${data.serialNumber}" is already registered to another asset.`);
+        throw new Error(
+          `Serial number "${data.serialNumber}" is already registered to another asset.`,
+        );
       }
     }
 
@@ -693,7 +717,8 @@ export class ProcurementService {
             oldStatus: 'COMPLETED',
             newStatus: 'ARCHIVED',
             changedById: userId,
-            notes: 'Automatically archived after registering all equipment assets',
+            notes:
+              'Automatically archived after registering all equipment assets',
           },
         });
 

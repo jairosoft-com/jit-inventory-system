@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useAlertStore, ALERT_POLL_INTERVAL_MS } from '../store/alertStore';
+import { usePolling } from '../lib/usePolling';
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
 
@@ -280,6 +282,35 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const hasCheckedAuthRef = useRef(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const {
+    unreadCount,
+    alerts,
+    isOpen: notifOpen,
+    isLoading: notifLoading,
+    fetchUnreadCount,
+    fetchUnread,
+    markAsRead,
+    markAllAsRead,
+    toggleOpen,
+    close: closeNotif,
+  } = useAlertStore();
+
+  // Poll badge count every 60s
+  usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
+
+  // Close notification panel on click outside
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        closeNotif();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [notifOpen, closeNotif]);
 
   useEffect(() => {
     if (hasCheckedAuthRef.current) {
@@ -553,19 +584,75 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div className="dash-topbar-right">
-            <button className="dash-topbar-btn" title="Notifications">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
+            {/* Notification Bell */}
+            <div ref={notifRef} style={{ position: 'relative' }}>
+              <button
+                className="dash-topbar-btn"
+                title="Notifications"
+                onClick={toggleOpen}
+                aria-label="Toggle notifications"
               >
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-              <span className="dash-notif-badge">3</span>
-            </button>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="dash-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </button>
+
+              {/* Dropdown Panel */}
+              {notifOpen && (
+                <div className="dash-notif-panel">
+                  <div className="dash-notif-header">
+                    <span className="dash-notif-title">Notifications</span>
+                    {unreadCount > 0 && (
+                      <button className="dash-notif-mark-all" onClick={() => void markAllAsRead()}>
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="dash-notif-body">
+                    {notifLoading ? (
+                      <div className="dash-notif-empty">Loading...</div>
+                    ) : alerts.length === 0 ? (
+                      <div className="dash-notif-empty">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, marginBottom: 8 }}>
+                          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+                        </svg>
+                        <span>No alerts right now</span>
+                      </div>
+                    ) : (
+                      alerts.map((alert) => (
+                        <div
+                          key={alert.id}
+                          className={`dash-notif-item ${!alert.isRead ? 'dash-notif-item--unread' : ''} ${alert.priority === 'CRITICAL' ? 'dash-notif-item--critical' : ''}`}
+                          onClick={() => { if (!alert.isRead) void markAsRead(alert.id); }}
+                        >
+                          <div className="dash-notif-dot" />
+                          <div className="dash-notif-item-body">
+                            <span className="dash-notif-item-msg">{alert.message}</span>
+                            <span className="dash-notif-item-time">
+                              {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
+                            {alert.priority}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -906,6 +993,132 @@ export default function DashboardLayout() {
           align-items: center;
           justify-content: center;
           border: 2px solid var(--sidebar-bg);
+        }
+
+        /* ------ Notification Panel ------ */
+
+        .dash-notif-panel {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          width: 360px;
+          background: var(--surface);
+          border: 1px solid var(--surface-border);
+          border-radius: var(--radius-lg, 12px);
+          box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.12));
+          z-index: 100;
+          overflow: hidden;
+          animation: fadeIn 0.15s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .dash-notif-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px 10px;
+          border-bottom: 1px solid var(--surface-border);
+        }
+
+        .dash-notif-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .dash-notif-mark-all {
+          background: none;
+          border: none;
+          font-size: 12px;
+          font-family: inherit;
+          color: var(--accent);
+          cursor: pointer;
+          padding: 0;
+          font-weight: 500;
+        }
+        .dash-notif-mark-all:hover { text-decoration: underline; }
+
+        .dash-notif-body {
+          max-height: 380px;
+          overflow-y: auto;
+        }
+
+        .dash-notif-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 36px 16px;
+          color: var(--text-tertiary);
+          font-size: 13px;
+          gap: 4px;
+        }
+
+        .dash-notif-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 12px 16px;
+          cursor: pointer;
+          border-bottom: 1px solid var(--surface-border);
+          transition: background var(--transition-fast);
+        }
+        .dash-notif-item:last-child { border-bottom: none; }
+        .dash-notif-item:hover { background: var(--background-tertiary); }
+        .dash-notif-item--unread { background: var(--accent-muted, rgba(37,99,235,0.05)); }
+        .dash-notif-item--critical.dash-notif-item--unread { background: rgba(220,38,38,0.05); }
+
+        .dash-notif-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--accent);
+          flex-shrink: 0;
+          margin-top: 5px;
+          opacity: 0;
+        }
+        .dash-notif-item--unread .dash-notif-dot { opacity: 1; }
+        .dash-notif-item--critical .dash-notif-dot { background: var(--danger); }
+
+        .dash-notif-item-body {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+        }
+
+        .dash-notif-item-msg {
+          font-size: 13px;
+          color: var(--text-primary);
+          line-height: 1.4;
+        }
+
+        .dash-notif-item-time {
+          font-size: 11px;
+          color: var(--text-tertiary);
+        }
+
+        .dash-notif-tag {
+          flex-shrink: 0;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .dash-notif-tag--warning {
+          background: rgba(245,158,11,0.12);
+          color: #b45309;
+        }
+        .dash-notif-tag--critical {
+          background: rgba(220,38,38,0.1);
+          color: var(--danger, #dc2626);
         }
 
         /* ------ Page Content Area ------ */

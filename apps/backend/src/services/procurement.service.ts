@@ -641,7 +641,7 @@ export class ProcurementService {
       location?: string | null;
       brand?: string | null;
       model?: string | null;
-      condition?: string;
+      condition?: ConditionStatus;
       warrantyEnd?: string | null;
     },
     userId: number,

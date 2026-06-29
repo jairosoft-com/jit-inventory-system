@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { ConditionStatus } from '@prisma/client';
 import { ProcurementService } from '../services/procurement.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
@@ -296,7 +297,7 @@ router.put(
           location?: string | null;
           brand?: string | null;
           model?: string | null;
-          condition?: string;
+          condition?: ConditionStatus;
           warrantyEnd?: string | null;
         },
         req.user!.id,

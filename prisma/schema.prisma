@@ -140,6 +140,16 @@ enum LogAction {
   RENEWED
 }
 
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+}
+
+enum AlertPriority {
+  WARNING
+  CRITICAL
+}
+
 // ────────────────────────────────────────────
 // 1. Roles
 // ────────────────────────────────────────────
@@ -318,6 +328,8 @@ model ConsumableProfile {
   stockOuts StockOut[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
+  alerts InventoryAlert[]
+
 
   @@index([status])
   @@map("consumable_profiles")
@@ -343,8 +355,10 @@ model Equipment {
   warrantyStart    DateTime?       @map("warranty_start") @db.Date
   warrantyEnd      DateTime?       @map("warranty_end") @db.Date
   warrantyProvider String?         @map("warranty_provider") @db.VarChar(255)
-  warrantyDocUrl   String?         @map("warranty_doc_url") @db.VarChar(500)
-  createdAt        DateTime        @default(now()) @map("created_at")
+  warrantyDocUrl     String?         @map("warranty_doc_url") @db.VarChar(500)
+  replacementNeeded Boolean         @default(false) @map("replacement_needed")
+  replacementNeededAt DateTime?     @map("replacement_needed_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   deletedAt        DateTime?       @map("deleted_at")
 
@@ -361,6 +375,7 @@ model Equipment {
   @@index([deletedAt])
   @@index([warrantyEnd])
   @@index([purchaseOrderId])
+  @@index([replacementNeeded])
   @@map("equipment")
 }
 
@@ -656,4 +671,25 @@ model InventoryLog {
   @@index([performedBy])
   @@index([performedAt])
   @@map("inventory_logs")
+}
+// ────────────────────────────────────────────
+// 19. Inventory Alerts
+// ────────────────────────────────────────────
+model InventoryAlert {
+  id                  Int           @id @default(autoincrement())
+  consumableProfileId Int           @map("consumable_profile_id")
+  alertType           AlertType     @map("alert_type")
+  priority            AlertPriority
+  message             String        @db.Text
+  isRead              Boolean       @default(false) @map("is_read")
+  readAt              DateTime?     @map("read_at")
+  resolvedAt          DateTime?     @map("resolved_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+
+  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+
+  @@index([isRead])
+  @@index([resolvedAt])
+  @@index([consumableProfileId])
+  @@map("inventory_alerts")
 }

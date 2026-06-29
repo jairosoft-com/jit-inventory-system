@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { ItemStatus, MovementType, Prisma, LogAction } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
+import { AlertService } from './alert.service.js';
 import type {
   StockInInput,
   StockOutInput,
@@ -66,7 +67,7 @@ export class InventoryService {
     const { consumableProfileId, quantityAdded, purchaseOrderId, notes } =
       input;
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const profile = await tx.consumableProfile.findUnique({
         where: { id: consumableProfileId },
         include: { item: { select: { id: true, itemName: true } } },
@@ -130,6 +131,9 @@ export class InventoryService {
 
       return { profile: updatedProfile, stockIn, movement };
     });
+
+    void AlertService.checkAndCreateStockAlert(consumableProfileId);
+    return result;
   }
 
   // ── Scenario 2: Stock Out ───────────────────────────────────────────────────
@@ -137,7 +141,7 @@ export class InventoryService {
   static async processStockOut(input: StockOutInput, userId: number) {
     const { consumableProfileId, quantityRemoved, purpose, notes } = input;
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const profile = await tx.consumableProfile.findUnique({
         where: { id: consumableProfileId },
         include: { item: { select: { id: true, itemName: true } } },
@@ -205,6 +209,9 @@ export class InventoryService {
 
       return { profile: updatedProfile, stockOut, movement };
     });
+
+    void AlertService.checkAndCreateStockAlert(consumableProfileId);
+    return result;
   }
 
   // ── Scenario 3: Quantity Adjustment ─────────────────────────────────────────
@@ -213,7 +220,7 @@ export class InventoryService {
     const { consumableProfileId, newQuantity, quantityChange, reason, notes } =
       input;
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const profile = await tx.consumableProfile.findUnique({
         where: { id: consumableProfileId },
         include: { item: { select: { id: true, itemName: true } } },
@@ -295,6 +302,9 @@ export class InventoryService {
 
       return { profile: updatedProfile, adjustment, movement };
     });
+
+    void AlertService.checkAndCreateStockAlert(consumableProfileId);
+    return result;
   }
 
   // ── Scenario 4: Movement History ────────────────────────────────────────────

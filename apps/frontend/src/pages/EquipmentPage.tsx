@@ -25,7 +25,18 @@ const EQUIPMENT_STATUSES: EquipmentStatus[] = [
   'RETIRED',
 ];
 
+const MANUALLY_SELECTABLE_EQUIPMENT_STATUSES: EquipmentStatus[] = [
+  'AVAILABLE',
+  'IN_USE',
+  'UNDER_MAINTENANCE',
+  'DAMAGED',
+  'LOST',
+  'BORROWED',
+];
+
 const CONDITION_STATUSES: ConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
+
+const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
 const DISPOSAL_REASONS: DisposalReason[] = [
   'DAMAGED_BEYOND_REPAIR',
@@ -153,6 +164,40 @@ function getPrimaryImage(eq: Equipment) {
   return eq.images.find((img) => img.isPrimary) || eq.images[0] || null;
 }
 
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addCalendarYears(date: Date, years: number): Date {
+  const result = startOfDay(date);
+  result.setFullYear(result.getFullYear() + years);
+
+  return result;
+}
+
+function hasExceededLifecycle(acquisitionDate: string | null | undefined): boolean {
+  if (!acquisitionDate) return false;
+
+  const parsedDate = new Date(acquisitionDate);
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  const replacementDate = addCalendarYears(parsedDate, EQUIPMENT_LIFECYCLE_YEARS);
+
+  return startOfDay(new Date()) >= replacementDate;
+}
+
+function hasReplacementPlanningIndicator(eq: Equipment): boolean {
+  const hasReplacementCondition = ['FAIR', 'POOR', 'DAMAGED'].includes(eq.condition);
+  const hasReplacementStatus = ['DAMAGED', 'LOST', 'RETIRED'].includes(eq.status);
+
+  return (
+    eq.replacementNeeded ||
+    hasReplacementCondition ||
+    hasReplacementStatus ||
+    hasExceededLifecycle(eq.acquisitionDate)
+  );
+}
+
 function getDefaultRetirementReason(eq: Equipment): DisposalReason {
   if (eq.status === 'LOST') return 'LOST';
   if (eq.condition === 'DAMAGED' || eq.status === 'DAMAGED') {
@@ -176,9 +221,14 @@ function getRetirementIneligibilityReason(eq: Equipment): string | null {
 
   const hasRetirementStatus = eq.status === 'DAMAGED' || eq.status === 'LOST';
   const hasRetirementCondition = ['FAIR', 'POOR', 'DAMAGED'].includes(eq.condition);
+  const hasRetirementIndicator =
+    hasRetirementStatus ||
+    hasRetirementCondition ||
+    eq.replacementNeeded ||
+    hasExceededLifecycle(eq.acquisitionDate);
 
-  if (!hasRetirementStatus && !hasRetirementCondition) {
-    return 'Only fair, poor, damaged, or lost equipment can be retired.';
+  if (!hasRetirementIndicator) {
+    return 'Only equipment with replacement, lifecycle, damaged, lost, fair, or poor indicators can be retired.';
   }
 
   return null;
@@ -186,6 +236,10 @@ function getRetirementIneligibilityReason(eq: Equipment): string | null {
 
 function canRequestRetirement(eq: Equipment): boolean {
   return getRetirementIneligibilityReason(eq) === null;
+}
+
+function canManageReplacementNeededTag(eq: Equipment): boolean {
+  return eq.replacementNeeded || hasReplacementPlanningIndicator(eq);
 }
 
 function formatDisplayDate(dateStr: string | null | undefined): string {
@@ -211,6 +265,7 @@ export default function EquipmentPage() {
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
+    setReplacementNeeded,
     deleteEquipment,
     addImage,
     deleteImage,
@@ -255,14 +310,15 @@ export default function EquipmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [retiringEquipment, setRetiringEquipment] = useState<Equipment | null>(null);
-  const [retirementForm, setRetirementForm] =
-    useState<RetirementFormState>(emptyRetirementForm);
+  const [retirementForm, setRetirementForm] = useState<RetirementFormState>(emptyRetirementForm);
   const [retirementError, setRetirementError] = useState<string | null>(null);
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
-  const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(
-    null,
-  );
+  const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(null);
+
+  const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
+  const [replacementError, setReplacementError] = useState<string | null>(null);
+  const [isMarkingReplacement, setIsMarkingReplacement] = useState(false);
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
@@ -280,7 +336,7 @@ export default function EquipmentPage() {
       const st = status ?? statusFilter;
       if (s) query.search = s;
       if (st) query.status = st as EquipmentStatus;
-      fetchEquipment(query);
+      return fetchEquipment(query);
     },
     [currentPage, searchInput, statusFilter, fetchEquipment],
   );
@@ -596,12 +652,58 @@ export default function EquipmentPage() {
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       clearError();
-      const message = err instanceof Error
-        ? err.message
-        : 'Failed to submit retirement request.';
+      const message = err instanceof Error ? err.message : 'Failed to submit retirement request.';
       setRetirementError(message);
     } finally {
       setIsRetiring(false);
+    }
+  };
+
+  const handleOpenReplacementNeeded = (eq: Equipment) => {
+    if (!canManageReplacementNeededTag(eq)) return;
+
+    setReplacementEquipment(eq);
+    setReplacementError(null);
+  };
+
+  const handleCloseReplacementNeeded = () => {
+    if (isMarkingReplacement) return;
+
+    setReplacementEquipment(null);
+    setReplacementError(null);
+  };
+
+  const handleConfirmReplacementNeeded = async () => {
+    if (!replacementEquipment) return;
+
+    const nextReplacementNeeded = !replacementEquipment.replacementNeeded;
+
+    setReplacementError(null);
+    setSuccessMessage(null);
+    clearError();
+    setIsMarkingReplacement(true);
+
+    try {
+      await setReplacementNeeded(replacementEquipment.id, nextReplacementNeeded);
+      setSuccessMessage(
+        nextReplacementNeeded
+          ? `"${replacementEquipment.item.itemName}" has been tagged as replacement needed.`
+          : `"${replacementEquipment.item.itemName}" has been removed from replacement planning.`,
+      );
+      setReplacementEquipment(null);
+      setReplacementError(null);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: unknown) {
+      clearError();
+      const message =
+        err instanceof Error
+          ? err.message
+          : nextReplacementNeeded
+            ? 'Failed to mark equipment as replacement needed.'
+            : 'Failed to clear replacement needed tag.';
+      setReplacementError(message);
+    } finally {
+      setIsMarkingReplacement(false);
     }
   };
 
@@ -633,16 +735,15 @@ export default function EquipmentPage() {
     loadEquipment(page, searchInput.trim(), statusFilter);
   };
 
-
   const handleOpenDisposalHistory = async () => {
     setIsDisposalHistoryOpen(true);
     setDisposalHistoryError(null);
 
     try {
       await fetchDisposalHistory();
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to fetch disposal history';
+      const message = error instanceof Error ? error.message : 'Failed to fetch disposal history';
 
       setDisposalHistoryError(message);
     }
@@ -859,6 +960,13 @@ export default function EquipmentPage() {
                                 <span className="text-[var(--text-tertiary)]">Condition:</span>
                                 <ConditionBadge condition={eq.condition} />
                               </div>
+                              {eq.replacementNeeded && (
+                                <div>
+                                  <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                                    Replacement Needed
+                                  </span>
+                                </div>
+                              )}
                               {eq.warrantyEnd ? (
                                 <>
                                   <div>
@@ -885,6 +993,21 @@ export default function EquipmentPage() {
                               <div className="flex items-center justify-end gap-2">
                                 {canUpdate && (
                                   <>
+                                    {canManageReplacementNeededTag(eq) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenReplacementNeeded(eq)}
+                                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                          eq.replacementNeeded
+                                            ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                            : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                        }`}
+                                      >
+                                        {eq.replacementNeeded
+                                          ? 'Clear Planning Tag'
+                                          : 'Mark Replacement'}
+                                      </button>
+                                    )}
                                     {canRequestRetirement(eq) && (
                                       <button
                                         type="button"
@@ -959,12 +1082,33 @@ export default function EquipmentPage() {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
-                        <div className="flex items-center gap-2">
-                          <ConditionBadge condition={eq.condition} />
+                        <div className="flex flex-col gap-1 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[var(--text-tertiary)]">Condition:</span>
+                            <ConditionBadge condition={eq.condition} />
+                          </div>
+                          {eq.replacementNeeded && (
+                            <span className="inline-flex w-fit rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                              Replacement Needed
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {canUpdate && (
                             <>
+                              {canManageReplacementNeededTag(eq) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReplacementNeeded(eq)}
+                                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                    eq.replacementNeeded
+                                      ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                      : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                  }`}
+                                >
+                                  {eq.replacementNeeded ? 'Clear Planning Tag' : 'Mark Replacement'}
+                                </button>
+                              )}
                               {canRequestRetirement(eq) && (
                                 <button
                                   type="button"
@@ -1384,7 +1528,12 @@ export default function EquipmentPage() {
                         onChange={handleInputChange}
                         className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                       >
-                        {EQUIPMENT_STATUSES.map((s) => (
+                        {!MANUALLY_SELECTABLE_EQUIPMENT_STATUSES.includes(formData.status) && (
+                          <option value={formData.status} disabled>
+                            {formData.status.replace(/_/g, ' ')} (workflow status)
+                          </option>
+                        )}
+                        {MANUALLY_SELECTABLE_EQUIPMENT_STATUSES.map((s) => (
                           <option key={s} value={s}>
                             {s.replace(/_/g, ' ')}
                           </option>
@@ -1483,6 +1632,117 @@ export default function EquipmentPage() {
         </div>
       )}
 
+      {/* ── Replacement Needed Confirmation Modal ─────────────────────── */}
+      {replacementEquipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  {replacementEquipment.replacementNeeded
+                    ? 'Clear Replacement Needed Tag'
+                    : 'Mark Replacement Needed'}
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {replacementEquipment.item.itemName} · {replacementEquipment.assetId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseReplacementNeeded}
+                disabled={isMarkingReplacement}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {replacementError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {replacementError}
+                </div>
+              )}
+
+              <div
+                className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+                  replacementEquipment.replacementNeeded
+                    ? 'border-slate-200 bg-slate-50 text-slate-700'
+                    : 'border-purple-200 bg-purple-50 text-purple-800'
+                }`}
+              >
+                {replacementEquipment.replacementNeeded ? (
+                  <>
+                    This will remove the manual{' '}
+                    <span className="font-semibold">Replacement Needed </span>planning tag. The
+                    equipment may still appear in replacement planning if its condition, status, or
+                    lifecycle qualifies.
+                  </>
+                ) : (
+                  <>
+                    This will tag the equipment as{' '}
+                    <span className="font-semibold">Replacement Needed </span>for procurement
+                    planning only. It will not change the equipment status or submit a retirement
+                    request.
+                  </>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                <p className="font-semibold text-[var(--text-primary)]">
+                  {replacementEquipment.item.itemName}
+                </p>
+                <p className="mt-1 font-mono text-xs text-[var(--text-tertiary)]">
+                  {replacementEquipment.assetId}
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                  <div>
+                    <span className="text-[var(--text-tertiary)]">Status: </span>
+                    <span className="font-semibold">
+                      {replacementEquipment.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-tertiary)]">Condition: </span>
+                    <span className="font-semibold">{replacementEquipment.condition}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                This action does not change equipment status and does not automatically trigger
+                retirement or disposal.
+              </p>
+
+              <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseReplacementNeeded}
+                  disabled={isMarkingReplacement}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmReplacementNeeded()}
+                  disabled={isMarkingReplacement}
+                  className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2 ${
+                    replacementEquipment.replacementNeeded
+                      ? 'bg-slate-700 hover:bg-slate-800'
+                      : 'bg-purple-600 hover:bg-purple-700'
+                  }`}
+                >
+                  {isMarkingReplacement && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  )}
+                  {replacementEquipment.replacementNeeded ? 'Clear Tag' : 'Confirm Tag'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* ── Disposal History Modal ──────────────────────────────────────── */}
       {isDisposalHistoryOpen && (
@@ -1522,9 +1782,7 @@ export default function EquipmentPage() {
                 </div>
               ) : disposalHistory.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
-                  <h3 className="font-semibold text-[var(--text-primary)]">
-                    No Disposal History
-                  </h3>
+                  <h3 className="font-semibold text-[var(--text-primary)]">No Disposal History</h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     Completed and rejected disposal records will appear here.
                   </p>
@@ -1577,11 +1835,7 @@ export default function EquipmentPage() {
                                     : 'border border-red-200 bg-red-50 text-red-700'
                               }`}
                             >
-                              {
-                                DISPOSAL_APPROVAL_STATUS_LABELS[
-                                  record.approvalStatus
-                                ]
-                              }
+                              {DISPOSAL_APPROVAL_STATUS_LABELS[record.approvalStatus]}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-[var(--text-secondary)]">
@@ -1802,20 +2056,21 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
-          ? 'bg-[var(--success)]'
-          : status === 'IN_USE'
-            ? 'bg-[var(--info)]'
-            : status === 'UNDER_MAINTENANCE'
-              ? 'bg-[var(--warning)]'
-              : status === 'DAMAGED' || status === 'LOST'
-                ? 'bg-red-600'
-                : status === 'BORROWED'
-                  ? 'bg-purple-600'
-                  : status === 'RETIREMENT_PENDING'
-                    ? 'bg-orange-600'
-                    : 'bg-gray-400'
-          }`}
+        className={`h-1.5 w-1.5 rounded-full ${
+          status === 'AVAILABLE'
+            ? 'bg-[var(--success)]'
+            : status === 'IN_USE'
+              ? 'bg-[var(--info)]'
+              : status === 'UNDER_MAINTENANCE'
+                ? 'bg-[var(--warning)]'
+                : status === 'DAMAGED' || status === 'LOST'
+                  ? 'bg-red-600'
+                  : status === 'BORROWED'
+                    ? 'bg-purple-600'
+                    : status === 'RETIREMENT_PENDING'
+                      ? 'bg-orange-600'
+                      : 'bg-gray-400'
+        }`}
       />
       {status.replace(/_/g, ' ')}
     </span>

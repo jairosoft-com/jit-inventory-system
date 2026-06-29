@@ -343,8 +343,10 @@ model Equipment {
   warrantyStart    DateTime?       @map("warranty_start") @db.Date
   warrantyEnd      DateTime?       @map("warranty_end") @db.Date
   warrantyProvider String?         @map("warranty_provider") @db.VarChar(255)
-  warrantyDocUrl   String?         @map("warranty_doc_url") @db.VarChar(500)
-  createdAt        DateTime        @default(now()) @map("created_at")
+  warrantyDocUrl     String?         @map("warranty_doc_url") @db.VarChar(500)
+  replacementNeeded Boolean         @default(false) @map("replacement_needed")
+  replacementNeededAt DateTime?     @map("replacement_needed_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   deletedAt        DateTime?       @map("deleted_at")
 
@@ -361,6 +363,7 @@ model Equipment {
   @@index([deletedAt])
   @@index([warrantyEnd])
   @@index([purchaseOrderId])
+  @@index([replacementNeeded])
   @@map("equipment")
 }
 

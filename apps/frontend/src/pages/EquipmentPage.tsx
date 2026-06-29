@@ -8,6 +8,7 @@ import {
   type ConditionStatus,
   type ListEquipmentQuery,
   type DisposalReason,
+  type DisposalApprovalStatus,
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 
@@ -51,6 +52,12 @@ const DISPOSAL_REASON_LABELS: Record<DisposalReason, string> = {
   LOST: 'Lost',
   STOLEN: 'Stolen',
   DONATED: 'Donated',
+};
+
+const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = {
+  PENDING: 'Pending',
+  COMPLETED: 'Completed',
+  REJECTED: 'Rejected',
 };
 
 const PAGE_SIZE = 20;
@@ -233,6 +240,10 @@ function canRequestRetirement(eq: Equipment): boolean {
 
 function canManageReplacementNeededTag(eq: Equipment): boolean {
   return eq.replacementNeeded || hasReplacementPlanningIndicator(eq);
+function formatDisplayDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+
+  return new Date(dateStr).toLocaleDateString();
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -245,7 +256,10 @@ export default function EquipmentPage() {
     meta,
     isLoading,
     error: storeError,
+    disposalHistory,
+    isDisposalHistoryLoading,
     fetchEquipment,
+    fetchDisposalHistory,
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
@@ -273,6 +287,7 @@ export default function EquipmentPage() {
 
   const roleName = user?.role?.name?.toUpperCase() || '';
   const isAdmin = roleName.includes('ADMIN');
+  const canRead = isAdmin || permissions.includes('equipment:read');
   const canCreate = isAdmin || permissions.includes('equipment:create');
   const canUpdate = isAdmin || permissions.includes('equipment:update');
   const canDelete = false; // deletion is disabled
@@ -296,6 +311,10 @@ export default function EquipmentPage() {
   const [retirementForm, setRetirementForm] = useState<RetirementFormState>(emptyRetirementForm);
   const [retirementError, setRetirementError] = useState<string | null>(null);
   const [isRetiring, setIsRetiring] = useState(false);
+  const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
+  const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(
+    null,
+  );
 
   const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
   const [replacementError, setReplacementError] = useState<string | null>(null);
@@ -716,6 +735,26 @@ export default function EquipmentPage() {
     loadEquipment(page, searchInput.trim(), statusFilter);
   };
 
+
+  const handleOpenDisposalHistory = async () => {
+    setIsDisposalHistoryOpen(true);
+    setDisposalHistoryError(null);
+
+    try {
+      await fetchDisposalHistory();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch disposal history';
+
+      setDisposalHistoryError(message);
+    }
+  };
+
+  const handleCloseDisposalHistory = () => {
+    setIsDisposalHistoryOpen(false);
+    setDisposalHistoryError(null);
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
@@ -739,6 +778,16 @@ export default function EquipmentPage() {
             >
               Refresh
             </button>
+
+            {canRead && (
+              <button
+                type="button"
+                onClick={handleOpenDisposalHistory}
+                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              >
+                Disposal History
+              </button>
+            )}
 
             {canCreate && (
               <button
@@ -1597,6 +1646,18 @@ export default function EquipmentPage() {
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)]">
                   {replacementEquipment.item.itemName} · {replacementEquipment.assetId}
+
+      {/* ── Disposal History Modal ──────────────────────────────────────── */}
+      {isDisposalHistoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-5xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Disposal History
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Review completed and rejected equipment disposal records.
                 </p>
               </div>
               <button

@@ -17,6 +17,8 @@ export type EquipmentStatus =
 
 export type DisposalReason = 'DAMAGED_BEYOND_REPAIR' | 'OUTDATED' | 'LOST' | 'STOLEN' | 'DONATED';
 
+export type DisposalApprovalStatus = 'PENDING' | 'COMPLETED' | 'REJECTED';
+
 // ── Response types (match backend API shape) ────────────────────────────────
 
 export interface Disposal {
@@ -25,9 +27,37 @@ export interface Disposal {
   approvedById: number;
   disposalDate: string;
   reason: DisposalReason;
+  approvalStatus: DisposalApprovalStatus;
   method: string;
   notes: string | null;
   createdAt: string;
+}
+
+export interface DisposalHistoryRecord extends Disposal {
+  equipment: {
+    id: number;
+    assetId: string;
+    serialNumber: string | null;
+    brand: string | null;
+    model: string | null;
+    status: EquipmentStatus;
+    condition: ConditionStatus;
+    item: {
+      id: number;
+      itemName: string;
+      category: {
+        id: number;
+        name: string;
+        type: string;
+      };
+    };
+  };
+  approvedBy: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }
 
 export interface EquipmentImage {
@@ -177,8 +207,11 @@ interface EquipmentState {
   meta: PaginationMeta;
   isLoading: boolean;
   error: string | null;
+  disposalHistory: DisposalHistoryRecord[];
+  isDisposalHistoryLoading: boolean;
 
   fetchEquipment: (query?: ListEquipmentQuery) => Promise<void>;
+  fetchDisposalHistory: () => Promise<DisposalHistoryRecord[]>;
   createEquipment: (data: CreateEquipmentInput) => Promise<Equipment>;
   updateEquipment: (id: number, data: UpdateEquipmentInput) => Promise<Equipment>;
   submitRetirementRequest: (
@@ -200,6 +233,8 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
   meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
   isLoading: false,
   error: null,
+  disposalHistory: [],
+  isDisposalHistoryLoading: false,
 
   clearError: () => set({ error: null }),
 
@@ -233,6 +268,37 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         error: err.response?.data?.message || 'Failed to fetch equipment',
         isLoading: false,
       });
+    }
+  },
+
+
+  fetchDisposalHistory: async () => {
+    set({ isDisposalHistoryLoading: true, error: null });
+
+    try {
+      const response = await api.get<DisposalHistoryRecord[]>(
+        '/equipment/disposal-history',
+      );
+
+      set({
+        disposalHistory: response.data,
+        isDisposalHistoryLoading: false,
+      });
+
+      return response.data;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to fetch disposal history';
+
+      set({ error: errMsg, isDisposalHistoryLoading: false });
+      throw new Error(errMsg);
     }
   },
 

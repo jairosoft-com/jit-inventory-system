@@ -6,6 +6,7 @@ import {
   ItemType,
   Prisma,
   LogAction,
+  DisposalApprovalStatus,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
 import type {
@@ -577,6 +578,7 @@ export class EquipmentService {
           equipmentId: id,
           approvedById: requestedById,
           reason: data.reason,
+          approvalStatus: DisposalApprovalStatus.PENDING,
           method: data.method,
           notes: data.notes ?? null,
         },
@@ -615,6 +617,47 @@ export class EquipmentService {
         equipment: updatedEquipment,
         disposal,
       };
+    });
+  }
+
+  static async getDisposalHistory() {
+    return prisma.disposal.findMany({
+      where: {
+        approvalStatus: {
+          in: [
+            DisposalApprovalStatus.COMPLETED,
+            DisposalApprovalStatus.REJECTED,
+          ],
+        },
+      },
+      orderBy: [{ disposalDate: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        equipment: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                itemName: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
     });
   }
 

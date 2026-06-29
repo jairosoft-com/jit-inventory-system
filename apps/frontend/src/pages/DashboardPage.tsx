@@ -58,8 +58,22 @@ const purchaseOrderStatusColors: Record<string, { bg: string; text: string }> = 
   DRAFT: { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' },
   PENDING: { bg: 'rgba(245, 158, 11, 0.08)', text: '#d97706' },
   APPROVED: { bg: 'rgba(59, 130, 246, 0.08)', text: '#2563eb' },
-  RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
+  REJECTED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
+  COMPLETED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
   CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
+  ARCHIVED: { bg: 'rgba(139, 92, 246, 0.08)', text: '#8b5cf6' },
+  RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
+};
+
+const purchaseOrderStatusLabels: Record<string, string> = {
+  DRAFT: 'Draft',
+  PENDING: 'Pending Approval',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  ARCHIVED: 'Completed',
+  RECEIVED: 'Completed',
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -889,6 +903,7 @@ export default function DashboardPage() {
                               text: '#6b7280',
                             };
 
+<<<<<<< Updated upstream
                             return (
                               <tr key={po.id}>
                                 <td className="dash-po-invoice">
@@ -915,6 +930,41 @@ export default function DashboardPage() {
                               </tr>
                             );
                           })}
+=======
+                              return (
+                                <tr key={po.id}>
+                                  <td className="dash-po-invoice">
+                                    <strong>
+                                      {po.invoiceNumber || `#${po.id}`}
+                                    </strong>
+                                    <span className="dash-po-item-count">
+                                      {po.itemCount} item
+                                      {po.itemCount === 1 ? '' : 's'}
+                                    </span>
+                                  </td>
+                                  <td>{po.supplier.name}</td>
+                                  <td className="dash-po-amount">
+                                    {formatCurrency(po.totalAmount)}
+                                  </td>
+                                  <td>
+                                    <span
+                                      className="dash-po-status-badge"
+                                      style={{
+                                        backgroundColor: color.bg,
+                                        color: color.text,
+                                      }}
+                                    >
+                                      {purchaseOrderStatusLabels[po.status] || po.status}
+                                    </span>
+                                  </td>
+                                  <td className="dash-po-date">
+                                    {formatDate(po.orderDate)}
+                                  </td>
+                                </tr>
+                              );
+                            },
+                          )}
+>>>>>>> Stashed changes
                         </tbody>
                       </table>
                     </div>

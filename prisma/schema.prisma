@@ -106,8 +106,10 @@ enum PurchaseOrderStatus {
   DRAFT
   PENDING
   APPROVED
-  RECEIVED
+  REJECTED
+  COMPLETED
   CANCELLED
+  ARCHIVED
 }
 
 enum MovementType {
@@ -190,30 +192,31 @@ model RolePermission {
 // 4. Users
 // ────────────────────────────────────────────
 model User {
-  id                Int              @id @default(autoincrement())
-  firstName         String           @map("first_name") @db.VarChar(100)
-  lastName          String           @map("last_name") @db.VarChar(100)
-  email             String           @unique @db.VarChar(255)
-  password          String           @db.VarChar(255)
-  roleId            Int              @map("role_id")
-  isActive          Boolean          @default(true) @map("is_active")
-  createdAt         DateTime         @default(now()) @map("created_at")
-  deletedAt         DateTime?        @map("deleted_at")
+  id        Int       @id @default(autoincrement())
+  firstName String    @map("first_name") @db.VarChar(100)
+  lastName  String    @map("last_name") @db.VarChar(100)
+  email     String    @unique @db.VarChar(255)
+  password  String    @db.VarChar(255)
+  roleId    Int       @map("role_id")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
 
-  role              Role             @relation(fields: [roleId], references: [id])
+  role              Role                   @relation(fields: [roleId], references: [id])
   refreshTokens     RefreshToken[]
-  itemsRegistered   Item[]           @relation("RegisteredBy")
-  equipmentAssigned Equipment[]      @relation("AssignedTo")
-  purchaseOrders    PurchaseOrder[]  @relation("CreatedByUser")
-  stockInReceived   StockIn[]        @relation("ReceivedByUser")
-  stockOutReleased  StockOut[]       @relation("ReleasedByUser")
-  borrowRequests    BorrowRecord[]   @relation("BorrowedByUser")
-  borrowApprovals   BorrowRecord[]   @relation("ApprovedByUser")
-  maintenanceJobs   MaintenanceLog[] @relation("PerformedByUser")
-  disposalsApproved Disposal[]       @relation("DisposalApprovedBy")
+  itemsRegistered   Item[]                 @relation("RegisteredBy")
+  equipmentAssigned Equipment[]            @relation("AssignedTo")
+  purchaseOrders    PurchaseOrder[]        @relation("CreatedByUser")
+  stockInReceived   StockIn[]              @relation("ReceivedByUser")
+  stockOutReleased  StockOut[]             @relation("ReleasedByUser")
+  borrowRequests    BorrowRecord[]         @relation("BorrowedByUser")
+  borrowApprovals   BorrowRecord[]         @relation("ApprovedByUser")
+  maintenanceJobs   MaintenanceLog[]       @relation("PerformedByUser")
+  disposalsApproved Disposal[]             @relation("DisposalApprovedBy")
   activityLogs      InventoryLog[]
-  stockAdjustments  StockAdjustment[] @relation("AdjustedByUser")
-  stockMovements    StockMovement[]   @relation("StockMovementPerformedBy")
+  stockAdjustments  StockAdjustment[]      @relation("AdjustedByUser")
+  stockMovements    StockMovement[]        @relation("StockMovementPerformedBy")
+  poHistoryEntries  PurchaseOrderHistory[] @relation("POHistoryChangedBy")
 
   @@index([isActive])
   @@index([roleId])
@@ -313,9 +316,9 @@ model ConsumableProfile {
   reorderPoint Int        @default(0) @map("reorder_point")
   status       ItemStatus @default(IN_STOCK)
 
-  item     Item      @relation(fields: [itemId], references: [id])
-  stockIns StockIn[]
-  stockOuts StockOut[]
+  item             Item              @relation(fields: [itemId], references: [id])
+  stockIns         StockIn[]
+  stockOuts        StockOut[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
 
@@ -447,11 +450,13 @@ model PurchaseOrder {
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @updatedAt @map("updated_at")
 
-  supplier  Supplier            @relation(fields: [supplierId], references: [id])
-  createdBy User                @relation("CreatedByUser", fields: [createdById], references: [id])
-  lineItems PurchaseOrderItem[]
-  stockIns  StockIn[]
-  equipment Equipment[]
+  supplier    Supplier                  @relation(fields: [supplierId], references: [id])
+  createdBy   User                      @relation("CreatedByUser", fields: [createdById], references: [id])
+  lineItems   PurchaseOrderItem[]
+  stockIns    StockIn[]
+  equipment   Equipment[]
+  history     PurchaseOrderHistory[]
+  attachments PurchaseOrderAttachment[]
 
   @@index([status])
   @@index([supplierId])
@@ -476,16 +481,53 @@ model PurchaseOrderItem {
 }
 
 // ────────────────────────────────────────────
+// 12a. Purchase Order History (Immutable Audit)
+// ────────────────────────────────────────────
+model PurchaseOrderHistory {
+  id              Int                 @id @default(autoincrement())
+  purchaseOrderId Int                 @map("purchase_order_id")
+  oldStatus       PurchaseOrderStatus @map("old_status")
+  newStatus       PurchaseOrderStatus @map("new_status")
+  changedById     Int                 @map("changed_by_id")
+  notes           String?             @db.Text
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  changedBy     User          @relation("POHistoryChangedBy", fields: [changedById], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([createdAt])
+  @@map("purchase_order_history")
+}
+
+// ────────────────────────────────────────────
+// 12b. Purchase Order Attachments
+// ────────────────────────────────────────────
+model PurchaseOrderAttachment {
+  id              Int      @id @default(autoincrement())
+  purchaseOrderId Int      @map("purchase_order_id")
+  fileUrl         String   @map("file_url") @db.Text
+  fileName        String   @map("file_name") @db.VarChar(255)
+  fileSize        Int?     @map("file_size")
+  uploadedAt      DateTime @default(now()) @map("uploaded_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_attachments")
+}
+
+// ────────────────────────────────────────────
 // 13. Stock In
 // ────────────────────────────────────────────
 model StockIn {
-  id                  Int               @id @default(autoincrement())
-  consumableProfileId Int               @map("consumable_profile_id")
-  quantityAdded       Int               @map("quantity_added")
-  purchaseOrderId     Int?              @map("purchase_order_id")
-  receivedById        Int               @map("received_by_id")
-  notes               String?           @db.Text
-  createdAt           DateTime          @default(now()) @map("created_at")
+  id                  Int      @id @default(autoincrement())
+  consumableProfileId Int      @map("consumable_profile_id")
+  quantityAdded       Int      @map("quantity_added")
+  purchaseOrderId     Int?     @map("purchase_order_id")
+  receivedById        Int      @map("received_by_id")
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
 
   consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
   purchaseOrder     PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
@@ -500,13 +542,13 @@ model StockIn {
 // 14. Stock Out
 // ────────────────────────────────────────────
 model StockOut {
-  id                  Int               @id @default(autoincrement())
-  consumableProfileId Int               @map("consumable_profile_id")
-  quantityRemoved     Int               @map("quantity_removed")
-  purpose             String            @db.Text
-  releasedById        Int               @map("released_by_id")
-  notes               String?           @db.Text
-  createdAt           DateTime          @default(now()) @map("created_at")
+  id                  Int      @id @default(autoincrement())
+  consumableProfileId Int      @map("consumable_profile_id")
+  quantityRemoved     Int      @map("quantity_removed")
+  purpose             String   @db.Text
+  releasedById        Int      @map("released_by_id")
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
 
   consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
   releasedBy        User              @relation("ReleasedByUser", fields: [releasedById], references: [id])

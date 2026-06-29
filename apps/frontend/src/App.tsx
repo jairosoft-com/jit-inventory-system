@@ -9,7 +9,11 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
+<<<<<<< Updated upstream
 import ReportsPage from './pages/ReportsPage';
+=======
+import PurchaseOrderPage from './pages/PurchaseOrderPage';
+>>>>>>> Stashed changes
 
 export default function App() {
   return (
@@ -26,7 +30,7 @@ export default function App() {
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<BorrowRequestPage />} />
-          <Route path="orders" element={<PlaceholderPage />} />
+          <Route path="orders" element={<PurchaseOrderPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="maintenance" element={<PlaceholderPage />} />
           <Route path="logs" element={<PlaceholderPage />} />

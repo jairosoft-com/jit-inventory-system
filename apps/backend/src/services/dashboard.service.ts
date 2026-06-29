@@ -572,7 +572,7 @@ export class DashboardService {
 
     const completedOrders = await prisma.purchaseOrder.count({
       where: {
-        status: 'RECEIVED',
+        status: { in: ['COMPLETED', 'ARCHIVED'] },
       },
     });
 

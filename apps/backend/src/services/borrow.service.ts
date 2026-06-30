@@ -281,7 +281,8 @@ export class BorrowService {
       // physically picked it up and is returning it immediately.
       if (
         existing.status !== BorrowStatus.BORROWED &&
-        existing.status !== BorrowStatus.APPROVED
+        existing.status !== BorrowStatus.APPROVED &&
+        existing.status !== BorrowStatus.OVERDUE
       ) {
         if (existing.status === BorrowStatus.RETURNED) {
           throw new Error('Equipment has already been returned');
@@ -312,7 +313,7 @@ export class BorrowService {
       const recordUpdate = await tx.borrowRecord.updateMany({
         where: {
           id,
-          status: { in: [BorrowStatus.BORROWED, BorrowStatus.APPROVED] },
+          status: { in: [BorrowStatus.BORROWED, BorrowStatus.APPROVED, BorrowStatus.OVERDUE] },
         },
         data: {
           status: finalStatus,

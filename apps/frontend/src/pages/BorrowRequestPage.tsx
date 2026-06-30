@@ -362,7 +362,7 @@ function HistoryPanel() {
               )}
 
               {/* Return button — visible only for BORROWED or APPROVED records */}
-              {(rec.status === 'BORROWED' || rec.status === 'APPROVED') && (
+              {(rec.status === 'BORROWED' || rec.status === 'APPROVED' || rec.status === 'OVERDUE') && (
                 <div className="mt-3 border-t border-[var(--surface-border)] pt-3">
                   <button
                     type="button"
@@ -679,7 +679,7 @@ function AdminPanel() {
                               Reject
                             </button>
                           </div>
-                        ) : rec.status === 'BORROWED' || rec.status === 'APPROVED' ? (
+                        ) : rec.status === 'BORROWED' || rec.status === 'APPROVED' || rec.status === 'OVERDUE' ? (
                           <button
                             type="button"
                             onClick={() => setReturnTarget(rec)}

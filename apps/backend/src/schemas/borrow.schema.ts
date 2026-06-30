@@ -34,6 +34,13 @@ export const rejectBorrowSchema = z.object({
   reason: z.string().trim().max(1000).optional().nullable(),
 });
 
+// ── Return Equipment ──────────────────────────────────────────────────────────
+
+export const returnEquipmentSchema = z.object({
+  returnCondition: z.nativeEnum(ConditionStatus).optional(),
+  notes: z.string().trim().max(1000).optional(),
+});
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CreateBorrowInput = z.infer<typeof createBorrowSchema>;

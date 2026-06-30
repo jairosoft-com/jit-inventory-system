@@ -3,6 +3,8 @@ import { BorrowService } from '../services/borrow.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
+import { prisma } from '../lib/prisma.js';
+import { ConditionStatus } from '@prisma/client';
 import {
   createBorrowSchema,
   listBorrowQuerySchema,
@@ -175,16 +177,13 @@ router.patch(
   },
 );
 
-// ── PATCH /borrow/:id/return ───────────────────────────────────────────────────
-// Process the physical return of BORROWED equipment.
-// Requires borrow:return permission (STAFF, MANAGER, ADMIN).
-// Returns 200 with the updated record. Sets isLate: true in the body when
-// the return is past the expectedReturn date so the UI can surface a warning.
+// ── PATCH /borrow/:id/return ──────────────────────────────────────────────────
+// Mark a BORROWED or OVERDUE record as returned, restoring the equipment to
+// AVAILABLE. Requires borrow:return (ADMIN/MANAGER only).
 
 router.patch(
   '/:id/return',
   authorize('borrow:return'),
-  validate(processReturnSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
@@ -202,15 +201,24 @@ router.patch(
       const message =
         error instanceof Error ? error.message : 'Internal server error';
       if (message.includes('already been returned')) {
+      const { returnCondition, notes } = req.body as {
+        returnCondition?: ConditionStatus;
+        notes?: string;
+      };
+      const record = await BorrowService.returnEquipment(id, req.user!.id, {
+        returnCondition,
+        notes,
+      });
+      res.status(200).json(record);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      if (message.includes('not returnable') || message.includes('not in a returnable')) {
         res.status(409).json({ message });
         return;
       }
       if (message.includes('not found')) {
         res.status(404).json({ message });
-        return;
-      }
-      if (message.includes('Cannot process return')) {
-        res.status(409).json({ message });
         return;
       }
       res.status(500).json({ message });

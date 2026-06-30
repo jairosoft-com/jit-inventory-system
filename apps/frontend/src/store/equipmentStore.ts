@@ -15,12 +15,7 @@ export type EquipmentStatus =
   | 'RETIREMENT_PENDING'
   | 'RETIRED';
 
-export type DisposalReason =
-  | 'DAMAGED_BEYOND_REPAIR'
-  | 'OUTDATED'
-  | 'LOST'
-  | 'STOLEN'
-  | 'DONATED';
+export type DisposalReason = 'DAMAGED_BEYOND_REPAIR' | 'OUTDATED' | 'LOST' | 'STOLEN' | 'DONATED';
 
 export type DisposalApprovalStatus = 'PENDING' | 'COMPLETED' | 'REJECTED';
 
@@ -92,6 +87,8 @@ export interface Equipment {
   warrantyEnd: string | null;
   warrantyProvider: string | null;
   warrantyDocUrl: string | null;
+  replacementNeeded: boolean;
+  replacementNeededAt: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -221,6 +218,7 @@ interface EquipmentState {
     id: number,
     data: RetirementRequestInput,
   ) => Promise<RetirementRequestResponse>;
+  setReplacementNeeded: (id: number, replacementNeeded: boolean) => Promise<Equipment>;
   deleteEquipment: (id: number) => Promise<void>;
   addImage: (
     equipmentId: number,
@@ -254,10 +252,9 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>(
-        '/equipment',
-        { params },
-      );
+      const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>('/equipment', {
+        params,
+      });
 
       set({
         equipment: response.data.data,
@@ -360,8 +357,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         message?: string;
       };
 
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to update equipment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to update equipment';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
@@ -380,9 +376,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       const result = response.data;
 
       set((state) => ({
-        equipment: state.equipment.map((eq) =>
-          eq.id === id ? result.equipment : eq,
-        ),
+        equipment: state.equipment.map((eq) => (eq.id === id ? result.equipment : eq)),
         isLoading: false,
       }));
 
@@ -394,9 +388,37 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       };
 
       const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to submit retirement request';
+        err.response?.data?.message || err.message || 'Failed to submit retirement request';
+
+      set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  setReplacementNeeded: async (id, replacementNeeded) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await api.patch<Equipment>(`/equipment/${id}/replacement-needed`, {
+        replacementNeeded,
+      });
+
+      const updated = response.data;
+
+      set((state) => ({
+        equipment: state.equipment.map((eq) => (eq.id === id ? updated : eq)),
+        isLoading: false,
+      }));
+
+      return updated;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to update replacement-needed tag';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
@@ -419,8 +441,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         message?: string;
       };
 
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete equipment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete equipment';
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
@@ -429,10 +450,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
 
   addImage: async (equipmentId, data) => {
     try {
-      const response = await api.post<EquipmentImage>(
-        `/equipment/${equipmentId}/images`,
-        data,
-      );
+      const response = await api.post<EquipmentImage>(`/equipment/${equipmentId}/images`, data);
 
       const newImage = response.data;
 
@@ -486,8 +504,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         message?: string;
       };
 
-      const errMsg =
-        err.response?.data?.message || err.message || 'Failed to delete image';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete image';
 
       set({ error: errMsg });
       throw new Error(errMsg);

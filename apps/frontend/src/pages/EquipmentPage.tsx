@@ -265,6 +265,7 @@ export default function EquipmentPage() {
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
+    updateDisposalApproval,
     setReplacementNeeded,
     deleteEquipment,
     addImage,
@@ -315,6 +316,7 @@ export default function EquipmentPage() {
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
   const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(null);
+  const [disposalActionId, setDisposalActionId] = useState<number | null>(null);
 
   const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
   const [replacementError, setReplacementError] = useState<string | null>(null);
@@ -752,6 +754,32 @@ export default function EquipmentPage() {
   const handleCloseDisposalHistory = () => {
     setIsDisposalHistoryOpen(false);
     setDisposalHistoryError(null);
+  };
+
+  const handleUpdateDisposalApproval = async (
+    recordId: number,
+    approvalStatus: Exclude<DisposalApprovalStatus, 'PENDING'>,
+  ) => {
+    setDisposalHistoryError(null);
+    setSuccessMessage(null);
+    setDisposalActionId(recordId);
+
+    try {
+      const updated = await updateDisposalApproval(recordId, { approvalStatus });
+      await fetchDisposalHistory();
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
+
+      setSuccessMessage(
+        `Disposal record for "${updated.equipment.item.itemName}" was marked as ${DISPOSAL_APPROVAL_STATUS_LABELS[approvalStatus]}.`,
+      );
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update disposal approval status';
+      setDisposalHistoryError(message);
+    } finally {
+      setDisposalActionId(null);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -1754,7 +1782,7 @@ export default function EquipmentPage() {
                   Disposal History
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Review completed and rejected equipment disposal records.
+                  Review pending, completed, and rejected equipment disposal records.
                 </p>
               </div>
               <button
@@ -1784,7 +1812,7 @@ export default function EquipmentPage() {
                 <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
                   <h3 className="font-semibold text-[var(--text-primary)]">No Disposal History</h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Completed and rejected disposal records will appear here.
+                    Pending, completed, and rejected disposal records will appear here.
                   </p>
                 </div>
               ) : (
@@ -1798,6 +1826,7 @@ export default function EquipmentPage() {
                         <th className="px-4 py-3 font-semibold">Date</th>
                         <th className="px-4 py-3 font-semibold">Approval Status</th>
                         <th className="px-4 py-3 font-semibold">Notes</th>
+                        <th className="px-4 py-3 font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--surface-border)]">
@@ -1840,6 +1869,32 @@ export default function EquipmentPage() {
                           </td>
                           <td className="px-4 py-3 text-[var(--text-secondary)]">
                             {record.notes || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {record.approvalStatus === 'PENDING' && (
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateDisposalApproval(record.id, 'COMPLETED')
+                                  }
+                                  disabled={disposalActionId === record.id}
+                                  className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {disposalActionId === record.id ? 'Saving...' : 'Complete'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateDisposalApproval(record.id, 'REJECTED')
+                                  }
+                                  disabled={disposalActionId === record.id}
+                                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {disposalActionId === record.id ? 'Saving...' : 'Reject'}
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

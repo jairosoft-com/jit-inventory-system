@@ -7,6 +7,7 @@ import {
   Prisma,
   LogAction,
   DisposalApprovalStatus,
+  DisposalReason,
   MaintenanceStatus,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
@@ -17,6 +18,7 @@ import type {
   UpdateImageInput,
   ListEquipmentQuery,
   RetirementRequestInput,
+  UpdateDisposalApprovalInput,
   ReplacementNeededInput,
 } from '../schemas/equipment.schema.js';
 
@@ -56,6 +58,34 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
 ]);
 
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
+
+function getRejectedRetirementFallbackStatus(disposalReason: {
+  reason: DisposalReason;
+  equipment: {
+    status: EquipmentStatus;
+    condition: ConditionStatus;
+  };
+}) {
+  if (disposalReason.equipment.status !== EquipmentStatus.RETIREMENT_PENDING) {
+    return disposalReason.equipment.status;
+  }
+
+  if (
+    disposalReason.reason === DisposalReason.LOST ||
+    disposalReason.reason === DisposalReason.STOLEN
+  ) {
+    return EquipmentStatus.LOST;
+  }
+
+  if (
+    disposalReason.reason === DisposalReason.DAMAGED_BEYOND_REPAIR ||
+    disposalReason.equipment.condition === ConditionStatus.DAMAGED
+  ) {
+    return EquipmentStatus.DAMAGED;
+  }
+
+  return EquipmentStatus.AVAILABLE;
+}
 
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -677,15 +707,11 @@ export class EquipmentService {
     await this.syncCompletedRetirements();
 
     return prisma.disposal.findMany({
-      where: {
-        approvalStatus: {
-          in: [
-            DisposalApprovalStatus.COMPLETED,
-            DisposalApprovalStatus.REJECTED,
-          ],
-        },
-      },
-      orderBy: [{ disposalDate: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { approvalStatus: 'asc' },
+        { disposalDate: 'desc' },
+        { createdAt: 'desc' },
+      ],
       include: {
         equipment: {
           include: {
@@ -713,6 +739,111 @@ export class EquipmentService {
           },
         },
       },
+    });
+  }
+
+  static async updateDisposalApproval(
+    id: number,
+    data: UpdateDisposalApprovalInput,
+    userId: number,
+  ) {
+    const { approvalStatus } = data;
+
+    return prisma.$transaction(async (tx) => {
+      const disposal = await tx.disposal.findUnique({
+        where: { id },
+        include: {
+          equipment: {
+            select: {
+              id: true,
+              status: true,
+              condition: true,
+              deletedAt: true,
+            },
+          },
+        },
+      });
+
+      if (!disposal || disposal.equipment.deletedAt) {
+        throw new Error('Disposal record not found');
+      }
+
+      if (disposal.approvalStatus !== DisposalApprovalStatus.PENDING) {
+        throw new Error(
+          'Only pending disposal records can be completed or rejected',
+        );
+      }
+
+      const nextEquipmentStatus =
+        approvalStatus === DisposalApprovalStatus.COMPLETED
+          ? EquipmentStatus.RETIRED
+          : getRejectedRetirementFallbackStatus(disposal);
+
+      const updatedDisposal = await tx.disposal.update({
+        where: { id },
+        data: {
+          approvalStatus,
+          approvedById: userId,
+          disposalDate: new Date(),
+        },
+        include: {
+          equipment: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  itemName: true,
+                  category: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      const updatedEquipment = await tx.equipment.update({
+        where: { id: disposal.equipmentId },
+        data: {
+          status: nextEquipmentStatus,
+        },
+        include: equipmentInclude,
+      });
+
+      await AuditLogService.log(
+        'Disposal',
+        updatedDisposal.id,
+        LogAction.UPDATED,
+        userId,
+        disposal,
+        updatedDisposal,
+        tx,
+      );
+
+      await AuditLogService.log(
+        'Equipment',
+        updatedEquipment.id,
+        LogAction.UPDATED,
+        userId,
+        disposal.equipment,
+        updatedEquipment,
+        tx,
+      );
+
+      return updatedDisposal;
     });
   }
 

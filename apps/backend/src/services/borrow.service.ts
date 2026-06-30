@@ -41,6 +41,32 @@ export class BorrowService {
   // ── Guards ──────────────────────────────────────────────────────────────────
 
   /**
+   * Promotes any APPROVED/BORROWED record whose expectedReturn date has
+   * already passed to OVERDUE. Nothing in this codebase ever wrote
+   * BorrowStatus.OVERDUE to the database — the dashboard only *computed* an
+   * overdue count on the fly — so list/history views kept showing stale
+   * "Approved"/"Borrowed" badges and `?status=OVERDUE` filtering returned
+   * nothing. This is called before every read so the stored status is
+   * always accurate by the time it reaches the API response.
+   *
+   * This is a passive, time-derived transition rather than something a user
+   * did, so (unlike approve/reject/return) it is intentionally not written
+   * to the audit trail, which records actions performed by a specific user.
+   */
+  private static async syncOverdueStatuses(): Promise<void> {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    await prisma.borrowRecord.updateMany({
+      where: {
+        status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+        expectedReturn: { lt: today },
+      },
+      data: { status: BorrowStatus.OVERDUE },
+    });
+  }
+
+  /**
    * Ensures the equipment exists, is active, and is currently AVAILABLE.
    * Throws a descriptive error on any violation.
    */
@@ -90,6 +116,8 @@ export class BorrowService {
   // ── List ────────────────────────────────────────────────────────────────────
 
   static async findAll(query: ListBorrowQuery, requestingUserId: number) {
+    await this.syncOverdueStatuses();
+
     const { status, equipmentId, borrowedById, mine, page, limit } = query;
     const skip = (page - 1) * limit;
 
@@ -122,6 +150,8 @@ export class BorrowService {
   // ── Find one ─────────────────────────────────────────────────────────────────
 
   static async findOne(id: number) {
+    await this.syncOverdueStatuses();
+
     const record = await prisma.borrowRecord.findUnique({
       where: { id },
       include: borrowInclude,
@@ -284,7 +314,16 @@ export class BorrowService {
 
       await tx.equipment.update({
         where: { id: existing.equipmentId },
-        data: { status: EquipmentStatus.AVAILABLE },
+        data: {
+          status: EquipmentStatus.AVAILABLE,
+          // The condition logged on this return (FAIR/POOR/DAMAGED, etc.)
+          // must carry over to the equipment's own record — otherwise the
+          // asset keeps showing its last-known condition forever, and the
+          // retirement-eligibility / replacement-planning checks in
+          // equipment.service.ts (which read `equipment.condition`) never
+          // see it either.
+          condition: data.returnCondition,
+        },
       });
 
       const updated = await tx.borrowRecord.findUniqueOrThrow({

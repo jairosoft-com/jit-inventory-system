@@ -3,6 +3,7 @@ import { BorrowService } from '../services/borrow.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
+import { prisma } from '../lib/prisma.js';
 import {
   createBorrowSchema,
   listBorrowQuerySchema,
@@ -18,6 +19,23 @@ const router = Router();
 
 // All borrow routes require authentication
 router.use(authenticate);
+
+// ── Authorization helper ────────────────────────────────────────────────────
+// STAFF holds `borrow:read` (so they can see their own history), but that
+// permission alone must NOT let them see other employees' records. Only
+// roles that also hold `borrow:approve` (MANAGER/ADMIN) may view all
+// records. This must be enforced here at the route level — the UI-level
+// `?mine=true` flag is a convenience, not a security boundary, since a
+// client can simply omit it or call `GET /borrow/:id` directly.
+async function canViewAllBorrowRecords(
+  roleId: number | undefined,
+): Promise<boolean> {
+  if (!roleId) return false;
+  const grant = await prisma.rolePermission.findFirst({
+    where: { roleId, permission: { name: 'borrow:approve' } },
+  });
+  return grant !== null;
+}
 
 // ── POST /borrow ──────────────────────────────────────────────────────────────
 // Submit a new borrow request. Any authenticated user with borrow:submit can do this.
@@ -59,8 +77,10 @@ router.get(
   validate(listBorrowQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
+      const query = req.query as unknown as ListBorrowQuery;
+      const canViewAll = await canViewAllBorrowRecords(req.user!.roleId);
       const result = await BorrowService.findAll(
-        req.query as unknown as ListBorrowQuery,
+        canViewAll ? query : { ...query, mine: true },
         req.user!.id,
       );
       res.status(200).json(result);
@@ -85,6 +105,13 @@ router.get(
         return;
       }
       const record = await BorrowService.findOne(id);
+      const canViewAll = await canViewAllBorrowRecords(req.user!.roleId);
+
+      if (!canViewAll && record.borrowedById !== req.user!.id) {
+        res.status(404).json({ message: 'Borrow record not found' });
+        return;
+      }
+
       res.status(200).json(record);
     } catch (error) {
       const message =
@@ -217,4 +244,3 @@ router.patch(
 );
 
 export default router;
-

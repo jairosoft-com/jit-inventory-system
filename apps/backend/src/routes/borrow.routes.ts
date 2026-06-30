@@ -241,7 +241,10 @@ router.patch(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not returnable') || message.includes('not in a returnable')) {
+      if (
+        message.includes('not returnable') ||
+        message.includes('not in a returnable')
+      ) {
         res.status(409).json({ message });
         return;
       }

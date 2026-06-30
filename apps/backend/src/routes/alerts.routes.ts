@@ -30,7 +30,8 @@ router.get('/unread', async (_req: Request, res: Response): Promise<void> => {
     const alerts = await AlertService.getUnreadAlerts();
     res.status(200).json({ alerts, count: alerts.length });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });
@@ -42,7 +43,8 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
     const count = await AlertService.getUnreadCount();
     res.status(200).json({ count });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });
@@ -54,11 +56,14 @@ router.get(
   validate(paginationSchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { page, pageSize } = req.query as unknown as z.infer<typeof paginationSchema>;
+      const { page, pageSize } = req.query as unknown as z.infer<
+        typeof paginationSchema
+      >;
       const result = await AlertService.getAllAlerts(page, pageSize);
       res.status(200).json(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ message });
     }
   },
@@ -67,15 +72,19 @@ router.get(
 // ── PATCH /api/alerts/read-all ────────────────────────────────────────────────
 // Mark all unread alerts as read
 // NOTE: must be registered before /:id/read to avoid route conflict
-router.patch('/read-all', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await AlertService.markAllAsRead();
-    res.status(200).json({ updated: result.count });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+router.patch(
+  '/read-all',
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await AlertService.markAllAsRead();
+      res.status(200).json({ updated: result.count });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 // ── PATCH /api/alerts/:id/read ────────────────────────────────────────────────
 // Mark a single alert as read
@@ -88,7 +97,8 @@ router.patch(
       const alert = await AlertService.markAsRead(id);
       res.status(200).json({ alert });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ message });
     }
   },
@@ -102,7 +112,8 @@ router.post('/scan', async (_req: Request, res: Response): Promise<void> => {
     await AlertService.runFullScan();
     res.status(200).json({ message: 'Stock scan completed successfully.' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });

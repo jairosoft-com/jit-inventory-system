@@ -325,7 +325,8 @@ export class EquipmentService {
         await tx.maintenanceLog.create({
           data: {
             equipmentId: eq.id,
-            description: 'Initial maintenance record — No Maintenance Scheduled',
+            description:
+              'Initial maintenance record — No Maintenance Scheduled',
             status: MaintenanceStatus.SCHEDULED,
             scheduledDate: null,
           },

@@ -28,7 +28,8 @@ router.get(
       );
       res.status(200).json(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ message });
     }
   },
@@ -40,13 +41,21 @@ router.post(
   authorize('maintenance:create'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { equipmentId, description } = req.body;
+      const { equipmentId, description } = req.body as {
+        equipmentId: unknown;
+        description: unknown;
+      };
       if (!equipmentId || !description) {
-        res.status(400).json({ message: 'Equipment ID and description are required' });
+        res
+          .status(400)
+          .json({ message: 'Equipment ID and description are required' });
         return;
       }
       const log = await MaintenanceLogsService.create(
-        { equipmentId: Number(equipmentId), description: String(description) },
+        {
+          equipmentId: Number(equipmentId),
+          description: description as string,
+        },
         req.user!.id,
       );
       res.status(201).json(log);
@@ -77,7 +86,8 @@ router.get(
       const log = await MaintenanceLogsService.findOne(id);
       res.status(200).json(log);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       if (message.includes('not found')) {
         res.status(404).json({ message });
       } else {

@@ -1,5 +1,10 @@
 import { prisma } from '../lib/prisma.js';
-import { MaintenanceStatus, LogAction, EquipmentStatus, Prisma } from '@prisma/client';
+import {
+  MaintenanceStatus,
+  LogAction,
+  EquipmentStatus,
+  Prisma,
+} from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
 import type {
   ScheduleMaintenanceInput,
@@ -8,7 +13,10 @@ import type {
 } from '../schemas/maintenance-logs.schema.js';
 
 export class MaintenanceLogsService {
-  private static async assertNoActiveMaintenance(equipmentId: number, excludeLogId?: number) {
+  private static async assertNoActiveMaintenance(
+    equipmentId: number,
+    excludeLogId?: number,
+  ) {
     const activeLog = await prisma.maintenanceLog.findFirst({
       where: {
         equipmentId,
@@ -20,11 +28,16 @@ export class MaintenanceLogsService {
     });
 
     if (activeLog) {
-      throw new Error('Equipment already has an active/open maintenance record');
+      throw new Error(
+        'Equipment already has an active/open maintenance record',
+      );
     }
   }
 
-  static async create(data: { equipmentId: number; description: string }, userId: number) {
+  static async create(
+    data: { equipmentId: number; description: string },
+    userId: number,
+  ) {
     const equipment = await prisma.equipment.findUnique({
       where: { id: data.equipmentId },
     });
@@ -65,7 +78,7 @@ export class MaintenanceLogsService {
     const { status, equipmentId, search, page, limit } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: Prisma.MaintenanceLogWhereInput = {
       equipment: {
         deletedAt: null,
       },
@@ -113,10 +126,7 @@ export class MaintenanceLogsService {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
         },
-        orderBy: [
-          { scheduledDate: 'desc' },
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ scheduledDate: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
       }),
@@ -156,7 +166,11 @@ export class MaintenanceLogsService {
     return log;
   }
 
-  static async schedule(id: number, data: ScheduleMaintenanceInput, userId: number) {
+  static async schedule(
+    id: number,
+    data: ScheduleMaintenanceInput,
+    userId: number,
+  ) {
     const log = await this.findOne(id);
 
     await this.assertNoActiveMaintenance(log.equipmentId, id);
@@ -202,7 +216,11 @@ export class MaintenanceLogsService {
     return updated;
   }
 
-  static async update(id: number, data: UpdateMaintenanceScheduleInput, userId: number) {
+  static async update(
+    id: number,
+    data: UpdateMaintenanceScheduleInput,
+    userId: number,
+  ) {
     const log = await this.findOne(id);
 
     await this.assertNoActiveMaintenance(log.equipmentId, id);
@@ -218,9 +236,15 @@ export class MaintenanceLogsService {
 
     // Determine audit action if transitioning status
     let auditAction: LogAction = LogAction.UPDATED;
-    if (data.status === MaintenanceStatus.IN_PROGRESS && log.status !== MaintenanceStatus.IN_PROGRESS) {
+    if (
+      data.status === MaintenanceStatus.IN_PROGRESS &&
+      log.status !== MaintenanceStatus.IN_PROGRESS
+    ) {
       auditAction = LogAction.MAINTENANCE_STARTED;
-    } else if (data.status === MaintenanceStatus.COMPLETED && log.status !== MaintenanceStatus.COMPLETED) {
+    } else if (
+      data.status === MaintenanceStatus.COMPLETED &&
+      log.status !== MaintenanceStatus.COMPLETED
+    ) {
       auditAction = LogAction.MAINTENANCE_COMPLETED;
     }
 
@@ -230,11 +254,20 @@ export class MaintenanceLogsService {
         data: {
           description: data.description,
           scheduledDate: data.scheduledDate,
-          performedById: data.performedById !== undefined ? data.performedById : undefined,
-          performedByVendor: data.performedByVendor !== undefined ? data.performedByVendor : undefined,
+          performedById:
+            data.performedById !== undefined ? data.performedById : undefined,
+          performedByVendor:
+            data.performedByVendor !== undefined
+              ? data.performedByVendor
+              : undefined,
           notes: data.notes,
           status: data.status,
-          cost: data.cost !== undefined ? (data.cost !== null ? new Prisma.Decimal(data.cost) : null) : undefined,
+          cost:
+            data.cost !== undefined
+              ? data.cost !== null
+                ? new Prisma.Decimal(data.cost)
+                : null
+              : undefined,
           completedDate: data.completedDate,
         },
         include: {
@@ -253,7 +286,10 @@ export class MaintenanceLogsService {
           where: { id: log.equipmentId },
           data: { status: EquipmentStatus.UNDER_MAINTENANCE },
         });
-      } else if (data.status === MaintenanceStatus.COMPLETED || data.status === MaintenanceStatus.CANCELLED) {
+      } else if (
+        data.status === MaintenanceStatus.COMPLETED ||
+        data.status === MaintenanceStatus.CANCELLED
+      ) {
         // If completed or cancelled, transition equipment back to AVAILABLE
         await tx.equipment.update({
           where: { id: log.equipmentId },

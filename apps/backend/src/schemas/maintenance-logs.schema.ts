@@ -3,41 +3,60 @@ import { MaintenanceStatus } from '@prisma/client';
 
 export const scheduleMaintenanceSchema = z
   .object({
-    description: z.string().trim().min(1, 'Maintenance description is required'),
-    scheduledDate: z.coerce.date().refine((date) => {
-      // Create a date comparison that resets milliseconds/seconds for stability in tests
-      const now = new Date();
-      now.setSeconds(0, 0);
-      const scheduled = new Date(date);
-      scheduled.setSeconds(0, 0);
-      return scheduled >= now;
-    }, {
-      message: 'Scheduled date must be in the future',
-    }),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Maintenance description is required'),
+    scheduledDate: z.coerce.date().refine(
+      (date) => {
+        // Create a date comparison that resets milliseconds/seconds for stability in tests
+        const now = new Date();
+        now.setSeconds(0, 0);
+        const scheduled = new Date(date);
+        scheduled.setSeconds(0, 0);
+        return scheduled >= now;
+      },
+      {
+        message: 'Scheduled date must be in the future',
+      },
+    ),
     performedById: z.number().int().positive().optional().nullable(),
     performedByVendor: z.string().trim().max(255).optional().nullable(),
     notes: z.string().trim().max(1000).optional().nullable(),
   })
   .refine(
-    (data) => data.performedById != null || (data.performedByVendor != null && data.performedByVendor.length > 0),
+    (data) =>
+      data.performedById != null ||
+      (data.performedByVendor != null && data.performedByVendor.length > 0),
     {
-      message: 'Either an assigned technician or a service provider/vendor must be specified',
+      message:
+        'Either an assigned technician or a service provider/vendor must be specified',
       path: ['performedById'],
-    }
+    },
   );
 
 export const updateMaintenanceScheduleSchema = z
   .object({
-    description: z.string().trim().min(1, 'Maintenance description is required').optional(),
-    scheduledDate: z.coerce.date().refine((date) => {
-      const now = new Date();
-      now.setSeconds(0, 0);
-      const scheduled = new Date(date);
-      scheduled.setSeconds(0, 0);
-      return scheduled >= now;
-    }, {
-      message: 'Scheduled date must be in the future',
-    }).optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Maintenance description is required')
+      .optional(),
+    scheduledDate: z.coerce
+      .date()
+      .refine(
+        (date) => {
+          const now = new Date();
+          now.setSeconds(0, 0);
+          const scheduled = new Date(date);
+          scheduled.setSeconds(0, 0);
+          return scheduled >= now;
+        },
+        {
+          message: 'Scheduled date must be in the future',
+        },
+      )
+      .optional(),
     performedById: z.number().int().positive().optional().nullable(),
     performedByVendor: z.string().trim().max(255).optional().nullable(),
     notes: z.string().trim().max(1000).optional().nullable(),
@@ -51,15 +70,16 @@ export const updateMaintenanceScheduleSchema = z
       const hasId = data.performedById !== undefined;
       const hasVendor = data.performedByVendor !== undefined;
       if (!hasId && !hasVendor) return true;
-      
+
       const valId = data.performedById;
       const valVendor = data.performedByVendor;
       return valId != null || (valVendor != null && valVendor.length > 0);
     },
     {
-      message: 'Either an assigned technician or a service provider/vendor must be specified',
+      message:
+        'Either an assigned technician or a service provider/vendor must be specified',
       path: ['performedById'],
-    }
+    },
   );
 
 export const listMaintenanceLogsQuerySchema = z.object({
@@ -70,6 +90,12 @@ export const listMaintenanceLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
-export type ScheduleMaintenanceInput = z.infer<typeof scheduleMaintenanceSchema>;
-export type UpdateMaintenanceScheduleInput = z.infer<typeof updateMaintenanceScheduleSchema>;
-export type ListMaintenanceLogsQuery = z.infer<typeof listMaintenanceLogsQuerySchema>;
+export type ScheduleMaintenanceInput = z.infer<
+  typeof scheduleMaintenanceSchema
+>;
+export type UpdateMaintenanceScheduleInput = z.infer<
+  typeof updateMaintenanceScheduleSchema
+>;
+export type ListMaintenanceLogsQuery = z.infer<
+  typeof listMaintenanceLogsQuerySchema
+>;

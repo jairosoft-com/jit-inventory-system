@@ -2,7 +2,10 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
-import { reportQuerySchema, type ReportTypeQuery } from '../schemas/reports.schema.js';
+import {
+  reportQuerySchema,
+  type ReportTypeQuery,
+} from '../schemas/reports.schema.js';
 import { ReportService, ReportType } from '../services/report.service.js';
 import { prisma } from '../lib/prisma.js';
 import type { Cell } from 'exceljs';
@@ -66,7 +69,8 @@ function flattenRow(
 
 // ── GET /api/reports/types ────────────────────────────────────────────────────
 router.get('/types', (_req: Request, res: Response): void => {
-  const reportTypes = reportQuerySchema.shape.type.options as ReportTypeQuery['type'][];
+  const reportTypes = reportQuerySchema.shape.type
+    .options as ReportTypeQuery['type'][];
   res.status(200).json({
     types: reportTypes.map((type) => ({
       value: type,
@@ -76,14 +80,18 @@ router.get('/types', (_req: Request, res: Response): void => {
 });
 
 // ── GET /api/reports/preview?type=X&startDate=&endDate=&categoryId= ───────────
-router.get('/preview', validate(reportQuerySchema, 'query'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { type, startDate, endDate, categoryId } = req.query as unknown as ReportTypeQuery;
+router.get(
+  '/preview',
+  validate(reportQuerySchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { type, startDate, endDate, categoryId } =
+        req.query as unknown as ReportTypeQuery;
 
-    const [data, generatedBy] = await Promise.all([
-      ReportService.generateReport(type, { startDate, endDate, categoryId }),
-      resolveGeneratedBy(req.user?.id),
-    ]);
+      const [data, generatedBy] = await Promise.all([
+        ReportService.generateReport(type, { startDate, endDate, categoryId }),
+        resolveGeneratedBy(req.user?.id),
+      ]);
 
       res.status(200).json({
         type,
@@ -103,17 +111,25 @@ router.get('/preview', validate(reportQuerySchema, 'query'), async (req: Request
 );
 
 // ── GET /api/reports/export/excel?type=X&startDate=&endDate=&categoryId= ──────
-router.get('/export/excel', validate(reportQuerySchema, 'query'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { type, startDate, endDate, categoryId } = req.query as unknown as ReportTypeQuery;
+router.get(
+  '/export/excel',
+  validate(reportQuerySchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { type, startDate, endDate, categoryId } =
+        req.query as unknown as ReportTypeQuery;
 
-    const [{ default: ExcelJS }, [data, generatedBy]] = await Promise.all([
-      import('exceljs'),
-      Promise.all([
-        ReportService.generateReport(type, { startDate, endDate, categoryId }),
-        resolveGeneratedBy(req.user?.id),
-      ]),
-    ]);
+      const [{ default: ExcelJS }, [data, generatedBy]] = await Promise.all([
+        import('exceljs'),
+        Promise.all([
+          ReportService.generateReport(type, {
+            startDate,
+            endDate,
+            categoryId,
+          }),
+          resolveGeneratedBy(req.user?.id),
+        ]),
+      ]);
 
       const rows = (Array.isArray(data) ? data : []) as Record<
         string,
@@ -271,17 +287,27 @@ router.get('/export/excel', validate(reportQuerySchema, 'query'), async (req: Re
 );
 
 // ── GET /api/reports/export/pdf?type=X&startDate=&endDate=&categoryId= ────────
-router.get('/export/pdf', validate(reportQuerySchema, 'query'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { type, startDate, endDate, categoryId } = req.query as unknown as ReportTypeQuery;
+router.get(
+  '/export/pdf',
+  validate(reportQuerySchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { type, startDate, endDate, categoryId } =
+        req.query as unknown as ReportTypeQuery;
 
-    const [{ default: PDFDocument }, [data, generatedBy]] = await Promise.all([
-      import('pdfkit'),
-      Promise.all([
-        ReportService.generateReport(type, { startDate, endDate, categoryId }),
-        resolveGeneratedBy(req.user?.id),
-      ]),
-    ]);
+      const [{ default: PDFDocument }, [data, generatedBy]] = await Promise.all(
+        [
+          import('pdfkit'),
+          Promise.all([
+            ReportService.generateReport(type, {
+              startDate,
+              endDate,
+              categoryId,
+            }),
+            resolveGeneratedBy(req.user?.id),
+          ]),
+        ],
+      );
 
       const rows = (Array.isArray(data) ? data : []) as Record<
         string,

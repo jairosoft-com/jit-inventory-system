@@ -262,8 +262,6 @@ export class BorrowService {
     });
   }
 
-
-
   /**
    * Rejects a PENDING borrow request. The equipment is never touched — it
    * was never reserved in the first place, so it simply stays AVAILABLE.

@@ -15,8 +15,15 @@ export const REPORT_TYPES = [
 // Returns undefined cleanly when the param is absent.
 
 const dateStringSchema = z
-  .union([z.string().length(0), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in yyyy-MM-dd format')])
-  .transform((val) => (val === '' ? undefined : new Date(`${val}T00:00:00.000Z`)))
+  .union([
+    z.string().length(0),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in yyyy-MM-dd format'),
+  ])
+  .transform((val) =>
+    val === '' ? undefined : new Date(`${val}T00:00:00.000Z`),
+  )
   .optional();
 
 // ── Query schema (shared by /preview, /export/excel, /export/pdf) ─────────────
@@ -41,7 +48,7 @@ export const reportTypeQuerySchema = reportQuerySchema;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type ReportTypeQuery = z.infer<typeof reportQuerySchema>;
+export type ReportTypeQuery = z.infer<typeof reportTypeQuerySchema>;
 
 export type ReportFilters = {
   startDate?: Date;

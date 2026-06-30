@@ -58,8 +58,22 @@ const purchaseOrderStatusColors: Record<string, { bg: string; text: string }> = 
   DRAFT: { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' },
   PENDING: { bg: 'rgba(245, 158, 11, 0.08)', text: '#d97706' },
   APPROVED: { bg: 'rgba(59, 130, 246, 0.08)', text: '#2563eb' },
-  RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
+  REJECTED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
+  COMPLETED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
   CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
+  ARCHIVED: { bg: 'rgba(139, 92, 246, 0.08)', text: '#8b5cf6' },
+  RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
+};
+
+const purchaseOrderStatusLabels: Record<string, string> = {
+  DRAFT: 'Draft',
+  PENDING: 'Pending Approval',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  ARCHIVED: 'Completed',
+  RECEIVED: 'Completed',
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -908,7 +922,7 @@ export default function DashboardPage() {
                                       color: color.text,
                                     }}
                                   >
-                                    {po.status}
+                                    {purchaseOrderStatusLabels[po.status] || po.status}
                                   </span>
                                 </td>
                                 <td className="dash-po-date">{formatDate(po.orderDate)}</td>

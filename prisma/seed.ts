@@ -321,7 +321,17 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'reports:export',
   ],
 
-  STAFF: ['inventory:read', 'equipment:read', 'borrow:submit', 'borrow:read', 'categories:read'],
+  STAFF: [
+    'inventory:read',
+    'equipment:read',
+    'borrow:submit',
+    'borrow:read',
+    'categories:read',
+    'purchase_orders:read',
+    'purchase_orders:create',
+    'purchase_orders:update',
+    'suppliers:read'
+  ],
 };
 
 async function main() {

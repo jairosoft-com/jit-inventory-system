@@ -11,6 +11,7 @@ import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
 import ReportsPage from './pages/ReportsPage';
 import MaintenancePage from './pages/MaintenancePage';
+import PurchaseOrderPage from './pages/PurchaseOrderPage';
 
 export default function App() {
   return (
@@ -27,7 +28,7 @@ export default function App() {
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="equipment" element={<EquipmentPage />} />
           <Route path="borrow" element={<BorrowRequestPage />} />
-          <Route path="orders" element={<PlaceholderPage />} />
+          <Route path="orders" element={<PurchaseOrderPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="maintenance" element={<MaintenancePage />} />
           <Route path="logs" element={<PlaceholderPage />} />

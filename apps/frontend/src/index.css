@@ -18,6 +18,7 @@
   --foreground: #0f172a;
   --background-secondary: #ffffff;
   --background-tertiary: #f1f5f9;
+  --background: #f8fafc;
 
   /* ── Surface (card / panel) ───────────────── */
   --surface: #ffffff;
@@ -66,6 +67,7 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
+  --radius: 0.625rem;
 
   /* ── Shadows ──────────────────────────────── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -77,6 +79,26 @@
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── shadcn/ui compatibility vars ─────────── */
+:root {
+  --radius: 0.625rem;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
 }
 
 /* ── Reset & Base ───────────────────────────── */
@@ -942,4 +964,156 @@ body {
   margin: 0;
   max-width: 360px;
   font-size: 0.9rem;
+}
+
+/* ── shadcn/ui compatibility vars ────────────────────────────────────────────
+   Append this block to the END of index.css.
+   These are required by the shadcn Button, Popover, Calendar, and Select
+   components. They do NOT override your existing rp-* or inventory-* styles.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --radius: 0.375rem;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+}
+
+/* Tailwind v4 animate-in / animate-out used by Popover and Select */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes zoom-in-95 { from { transform: scale(0.95); } to { transform: scale(1); } }
+@keyframes zoom-out-95 { from { transform: scale(1); } to { transform: scale(0.95); } }
+@keyframes slide-in-from-top-2 { from { transform: translateY(-8px); } to { transform: translateY(0); } }
+@keyframes slide-in-from-bottom-2 { from { transform: translateY(8px); } to { transform: translateY(0); } }
+
+.animate-in  { animation-fill-mode: both; animation-duration: 150ms; }
+.animate-out { animation-fill-mode: both; animation-duration: 150ms; }
+.fade-in-0   { animation-name: fade-in; }
+.fade-out-0  { animation-name: fade-out; }
+.zoom-in-95  { animation-name: zoom-in-95; }
+.zoom-out-95 { animation-name: zoom-out-95; }
+.slide-in-from-top-2    { animation-name: slide-in-from-top-2; }
+.slide-in-from-bottom-2 { animation-name: slide-in-from-bottom-2; }
+
+/* ── Report Filter Bar ───────────────────────────────────────────────────────*/
+
+.rp-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.rp-filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.rp-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rp-filter-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rp-filter-date-btn {
+  height: 36px !important;
+  min-width: 220px;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  color: var(--text-primary) !important;
+  border-color: var(--input-border) !important;
+}
+
+.rp-filter-date-placeholder {
+  color: var(--input-placeholder);
+}
+
+.rp-filter-date-active {
+  color: var(--text-primary);
+}
+
+.rp-filter-calendar-popover {
+  padding: 0 !important;
+  width: auto !important;
+}
+
+.rp-filter-calendar-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.rp-filter-clear-date {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.rp-filter-clear-date:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.rp-filter-select {
+  height: 36px !important;
+  min-width: 180px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+}
+
+.rp-filter-clear-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-end;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.rp-filter-clear-all:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #ffffff;
 }

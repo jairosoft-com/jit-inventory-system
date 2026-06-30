@@ -35,6 +35,12 @@ const borrowInclude = Prisma.validator<Prisma.BorrowRecordInclude>()({
   },
 });
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class BorrowService {
@@ -259,6 +265,38 @@ export class BorrowService {
       );
 
       return updated;
+    });
+  }
+
+  // ── Overdue detection ───────────────────────────────────────────────────────
+
+  /**
+   * Scans all active (APPROVED / BORROWED) borrow records whose
+   * expectedReturn date has passed and flips their status to OVERDUE.
+   *
+   * Uses a single updateMany() with the cutoff date baked into the `where`
+   * clause, so the check-and-set is atomic and safe to run concurrently
+   * (e.g. from both a scheduled job and a manual trigger) without double
+   * processing or racing with approve()/returnEquipment().
+   *
+   * Returns every borrow record currently in the OVERDUE state (both
+   * newly-flagged ones and ones flagged on a previous run) so callers
+   * (e.g. AlertService) can sync notifications against the full set.
+   */
+  static async flagOverdue() {
+    const today = startOfDay(new Date());
+
+    await prisma.borrowRecord.updateMany({
+      where: {
+        status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+        expectedReturn: { lt: today },
+      },
+      data: { status: BorrowStatus.OVERDUE },
+    });
+
+    return prisma.borrowRecord.findMany({
+      where: { status: BorrowStatus.OVERDUE },
+      include: borrowInclude,
     });
   }
 

@@ -145,6 +145,7 @@ enum LogAction {
 enum AlertType {
   LOW_STOCK
   OUT_OF_STOCK
+  OVERDUE_EQUIPMENT
 }
 
 enum AlertPriority {
@@ -639,6 +640,7 @@ model BorrowRecord {
   equipment  Equipment @relation(fields: [equipmentId], references: [id])
   borrowedBy User      @relation("BorrowedByUser", fields: [borrowedById], references: [id])
   approvedBy User?     @relation("ApprovedByUser", fields: [approvedById], references: [id])
+  alerts     InventoryAlert[]
 
   @@index([equipmentId])
   @@index([expectedReturn])
@@ -719,7 +721,8 @@ model InventoryLog {
 // ────────────────────────────────────────────
 model InventoryAlert {
   id                  Int           @id @default(autoincrement())
-  consumableProfileId Int           @map("consumable_profile_id")
+  consumableProfileId Int?          @map("consumable_profile_id")
+  borrowRecordId      Int?          @map("borrow_record_id")
   alertType           AlertType     @map("alert_type")
   priority            AlertPriority
   message             String        @db.Text
@@ -728,10 +731,12 @@ model InventoryAlert {
   resolvedAt          DateTime?     @map("resolved_at")
   createdAt           DateTime      @default(now()) @map("created_at")
 
-  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
+  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id])
 
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
+  @@index([borrowRecordId])
   @@map("inventory_alerts")
 }

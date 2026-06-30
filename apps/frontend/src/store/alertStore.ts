@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import api from '../lib/api';
 
 export type AlertPriority = 'INFO' | 'WARNING' | 'CRITICAL';
-export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK';
+export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERDUE_EQUIPMENT';
 
 export interface InventoryAlert {
   id: number;
@@ -13,12 +13,22 @@ export interface InventoryAlert {
   readAt: string | null;
   createdAt: string;
   resolvedAt: string | null;
-  consumableProfile: {
+  consumableProfile?: {
     quantity: number;
     reorderPoint: number;
     unit: string;
     item: { id: number; itemName: string };
-  };
+  } | null;
+  borrowRecord?: {
+    id: number;
+    expectedReturn: string;
+    status: string;
+    equipment: {
+      assetId: string;
+      item: { id: number; itemName: string };
+    };
+    borrowedBy: { id: number; firstName: string; lastName: string };
+  } | null;
 }
 
 interface AlertState {

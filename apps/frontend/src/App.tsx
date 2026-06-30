@@ -10,6 +10,7 @@ import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
 import ReportsPage from './pages/ReportsPage';
+import MaintenancePage from './pages/MaintenancePage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
 
 export default function App() {
@@ -29,7 +30,7 @@ export default function App() {
           <Route path="borrow" element={<BorrowRequestPage />} />
           <Route path="orders" element={<PurchaseOrderPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
-          <Route path="maintenance" element={<PlaceholderPage />} />
+          <Route path="maintenance" element={<MaintenancePage />} />
           <Route path="logs" element={<PlaceholderPage />} />
           <Route path="reports" element={<ReportsPage />} />
         </Route>

@@ -7,6 +7,7 @@ import {
   Prisma,
   LogAction,
   DisposalApprovalStatus,
+  MaintenanceStatus,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
 import type {
@@ -272,61 +273,77 @@ export class EquipmentService {
     }
 
     try {
-      const equipment = await prisma.equipment.create({
-        data: {
-          assetId: data.assetId,
-          serialNumber: data.serialNumber ?? null,
-          brand: data.brand ?? null,
-          model: data.model ?? null,
-          condition: data.condition,
-          status: data.status,
-          location: data.location ?? null,
-          acquisitionDate: data.acquisitionDate ?? null,
-          purchasePrice:
-            data.purchasePrice != null
-              ? new Prisma.Decimal(data.purchasePrice)
-              : null,
-          warrantyStart: data.warrantyStart ?? null,
-          warrantyEnd: data.warrantyEnd ?? null,
-          warrantyProvider: data.warrantyProvider ?? null,
-          warrantyDocUrl: data.warrantyDocUrl ?? null,
-          ...(data.assignedTo != null && {
-            assignedToUser: { connect: { id: data.assignedTo } },
-          }),
-          ...(data.purchaseOrderId != null && {
-            purchaseOrder: { connect: { id: data.purchaseOrderId } },
-          }),
-          item: {
-            create: {
-              itemName: data.itemName,
-              description: data.description ?? null,
-              categoryId: data.categoryId,
-              itemType: ItemType.EQUIPMENT,
-              barcode: data.barcode ?? null,
-              registeredBy,
+      const equipment = await prisma.$transaction(async (tx) => {
+        const eq = await tx.equipment.create({
+          data: {
+            assetId: data.assetId,
+            serialNumber: data.serialNumber ?? null,
+            brand: data.brand ?? null,
+            model: data.model ?? null,
+            condition: data.condition,
+            status: data.status,
+            location: data.location ?? null,
+            acquisitionDate: data.acquisitionDate ?? null,
+            purchasePrice:
+              data.purchasePrice != null
+                ? new Prisma.Decimal(data.purchasePrice)
+                : null,
+            warrantyStart: data.warrantyStart ?? null,
+            warrantyEnd: data.warrantyEnd ?? null,
+            warrantyProvider: data.warrantyProvider ?? null,
+            warrantyDocUrl: data.warrantyDocUrl ?? null,
+            ...(data.assignedTo != null && {
+              assignedToUser: { connect: { id: data.assignedTo } },
+            }),
+            ...(data.purchaseOrderId != null && {
+              purchaseOrder: { connect: { id: data.purchaseOrderId } },
+            }),
+            item: {
+              create: {
+                itemName: data.itemName,
+                description: data.description ?? null,
+                categoryId: data.categoryId,
+                itemType: ItemType.EQUIPMENT,
+                barcode: data.barcode ?? null,
+                registeredBy,
+              },
             },
+            images: data.images.length
+              ? {
+                  create: data.images.map((img) => ({
+                    url: img.url,
+                    label: img.label ?? null,
+                    isPrimary: img.isPrimary,
+                  })),
+                }
+              : undefined,
           },
-          images: data.images.length
-            ? {
-                create: data.images.map((img) => ({
-                  url: img.url,
-                  label: img.label ?? null,
-                  isPrimary: img.isPrimary,
-                })),
-              }
-            : undefined,
-        },
-        include: equipmentInclude,
-      });
+          include: equipmentInclude,
+        });
 
-      await AuditLogService.log(
-        'Equipment',
-        equipment.id,
-        LogAction.CREATED,
-        registeredBy,
-        null,
-        equipment,
-      );
+        // Spawn initial maintenance log row linked to the equipment ID
+        await tx.maintenanceLog.create({
+          data: {
+            equipmentId: eq.id,
+            description:
+              'Initial maintenance record — No Maintenance Scheduled',
+            status: MaintenanceStatus.SCHEDULED,
+            scheduledDate: null,
+          },
+        });
+
+        await AuditLogService.log(
+          'Equipment',
+          eq.id,
+          LogAction.CREATED,
+          registeredBy,
+          null,
+          eq,
+          tx,
+        );
+
+        return eq;
+      });
 
       return equipment;
     } catch (error) {

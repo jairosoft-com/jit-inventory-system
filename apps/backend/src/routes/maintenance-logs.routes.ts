@@ -7,9 +7,11 @@ import {
   scheduleMaintenanceSchema,
   updateMaintenanceScheduleSchema,
   listMaintenanceLogsQuerySchema,
+  createMaintenanceLogSchema,
   type ScheduleMaintenanceInput,
   type UpdateMaintenanceScheduleInput,
   type ListMaintenanceLogsQuery,
+  type CreateMaintenanceLogInput,
 } from '../schemas/maintenance-logs.schema.js';
 
 const router = Router();
@@ -39,22 +41,15 @@ router.get(
 router.post(
   '/',
   authorize('maintenance:create'),
+  validate(createMaintenanceLogSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { equipmentId, description } = req.body as {
-        equipmentId: unknown;
-        description: unknown;
-      };
-      if (!equipmentId || !description) {
-        res
-          .status(400)
-          .json({ message: 'Equipment ID and description are required' });
-        return;
-      }
+      const { equipmentId, description } =
+        req.body as CreateMaintenanceLogInput;
       const log = await MaintenanceLogsService.create(
         {
-          equipmentId: Number(equipmentId),
-          description: description as string,
+          equipmentId,
+          description,
         },
         req.user!.id,
       );

@@ -48,30 +48,42 @@ export class MaintenanceLogsService {
 
     await this.assertNoActiveMaintenance(data.equipmentId);
 
-    const log = await prisma.maintenanceLog.create({
-      data: {
-        equipmentId: data.equipmentId,
-        description: data.description,
-        status: MaintenanceStatus.SCHEDULED,
-        scheduledDate: null,
-      },
-      include: {
-        equipment: {
-          include: { item: { select: { itemName: true } } },
+    try {
+      const log = await prisma.maintenanceLog.create({
+        data: {
+          equipmentId: data.equipmentId,
+          description: data.description,
+          status: MaintenanceStatus.SCHEDULED,
+          scheduledDate: null,
         },
-      },
-    });
+        include: {
+          equipment: {
+            include: { item: { select: { itemName: true } } },
+          },
+        },
+      });
 
-    await AuditLogService.log(
-      'MaintenanceLog',
-      log.id,
-      LogAction.CREATED,
-      userId,
-      null,
-      log,
-    );
+      await AuditLogService.log(
+        'MaintenanceLog',
+        log.id,
+        LogAction.CREATED,
+        userId,
+        null,
+        log,
+      );
 
-    return log;
+      return log;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new Error(
+          'Equipment already has an active/open maintenance record',
+        );
+      }
+      throw error;
+    }
   }
 
   static async findAll(query: ListMaintenanceLogsQuery) {
@@ -184,36 +196,48 @@ export class MaintenanceLogsService {
       }
     }
 
-    const updated = await prisma.maintenanceLog.update({
-      where: { id },
-      data: {
-        description: data.description,
-        scheduledDate: data.scheduledDate,
-        performedById: data.performedById ?? null,
-        performedByVendor: data.performedByVendor ?? null,
-        notes: data.notes ?? null,
-        status: MaintenanceStatus.SCHEDULED,
-      },
-      include: {
-        equipment: {
-          include: { item: { select: { itemName: true } } },
+    try {
+      const updated = await prisma.maintenanceLog.update({
+        where: { id },
+        data: {
+          description: data.description,
+          scheduledDate: data.scheduledDate,
+          performedById: data.performedById ?? null,
+          performedByVendor: data.performedByVendor ?? null,
+          notes: data.notes ?? null,
+          status: MaintenanceStatus.SCHEDULED,
         },
-        performedBy: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+        include: {
+          equipment: {
+            include: { item: { select: { itemName: true } } },
+          },
+          performedBy: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
         },
-      },
-    });
+      });
 
-    await AuditLogService.log(
-      'MaintenanceLog',
-      id,
-      LogAction.UPDATED,
-      userId,
-      log,
-      updated,
-    );
+      await AuditLogService.log(
+        'MaintenanceLog',
+        id,
+        LogAction.UPDATED,
+        userId,
+        log,
+        updated,
+      );
 
-    return updated;
+      return updated;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new Error(
+          'Equipment already has an active/open maintenance record',
+        );
+      }
+      throw error;
+    }
   }
 
   static async update(
@@ -248,67 +272,94 @@ export class MaintenanceLogsService {
       auditAction = LogAction.MAINTENANCE_COMPLETED;
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const updatedLog = await tx.maintenanceLog.update({
-        where: { id },
-        data: {
-          description: data.description,
-          scheduledDate: data.scheduledDate,
-          performedById:
-            data.performedById !== undefined ? data.performedById : undefined,
-          performedByVendor:
-            data.performedByVendor !== undefined
-              ? data.performedByVendor
-              : undefined,
-          notes: data.notes,
-          status: data.status,
-          cost:
-            data.cost !== undefined
-              ? data.cost !== null
-                ? new Prisma.Decimal(data.cost)
-                : null
-              : undefined,
-          completedDate: data.completedDate,
-        },
-        include: {
-          equipment: {
-            include: { item: { select: { itemName: true } } },
+    try {
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedLog = await tx.maintenanceLog.update({
+          where: { id },
+          data: {
+            description: data.description,
+            scheduledDate: data.scheduledDate,
+            performedById:
+              data.performedById !== undefined ? data.performedById : undefined,
+            performedByVendor:
+              data.performedByVendor !== undefined
+                ? data.performedByVendor
+                : undefined,
+            notes: data.notes,
+            status: data.status,
+            cost:
+              data.cost !== undefined
+                ? data.cost !== null
+                  ? new Prisma.Decimal(data.cost)
+                  : null
+                : undefined,
+            completedDate: data.completedDate,
           },
-          performedBy: {
-            select: { id: true, firstName: true, lastName: true, email: true },
+          include: {
+            equipment: {
+              include: { item: { select: { itemName: true } } },
+            },
+            performedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
-        },
+        });
+
+        // Synchronize Equipment status if status transitions to IN_PROGRESS or COMPLETED
+        if (data.status === MaintenanceStatus.IN_PROGRESS) {
+          await tx.equipment.update({
+            where: { id: log.equipmentId },
+            data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+          });
+        } else if (data.status === MaintenanceStatus.COMPLETED) {
+          await tx.equipment.update({
+            where: { id: log.equipmentId },
+            data: { status: EquipmentStatus.AVAILABLE },
+          });
+        } else if (data.status === MaintenanceStatus.CANCELLED) {
+          // Only revert to AVAILABLE if equipment is currently UNDER_MAINTENANCE
+          // (meaning this maintenance session was started and is now cancelled).
+          // Otherwise, leave status untouched (e.g. DAMAGED, RETIREMENT_PENDING).
+          const currentEquipment = await tx.equipment.findUnique({
+            where: { id: log.equipmentId },
+            select: { status: true },
+          });
+          if (currentEquipment?.status === EquipmentStatus.UNDER_MAINTENANCE) {
+            await tx.equipment.update({
+              where: { id: log.equipmentId },
+              data: { status: EquipmentStatus.AVAILABLE },
+            });
+          }
+        }
+
+        return updatedLog;
       });
 
-      // Synchronize Equipment status if status transitions to IN_PROGRESS or COMPLETED
-      if (data.status === MaintenanceStatus.IN_PROGRESS) {
-        await tx.equipment.update({
-          where: { id: log.equipmentId },
-          data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-        });
-      } else if (
-        data.status === MaintenanceStatus.COMPLETED ||
-        data.status === MaintenanceStatus.CANCELLED
+      await AuditLogService.log(
+        'MaintenanceLog',
+        id,
+        auditAction,
+        userId,
+        log,
+        updated,
+      );
+
+      return updated;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
       ) {
-        // If completed or cancelled, transition equipment back to AVAILABLE
-        await tx.equipment.update({
-          where: { id: log.equipmentId },
-          data: { status: EquipmentStatus.AVAILABLE },
-        });
+        throw new Error(
+          'Equipment already has an active/open maintenance record',
+        );
       }
-
-      return updatedLog;
-    });
-
-    await AuditLogService.log(
-      'MaintenanceLog',
-      id,
-      auditAction,
-      userId,
-      log,
-      updated,
-    );
-
-    return updated;
+      throw error;
+    }
   }
 }

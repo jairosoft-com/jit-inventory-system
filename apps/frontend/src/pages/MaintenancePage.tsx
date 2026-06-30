@@ -547,7 +547,7 @@ export default function MaintenancePage() {
                         {renderStatusBadge(log)}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)]">
-                        {log.scheduledDate ? new Date(log.scheduledDate).toLocaleDateString() : '—'}
+                        {log.scheduledDate ? new Date(log.scheduledDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)]">
                         {log.performedBy

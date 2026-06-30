@@ -90,6 +90,11 @@ export const listMaintenanceLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
+export const createMaintenanceLogSchema = z.object({
+  equipmentId: z.coerce.number().int().positive('Equipment ID is required'),
+  description: z.string().trim().min(1, 'Description is required'),
+});
+
 export type ScheduleMaintenanceInput = z.infer<
   typeof scheduleMaintenanceSchema
 >;
@@ -98,4 +103,7 @@ export type UpdateMaintenanceScheduleInput = z.infer<
 >;
 export type ListMaintenanceLogsQuery = z.infer<
   typeof listMaintenanceLogsQuerySchema
+>;
+export type CreateMaintenanceLogInput = z.infer<
+  typeof createMaintenanceLogSchema
 >;

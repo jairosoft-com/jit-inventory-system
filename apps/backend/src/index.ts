@@ -16,7 +16,9 @@ import dashboardRouter from './routes/dashboard.routes.js';
 import borrowRouter from './routes/borrow.routes.js';
 import suppliersRouter from './routes/suppliers.routes.js';
 import reportsRouter from './routes/reports.routes.js';
+import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
+import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import { AlertService } from './services/alert.service.js';
 
 const app = express();
@@ -53,11 +55,14 @@ app.use('/api/borrow', mutativeLimiter); // Bucket 2
 app.use('/api/categories', mutativeLimiter); // Bucket 2
 app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
-app.use('/api/reports', heavyLimiter);     // Bucket 4: report generation is heavy
-app.use('/api/alerts', globalLimiter);     // Bucket 1: lightweight polling
+app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
+app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
+app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
+app.use('/api/procurement', mutativeLimiter); // Bucket 2
+app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // API Routes
 app.use('/api/auth', authRouter);
@@ -69,7 +74,9 @@ app.use('/api/inventory', inventoryRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/borrow', borrowRouter);
 app.use('/api/suppliers', suppliersRouter);
+app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
 
 // Health Check
@@ -90,7 +97,10 @@ const server = app.listen(port, () => {
       await AlertService.purgeOldAlerts();
       await AlertService.runFullScan();
     } catch (err) {
-      console.warn('[Alerts] Startup scan skipped — DB not ready:', err instanceof Error ? err.message : err);
+      console.warn(
+        '[Alerts] Startup scan skipped — DB not ready:',
+        err instanceof Error ? err.message : err,
+      );
     }
   })();
 });

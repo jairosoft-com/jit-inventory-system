@@ -61,8 +61,10 @@ export enum PurchaseOrderStatus {
   DRAFT = 'DRAFT',
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
-  RECEIVED = 'RECEIVED',
+  REJECTED = 'REJECTED',
+  COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum LogAction {

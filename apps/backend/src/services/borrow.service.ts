@@ -11,7 +11,6 @@ import type {
   ListBorrowQuery,
   ProcessReturnInput,
   RejectBorrowInput,
-  ReturnEquipmentInput,
 } from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -192,79 +191,6 @@ export class BorrowService {
     });
   }
 
-  // ── Return ───────────────────────────────────────────────────────────────────
-
-  /**
-   * Marks a BORROWED (or OVERDUE) borrow record as RETURNED, sets
-   * actualReturn to now, and transitions the equipment back to AVAILABLE.
-   *
-   * Uses the same atomic updateMany() pattern as approve/reject so
-   * concurrent return calls cannot double-process the same record.
-   */
-  static async returnEquipment(
-    id: number,
-    returnedById: number,
-    input: ReturnEquipmentInput,
-  ) {
-    return prisma.$transaction(async (tx) => {
-      const existing = await tx.borrowRecord.findUnique({
-        where: { id },
-        select: { id: true, equipmentId: true, status: true },
-      });
-
-      if (!existing) {
-        throw new Error('Borrow record not found');
-      }
-
-      if (
-        existing.status !== BorrowStatus.BORROWED &&
-        existing.status !== BorrowStatus.OVERDUE
-      ) {
-        throw new Error(
-          'Borrow record is not in a returnable state (must be BORROWED or OVERDUE)',
-        );
-      }
-
-      // Return the equipment to AVAILABLE atomically
-      await tx.equipment.update({
-        where: { id: existing.equipmentId },
-        data: { status: EquipmentStatus.AVAILABLE },
-      });
-
-      // Mark the record as RETURNED
-      await tx.borrowRecord.update({
-        where: { id },
-        data: {
-          status: BorrowStatus.RETURNED,
-          actualReturn: new Date(),
-          ...(input.returnCondition !== undefined && {
-            returnCondition: input.returnCondition,
-          }),
-          ...(input.notes !== undefined && { notes: input.notes }),
-        },
-      });
-
-      const updated = await tx.borrowRecord.findUniqueOrThrow({
-        where: { id },
-        include: borrowInclude,
-      });
-
-      await AuditLogService.log(
-        'BorrowRecord',
-        updated.id,
-        LogAction.UPDATED,
-        returnedById,
-        existing,
-        updated,
-        tx,
-      );
-
-      return updated;
-    });
-  }
-
-
-
   /**
    * Rejects a PENDING borrow request. The equipment is never touched — it
    * was never reserved in the first place, so it simply stays AVAILABLE.
@@ -371,7 +297,9 @@ export class BorrowService {
       // midnight by Prisma). A raw `now > new Date(expectedReturn)` comparison
       // would flag a same-day return at 9 AM as overdue.
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const expectedStr = new Date(existing.expectedReturn).toISOString().split('T')[0];
+      const expectedStr = new Date(existing.expectedReturn)
+        .toISOString()
+        .split('T')[0];
       const isLate = todayStr > expectedStr;
 
       // Always use RETURNED regardless of lateness so the user is never
@@ -385,14 +313,22 @@ export class BorrowService {
       const recordUpdate = await tx.borrowRecord.updateMany({
         where: {
           id,
-          status: { in: [BorrowStatus.BORROWED, BorrowStatus.APPROVED, BorrowStatus.OVERDUE] },
+          status: {
+            in: [
+              BorrowStatus.BORROWED,
+              BorrowStatus.APPROVED,
+              BorrowStatus.OVERDUE,
+            ],
+          },
         },
         data: {
           status: finalStatus,
           actualReturn: now,
           returnCondition: data.returnCondition,
           notes: data.notes
-            ? [existing.notes, `[Return Notes] ${data.notes}`].filter(Boolean).join('\n')
+            ? [existing.notes, `[Return Notes] ${data.notes}`]
+                .filter(Boolean)
+                .join('\n')
             : existing.notes,
         },
       });

@@ -20,7 +20,9 @@ export class EmailService {
     text?: string;
     html?: string;
   }): Promise<void> {
-    const recipients = Array.isArray(options.to) ? options.to.join(', ') : options.to;
+    const recipients = Array.isArray(options.to)
+      ? options.to.join(', ')
+      : options.to;
     try {
       await this.transporter.sendMail({
         from: env.SMTP_FROM,
@@ -31,7 +33,10 @@ export class EmailService {
       });
       console.log(`[EmailService] Email sent successfully to: ${recipients}`);
     } catch (error) {
-      console.error(`[EmailService] Failed to send email to ${recipients}:`, error);
+      console.error(
+        `[EmailService] Failed to send email to ${recipients}:`,
+        error,
+      );
       // We don't want to throw error and block the caller process, just log it.
     }
   }
@@ -47,7 +52,9 @@ export class EmailService {
     scheduledDate: Date;
     technicianName: string;
   }): Promise<void> {
-    const formattedDate = options.scheduledDate.toLocaleDateString(undefined, { timeZone: 'UTC' });
+    const formattedDate = options.scheduledDate.toLocaleDateString(undefined, {
+      timeZone: 'UTC',
+    });
     const subject = `[Reminder] Scheduled Maintenance: ${options.equipmentName} (${options.assetId})`;
 
     const html = `

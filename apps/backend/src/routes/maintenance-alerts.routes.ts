@@ -35,7 +35,8 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     });
     res.status(200).json({ alerts, count: alerts.length });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });
@@ -48,24 +49,29 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
     });
     res.status(200).json({ count });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ message });
   }
 });
 
 // PATCH /api/maintenance-alerts/read-all - Mark all as read
-router.patch('/read-all', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await prisma.maintenanceAlert.updateMany({
-      where: { isRead: false },
-      data: { isRead: true, readAt: new Date() },
-    });
-    res.status(200).json({ updated: result.count });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+router.patch(
+  '/read-all',
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await prisma.maintenanceAlert.updateMany({
+        where: { isRead: false },
+        data: { isRead: true, readAt: new Date() },
+      });
+      res.status(200).json({ updated: result.count });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 // PATCH /api/maintenance-alerts/:id/read - Mark a single alert as read
 router.patch(
@@ -80,10 +86,11 @@ router.patch(
       });
       res.status(200).json({ alert });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ message });
     }
-  }
+  },
 );
 
 export default router;

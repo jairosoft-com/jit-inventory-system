@@ -10,12 +10,10 @@ export class MaintenanceReminderService {
   static async scanAndNotify(): Promise<void> {
     console.log('[MaintenanceReminderService] Running scheduled scan...');
     try {
-      const now = new Date();
-      
       // Calculate date threshold for next 7 days
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      
+
       const thresholdEnd = new Date();
       thresholdEnd.setDate(thresholdEnd.getDate() + 7);
       thresholdEnd.setHours(23, 59, 59, 999);
@@ -41,7 +39,9 @@ export class MaintenanceReminderService {
         },
       });
 
-      console.log(`[MaintenanceReminderService] Found ${logs.length} scheduled maintenance logs within 7-day threshold.`);
+      console.log(
+        `[MaintenanceReminderService] Found ${logs.length} scheduled maintenance logs within 7-day threshold.`,
+      );
 
       if (logs.length === 0) {
         return;
@@ -65,15 +65,14 @@ export class MaintenanceReminderService {
         const existingAlert = await prisma.maintenanceAlert.findFirst({
           where: {
             maintenanceLogId: log.id,
-            OR: [
-              { isRead: false },
-              { createdAt: { gte: cooldownLimit } },
-            ],
+            OR: [{ isRead: false }, { createdAt: { gte: cooldownLimit } }],
           },
         });
 
         if (existingAlert) {
-          console.log(`[MaintenanceReminderService] Alert already exists/sent recently for log ID ${log.id}. Skipping.`);
+          console.log(
+            `[MaintenanceReminderService] Alert already exists/sent recently for log ID ${log.id}. Skipping.`,
+          );
           continue;
         }
 
@@ -85,15 +84,22 @@ export class MaintenanceReminderService {
             message,
           },
         });
-        console.log(`[MaintenanceReminderService] Created database alert for log ID ${log.id}`);
+        console.log(
+          `[MaintenanceReminderService] Created database alert for log ID ${log.id}`,
+        );
 
         // 2. Compile recipient list
         const recipients: string[] = [...managerEmails];
-        let technicianName = log.performedByVendor ? `${log.performedByVendor} (Vendor)` : 'Unassigned';
+        let technicianName = log.performedByVendor
+          ? `${log.performedByVendor} (Vendor)`
+          : 'Unassigned';
 
         if (log.performedBy) {
           technicianName = `${log.performedBy.firstName} ${log.performedBy.lastName}`;
-          if (log.performedBy.email && !recipients.includes(log.performedBy.email)) {
+          if (
+            log.performedBy.email &&
+            !recipients.includes(log.performedBy.email)
+          ) {
             recipients.push(log.performedBy.email);
           }
         }
@@ -112,7 +118,10 @@ export class MaintenanceReminderService {
       }
       console.log('[MaintenanceReminderService] Scheduled scan completed.');
     } catch (error) {
-      console.error('[MaintenanceReminderService] Error during scheduled scan:', error);
+      console.error(
+        '[MaintenanceReminderService] Error during scheduled scan:',
+        error,
+      );
     }
   }
 }

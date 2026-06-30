@@ -113,6 +113,18 @@ export class ProcurementService {
       throw new Error('One or more items not found or have been archived');
     }
 
+    // Validate item types (only CONSUMABLE and EQUIPMENT allowed)
+    const invalidTypeItems = items.filter(
+      (item) =>
+        item.itemType !== ItemType.CONSUMABLE &&
+        item.itemType !== ItemType.EQUIPMENT,
+    );
+    if (invalidTypeItems.length > 0) {
+      throw new Error(
+        `Only CONSUMABLE or EQUIPMENT items can be added to a purchase order. Found invalid item types for: ${invalidTypeItems.map((i) => i.itemName).join(', ')}`,
+      );
+    }
+
     // Check for duplicate item IDs in lineItems
     const uniqueItemIds = new Set(itemIds);
     if (uniqueItemIds.size !== itemIds.length) {
@@ -258,6 +270,18 @@ export class ProcurementService {
         throw new Error('One or more items not found or have been archived');
       }
 
+      // Validate item types (only CONSUMABLE and EQUIPMENT allowed)
+      const invalidTypeItems = items.filter(
+        (item) =>
+          item.itemType !== ItemType.CONSUMABLE &&
+          item.itemType !== ItemType.EQUIPMENT,
+      );
+      if (invalidTypeItems.length > 0) {
+        throw new Error(
+          `Only CONSUMABLE or EQUIPMENT items can be added to a purchase order. Found invalid item types for: ${invalidTypeItems.map((i) => i.itemName).join(', ')}`,
+        );
+      }
+
       const uniqueItemIds = new Set(itemIds);
       if (uniqueItemIds.size !== itemIds.length) {
         throw new Error('Duplicate item IDs are not allowed in line items');
@@ -335,224 +359,257 @@ export class ProcurementService {
     userId: number,
     userRoleId: number,
   ) {
-    const existing = await this.findOne(id);
-    const currentStatus = existing.status;
-    const newStatus = data.status as PurchaseOrderStatus;
+    let attempts = 0;
+    const maxAttempts = 5;
 
-    // Validate transition
-    const allowed = ALLOWED_TRANSITIONS[currentStatus];
-    if (!allowed || !allowed.includes(newStatus)) {
-      throw new Error(
-        `Cannot transition from ${currentStatus} to ${newStatus}`,
-      );
-    }
-
-    // Check if this transition requires elevated role
-    if (ELEVATED_TRANSITIONS.includes(newStatus)) {
-      const role = await prisma.role.findUnique({
-        where: { id: userRoleId },
-      });
-
-      if (!role || !['ADMIN', 'MANAGER'].includes(role.name)) {
-        throw new Error(
-          'Only Managers or Admins can perform this status change',
-        );
-      }
-    }
-
-    await prisma.$transaction(async (tx) => {
-      const hasEquipment = existing.lineItems.some(
-        (li) => li.item.itemType === 'EQUIPMENT',
-      );
-      let statusToSave = newStatus;
-      if (newStatus === 'COMPLETED') {
-        statusToSave = hasEquipment ? 'COMPLETED' : 'ARCHIVED';
-      }
-
-      const result = await tx.purchaseOrder.update({
-        where: { id },
-        data: { status: statusToSave },
-        include: PO_INCLUDE,
-      });
-
-      // Create immutable history entry
-      if (newStatus === 'COMPLETED') {
-        // Log transition from currentStatus to COMPLETED
-        await tx.purchaseOrderHistory.create({
-          data: {
-            purchaseOrderId: id,
-            oldStatus: currentStatus,
-            newStatus: 'COMPLETED',
-            changedById: userId,
-            notes: data.notes || 'Order completed',
-          },
-        });
-
-        if (!hasEquipment) {
-          // Log transition from COMPLETED to ARCHIVED (auto-archive)
-          await tx.purchaseOrderHistory.create({
-            data: {
-              purchaseOrderId: id,
-              oldStatus: 'COMPLETED',
-              newStatus: 'ARCHIVED',
-              changedById: userId,
-              notes: 'Automatically archived on completion',
-            },
+    while (true) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          // Re-fetch existing PO within the transaction to avoid race conditions and ensure read consistency
+          const existing = await tx.purchaseOrder.findUnique({
+            where: { id },
+            include: PO_INCLUDE,
           });
-        }
-      } else {
-        await tx.purchaseOrderHistory.create({
-          data: {
-            purchaseOrderId: id,
-            oldStatus: currentStatus,
-            newStatus,
-            changedById: userId,
-            notes: data.notes || null,
-          },
-        });
-      }
 
-      if (newStatus === 'COMPLETED') {
-        await AuditLogService.log(
-          'PurchaseOrder',
-          id,
-          'UPDATED',
-          userId,
-          { status: currentStatus },
-          { status: 'COMPLETED' },
-          tx,
-        );
+          if (!existing) {
+            throw new Error('Purchase order not found');
+          }
 
-        if (!hasEquipment) {
-          await AuditLogService.log(
-            'PurchaseOrder',
-            id,
-            'UPDATED',
-            userId,
-            { status: 'COMPLETED' },
-            { status: 'ARCHIVED' },
-            tx,
-          );
-        }
-      } else {
-        await AuditLogService.log(
-          'PurchaseOrder',
-          id,
-          newStatus === 'APPROVED' ? 'APPROVED' : 'UPDATED',
-          userId,
-          { status: currentStatus },
-          { status: newStatus },
-          tx,
-        );
-      }
+          const currentStatus = existing.status;
+          const newStatus = data.status as PurchaseOrderStatus;
 
-      // If the status transitions to COMPLETED, auto-update the inventory
-      if (newStatus === 'COMPLETED') {
-        // Query next asset ID start number
-        const equipmentList = await tx.equipment.findMany({
-          select: { assetId: true },
-          where: { assetId: { startsWith: 'EQ-' } },
-        });
-        let nextAssetNum =
-          equipmentList.reduce((max, eq) => {
-            const match = eq.assetId.match(/^EQ-(\d+)$/);
-            return match ? Math.max(max, Number(match[1])) : max;
-          }, 0) + 1;
+          // Validate transition
+          const allowed = ALLOWED_TRANSITIONS[currentStatus];
+          if (!allowed || !allowed.includes(newStatus)) {
+            throw new Error(
+              `Cannot transition from ${currentStatus} to ${newStatus}`,
+            );
+          }
 
-        for (const li of existing.lineItems) {
-          if (li.item.itemType === 'CONSUMABLE') {
-            const profile = await tx.consumableProfile.findUnique({
-              where: { itemId: li.itemId },
+          // Check if this transition requires elevated role
+          if (ELEVATED_TRANSITIONS.includes(newStatus)) {
+            const role = await tx.role.findUnique({
+              where: { id: userRoleId },
             });
-            if (profile) {
-              const quantityBefore = profile.quantity;
-              const quantityAfter = quantityBefore + li.quantity;
 
-              // Recalculate status
-              let itemStatus = profile.status;
-              if (itemStatus !== ItemStatus.ARCHIVED) {
-                if (quantityAfter <= 0) {
-                  itemStatus = ItemStatus.OUT_OF_STOCK;
-                } else if (quantityAfter <= profile.reorderPoint) {
-                  itemStatus = ItemStatus.LOW_STOCK;
-                } else {
-                  itemStatus = ItemStatus.IN_STOCK;
-                }
-              }
+            if (!role || !['ADMIN', 'MANAGER'].includes(role.name)) {
+              throw new Error(
+                'Only Managers or Admins can perform this status change',
+              );
+            }
+          }
 
-              // Update profile
-              await tx.consumableProfile.update({
-                where: { id: profile.id },
+          const hasEquipment = existing.lineItems.some(
+            (li) => li.item.itemType === 'EQUIPMENT',
+          );
+          let statusToSave = newStatus;
+          if (newStatus === 'COMPLETED') {
+            statusToSave = hasEquipment ? 'COMPLETED' : 'ARCHIVED';
+          }
+
+          const result = await tx.purchaseOrder.update({
+            where: { id },
+            data: { status: statusToSave },
+            include: PO_INCLUDE,
+          });
+
+          // Create immutable history entry
+          if (newStatus === 'COMPLETED') {
+            // Log transition from currentStatus to COMPLETED
+            await tx.purchaseOrderHistory.create({
+              data: {
+                purchaseOrderId: id,
+                oldStatus: currentStatus,
+                newStatus: 'COMPLETED',
+                changedById: userId,
+                notes: data.notes || 'Order completed',
+              },
+            });
+
+            if (!hasEquipment) {
+              // Log transition from COMPLETED to ARCHIVED (auto-archive)
+              await tx.purchaseOrderHistory.create({
                 data: {
-                  quantity: quantityAfter,
-                  status: itemStatus,
-                },
-              });
-
-              // Create StockIn
-              const stockIn = await tx.stockIn.create({
-                data: {
-                  consumableProfileId: profile.id,
-                  quantityAdded: li.quantity,
                   purchaseOrderId: id,
-                  receivedById: userId,
-                  notes: `Received automatically on completion of Purchase Order ${result.invoiceNumber || id}`,
-                },
-              });
-
-              // Create StockMovement ledger entry
-              await tx.stockMovement.create({
-                data: {
-                  consumableProfileId: profile.id,
-                  movementType: MovementType.STOCK_IN,
-                  quantityChange: li.quantity,
-                  quantityBefore,
-                  quantityAfter,
-                  reason: `Purchase Order Completed: Received ${li.quantity} units`,
-                  referenceType: 'STOCK_IN',
-                  referenceId: stockIn.id,
-                  performedById: userId,
+                  oldStatus: 'COMPLETED',
+                  newStatus: 'ARCHIVED',
+                  changedById: userId,
+                  notes: 'Automatically archived on completion',
                 },
               });
             }
-          } else if (li.item.itemType === 'EQUIPMENT') {
-            // Generate individual physical equipment assets
-            for (let i = 0; i < li.quantity; i++) {
-              const assetId = `EQ-${String(nextAssetNum++).padStart(3, '0')}`;
-              await tx.equipment.create({
-                data: {
-                  assetId,
-                  serialNumber: null, // Pending registration/serialization
-                  brand: null,
-                  model: null,
-                  condition: ConditionStatus.NEW,
-                  status: EquipmentStatus.AVAILABLE,
-                  location: null,
-                  purchasePrice: li.unitCost,
-                  deletedAt: new Date(),
-                  purchaseOrder: {
-                    connect: { id },
-                  },
-                  item: {
-                    create: {
-                      itemName: li.item.itemName,
-                      description: li.item.description || null,
-                      categoryId: li.item.categoryId,
-                      itemType: ItemType.EQUIPMENT,
-                      barcode: null,
-                      registeredBy: userId,
-                      deletedAt: new Date(),
+          } else {
+            await tx.purchaseOrderHistory.create({
+              data: {
+                purchaseOrderId: id,
+                oldStatus: currentStatus,
+                newStatus,
+                changedById: userId,
+                notes: data.notes || null,
+              },
+            });
+          }
+
+          if (newStatus === 'COMPLETED') {
+            await AuditLogService.log(
+              'PurchaseOrder',
+              id,
+              'UPDATED',
+              userId,
+              { status: currentStatus },
+              { status: 'COMPLETED' },
+              tx,
+            );
+
+            if (!hasEquipment) {
+              await AuditLogService.log(
+                'PurchaseOrder',
+                id,
+                'UPDATED',
+                userId,
+                { status: 'COMPLETED' },
+                { status: 'ARCHIVED' },
+                tx,
+              );
+            }
+          } else {
+            await AuditLogService.log(
+              'PurchaseOrder',
+              id,
+              newStatus === 'APPROVED' ? 'APPROVED' : 'UPDATED',
+              userId,
+              { status: currentStatus },
+              { status: newStatus },
+              tx,
+            );
+          }
+
+          // If the status transitions to COMPLETED, auto-update the inventory
+          if (newStatus === 'COMPLETED') {
+            // Query next asset ID start number
+            const equipmentList = await tx.equipment.findMany({
+              select: { assetId: true },
+              where: { assetId: { startsWith: 'EQ-' } },
+            });
+            let nextAssetNum =
+              equipmentList.reduce((max, eq) => {
+                const match = eq.assetId.match(/^EQ-(\d+)$/);
+                return match ? Math.max(max, Number(match[1])) : max;
+              }, 0) + 1;
+
+            for (const li of existing.lineItems) {
+              if (li.item.itemType === 'CONSUMABLE') {
+                const profile = await tx.consumableProfile.findUnique({
+                  where: { itemId: li.itemId },
+                });
+                if (profile) {
+                  const quantityBefore = profile.quantity;
+                  const quantityAfter = quantityBefore + li.quantity;
+
+                  // Recalculate status
+                  let itemStatus = profile.status;
+                  if (itemStatus !== ItemStatus.ARCHIVED) {
+                    if (quantityAfter <= 0) {
+                      itemStatus = ItemStatus.OUT_OF_STOCK;
+                    } else if (quantityAfter <= profile.reorderPoint) {
+                      itemStatus = ItemStatus.LOW_STOCK;
+                    } else {
+                      itemStatus = ItemStatus.IN_STOCK;
+                    }
+                  }
+
+                  // Update profile
+                  await tx.consumableProfile.update({
+                    where: { id: profile.id },
+                    data: {
+                      quantity: quantityAfter,
+                      status: itemStatus,
                     },
-                  },
-                },
-              });
+                  });
+
+                  // Create StockIn
+                  const stockIn = await tx.stockIn.create({
+                    data: {
+                      consumableProfileId: profile.id,
+                      quantityAdded: li.quantity,
+                      purchaseOrderId: id,
+                      receivedById: userId,
+                      notes: `Received automatically on completion of Purchase Order ${result.invoiceNumber || id}`,
+                    },
+                  });
+
+                  // Create StockMovement ledger entry
+                  await tx.stockMovement.create({
+                    data: {
+                      consumableProfileId: profile.id,
+                      movementType: MovementType.STOCK_IN,
+                      quantityChange: li.quantity,
+                      quantityBefore,
+                      quantityAfter,
+                      reason: `Purchase Order Completed: Received ${li.quantity} units`,
+                      referenceType: 'STOCK_IN',
+                      referenceId: stockIn.id,
+                      performedById: userId,
+                    },
+                  });
+                }
+              } else if (li.item.itemType === 'EQUIPMENT') {
+                // Generate individual physical equipment assets
+                for (let i = 0; i < li.quantity; i++) {
+                  const assetId = `EQ-${String(nextAssetNum++).padStart(3, '0')}`;
+                  await tx.equipment.create({
+                    data: {
+                      assetId,
+                      serialNumber: null, // Pending registration/serialization
+                      brand: null,
+                      model: null,
+                      condition: ConditionStatus.NEW,
+                      status: EquipmentStatus.AVAILABLE,
+                      location: null,
+                      purchasePrice: li.unitCost,
+                      deletedAt: new Date(),
+                      purchaseOrder: {
+                        connect: { id },
+                      },
+                      item: {
+                        create: {
+                          itemName: li.item.itemName,
+                          description: li.item.description || null,
+                          categoryId: li.item.categoryId,
+                          itemType: ItemType.EQUIPMENT,
+                          barcode: null,
+                          registeredBy: userId,
+                          deletedAt: new Date(),
+                        },
+                      },
+                    },
+                  });
+                }
+              }
+            }
+          }
+        });
+        break; // break out of the retry loop if successful
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const targets = error.meta?.target as string[] | undefined;
+          if (targets?.includes('assetId') || targets?.includes('asset_id')) {
+            attempts++;
+            if (attempts < maxAttempts) {
+              // Wait a small random delay before retrying
+              await new Promise((resolve) =>
+                setTimeout(resolve, 50 + Math.random() * 100),
+              );
+              continue;
             }
           }
         }
+        throw error;
       }
-
-      return result;
-    });
+    }
 
     // Re-fetch to include the new history entry
     return prisma.purchaseOrder.findUnique({
@@ -661,7 +718,6 @@ export class ProcurementService {
       const duplicate = await prisma.equipment.findFirst({
         where: {
           serialNumber: data.serialNumber,
-          deletedAt: null,
           id: { not: equipmentId },
         },
       });
@@ -672,26 +728,45 @@ export class ProcurementService {
       }
     }
 
-    const updatedEquipment = await prisma.equipment.update({
-      where: { id: equipmentId },
-      data: {
-        serialNumber: data.serialNumber || null,
-        location: data.location || null,
-        brand: data.brand || null,
-        model: data.model || null,
-        condition: data.condition || undefined,
-        warrantyEnd: data.warrantyEnd ? new Date(data.warrantyEnd) : null,
-        deletedAt: null,
-        item: {
-          update: {
-            deletedAt: null,
+    let updatedEquipment;
+    try {
+      updatedEquipment = await prisma.equipment.update({
+        where: { id: equipmentId },
+        data: {
+          serialNumber: data.serialNumber || null,
+          location: data.location || null,
+          brand: data.brand || null,
+          model: data.model || null,
+          condition: data.condition || undefined,
+          warrantyEnd: data.warrantyEnd ? new Date(data.warrantyEnd) : null,
+          deletedAt: null,
+          item: {
+            update: {
+              deletedAt: null,
+            },
           },
         },
-      },
-      include: {
-        item: true,
-      },
-    });
+        include: {
+          item: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const targets = error.meta?.target as string[] | undefined;
+        if (
+          targets?.includes('serialNumber') ||
+          targets?.includes('serial_number')
+        ) {
+          throw new Error(
+            `Serial number "${data.serialNumber}" is already registered to another asset.`,
+          );
+        }
+      }
+      throw error;
+    }
 
     // Check if all units under this PO are now registered
     const unregisteredCount = await prisma.equipment.count({

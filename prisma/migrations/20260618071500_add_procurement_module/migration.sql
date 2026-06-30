@@ -1,11 +1,13 @@
 -- Step 1: Update the PurchaseOrderStatus enum
--- First, update any existing 'RECEIVED' values to 'COMPLETED'
-UPDATE "purchase_orders" SET "status" = 'DRAFT' WHERE "status" = 'RECEIVED';
-
 -- Alter the enum type: add new values first
 ALTER TYPE "PurchaseOrderStatus" ADD VALUE IF NOT EXISTS 'REJECTED';
 ALTER TYPE "PurchaseOrderStatus" ADD VALUE IF NOT EXISTS 'COMPLETED';
 ALTER TYPE "PurchaseOrderStatus" ADD VALUE IF NOT EXISTS 'ARCHIVED';
+
+COMMIT;
+
+-- First, update any existing 'RECEIVED' values to 'COMPLETED'
+UPDATE "purchase_orders" SET "status" = 'COMPLETED' WHERE "status" = 'RECEIVED';
 
 -- Note: PostgreSQL does not support removing enum values directly.
 -- The 'RECEIVED' value will remain in the enum type but will not be used.

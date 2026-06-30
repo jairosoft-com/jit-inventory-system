@@ -23,6 +23,7 @@ export interface MaintenanceLog {
     brand: string | null;
     model: string | null;
     status: string;
+    condition: string;
     item: {
       itemName: string;
     };

@@ -37,6 +37,7 @@ export default function MaintenancePage() {
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'history' | 'all'>('upcoming');
 
   // Modal control states
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -78,7 +79,7 @@ export default function MaintenancePage() {
   const loadData = useCallback(() => {
     // Determine status query param
     let statusQuery: MaintenanceStatus | undefined;
-    if (statusFilter !== 'all' && statusFilter !== 'unscheduled' && statusFilter !== 'scheduled_only') {
+    if (activeTab === 'all' && statusFilter !== 'all' && statusFilter !== 'unscheduled' && statusFilter !== 'scheduled_only') {
       statusQuery = statusFilter as MaintenanceStatus;
     }
 
@@ -88,7 +89,7 @@ export default function MaintenancePage() {
       page: currentPage,
       limit: PAGE_LIMIT,
     });
-  }, [appliedSearchTerm, statusFilter, currentPage, fetchMaintenanceLogs]);
+  }, [activeTab, appliedSearchTerm, statusFilter, currentPage, fetchMaintenanceLogs]);
 
   // Fetch users for technician list and equipment
   useEffect(() => {
@@ -100,8 +101,29 @@ export default function MaintenancePage() {
     void fetchEquipment({ limit: 100 });
   }, [loadData, fetchEquipment]);
 
-  // Filter logs locally for unscheduled and scheduled_only helper filters
+  // Filter and sort logs based on active tab and search/filter criteria
   const filteredLogs = useMemo(() => {
+    if (activeTab === 'upcoming') {
+      return maintenanceLogs
+        .filter((log) => log.status === 'SCHEDULED' || log.status === 'IN_PROGRESS')
+        .sort((a, b) => {
+          if (a.scheduledDate === null && b.scheduledDate === null) return 0;
+          if (a.scheduledDate === null) return 1;
+          if (b.scheduledDate === null) return -1;
+          return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
+        });
+    }
+    if (activeTab === 'history') {
+      return maintenanceLogs
+        .filter((log) => log.status === 'COMPLETED' || log.status === 'CANCELLED')
+        .sort((a, b) => {
+          if (a.completedDate === null && b.completedDate === null) return 0;
+          if (a.completedDate === null) return 1;
+          if (b.completedDate === null) return -1;
+          return new Date(b.completedDate).getTime() - new Date(a.completedDate).getTime();
+        });
+    }
+    // 'all' tab: fallback to dropdown statusFilter
     if (statusFilter === 'unscheduled') {
       return maintenanceLogs.filter((log) => log.scheduledDate === null);
     }
@@ -109,7 +131,7 @@ export default function MaintenancePage() {
       return maintenanceLogs.filter((log) => log.status === 'SCHEDULED' && log.scheduledDate !== null);
     }
     return maintenanceLogs;
-  }, [maintenanceLogs, statusFilter]);
+  }, [maintenanceLogs, activeTab, statusFilter]);
 
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -324,6 +346,22 @@ export default function MaintenancePage() {
     return { total, unscheduled, scheduled, inProgress, completed };
   }, [filteredLogs]);
 
+  // Render Condition Badge
+  const renderConditionBadge = (condition: string) => {
+    const styles: Record<string, string> = {
+      NEW: 'bg-green-100 text-green-800',
+      GOOD: 'bg-blue-100 text-blue-800',
+      FAIR: 'bg-amber-100 text-amber-800',
+      POOR: 'bg-orange-100 text-orange-800',
+      DAMAGED: 'bg-red-100 text-red-800',
+    };
+    return (
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[condition] || 'bg-gray-100 text-gray-800'}`}>
+        {condition}
+      </span>
+    );
+  };
+
   // Render Badge
   const renderStatusBadge = (log: MaintenanceLog) => {
     if (log.scheduledDate === null) {
@@ -457,8 +495,46 @@ export default function MaintenancePage() {
           </div>
         </section>
 
-        {/* Filters */}
+        {/* Workspace Maintenance Logs Section */}
         <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+          {/* Horizontal Tabs */}
+          <div className="flex border-b border-[var(--surface-border)] mb-6 overflow-x-auto whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => { setActiveTab('upcoming'); setCurrentPage(1); }}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
+                activeTab === 'upcoming'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              Upcoming Maintenance
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('history'); setCurrentPage(1); }}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
+                activeTab === 'history'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              Maintenance History
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
+                activeTab === 'all'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              All Records
+            </button>
+          </div>
+
+          {/* Filters */}
           <div className="mb-6 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5 lg:flex-row lg:items-center lg:justify-between">
             <form onSubmit={handleSearchSubmit} className="flex flex-1 max-w-lg gap-2">
               <input
@@ -477,23 +553,25 @@ export default function MaintenancePage() {
             </form>
 
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-[var(--text-secondary)]">Status:</span>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => handleStatusFilterChange(e.target.value)}
-                  className="rounded-xl border border-[var(--surface-border)] bg-[var(--background)] px-3 py-2 text-sm font-medium outline-none"
-                >
-                  <option value="all">All Logs</option>
-                  <option value="unscheduled">Unscheduled</option>
-                  <option value="scheduled_only">Scheduled Only</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
-                </select>
-              </div>
+              {activeTab === 'all' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[var(--text-secondary)]">Status:</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => handleStatusFilterChange(e.target.value)}
+                    className="rounded-xl border border-[var(--surface-border)] bg-[var(--background)] px-3 py-2 text-sm font-medium outline-none"
+                  >
+                    <option value="all">All Logs</option>
+                    <option value="unscheduled">Unscheduled</option>
+                    <option value="scheduled_only">Scheduled Only</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+              )}
 
-              {(searchTerm || statusFilter !== 'all') && (
+              {(searchTerm || (activeTab === 'all' && statusFilter !== 'all')) && (
                 <button
                   type="button"
                   onClick={handleClearFilters}
@@ -523,9 +601,11 @@ export default function MaintenancePage() {
                   <tr className="border-b border-[var(--surface-border)] text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] bg-[var(--background-secondary)]">
                     <th className="px-4 py-3.5">Asset ID</th>
                     <th className="px-4 py-3.5">Equipment Name</th>
+                    <th className="px-4 py-3.5">Condition</th>
                     <th className="px-4 py-3.5">Maintenance Description</th>
                     <th className="px-4 py-3.5">Status</th>
                     <th className="px-4 py-3.5">Scheduled Date</th>
+                    <th className="px-4 py-3.5">Completion Date</th>
                     <th className="px-4 py-3.5">Technician / Vendor</th>
                     <th className="px-4 py-3.5">Cost</th>
                     <th className="px-4 py-3.5 text-right">Actions</th>
@@ -540,6 +620,9 @@ export default function MaintenancePage() {
                       <td className="px-4 py-4 font-medium text-[var(--text-primary)]">
                         {log.equipment.item.itemName}
                       </td>
+                      <td className="px-4 py-4">
+                        {renderConditionBadge(log.equipment.condition)}
+                      </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)] max-w-xs truncate">
                         {log.description}
                       </td>
@@ -548,6 +631,9 @@ export default function MaintenancePage() {
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)]">
                         {log.scheduledDate ? new Date(log.scheduledDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}
+                      </td>
+                      <td className="px-4 py-4 text-[var(--text-secondary)]">
+                        {log.completedDate ? new Date(log.completedDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)]">
                         {log.performedBy

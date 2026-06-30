@@ -136,20 +136,6 @@ export class BorrowService {
 
   // ── Approve ──────────────────────────────────────────────────────────────────
 
-  /**
-   * Approves a PENDING borrow request: flips the request to APPROVED, sets
-   * borrowDate to now, and transitions the equipment to BORROWED so it drops
-   * out of any AVAILABLE-filtered list.
-   *
-   * Both state transitions use updateMany() with the expected prior state
-   * baked into the `where` clause (status: PENDING / status: AVAILABLE)
-   * rather than a separate findUnique() read followed by an update(). This
-   * makes the check-and-set atomic at the database level: Postgres only
-   * matches and locks rows that still satisfy the where clause at the
-   * moment of the write, so two concurrent approve() calls for the same
-   * equipment can no longer both read AVAILABLE and both write BORROWED.
-   * The loser's updateMany() simply matches zero rows.
-   */
   static async approve(id: number, approverId: number) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
@@ -160,8 +146,6 @@ export class BorrowService {
         throw new Error('Borrow record not found');
       }
 
-      // Atomic check-and-set: only matches if the equipment is still
-      // AVAILABLE at the moment this statement executes.
       const eqUpdate = await tx.equipment.updateMany({
         where: { id: existing.equipmentId, status: EquipmentStatus.AVAILABLE },
         data: { status: EquipmentStatus.BORROWED },
@@ -170,8 +154,6 @@ export class BorrowService {
         throw new Error('Equipment is currently unavailable');
       }
 
-      // Atomic check-and-set: only matches if the request is still PENDING
-      // at the moment this statement executes.
       const recordUpdate = await tx.borrowRecord.updateMany({
         where: { id, status: BorrowStatus.PENDING },
         data: {
@@ -191,14 +173,6 @@ export class BorrowService {
     });
   }
 
-  /**
-   * Rejects a PENDING borrow request. The equipment is never touched — it
-   * was never reserved in the first place, so it simply stays AVAILABLE.
-   *
-   * Uses the same atomic updateMany() pattern as approve() so a concurrent
-   * approve/reject on the same record can't both succeed against a stale
-   * in-memory PENDING read.
-   */
   static async reject(id: number, approverId: number, data: RejectBorrowInput) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
@@ -232,25 +206,8 @@ export class BorrowService {
     });
   }
 
-  /**
-   * Processes the physical return of borrowed equipment.
-   *
-   * Business rules:
-   *   1. The borrow record must be in BORROWED or APPROVED status. Any other
-   *      status (RETURNED, REJECTED, PENDING, CANCELLED) is rejected with a
-   *      409 Conflict so the UI can surface a clear message.
-   *   2. If the current date is past expectedReturn the transaction is stamped
-   *      as OVERDUE and logged separately so late returns appear in the audit
-   *      trail with an OVERDUE action. On-time returns use RETURNED.
-   *   3. Equipment status is unconditionally set back to AVAILABLE — condition
-   *      is recorded on the borrow record, not the equipment row, so the
-   *      equipment remains available for future borrows regardless of return
-   *      condition (a maintenance ticket would be a separate flow).
-   *
-   * Uses updateMany() with the expected prior status baked into the WHERE
-   * clause (same atomic check-and-set pattern as approve/reject) to prevent
-   * duplicate returns from concurrent requests.
-   */
+  // ── Process Return ────────────────────────────────────────────────────────────
+
   static async processReturn(
     id: number,
     data: ProcessReturnInput,
@@ -272,9 +229,6 @@ export class BorrowService {
         throw new Error('Borrow record not found');
       }
 
-      // Only BORROWED or APPROVED records can be returned. APPROVED covers
-      // the edge case where a manager approved but the borrower never
-      // physically picked it up and is returning it immediately.
       if (
         existing.status !== BorrowStatus.BORROWED &&
         existing.status !== BorrowStatus.APPROVED &&
@@ -290,24 +244,15 @@ export class BorrowService {
 
       const now = new Date();
 
-      // Compare as YYYY-MM-DD strings in local time to avoid false-positive
-      // late returns when expectedReturn is a date-only column (stored as UTC
-      // midnight by Prisma). A raw `now > new Date(expectedReturn)` comparison
-      // would flag a same-day return at 9 AM as overdue.
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const expectedStr = new Date(existing.expectedReturn)
         .toISOString()
         .split('T')[0];
       const isLate = todayStr > expectedStr;
 
-      // Always use RETURNED regardless of lateness so the user is never
-      // permanently locked out of borrowing. Lateness is captured via the
-      // audit log action and the actualReturn vs expectedReturn comparison.
       const finalStatus = BorrowStatus.RETURNED;
       const auditAction = isLate ? LogAction.UPDATED : LogAction.RETURNED;
 
-      // Atomic check-and-set: only matches if the record is still
-      // BORROWED or APPROVED at the moment this statement executes.
       const recordUpdate = await tx.borrowRecord.updateMany({
         where: {
           id,
@@ -337,8 +282,6 @@ export class BorrowService {
         );
       }
 
-      // Always restore equipment to AVAILABLE so it reappears in the
-      // available list immediately after return.
       await tx.equipment.update({
         where: { id: existing.equipmentId },
         data: { status: EquipmentStatus.AVAILABLE },
@@ -349,8 +292,6 @@ export class BorrowService {
         include: borrowInclude,
       });
 
-      // Log with RETURNED for on-time, UPDATED for overdue so auditors can
-      // distinguish late returns in the audit trail.
       await AuditLogService.log(
         'BorrowRecord',
         id,

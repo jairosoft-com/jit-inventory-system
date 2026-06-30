@@ -74,6 +74,7 @@ function buildReplacementReasons(
     condition: ConditionStatus;
     status: EquipmentStatus;
     acquisitionDate: Date | null;
+    replacementNeeded?: boolean;
   },
   today: Date,
 ): string[] {
@@ -87,8 +88,12 @@ function buildReplacementReasons(
     reasons.push('Equipment status is damaged');
   }
 
+  if (equipment.replacementNeeded) {
+    reasons.push('Manually tagged as replacement needed');
+  }
+
   if (equipment.status === EquipmentStatus.RETIRED) {
-    reasons.push('Equipment is retired or manually flagged');
+    reasons.push('Equipment is retired');
   }
 
   if (hasExceededLifecycle(equipment.acquisitionDate, today)) {
@@ -109,8 +114,12 @@ function buildReplacementRecommendation(
     return 'Replace immediately due to damaged equipment condition or status.';
   }
 
-  if (reasons.includes('Equipment is retired or manually flagged')) {
-    return 'Review and replace because the equipment is retired or manually flagged.';
+  if (reasons.includes('Manually tagged as replacement needed')) {
+    return 'Plan procurement for a replacement asset.';
+  }
+
+  if (reasons.includes('Equipment is retired')) {
+    return 'Review and replace because the equipment is retired.';
   }
 
   if (reasons.includes('Lifecycle exceeded')) {
@@ -390,6 +399,9 @@ export class DashboardService {
         },
         OR: [
           {
+            replacementNeeded: true,
+          },
+          {
             condition: ConditionStatus.DAMAGED,
           },
           {
@@ -437,6 +449,8 @@ export class DashboardService {
         condition: equipment.condition,
         status: equipment.status,
         acquisitionDate: equipment.acquisitionDate,
+        replacementNeeded: equipment.replacementNeeded,
+        replacementNeededAt: equipment.replacementNeededAt,
         lifecycleYears,
         replacementRecommendation: buildReplacementRecommendation(
           replacementReasons,

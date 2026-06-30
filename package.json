@@ -39,7 +39,15 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "dotenv": "^17.4.2"
+    "@radix-ui/react-popover": "^1.1.17",
+    "@radix-ui/react-select": "^2.3.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.22.0",
+    "react-day-picker": "^10.0.1",
+    "tailwind-merge": "^3.6.0"
   },
   "engines": {
     "node": ">=20.0.0",

@@ -18,7 +18,7 @@ export default function App() {
       <Routes>
         {/* Public Login Route */}
         <Route path="/" element={<LoginPage />} />
-
+ 
         {/* Dashboard Shell Route */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
@@ -33,10 +33,11 @@ export default function App() {
           <Route path="logs" element={<PlaceholderPage />} />
           <Route path="reports" element={<ReportsPage />} />
         </Route>
-
+ 
         {/* Catch-all Redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
 }
+

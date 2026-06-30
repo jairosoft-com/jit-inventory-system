@@ -232,8 +232,6 @@ export class BorrowService {
     });
   }
 
-  // ── Process Return ────────────────────────────────────────────────────────────
-
   /**
    * Processes the physical return of borrowed equipment.
    *

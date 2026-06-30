@@ -200,9 +200,8 @@ router.patch(
       const message =
         error instanceof Error ? error.message : 'Internal server error';
       if (
-        message.includes('already been returned') ||
-        message.includes('Cannot process return') ||
-        message.includes('changed concurrently')
+        message.includes('not returnable') ||
+        message.includes('not in a returnable')
       ) {
         res.status(409).json({ message });
         return;

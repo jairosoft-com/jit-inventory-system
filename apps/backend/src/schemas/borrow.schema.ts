@@ -46,14 +46,4 @@ export const returnEquipmentSchema = z.object({
 export type CreateBorrowInput = z.infer<typeof createBorrowSchema>;
 export type ListBorrowQuery = z.infer<typeof listBorrowQuerySchema>;
 export type RejectBorrowInput = z.infer<typeof rejectBorrowSchema>;
-
-// ── Process Return ────────────────────────────────────────────────────────────
-
-export const processReturnSchema = z.object({
-  returnCondition: z.nativeEnum(ConditionStatus, {
-    errorMap: () => ({ message: 'A valid return condition is required' }),
-  }),
-  notes: z.string().trim().max(1000).optional().nullable(),
-});
-
-export type ProcessReturnInput = z.infer<typeof processReturnSchema>;
+export type ReturnEquipmentInput = z.infer<typeof returnEquipmentSchema>;

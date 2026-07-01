@@ -981,6 +981,79 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {(isLoading || overdueAlertsMapped.length > 0) && (
+          <div className="dash-card dash-card--wide">
+            <div className="dash-card-header">
+              <h2 className="dash-card-title">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                Overdue Equipment Alerts
+              </h2>
+              <button
+                className="dash-card-action"
+                onClick={() => navigate('/dashboard/borrow')}
+                disabled={overdueAlertsMapped.length === 0}
+              >
+                Manage Borrows
+              </button>
+            </div>
+
+            <div className="dash-card-content">
+              {isLoading && overdueAlertsMapped.length === 0 ? (
+                <div className="dash-skeleton-list">
+                  {[1, 2, 3].map((id) => (
+                    <div key={id} className="dash-skeleton-row animate-pulse">
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dash-alerts-list">
+                  {overdueAlertsMapped.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="dash-alert-row dash-alert-row--critical"
+                    >
+                      <div className="dash-alert-badge">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#ef4444"
+                          strokeWidth="2"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                      </div>
+
+                      <div className="dash-alert-content">
+                        <span className="dash-alert-itemName">{alert.itemName} ({alert.assetId})</span>
+                        <span className="dash-alert-detail">
+                          Borrowed by <strong>{alert.borrowerName}</strong> · Due back on {formatDate(alert.expectedReturn)} ({alert.daysOverdue} days overdue)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {(isLoading || outOfStockAlerts.length > 0 || lowStockAlertsMapped.length > 0) && (
           <div className="dash-stock-alerts-grid">
             {(isLoading || outOfStockAlerts.length > 0) && (

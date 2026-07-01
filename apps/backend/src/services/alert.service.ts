@@ -319,9 +319,15 @@ export class AlertService {
   static async runOverdueScan(): Promise<void> {
     await AlertService.resolveStaleOverdueAlerts();
 
-    const overdueRecords = await BorrowService.flagOverdue();
+    // Flag newly overdue records
+    await BorrowService.flagOverdue();
 
-    for (const record of overdueRecords) {
+    // Fetch all overdue records to ensure they have active alerts
+    const allOverdue = await db.borrowRecord.findMany({
+      where: { status: BorrowStatus.OVERDUE },
+    });
+
+    for (const record of allOverdue) {
       await AlertService.checkAndCreateOverdueAlert(record.id);
     }
   }

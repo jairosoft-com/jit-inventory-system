@@ -351,16 +351,26 @@ export class EquipmentService {
           include: equipmentInclude,
         });
 
-        // Spawn initial maintenance log row linked to the equipment ID
-        await tx.maintenanceLog.create({
-          data: {
-            equipmentId: eq.id,
-            description:
-              'Initial maintenance record — No Maintenance Scheduled',
-            status: MaintenanceStatus.SCHEDULED,
-            scheduledDate: null,
-          },
-        });
+        // Automatically create an initial unscheduled maintenance log only if the equipment
+        // is registered in non-healthy conditions (FAIR, POOR, DAMAGED).
+        if (
+          eq.condition !== ConditionStatus.NEW &&
+          eq.condition !== ConditionStatus.GOOD
+        ) {
+          await tx.maintenanceLog.create({
+            data: {
+              equipmentId: eq.id,
+              description:
+                'Initial maintenance record — No Maintenance Scheduled',
+              status: MaintenanceStatus.SCHEDULED,
+              scheduledDate: null,
+              equipmentName: eq.item?.itemName ?? data.itemName,
+              equipmentBrand: eq.brand,
+              equipmentModel: eq.model,
+              equipmentCondition: eq.condition,
+            },
+          });
+        }
 
         await AuditLogService.log(
           'Equipment',
@@ -404,11 +414,21 @@ export class EquipmentService {
     }
   }
 
-  static async findAll(query: ListEquipmentQuery) {
+  static async findAll(
+    query: Partial<ListEquipmentQuery> & { needsMaintenance?: boolean },
+  ) {
     await this.syncCompletedRetirements();
 
-    const { status, condition, categoryId, assignedTo, search, page, limit } =
-      query;
+    const {
+      status,
+      condition,
+      categoryId,
+      assignedTo,
+      search,
+      page = 1,
+      limit = 20,
+      needsMaintenance,
+    } = query;
 
     const skip = (page - 1) * limit;
 
@@ -421,6 +441,25 @@ export class EquipmentService {
         deletedAt: null,
         ...(categoryId && { categoryId }),
       },
+      ...(needsMaintenance && {
+        condition: {
+          in: [
+            ConditionStatus.FAIR,
+            ConditionStatus.POOR,
+            ConditionStatus.DAMAGED,
+          ],
+        },
+        status: {
+          notIn: [EquipmentStatus.RETIRED, EquipmentStatus.RETIREMENT_PENDING],
+        },
+        maintenanceLogs: {
+          none: {
+            status: {
+              in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+            },
+          },
+        },
+      }),
       ...(search && {
         OR: [
           { assetId: { contains: search, mode: 'insensitive' } },

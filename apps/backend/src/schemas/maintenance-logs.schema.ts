@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MaintenanceStatus } from '@prisma/client';
+import { MaintenanceStatus, ConditionStatus } from '@prisma/client';
 
 export const scheduleMaintenanceSchema = z
   .object({
@@ -63,6 +63,7 @@ export const updateMaintenanceScheduleSchema = z
     status: z.nativeEnum(MaintenanceStatus).optional(),
     cost: z.number().nonnegative().optional().nullable(),
     completedDate: z.coerce.date().optional().nullable(),
+    postMaintenanceCondition: z.nativeEnum(ConditionStatus).optional(),
   })
   .refine(
     (data) => {
@@ -86,6 +87,7 @@ export const listMaintenanceLogsQuerySchema = z.object({
   status: z.nativeEnum(MaintenanceStatus).optional(),
   equipmentId: z.coerce.number().int().positive().optional(),
   search: z.string().trim().optional(),
+  tab: z.enum(['upcoming', 'history', 'all']).optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });

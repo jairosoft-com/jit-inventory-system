@@ -663,11 +663,16 @@ model MaintenanceLog {
   performedById     Int?              @map("performed_by_id")
   performedByVendor String?           @map("performed_by_vendor") @db.VarChar(255)
   notes             String?           @db.Text
+  equipmentName      String?           @map("equipment_name") @db.VarChar(255)
+  equipmentBrand     String?           @map("equipment_brand") @db.VarChar(255)
+  equipmentModel     String?           @map("equipment_model") @db.VarChar(255)
+  equipmentCondition ConditionStatus? @map("equipment_condition")
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
   equipment   Equipment @relation(fields: [equipmentId], references: [id])
   performedBy User?     @relation("PerformedByUser", fields: [performedById], references: [id])
+  maintenanceAlerts MaintenanceAlert[]
 
   @@index([equipmentId])
   @@index([status])
@@ -740,3 +745,23 @@ model InventoryAlert {
   @@index([borrowRecordId])
   @@map("inventory_alerts")
 }
+
+// ────────────────────────────────────────────
+// 20. Maintenance Alerts
+// ────────────────────────────────────────────
+model MaintenanceAlert {
+  id               Int            @id @default(autoincrement())
+  maintenanceLogId Int            @map("maintenance_log_id")
+  alertType        String         @default("MAINTENANCE_DUE") @map("alert_type") @db.VarChar(50)
+  message          String         @db.Text
+  isRead           Boolean        @default(false) @map("is_read")
+  readAt           DateTime?      @map("read_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  maintenanceLog   MaintenanceLog @relation(fields: [maintenanceLogId], references: [id])
+
+  @@index([maintenanceLogId])
+  @@index([isRead])
+  @@map("maintenance_alerts")
+}
+

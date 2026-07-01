@@ -170,6 +170,10 @@ export interface RetirementRequestResponse {
   disposal: Disposal;
 }
 
+export interface UpdateDisposalApprovalInput {
+  approvalStatus: Exclude<DisposalApprovalStatus, 'PENDING'>;
+}
+
 export interface UpdateEquipmentInput {
   itemName?: string;
   description?: string | null;
@@ -219,6 +223,10 @@ interface EquipmentState {
     id: number,
     data: RetirementRequestInput,
   ) => Promise<RetirementRequestResponse>;
+  updateDisposalApproval: (
+    id: number,
+    data: UpdateDisposalApprovalInput,
+  ) => Promise<DisposalHistoryRecord>;
   setReplacementNeeded: (id: number, replacementNeeded: boolean) => Promise<Equipment>;
   deleteEquipment: (id: number) => Promise<void>;
   addImage: (
@@ -273,14 +281,11 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
     }
   },
 
-
   fetchDisposalHistory: async () => {
     set({ isDisposalHistoryLoading: true, error: null });
 
     try {
-      const response = await api.get<DisposalHistoryRecord[]>(
-        '/equipment/disposal-history',
-      );
+      const response = await api.get<DisposalHistoryRecord[]>('/equipment/disposal-history');
 
       set({
         disposalHistory: response.data,
@@ -295,9 +300,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       };
 
       const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to fetch disposal history';
+        err.response?.data?.message || err.message || 'Failed to fetch disposal history';
 
       set({ error: errMsg, isDisposalHistoryLoading: false });
       throw new Error(errMsg);
@@ -393,6 +396,41 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         err.response?.data?.message || err.message || 'Failed to submit retirement request';
 
       set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  updateDisposalApproval: async (id, data) => {
+    set({ isDisposalHistoryLoading: true, error: null });
+
+    try {
+      const response = await api.patch<DisposalHistoryRecord>(
+        `/equipment/disposal-history/${id}/approval`,
+        data,
+      );
+
+      const updated = response.data;
+
+      set((state) => ({
+        disposalHistory: state.disposalHistory.map((record) =>
+          record.id === id ? updated : record,
+        ),
+        isDisposalHistoryLoading: false,
+      }));
+
+      await get().fetchEquipment({ page: 1 });
+
+      return updated;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to update disposal approval status';
+
+      set({ error: errMsg, isDisposalHistoryLoading: false });
       throw new Error(errMsg);
     }
   },

@@ -11,12 +11,14 @@ import {
   equipmentImageSchema,
   updateImageSchema,
   retirementRequestSchema,
+  updateDisposalApprovalSchema,
   replacementNeededSchema,
   type CreateEquipmentInput,
   type UpdateEquipmentInput,
   type EquipmentImageInput,
   type UpdateImageInput,
   type RetirementRequestInput,
+  type UpdateDisposalApprovalInput,
   type ReplacementNeededInput,
 } from '../schemas/equipment.schema.js';
 
@@ -99,6 +101,45 @@ router.get(
         error instanceof Error ? error.message : 'Internal server error';
 
       res.status(500).json({ message });
+    }
+  },
+);
+
+// PATCH /equipment/disposal-history/:id/approval
+router.patch(
+  '/disposal-history/:id/approval',
+  authorize('equipment:update'),
+  validate(updateDisposalApprovalSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+
+      if (isNaN(id)) {
+        res.status(400).json({ message: 'Invalid disposal record ID' });
+        return;
+      }
+
+      const result = await EquipmentService.updateDisposalApproval(
+        id,
+        req.body as UpdateDisposalApprovalInput,
+        req.user!.id,
+      );
+
+      res.status(200).json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bad request';
+
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+
+      if (message.includes('Only pending')) {
+        res.status(409).json({ message });
+        return;
+      }
+
+      res.status(400).json({ message });
     }
   },
 );

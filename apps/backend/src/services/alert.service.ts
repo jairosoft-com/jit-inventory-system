@@ -242,11 +242,15 @@ export class AlertService {
    * way checkAndCreateStockAlert does: skips if an unresolved alert for
    * this borrow record was already created within the cooldown window.
    */
-  static async checkAndCreateOverdueAlert(borrowRecordId: number): Promise<void> {
+  static async checkAndCreateOverdueAlert(
+    borrowRecordId: number,
+  ): Promise<void> {
     const record = await db.borrowRecord.findUnique({
       where: { id: borrowRecordId },
       include: {
-        equipment: { select: { assetId: true, item: { select: { itemName: true } } } },
+        equipment: {
+          select: { assetId: true, item: { select: { itemName: true } } },
+        },
         borrowedBy: { select: { firstName: true, lastName: true } },
       },
     });

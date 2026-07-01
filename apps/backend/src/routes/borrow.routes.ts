@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { BorrowStatus } from '@prisma/client';
 import { BorrowService } from '../services/borrow.service.js';
 import { AlertService } from '../services/alert.service.js';
 import { authenticate } from '../middleware/authenticate.js';
@@ -263,7 +264,7 @@ router.post(
           mine: false,
           page: 1,
           limit: 100,
-        } as ListBorrowQuery,
+        },
         req.user!.id,
       );
       res.status(200).json({

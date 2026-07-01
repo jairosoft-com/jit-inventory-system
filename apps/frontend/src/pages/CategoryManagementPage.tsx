@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import type { FormEvent } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore, Category, CreateCategoryInput } from '../store/categoryStore';
+import api from '../lib/api';
+import { Item } from '../store/itemsStore';
 
 export default function CategoryManagementPage() {
   const { user } = useAuthStore();
@@ -18,6 +20,33 @@ export default function CategoryManagementPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
+
+  // Linked items modal state
+  const [selectedCategoryForItems, setSelectedCategoryForItems] = useState<Category | null>(null);
+  const [linkedItems, setLinkedItems] = useState<Item[]>([]);
+  const [isLinkedItemsLoading, setIsLinkedItemsLoading] = useState(false);
+  const [linkedItemsError, setLinkedItemsError] = useState<string | null>(null);
+
+  const fetchLinkedItems = async (category: Category) => {
+    setSelectedCategoryForItems(category);
+    setIsLinkedItemsLoading(true);
+    setLinkedItemsError(null);
+    setLinkedItems([]);
+    try {
+      const response = await api.get<{ data: Item[] }>('/items', {
+        params: {
+          categoryId: category.id,
+          limit: 1000,
+        },
+      });
+      setLinkedItems(response.data.data);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to fetch linked items';
+      setLinkedItemsError(errMsg);
+    } finally {
+      setIsLinkedItemsLoading(false);
+    }
+  };
   const [filterTab, setFilterTab] = useState<'active' | 'archived'>('active');
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -328,8 +357,18 @@ export default function CategoryManagementPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 font-medium text-[var(--text-secondary)]">
-                          {cat._count?.items ?? 0}
+                        <td className="px-5 py-3.5 font-medium">
+                          {(cat._count?.items ?? 0) > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => fetchLinkedItems(cat)}
+                              className="text-[var(--accent)] hover:underline font-semibold cursor-pointer"
+                            >
+                              {cat._count?.items}
+                            </button>
+                          ) : (
+                            <span className="text-[var(--text-secondary)]">0</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5">
                           {cat.deletedAt ? (
@@ -356,15 +395,27 @@ export default function CategoryManagementPage() {
                                   Edit
                                 </button>
                               )}
-                              {canDelete && !cat.deletedAt && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleArchive(cat.id, cat.name)}
-                                  className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
-                                >
-                                  Archive
-                                </button>
-                              )}
+                              {canDelete && !cat.deletedAt && (() => {
+                                const hasLinkedItems = (cat._count?.items ?? 0) > 0;
+                                return hasLinkedItems ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="this category is currently linked to items in your inventory, unlink to archive"
+                                    className="rounded-lg border border-[var(--surface-border)] bg-[var(--background-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                                  >
+                                    Archive
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleArchive(cat.id, cat.name)}
+                                    className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
+                                  >
+                                    Archive
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </td>
                         )}
@@ -393,9 +444,17 @@ export default function CategoryManagementPage() {
                         </p>
                         <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
                           Linked Items:{' '}
-                          <span className="font-semibold text-[var(--text-primary)]">
-                            {cat._count?.items ?? 0}
-                          </span>
+                          {(cat._count?.items ?? 0) > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => fetchLinkedItems(cat)}
+                              className="font-semibold text-[var(--accent)] hover:underline cursor-pointer"
+                            >
+                              {cat._count?.items}
+                            </button>
+                          ) : (
+                            <span className="font-semibold text-[var(--text-primary)]">0</span>
+                          )}
                         </p>
                       </div>
                       <TypeBadge type={cat.type} />
@@ -424,15 +483,27 @@ export default function CategoryManagementPage() {
                             Edit
                           </button>
                         )}
-                        {canDelete && !cat.deletedAt && (
-                          <button
-                            type="button"
-                            onClick={() => handleArchive(cat.id, cat.name)}
-                            className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
-                          >
-                            Archive
-                          </button>
-                        )}
+                        {canDelete && !cat.deletedAt && (() => {
+                          const hasLinkedItems = (cat._count?.items ?? 0) > 0;
+                          return hasLinkedItems ? (
+                            <button
+                              type="button"
+                              disabled
+                              title="this category is currently linked to items in your inventory, unlink to archive"
+                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                            >
+                              Archive
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleArchive(cat.id, cat.name)}
+                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
+                            >
+                              Archive
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   </article>
@@ -591,6 +662,193 @@ export default function CategoryManagementPage() {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+
+      {/* Linked Items Modal */}
+      {selectedCategoryForItems && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-4xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up flex flex-col max-h-[85vh]">
+            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <span>Items in</span>
+                  <span className="rounded bg-[var(--background-tertiary)] px-2 py-0.5 text-sm font-bold text-[var(--accent)]">
+                    {selectedCategoryForItems.name}
+                  </span>
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Active items assigned to this category.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryForItems(null)}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+              {isLinkedItemsLoading ? (
+                <div className="py-12 text-center">
+                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                  <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading items...</h3>
+                </div>
+              ) : linkedItemsError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {linkedItemsError}
+                </div>
+              ) : linkedItems.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
+                    📦
+                  </div>
+                  <h3 className="mt-4 font-semibold text-[var(--text-primary)]">No items found</h3>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    There are no active items currently linked to this category.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)] sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Item Name</th>
+                        <th className="px-4 py-3 font-semibold">Type</th>
+                        <th className="px-4 py-3 font-semibold">Details / Status</th>
+                        <th className="px-4 py-3 font-semibold">Barcode</th>
+                        <th className="px-4 py-3 font-semibold">Created At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--surface-border)]">
+                      {linkedItems.map((item) => (
+                        <tr key={item.id} className="transition hover:bg-[var(--surface-hover)]">
+                          <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                            <div>
+                              <p className="font-semibold">{item.itemName}</p>
+                              {item.description && (
+                                <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-1">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-bold bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                              {item.itemType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                            {/* Consumable Details */}
+                            {item.itemType === 'CONSUMABLE' && item.consumableProfile && (
+                              <div className="flex flex-col gap-0.5">
+                                <p>
+                                  <span className="font-medium text-[var(--text-primary)]">Quantity:</span>{' '}
+                                  {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                                </p>
+                                <p>
+                                  <span className="font-medium">Reorder Point:</span>{' '}
+                                  {item.consumableProfile.reorderPoint}
+                                </p>
+                                <span className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
+                                  item.consumableProfile.status === 'IN_STOCK'
+                                    ? 'bg-[var(--success-muted)] text-[var(--success)]'
+                                    : item.consumableProfile.status === 'LOW_STOCK'
+                                    ? 'bg-[var(--warning-muted)] text-[var(--warning)]'
+                                    : 'bg-red-50 text-red-700'
+                                }`}>
+                                  {item.consumableProfile.status.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Equipment Details */}
+                            {item.itemType === 'EQUIPMENT' && item.equipment && (
+                              <div className="flex flex-col gap-0.5">
+                                <p>
+                                  <span className="font-medium text-[var(--text-primary)]">Asset ID:</span>{' '}
+                                  {item.equipment.assetId}
+                                </p>
+                                {(item.equipment.brand || item.equipment.model) && (
+                                  <p>
+                                    <span className="font-medium">Model:</span>{' '}
+                                    {item.equipment.brand} {item.equipment.model}
+                                  </p>
+                                )}
+                                {item.equipment.serialNumber && (
+                                  <p>
+                                    <span className="font-medium">S/N:</span>{' '}
+                                    {item.equipment.serialNumber}
+                                  </p>
+                                )}
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  <span className="inline-flex rounded-full bg-[var(--accent-muted)] text-[var(--accent)] px-1.5 py-0.5 text-[9px] font-bold">
+                                    {item.equipment.status.replace(/_/g, ' ')}
+                                  </span>
+                                  <span className="inline-flex rounded-full bg-[var(--background-tertiary)] text-[var(--text-secondary)] px-1.5 py-0.5 text-[9px] font-bold">
+                                    {item.equipment.condition}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Digital Asset Details */}
+                            {item.itemType === 'DIGITAL' && item.digitalAsset && (
+                              <div className="flex flex-col gap-0.5">
+                                <p>
+                                  <span className="font-medium text-[var(--text-primary)]">Asset Type:</span>{' '}
+                                  {item.digitalAsset.assetType}
+                                </p>
+                                {item.digitalAsset.vendor && (
+                                  <p>
+                                    <span className="font-medium">Vendor:</span>{' '}
+                                    {item.digitalAsset.vendor}
+                                  </p>
+                                )}
+                                {item.digitalAsset.seats != null && (
+                                  <p>
+                                    <span className="font-medium">Seats:</span>{' '}
+                                    {item.digitalAsset.seats}
+                                  </p>
+                                )}
+                                <span className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
+                                  item.digitalAsset.status === 'ACTIVE'
+                                    ? 'bg-[var(--success-muted)] text-[var(--success)]'
+                                    : 'bg-red-50 text-red-700'
+                                }`}>
+                                  {item.digitalAsset.status}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                            {item.barcode || <span className="italic text-[var(--text-disabled)]">-</span>}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-5 flex items-center justify-end border-t border-[var(--surface-border)] pt-4">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryForItems(null)}
+                className="rounded-xl bg-[var(--background-tertiary)] hover:bg-[var(--surface-hover)] px-5 py-2 text-sm font-semibold text-[var(--text-primary)] transition"
+              >
+                Close
+              </button>
+            </div>
           </section>
         </div>
       )}

@@ -3,7 +3,7 @@ import api from '../lib/api';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type ItemType = 'CONSUMABLE' | 'DIGITAL';
+export type ItemType = 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
 export type ItemStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'ARCHIVED';
 export type StockStatusFilter = Exclude<ItemStatus, 'ARCHIVED'>;
 export type DigitalStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED';
@@ -59,6 +59,7 @@ export interface Item {
   category: { id: number; name: string; type: string };
   consumableProfile: ConsumableProfile | null;
   digitalAsset: DigitalAsset | null;
+  equipment?: any | null;
   images: ItemImage[];
 }
 

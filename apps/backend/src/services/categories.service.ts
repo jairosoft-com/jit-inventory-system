@@ -102,6 +102,17 @@ export class CategoriesService {
     // Ensures category exists and isn't already archived before updating
     await this.findOne(id);
 
+    const activeItemsCount = await prisma.item.count({
+      where: {
+        categoryId: id,
+        deletedAt: null,
+      },
+    });
+
+    if (activeItemsCount > 0) {
+      throw new Error('Cannot archive category with linked items');
+    }
+
     return prisma.category.update({
       where: { id },
       data: { deletedAt: new Date() },

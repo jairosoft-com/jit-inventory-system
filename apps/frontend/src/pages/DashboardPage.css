@@ -130,7 +130,7 @@
 
 .dash-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -210,6 +210,16 @@
 @media (max-width: 1024px) {
   .dash-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dash-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .dash-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -307,6 +317,18 @@
 }
 
 /* ── Alerts Panel ────────────────────── */
+
+.dash-stock-alerts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .dash-stock-alerts-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .dash-alerts-list {
   display: flex;
@@ -927,4 +949,3 @@
   font-weight: 700;
   border-radius: var(--radius-full);
 }
-

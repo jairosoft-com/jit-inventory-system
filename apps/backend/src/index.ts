@@ -20,6 +20,7 @@ import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import { AlertService } from './services/alert.service.js';
+import { startCronJobs } from './lib/cron.js';
 
 const app = express();
 
@@ -102,6 +103,9 @@ const server = app.listen(port, () => {
       );
     }
   })();
+
+  // Task 206597: daily 08:00 warranty expiry scan + digest email
+  startCronJobs();
 });
 
 // Graceful shutdown

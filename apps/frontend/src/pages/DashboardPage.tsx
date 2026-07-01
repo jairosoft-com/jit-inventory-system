@@ -5,6 +5,7 @@ import { usePolling } from '../lib/usePolling';
 import { useAuthStore } from '../store/authStore';
 import AnalyticsSection from './AnalyticsSection';
 import './DashboardPage.css';
+import EquipmentLifecycleAlertsWidget from '../components/EquipmentLifecycleAlertsWidget';
 
 interface QuickAction {
   label: string;

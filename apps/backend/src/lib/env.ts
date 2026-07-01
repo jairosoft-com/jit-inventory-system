@@ -35,4 +35,7 @@ export const env = {
   RATE_LIMIT_AUTH: parseInt(process.env.RATE_LIMIT_AUTH || '15', 10),
   RATE_LIMIT_HEAVY: parseInt(process.env.RATE_LIMIT_HEAVY || '200', 10),
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  SMTP_HOST: process.env.SMTP_HOST || 'localhost',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '1025', 10),
+  SMTP_FROM: process.env.SMTP_FROM || 'JIT Inventory System <noreply@jitims.com>',
 };

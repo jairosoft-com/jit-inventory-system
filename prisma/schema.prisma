@@ -145,6 +145,8 @@ enum LogAction {
 enum AlertType {
   LOW_STOCK
   OUT_OF_STOCK
+  WARRANTY_EXPIRING
+  REPLACEMENT_NEEDED
 }
 
 enum AlertPriority {
@@ -372,6 +374,7 @@ model Equipment {
   borrowRecords   BorrowRecord[]
   maintenanceLogs MaintenanceLog[]
   disposal        Disposal?
+  alerts          InventoryAlert[]
 
   @@index([status])
   @@index([assignedTo])
@@ -719,7 +722,8 @@ model InventoryLog {
 // ────────────────────────────────────────────
 model InventoryAlert {
   id                  Int           @id @default(autoincrement())
-  consumableProfileId Int           @map("consumable_profile_id")
+  consumableProfileId Int?          @map("consumable_profile_id")
+  equipmentId         Int?          @map("equipment_id")
   alertType           AlertType     @map("alert_type")
   priority            AlertPriority
   message             String        @db.Text
@@ -728,10 +732,12 @@ model InventoryAlert {
   resolvedAt          DateTime?     @map("resolved_at")
   createdAt           DateTime      @default(now()) @map("created_at")
 
-  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
+  equipment         Equipment?          @relation(fields: [equipmentId], references: [id])
 
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
+  @@index([equipmentId])
   @@map("inventory_alerts")
 }

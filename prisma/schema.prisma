@@ -152,6 +152,11 @@ enum AlertPriority {
   CRITICAL
 }
 
+enum ProcurementAlertType {
+  PENDING_APPROVAL
+  STATUS_UPDATED
+}
+
 // ────────────────────────────────────────────
 // 1. Roles
 // ────────────────────────────────────────────
@@ -472,6 +477,7 @@ model PurchaseOrder {
   equipment   Equipment[]
   history     PurchaseOrderHistory[]
   attachments PurchaseOrderAttachment[]
+  procurementAlerts ProcurementAlert[]
 
   @@index([status])
   @@index([supplierId])
@@ -734,4 +740,22 @@ model InventoryAlert {
   @@index([resolvedAt])
   @@index([consumableProfileId])
   @@map("inventory_alerts")
+}
+
+// 20. Procurement Alerts
+model ProcurementAlert {
+  id              Int                   @id @default(autoincrement())
+  purchaseOrderId Int                   @map("purchase_order_id")
+  alertType       ProcurementAlertType  @map("alert_type")
+  message         String                @db.Text
+  isRead          Boolean               @default(false) @map("is_read")
+  readAt          DateTime?             @map("read_at")
+  createdAt       DateTime              @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  @@index([isRead])
+  @@index([purchaseOrderId])
+  @@index([alertType])
+  @@map("procurement_alerts")
 }

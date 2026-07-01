@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAlertStore, ALERT_POLL_INTERVAL_MS } from '../store/alertStore';
+import { useProcurementAlertStore } from '../store/procurementAlertStore';
 import { usePolling } from '../lib/usePolling';
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
@@ -316,8 +317,17 @@ export default function DashboardLayout() {
     close: closeNotif,
   } = useAlertStore();
 
+  const {
+    alerts: procurementAlerts,
+    unreadCount: procurementUnreadCount,
+    fetchUnread: fetchProcurementUnread,
+    markAsRead: markProcurementAsRead,
+    markAllAsRead: markAllProcurementAsRead,
+  } = useProcurementAlertStore();
+
   // Poll badge count every 60s
   usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
+  usePolling(fetchProcurementUnread, ALERT_POLL_INTERVAL_MS, !!user);
 
   // Close notification panel on click outside
   useEffect(() => {
@@ -379,6 +389,24 @@ export default function DashboardLayout() {
 
     void checkAuth();
   };
+
+  // Merge and sort all alerts
+  const totalUnreadCount = unreadCount + procurementUnreadCount;
+  const mergedAlerts = [
+    ...alerts.map((a) => ({ ...a, source: 'inventory' as const })),
+    ...procurementAlerts.map((a) => ({
+      id: a.id,
+      alertType: a.alertType as string,
+      priority: 'NORMAL' as const,
+      message: a.message,
+      isRead: a.isRead,
+      readAt: a.readAt,
+      createdAt: a.createdAt,
+      resolvedAt: null,
+      consumableProfile: null,
+      source: 'procurement' as const,
+    })),
+  ].sort((a: { createdAt: string }, b: { createdAt: string }) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (isLoading) {
     return (
@@ -621,8 +649,10 @@ export default function DashboardLayout() {
                 >
                   <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
-                {unreadCount > 0 && (
-                  <span className="dash-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                {totalUnreadCount > 0 && (
+                  <span className="dash-notif-badge">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </span>
                 )}
               </button>
 
@@ -631,8 +661,14 @@ export default function DashboardLayout() {
                 <div className="dash-notif-panel">
                   <div className="dash-notif-header">
                     <span className="dash-notif-title">Notifications</span>
-                    {unreadCount > 0 && (
-                      <button className="dash-notif-mark-all" onClick={() => void markAllAsRead()}>
+                    {totalUnreadCount > 0 && (
+                      <button
+                        className="dash-notif-mark-all"
+                        onClick={() => {
+                          void markAllAsRead();
+                          void markAllProcurementAsRead();
+                        }}
+                      >
                         Mark all read
                       </button>
                     )}
@@ -641,7 +677,7 @@ export default function DashboardLayout() {
                   <div className="dash-notif-body">
                     {notifLoading ? (
                       <div className="dash-notif-empty">Loading...</div>
-                    ) : alerts.length === 0 ? (
+                    ) : mergedAlerts.length === 0 ? (
                       <div className="dash-notif-empty">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, marginBottom: 8 }}>
                           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
@@ -649,11 +685,19 @@ export default function DashboardLayout() {
                         <span>No alerts right now</span>
                       </div>
                     ) : (
-                      alerts.map((alert) => (
+                      mergedAlerts.map((alert) => (
                         <div
-                          key={alert.id}
+                          key={`${alert.source}-${alert.id}`}
                           className={`dash-notif-item ${!alert.isRead ? 'dash-notif-item--unread' : ''} ${alert.priority === 'CRITICAL' ? 'dash-notif-item--critical' : ''}`}
-                          onClick={() => { if (!alert.isRead) void markAsRead(alert.id); }}
+                          onClick={() => {
+                            if (!alert.isRead) {
+                              if (alert.source === 'procurement') {
+                                void markProcurementAsRead(alert.id);
+                              } else {
+                                void markAsRead(alert.id);
+                              }
+                            }
+                          }}
                         >
                           <div className="dash-notif-dot" />
                           <div className="dash-notif-item-body">
@@ -662,9 +706,11 @@ export default function DashboardLayout() {
                               {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
-                            {alert.priority}
-                          </span>
+                          {alert.priority !== 'NORMAL' && (
+                            <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
+                              {alert.priority}
+                            </span>
+                          )}
                         </div>
                       ))
                     )}

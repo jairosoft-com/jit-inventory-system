@@ -5,13 +5,14 @@ import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import { prisma } from '../lib/prisma.js';
-import { ConditionStatus, BorrowStatus } from '@prisma/client';
 import {
   createBorrowSchema,
   listBorrowQuerySchema,
+  processReturnSchema,
   rejectBorrowSchema,
   type CreateBorrowInput,
   type ListBorrowQuery,
+  type ProcessReturnInput,
   type RejectBorrowInput,
 } from '../schemas/borrow.schema.js';
 
@@ -20,14 +21,13 @@ const router = Router();
 // All borrow routes require authentication
 router.use(authenticate);
 
-/**
- * Determines whether the requesting user is allowed to view borrow records
- * belonging to other people. `borrow:approve` is used as the signal here —
- * it's already restricted to MANAGER/ADMIN in the seed, and anyone who can
- * approve/reject other people's requests reasonably needs to see them too.
- * STAFF holds borrow:read (so they can list/filter their own history) but
- * not borrow:approve, so this returns false for them.
- */
+// ── Authorization helper ────────────────────────────────────────────────────
+// STAFF holds `borrow:read` (so they can see their own history), but that
+// permission alone must NOT let them see other employees' records. Only
+// roles that also hold `borrow:approve` (MANAGER/ADMIN) may view all
+// records. This must be enforced here at the route level — the UI-level
+// `?mine=true` flag is a convenience, not a security boundary, since a
+// client can simply omit it or call `GET /borrow/:id` directly.
 async function canViewAllBorrowRecords(
   roleId: number | undefined,
 ): Promise<boolean> {
@@ -69,15 +69,8 @@ router.post(
 );
 
 // ── GET /borrow ───────────────────────────────────────────────────────────────
-// List borrow records. Powers both the personal "My Requests" view and the
-// org-wide "Borrow History" / "All Requests" views from the same endpoint.
-//
-// Scoping is enforced here, not just in the UI: a user without
-// borrow:approve (i.e. STAFF) is always limited to their own records, even
-// if they explicitly omit `mine` or set it to false on the request. Only
-// users who can act on other people's requests (MANAGER/ADMIN) can list
-// everyone's records. This prevents a STAFF user from reading colleagues'
-// borrow history by simply not passing ?mine=true.
+// List borrow records. ?mine=true scopes to the requesting user (history view).
+// Admins/managers can see all with borrow:read.
 
 router.get(
   '/',
@@ -87,7 +80,6 @@ router.get(
     try {
       const query = req.query as unknown as ListBorrowQuery;
       const canViewAll = await canViewAllBorrowRecords(req.user!.roleId);
-
       const result = await BorrowService.findAll(
         canViewAll ? query : { ...query, mine: true },
         req.user!.id,
@@ -102,8 +94,6 @@ router.get(
 );
 
 // ── GET /borrow/:id ───────────────────────────────────────────────────────────
-// Same scoping rule as the list endpoint: a STAFF user can only fetch their
-// own record by id, even though the id itself is just a sequential integer.
 
 router.get(
   '/:id',
@@ -116,12 +106,9 @@ router.get(
         return;
       }
       const record = await BorrowService.findOne(id);
-
       const canViewAll = await canViewAllBorrowRecords(req.user!.roleId);
+
       if (!canViewAll && record.borrowedById !== req.user!.id) {
-        // Mirror the list endpoint's not-found-style boundary rather than a
-        // 403 — this avoids confirming to a STAFF user that a record with
-        // this id exists at all but belongs to someone else.
         res.status(404).json({ message: 'Borrow record not found' });
         return;
       }
@@ -223,6 +210,7 @@ router.patch(
 router.patch(
   '/:id/return',
   authorize('borrow:return'),
+  validate(processReturnSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
@@ -230,21 +218,19 @@ router.patch(
         res.status(400).json({ message: 'Invalid borrow record ID' });
         return;
       }
-      const { returnCondition, notes } = req.body as {
-        returnCondition?: ConditionStatus;
-        notes?: string;
-      };
-      const record = await BorrowService.returnEquipment(id, req.user!.id, {
-        returnCondition,
-        notes,
-      });
-      res.status(200).json(record);
+      const result = await BorrowService.processReturn(
+        id,
+        req.body as ProcessReturnInput,
+        req.user!.id,
+      );
+      res.status(200).json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
       if (
-        message.includes('not returnable') ||
-        message.includes('not in a returnable')
+        message.includes('already been returned') ||
+        message.includes('Cannot process return') ||
+        message.includes('changed concurrently')
       ) {
         res.status(409).json({ message });
         return;

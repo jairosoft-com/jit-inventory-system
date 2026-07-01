@@ -2,8 +2,6 @@
   Warnings:
 
   - The values [RECEIVED] on the enum `PurchaseOrderStatus` will be removed. If these variants are still used in the database, this will fail.
-    (Data was already migrated off RECEIVED onto COMPLETED in the
-    20260618071500_add_procurement_module migration, so this should be safe.)
 
 */
 -- AlterEnum

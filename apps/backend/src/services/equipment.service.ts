@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { AlertService } from './alert.service.js';
 import {
   BorrowStatus,
   ConditionStatus,
@@ -216,6 +217,15 @@ export class EquipmentService {
       return;
     }
 
+    const equipmentsToRetire = await prisma.equipment.findMany({
+      where: {
+        id: { in: equipmentIds },
+        status: EquipmentStatus.RETIREMENT_PENDING,
+        deletedAt: null,
+      },
+      select: { id: true, replacementNeeded: true },
+    });
+
     await prisma.equipment.updateMany({
       where: {
         id: { in: equipmentIds },
@@ -226,8 +236,17 @@ export class EquipmentService {
         status: EquipmentStatus.RETIRED,
       },
     });
-  }
 
+    // Fire replacement notifications for retired equipment tagged for replacement
+    for (const eq of equipmentsToRetire) {
+      if (eq.replacementNeeded) {
+        const created = await AlertService.triggerReplacementAlert(eq.id);
+        if (created) {
+          void AlertService.sendReplacementNeededEmail(eq.id);
+        }
+      }
+    }
+  }
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   static async create(data: CreateEquipmentInput, registeredBy: number) {
@@ -543,7 +562,7 @@ export class EquipmentService {
 
   // ── Replacement needed tagging ──────────────────────────────────────────────
 
-  static async setReplacementNeeded(
+static async setReplacementNeeded(
     id: number,
     data: ReplacementNeededInput,
     userId: number,
@@ -568,9 +587,21 @@ export class EquipmentService {
       updated,
     );
 
+   // Notify Admin + Manager when the replacement tag is newly saved
+    if (data.replacementNeeded) {
+      const created = await AlertService.triggerReplacementAlert(id);
+      if (created) {
+        void AlertService.sendReplacementNeededEmail(id);
+      }
+    } else {
+      // Tag was cleared — resolve any open alert so re-tagging can notify again
+      await prisma.inventoryAlert.updateMany({
+        where: { equipmentId: id, alertType: 'REPLACEMENT_NEEDED', resolvedAt: null },
+        data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
+      });
+    }
     return updated;
   }
-
   // ── Retirement request ──────────────────────────────────────────────────────
 
   static async submitRetirementRequest(

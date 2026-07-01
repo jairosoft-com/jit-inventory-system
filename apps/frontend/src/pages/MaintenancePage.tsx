@@ -21,9 +21,11 @@ export default function MaintenancePage() {
   const {
     maintenanceLogs,
     meta,
+    stats,
     isLoading,
     error: storeError,
     fetchMaintenanceLogs,
+    fetchStats,
     scheduleMaintenance,
     updateMaintenanceSchedule,
     createMaintenanceLog,
@@ -334,15 +336,7 @@ export default function MaintenancePage() {
     }
   };
 
-  // Helper stats
-  const stats = useMemo(() => {
-    const total = filteredLogs.length;
-    const unscheduled = filteredLogs.filter((l) => l.scheduledDate === null).length;
-    const scheduled = filteredLogs.filter((l) => l.status === 'SCHEDULED' && l.scheduledDate !== null).length;
-    const inProgress = filteredLogs.filter((l) => l.status === 'IN_PROGRESS').length;
-    const completed = filteredLogs.filter((l) => l.status === 'COMPLETED').length;
-    return { total, unscheduled, scheduled, inProgress, completed };
-  }, [filteredLogs]);
+
 
   // Render Condition Badge
   const renderConditionBadge = (condition: string) => {

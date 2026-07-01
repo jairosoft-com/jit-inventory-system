@@ -459,4 +459,41 @@ export class MaintenanceLogsService {
       throw error;
     }
   }
+
+  static async getStats() {
+    const [total, unscheduled, scheduled, inProgress, completed] =
+      await Promise.all([
+        prisma.maintenanceLog.count({
+          where: { equipment: { deletedAt: null } },
+        }),
+        prisma.maintenanceLog.count({
+          where: {
+            equipment: { deletedAt: null },
+            scheduledDate: null,
+            status: MaintenanceStatus.SCHEDULED,
+          },
+        }),
+        prisma.maintenanceLog.count({
+          where: {
+            equipment: { deletedAt: null },
+            status: MaintenanceStatus.SCHEDULED,
+            scheduledDate: { not: null },
+          },
+        }),
+        prisma.maintenanceLog.count({
+          where: {
+            equipment: { deletedAt: null },
+            status: MaintenanceStatus.IN_PROGRESS,
+          },
+        }),
+        prisma.maintenanceLog.count({
+          where: {
+            equipment: { deletedAt: null },
+            status: MaintenanceStatus.COMPLETED,
+          },
+        }),
+      ]);
+
+    return { total, unscheduled, scheduled, inProgress, completed };
+  }
 }

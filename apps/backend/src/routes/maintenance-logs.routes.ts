@@ -67,6 +67,22 @@ router.post(
   },
 );
 
+// GET /maintenance-logs/stats - Get overall stats for cards
+router.get(
+  '/stats',
+  authorize('maintenance:read'),
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const stats = await MaintenanceLogsService.getStats();
+      res.status(200).json(stats);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
+
 // GET /maintenance-logs/:id - Get single log
 router.get(
   '/:id',

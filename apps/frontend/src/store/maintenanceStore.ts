@@ -76,13 +76,23 @@ interface PaginationMeta {
   totalPages: number;
 }
 
+interface MaintenanceStats {
+  total: number;
+  unscheduled: number;
+  scheduled: number;
+  inProgress: number;
+  completed: number;
+}
+
 interface MaintenanceState {
   maintenanceLogs: MaintenanceLog[];
   meta: PaginationMeta;
+  stats: MaintenanceStats;
   isLoading: boolean;
   error: string | null;
 
   fetchMaintenanceLogs: (query?: ListMaintenanceLogsQuery) => Promise<void>;
+  fetchStats: () => Promise<void>;
   createMaintenanceLog: (equipmentId: number, description: string) => Promise<MaintenanceLog>;
   scheduleMaintenance: (id: number, data: ScheduleMaintenanceInput) => Promise<MaintenanceLog>;
   updateMaintenanceSchedule: (id: number, data: UpdateMaintenanceScheduleInput) => Promise<MaintenanceLog>;
@@ -92,10 +102,20 @@ interface MaintenanceState {
 export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
   maintenanceLogs: [],
   meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+  stats: { total: 0, unscheduled: 0, scheduled: 0, inProgress: 0, completed: 0 },
   isLoading: false,
   error: null,
 
   clearError: () => set({ error: null }),
+
+  fetchStats: async () => {
+    try {
+      const response = await api.get<MaintenanceStats>('/maintenance-logs/stats');
+      set({ stats: response.data });
+    } catch {
+      // ignore
+    }
+  },
 
   fetchMaintenanceLogs: async (query) => {
     set({ isLoading: true, error: null });
@@ -117,6 +137,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
         meta: response.data.meta,
         isLoading: false,
       });
+      void get().fetchStats();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       set({
@@ -153,6 +174,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
         maintenanceLogs: state.maintenanceLogs.map((log) => (log.id === id ? updated : log)),
         isLoading: false,
       }));
+      void get().fetchStats();
       return updated;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -171,6 +193,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
         maintenanceLogs: state.maintenanceLogs.map((log) => (log.id === id ? updated : log)),
         isLoading: false,
       }));
+      void get().fetchStats();
       return updated;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

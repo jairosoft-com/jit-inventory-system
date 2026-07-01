@@ -247,4 +247,47 @@ describe('Maintenance Flow Unit Tests', () => {
     // Assert eqDamagedClean is included
     expect(returnedIds).toContain(eqDamagedClean.id);
   });
+
+  it('should return correct maintenance stats from getStats', async () => {
+    // Check initial stats
+    const statsBefore = await MaintenanceLogsService.getStats();
+
+    // Create a new equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Stats Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-STATS-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.POOR,
+        status: EquipmentStatus.AVAILABLE,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Initial automatically created log is SCHEDULED & null scheduledDate.
+    // Let's schedule it with a date
+    const initialLog = await prisma.maintenanceLog.findFirst({
+      where: { equipmentId: eq.id },
+    });
+    expect(initialLog).toBeDefined();
+
+    await MaintenanceLogsService.schedule(
+      initialLog!.id,
+      {
+        description: 'Schedule maintenance description',
+        scheduledDate: new Date(),
+        performedByVendor: 'Test Vendor',
+      },
+      testUserId,
+    );
+
+    const statsAfter = await MaintenanceLogsService.getStats();
+    expect(statsAfter.total).toBe(statsBefore.total + 1); // Incremented by 1 due to automatic log creation
+    expect(statsAfter.scheduled).toBe(statsBefore.scheduled + 1); // Incremented by 1 because we scheduled it
+    expect(statsAfter.unscheduled).toBe(statsBefore.unscheduled); // Stays the same (created 1 unscheduled, then scheduled it)
+  });
 });

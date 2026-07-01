@@ -384,11 +384,21 @@ export class EquipmentService {
     }
   }
 
-  static async findAll(query: ListEquipmentQuery & { needsMaintenance?: boolean }) {
+  static async findAll(
+    query: Partial<ListEquipmentQuery> & { needsMaintenance?: boolean },
+  ) {
     await this.syncCompletedRetirements();
 
-    const { status, condition, categoryId, assignedTo, search, page = 1, limit = 20, needsMaintenance } =
-      query;
+    const {
+      status,
+      condition,
+      categoryId,
+      assignedTo,
+      search,
+      page = 1,
+      limit = 20,
+      needsMaintenance,
+    } = query;
 
     const skip = (page - 1) * limit;
 
@@ -403,7 +413,11 @@ export class EquipmentService {
       },
       ...(needsMaintenance && {
         condition: {
-          in: [ConditionStatus.FAIR, ConditionStatus.POOR, ConditionStatus.DAMAGED],
+          in: [
+            ConditionStatus.FAIR,
+            ConditionStatus.POOR,
+            ConditionStatus.DAMAGED,
+          ],
         },
         status: {
           notIn: [EquipmentStatus.RETIRED, EquipmentStatus.RETIREMENT_PENDING],

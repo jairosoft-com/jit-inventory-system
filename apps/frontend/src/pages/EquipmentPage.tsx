@@ -265,6 +265,7 @@ export default function EquipmentPage() {
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
+    updateDisposalApproval,
     setReplacementNeeded,
     deleteEquipment,
     addImage,
@@ -289,10 +290,12 @@ export default function EquipmentPage() {
 
   const roleName = user?.role?.name?.toUpperCase() || '';
   const isAdmin = roleName.includes('ADMIN');
+  const isStaff = roleName.includes('STAFF') || roleName.includes('EMPLOYEE');
   const canRead = isAdmin || permissions.includes('equipment:read');
   const canCreate = isAdmin || permissions.includes('equipment:create');
   const canUpdate = isAdmin || permissions.includes('equipment:update');
   const canDelete = false; // deletion is disabled
+  const canManageDisposalActions = canUpdate && !isStaff;
 
   // ── UI State ─────────────────────────────────────────────────────────────
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -315,6 +318,8 @@ export default function EquipmentPage() {
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
   const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(null);
+  const [disposalActionId, setDisposalActionId] = useState<number | null>(null);
+  const [disposalStatusFilter, setDisposalStatusFilter] = useState<DisposalApprovalStatus | ''>('');
 
   const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
   const [replacementError, setReplacementError] = useState<string | null>(null);
@@ -324,6 +329,12 @@ export default function EquipmentPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const filteredDisposalHistory = useMemo(() => {
+    if (!disposalStatusFilter) return disposalHistory;
+
+    return disposalHistory.filter((record) => record.approvalStatus === disposalStatusFilter);
+  }, [disposalHistory, disposalStatusFilter]);
 
   // ── Data Loading ─────────────────────────────────────────────────────────
   const loadEquipment = useCallback(
@@ -752,6 +763,33 @@ export default function EquipmentPage() {
   const handleCloseDisposalHistory = () => {
     setIsDisposalHistoryOpen(false);
     setDisposalHistoryError(null);
+    setDisposalStatusFilter('');
+  };
+
+  const handleUpdateDisposalApproval = async (
+    recordId: number,
+    approvalStatus: Exclude<DisposalApprovalStatus, 'PENDING'>,
+  ) => {
+    setDisposalHistoryError(null);
+    setSuccessMessage(null);
+    setDisposalActionId(recordId);
+
+    try {
+      const updated = await updateDisposalApproval(recordId, { approvalStatus });
+      await fetchDisposalHistory();
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
+
+      setSuccessMessage(
+        `Disposal record for "${updated.equipment.item.itemName}" was marked as ${DISPOSAL_APPROVAL_STATUS_LABELS[approvalStatus]}.`,
+      );
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update disposal approval status';
+      setDisposalHistoryError(message);
+    } finally {
+      setDisposalActionId(null);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -784,7 +822,7 @@ export default function EquipmentPage() {
                 onClick={handleOpenDisposalHistory}
                 className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
               >
-                Disposal History
+                Disposal
               </button>
             )}
 
@@ -1750,11 +1788,9 @@ export default function EquipmentPage() {
           <section className="w-full max-w-5xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  Disposal History
-                </h2>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Disposal</h2>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Review completed and rejected equipment disposal records.
+                  Review and update pending, completed, and rejected equipment disposal records.
                 </p>
               </div>
               <button
@@ -1773,6 +1809,31 @@ export default function EquipmentPage() {
                 </div>
               )}
 
+              {disposalHistory.length > 0 && (
+                <div className="mb-4 flex flex-col gap-2 rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      Disposal status filter
+                    </p>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Separate pending requests from completed and rejected history.
+                    </p>
+                  </div>
+                  <select
+                    value={disposalStatusFilter}
+                    onChange={(e) =>
+                      setDisposalStatusFilter(e.target.value as DisposalApprovalStatus | '')
+                    }
+                    className="rounded-xl border border-[var(--surface-border)] bg-white px-3 py-2 text-sm font-medium text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+              )}
+
               {isDisposalHistoryLoading ? (
                 <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
                   <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
@@ -1784,7 +1845,16 @@ export default function EquipmentPage() {
                 <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
                   <h3 className="font-semibold text-[var(--text-primary)]">No Disposal History</h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Completed and rejected disposal records will appear here.
+                    Pending, completed, and rejected disposal records will appear here.
+                  </p>
+                </div>
+              ) : filteredDisposalHistory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <h3 className="font-semibold text-[var(--text-primary)]">
+                    No Matching Disposal Records
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    No disposal records match the selected approval status filter.
                   </p>
                 </div>
               ) : (
@@ -1798,10 +1868,13 @@ export default function EquipmentPage() {
                         <th className="px-4 py-3 font-semibold">Date</th>
                         <th className="px-4 py-3 font-semibold">Approval Status</th>
                         <th className="px-4 py-3 font-semibold">Notes</th>
+                        {canManageDisposalActions && (
+                          <th className="px-4 py-3 font-semibold">Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--surface-border)]">
-                      {disposalHistory.map((record) => (
+                      {filteredDisposalHistory.map((record) => (
                         <tr key={record.id}>
                           <td className="px-4 py-3">
                             <div className="font-medium text-[var(--text-primary)]">
@@ -1841,6 +1914,34 @@ export default function EquipmentPage() {
                           <td className="px-4 py-3 text-[var(--text-secondary)]">
                             {record.notes || '—'}
                           </td>
+                          {canManageDisposalActions && (
+                            <td className="px-4 py-3">
+                              {record.approvalStatus === 'PENDING' && (
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateDisposalApproval(record.id, 'COMPLETED')
+                                    }
+                                    disabled={disposalActionId === record.id}
+                                    className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {disposalActionId === record.id ? 'Saving...' : 'Complete'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateDisposalApproval(record.id, 'REJECTED')
+                                    }
+                                    disabled={disposalActionId === record.id}
+                                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {disposalActionId === record.id ? 'Saving...' : 'Reject'}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

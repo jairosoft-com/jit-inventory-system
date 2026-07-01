@@ -206,82 +206,70 @@ export class DashboardService {
     );
   }
 
-  static async getSummary(access: DashboardAccess) {
-    const [
-      totalItems,
-      activeEquipment,
-      lowStockAlerts,
-      pendingBorrows,
-      totalQuantityInStock,
-      availableItems,
-      lowStockItems,
-    ] = await Promise.all([
-      access.canReadInventory
-        ? prisma.item.count({
-            where: { deletedAt: null, itemType: ItemType.CONSUMABLE },
-          })
-        : Promise.resolve(0),
+static async getSummary(access: DashboardAccess) {
+  const [
+    totalItems,
+    activeEquipment,
+    lowStockCounts,
+    pendingBorrows,
+    totalQuantityInStock,
+    availableItems,
+  ] = await Promise.all([
+    access.canReadInventory
+      ? prisma.item.count({ where: { deletedAt: null, itemType: ItemType.CONSUMABLE } })
+      : Promise.resolve(0),
 
-      access.canReadEquipment
-        ? prisma.equipment.count({
-            where: {
-              status: EquipmentStatus.AVAILABLE,
-              deletedAt: null,
-            },
-          })
-        : Promise.resolve(0),
+    access.canReadEquipment
+      ? prisma.equipment.count({ where: { status: EquipmentStatus.AVAILABLE, deletedAt: null } })
+      : Promise.resolve(0),
 
-      access.canViewLowStockDetails
-        ? DashboardService.countLowStockItems()
-        : Promise.resolve(0),
+    access.canViewLowStockDetails
+      ? DashboardService.getLowStockCounts()
+      : Promise.resolve({ lowStockOnly: 0, outOfStock: 0 }),
 
-      access.canReadEquipment
-        ? prisma.borrowRecord.count({
-            where: {
-              status: 'PENDING',
-            },
-          })
-        : Promise.resolve(0),
+    access.canReadEquipment
+      ? prisma.borrowRecord.count({ where: { status: 'PENDING' } })
+      : Promise.resolve(0),
 
-      access.canReadInventory
-        ? prisma.consumableProfile
-            .aggregate({
-              _sum: { quantity: true },
-              where: { item: { deletedAt: null } },
-            })
-            .then((res) => res._sum.quantity || 0)
-        : Promise.resolve(0),
+    access.canReadInventory
+      ? prisma.consumableProfile
+          .aggregate({ _sum: { quantity: true }, where: { item: { deletedAt: null } } })
+          .then((res) => res._sum.quantity || 0)
+      : Promise.resolve(0),
 
-      access.canReadInventory
-        ? prisma.consumableProfile.count({
-            where: {
-              quantity: { gt: 0 },
-              item: { deletedAt: null },
-            },
-          })
-        : Promise.resolve(0),
+    access.canReadInventory
+      ? prisma.consumableProfile.count({
+          where: { quantity: { gt: 0 }, item: { deletedAt: null } },
+        })
+      : Promise.resolve(0),
+  ]);
 
-      access.canReadInventory
-        ? prisma.consumableProfile.count({
-            where: {
-              status: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] },
-              item: { deletedAt: null },
-            },
-          })
-        : Promise.resolve(0),
-    ]);
+  return {
+    totalItems,
+    activeEquipment,
+    lowStockAlerts: lowStockCounts.lowStockOnly + lowStockCounts.outOfStock,
+    pendingBorrows,
+    totalInventoryItems: totalItems,
+    totalQuantityInStock,
+    availableItems,
+    lowStockItems: lowStockCounts.lowStockOnly, // ← now matches the list exactly
+  };
+}
 
-    return {
-      totalItems,
-      activeEquipment,
-      lowStockAlerts,
-      pendingBorrows,
-      totalInventoryItems: totalItems,
-      totalQuantityInStock,
-      availableItems,
-      lowStockItems,
-    };
+// New helper — single source of truth, reused by both the stat card and the list
+private static async getLowStockCounts(): Promise<{ lowStockOnly: number; outOfStock: number }> {
+  const profiles = await DashboardService.getLowStockProfiles();
+  let lowStockOnly = 0;
+  let outOfStock = 0;
+  for (const profile of profiles) {
+    if (profile.quantity <= 0) {
+      outOfStock++;
+    } else {
+      lowStockOnly++;
+    }
   }
+  return { lowStockOnly, outOfStock };
+}
 
   private static async getLowStockProfiles() {
     const consumableProfiles = await prisma.consumableProfile.findMany({
@@ -317,12 +305,6 @@ export class DashboardService {
     return consumableProfiles.filter((profile) =>
       isLowStock(profile.quantity, profile.reorderPoint),
     );
-  }
-
-  private static async countLowStockItems(): Promise<number> {
-    const lowStockProfiles = await DashboardService.getLowStockProfiles();
-
-    return lowStockProfiles.length;
   }
 
   static async getLowStockItems() {

@@ -58,7 +58,7 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
 function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(date.toLocaleDateString('sv-SE'));
 }
 
 function addCalendarYears(date: Date, years: number) {

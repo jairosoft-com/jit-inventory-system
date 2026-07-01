@@ -18,7 +18,7 @@ interface DashboardAccess {
 }
 
 function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(date.toLocaleDateString('sv-SE'));
 }
 
 function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
@@ -382,6 +382,55 @@ export class DashboardService {
         daysRemaining,
       };
     });
+  }
+
+  /**
+   * Returns all borrow records that are currently OVERDUE, enriched with
+   * equipment and borrower details for the dashboard alerts panel.
+   * Satisfies AC: "item should appear in dashboard alerts" and
+   * "overdue dashboard should be empty" when all items are within return date.
+   *
+   * Restricted to callers with canReadEquipment (MANAGER / ADMIN).
+   */
+  static async getOverdueEquipment() {
+    const today = startOfDay(new Date());
+
+    const overdueRecords = await prisma.borrowRecord.findMany({
+      where: {
+        OR: [
+          { status: BorrowStatus.OVERDUE },
+          {
+            status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+            expectedReturn: { lt: today },
+          },
+        ],
+      },
+      include: {
+        equipment: {
+          select: {
+            assetId: true,
+            item: { select: { itemName: true } },
+          },
+        },
+        borrowedBy: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+      orderBy: { expectedReturn: 'asc' },
+    });
+
+    return overdueRecords.map((record) => ({
+      borrowRecordId: record.id,
+      assetId: record.equipment.assetId,
+      itemName: record.equipment.item.itemName,
+      borrowerName:
+        `${record.borrowedBy.firstName} ${record.borrowedBy.lastName}`.trim(),
+      expectedReturn: record.expectedReturn,
+      daysOverdue: Math.floor(
+        (today.getTime() - record.expectedReturn.getTime()) /
+          (1000 * 60 * 60 * 24),
+      ),
+    }));
   }
 
   static async getReplacementNeededItems() {

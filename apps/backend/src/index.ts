@@ -20,6 +20,7 @@ import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import { AlertService } from './services/alert.service.js';
+import procurementAlertsRouter from './routes/procurement-alerts.routes.js';
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
+app.use('/api/procurement-alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
@@ -77,6 +79,7 @@ app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/procurement-alerts', procurementAlertsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

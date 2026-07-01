@@ -15,6 +15,8 @@ import type {
   UpdatePurchaseOrderStatusInput,
   AddAttachmentInput,
 } from '../schemas/procurement.schema.js';
+import { ProcurementAlertService } from './procurement-alert.service.js';
+import { ProcurementAlertType } from '@prisma/client';
 
 // ── Allowed status transitions (state machine) ──────────────────────────────
 const ALLOWED_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> =
@@ -481,6 +483,26 @@ export class ProcurementService {
               { status: currentStatus },
               { status: newStatus },
               tx,
+            );
+          }
+
+          // ── Procurement Alerts ──────────────────────────────────────────
+          const supplierName = existing.supplier.supplierName;
+          const invoiceRef = existing.invoiceNumber || `PO #${id}`;
+
+          if (newStatus === 'PENDING') {
+            // Notify approvers that a purchase order requires approval
+            await ProcurementAlertService.create(
+              id,
+              ProcurementAlertType.PENDING_APPROVAL,
+              `Purchase order ${invoiceRef} from supplier "${supplierName}" requires your approval.`,
+            );
+          } else {
+            // Notify relevant users of any other status change
+            await ProcurementAlertService.create(
+              id,
+              ProcurementAlertType.STATUS_UPDATED,
+              `Purchase order ${invoiceRef} from supplier "${supplierName}" status has been updated to ${newStatus}.`,
             );
           }
 

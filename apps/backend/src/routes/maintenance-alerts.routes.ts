@@ -7,9 +7,9 @@ import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 
-// All maintenance alert routes require authentication and manager/admin roles (reports:export)
+// All maintenance alert routes require authentication and maintenance:read permission
 router.use(authenticate);
-router.use(authorize('reports:export'));
+router.use(authorize('maintenance:read'));
 
 const alertIdSchema = z.object({
   id: z.coerce.number().int().positive(),

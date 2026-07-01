@@ -60,6 +60,7 @@ export default function MaintenancePage() {
     cost: '',
     completedDate: new Date().toISOString().split('T')[0],
     notes: '',
+    postMaintenanceCondition: '',
   });
 
   const [createData, setCreateData] = useState({
@@ -86,6 +87,7 @@ export default function MaintenancePage() {
     void fetchMaintenanceLogs({
       search: appliedSearchTerm,
       status: statusQuery,
+      tab: activeTab,
       page: currentPage,
       limit: PAGE_LIMIT,
     });
@@ -101,34 +103,15 @@ export default function MaintenancePage() {
     void fetchEquipment({ limit: 100 });
   }, [loadData, fetchEquipment]);
 
-  // Filter and sort logs based on active tab and search/filter criteria
+  // Filter logs locally for unscheduled and scheduled_only helper filters when in 'all' tab
   const filteredLogs = useMemo(() => {
-    if (activeTab === 'upcoming') {
-      return maintenanceLogs
-        .filter((log) => log.status === 'SCHEDULED' || log.status === 'IN_PROGRESS')
-        .sort((a, b) => {
-          if (a.scheduledDate === null && b.scheduledDate === null) return 0;
-          if (a.scheduledDate === null) return 1;
-          if (b.scheduledDate === null) return -1;
-          return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
-        });
-    }
-    if (activeTab === 'history') {
-      return maintenanceLogs
-        .filter((log) => log.status === 'COMPLETED' || log.status === 'CANCELLED')
-        .sort((a, b) => {
-          if (a.completedDate === null && b.completedDate === null) return 0;
-          if (a.completedDate === null) return 1;
-          if (b.completedDate === null) return -1;
-          return new Date(b.completedDate).getTime() - new Date(a.completedDate).getTime();
-        });
-    }
-    // 'all' tab: fallback to dropdown statusFilter
-    if (statusFilter === 'unscheduled') {
-      return maintenanceLogs.filter((log) => log.scheduledDate === null);
-    }
-    if (statusFilter === 'scheduled_only') {
-      return maintenanceLogs.filter((log) => log.status === 'SCHEDULED' && log.scheduledDate !== null);
+    if (activeTab === 'all') {
+      if (statusFilter === 'unscheduled') {
+        return maintenanceLogs.filter((log) => log.scheduledDate === null);
+      }
+      if (statusFilter === 'scheduled_only') {
+        return maintenanceLogs.filter((log) => log.status === 'SCHEDULED' && log.scheduledDate !== null);
+      }
     }
     return maintenanceLogs;
   }, [maintenanceLogs, activeTab, statusFilter]);
@@ -252,6 +235,7 @@ export default function MaintenancePage() {
       cost: '',
       completedDate: new Date().toISOString().split('T')[0],
       notes: log.notes || '',
+      postMaintenanceCondition: log.equipment.condition || 'GOOD',
     });
     setIsCompleteModalOpen(true);
   };
@@ -262,7 +246,7 @@ export default function MaintenancePage() {
     if (!selectedLog) return;
     setFormError(null);
 
-    const { cost, completedDate, notes } = completeData;
+    const { cost, completedDate, notes, postMaintenanceCondition } = completeData;
 
     if (!completedDate) {
       setFormError('Completed date is required');
@@ -282,6 +266,7 @@ export default function MaintenancePage() {
         completedDate: new Date(completedDate).toISOString(),
         cost: costNum,
         notes: notes.trim() || null,
+        postMaintenanceCondition: postMaintenanceCondition || null,
       });
 
       setSuccessMessage('Maintenance record completed successfully');
@@ -618,10 +603,10 @@ export default function MaintenancePage() {
                         {log.equipment.assetId}
                       </td>
                       <td className="px-4 py-4 font-medium text-[var(--text-primary)]">
-                        {log.equipment.item.itemName}
+                        {log.equipmentName || log.equipment.item.itemName}
                       </td>
                       <td className="px-4 py-4">
-                        {renderConditionBadge(log.equipment.condition)}
+                        {renderConditionBadge(log.equipmentCondition || log.equipment.condition)}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)] max-w-xs truncate">
                         {log.description}
@@ -935,6 +920,25 @@ export default function MaintenancePage() {
                   onChange={(e) => setCompleteData({ ...completeData, completedDate: e.target.value })}
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="cpl-condition" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                  Equipment Condition Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="cpl-condition"
+                  required
+                  value={completeData.postMaintenanceCondition}
+                  onChange={(e) => setCompleteData({ ...completeData, postMaintenanceCondition: e.target.value })}
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                >
+                  <option value="NEW">New</option>
+                  <option value="GOOD">Good</option>
+                  <option value="FAIR">Fair</option>
+                  <option value="POOR">Poor</option>
+                  <option value="DAMAGED">Damaged</option>
+                </select>
               </div>
 
               <div className="flex flex-col gap-1.5">

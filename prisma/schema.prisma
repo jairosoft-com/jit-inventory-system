@@ -661,6 +661,10 @@ model MaintenanceLog {
   performedById     Int?              @map("performed_by_id")
   performedByVendor String?           @map("performed_by_vendor") @db.VarChar(255)
   notes             String?           @db.Text
+  equipmentName      String?           @map("equipment_name") @db.VarChar(255)
+  equipmentBrand     String?           @map("equipment_brand") @db.VarChar(255)
+  equipmentModel     String?           @map("equipment_model") @db.VarChar(255)
+  equipmentCondition ConditionStatus? @map("equipment_condition")
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 

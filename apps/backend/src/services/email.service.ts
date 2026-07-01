@@ -64,24 +64,24 @@ export class EmailService {
         
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
           <tr>
-            <td style="padding: 8px 0; font-weight: bold; border-b: 1px solid #edf2f7; width: 40%;">Equipment Name:</td>
-            <td style="padding: 8px 0; border-b: 1px solid #edf2f7;">${options.equipmentName}</td>
+            <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #edf2f7; width: 40%;">Equipment Name:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${options.equipmentName}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; font-weight: bold; border-b: 1px solid #edf2f7;">Asset ID:</td>
-            <td style="padding: 8px 0; border-b: 1px solid #edf2f7;"><code>${options.assetId}</code></td>
+            <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #edf2f7;">Asset ID:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;"><code>${options.assetId}</code></td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; font-weight: bold; border-b: 1px solid #edf2f7;">Maintenance Description:</td>
-            <td style="padding: 8px 0; border-b: 1px solid #edf2f7;">${options.description}</td>
+            <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #edf2f7;">Maintenance Description:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${options.description}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; font-weight: bold; border-b: 1px solid #edf2f7;">Scheduled Date:</td>
-            <td style="padding: 8px 0; border-b: 1px solid #edf2f7;">${formattedDate}</td>
+            <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #edf2f7;">Scheduled Date:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${formattedDate}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; font-weight: bold; border-b: 1px solid #edf2f7;">Assigned Technician:</td>
-            <td style="padding: 8px 0; border-b: 1px solid #edf2f7;">${options.technicianName}</td>
+            <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #edf2f7;">Assigned Technician:</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #edf2f7;">${options.technicianName}</td>
           </tr>
         </table>
         

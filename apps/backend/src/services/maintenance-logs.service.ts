@@ -4,6 +4,7 @@ import {
   LogAction,
   EquipmentStatus,
   Prisma,
+  ConditionStatus,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
 import type {
@@ -40,6 +41,7 @@ export class MaintenanceLogsService {
   ) {
     const equipment = await prisma.equipment.findUnique({
       where: { id: data.equipmentId },
+      include: { item: { select: { itemName: true } } },
     });
 
     if (!equipment || equipment.deletedAt) {
@@ -55,6 +57,10 @@ export class MaintenanceLogsService {
           description: data.description,
           status: MaintenanceStatus.SCHEDULED,
           scheduledDate: null,
+          equipmentName: equipment.item?.itemName ?? null,
+          equipmentBrand: equipment.brand,
+          equipmentModel: equipment.model,
+          equipmentCondition: equipment.condition,
         },
         include: {
           equipment: {
@@ -87,7 +93,7 @@ export class MaintenanceLogsService {
   }
 
   static async findAll(query: ListMaintenanceLogsQuery) {
-    const { status, equipmentId, search, page, limit } = query;
+    const { status, equipmentId, search, tab, page, limit } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.MaintenanceLogWhereInput = {
@@ -96,8 +102,21 @@ export class MaintenanceLogsService {
       },
     };
 
-    if (status) {
-      where.status = status;
+    if (tab === 'upcoming') {
+      where.status = {
+        in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+      };
+      where.scheduledDate = {
+        not: null,
+      };
+    } else if (tab === 'history') {
+      where.status = {
+        in: [MaintenanceStatus.COMPLETED, MaintenanceStatus.CANCELLED],
+      };
+    } else {
+      if (status) {
+        where.status = status;
+      }
     }
 
     if (equipmentId) {
@@ -125,6 +144,24 @@ export class MaintenanceLogsService {
       ];
     }
 
+    // Determine ordering chronologically
+    let orderBy: Prisma.MaintenanceLogOrderByWithRelationInput[] = [
+      { scheduledDate: 'desc' },
+      { createdAt: 'desc' },
+    ];
+
+    if (tab === 'upcoming') {
+      orderBy = [
+        { scheduledDate: 'asc' }, // closest scheduled date first
+        { createdAt: 'asc' },
+      ];
+    } else if (tab === 'history') {
+      orderBy = [
+        { completedDate: 'desc' }, // recently completed first
+        { updatedAt: 'desc' },
+      ];
+    }
+
     const [data, total] = await Promise.all([
       prisma.maintenanceLog.findMany({
         where,
@@ -138,7 +175,7 @@ export class MaintenanceLogsService {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
         },
-        orderBy: [{ scheduledDate: 'desc' }, { createdAt: 'desc' }],
+        orderBy,
         skip,
         take: limit,
       }),
@@ -245,7 +282,15 @@ export class MaintenanceLogsService {
     data: UpdateMaintenanceScheduleInput,
     userId: number,
   ) {
-    const log = await this.findOne(id);
+    const log = (await this.findOne(id)) as Prisma.MaintenanceLogGetPayload<{
+      include: {
+        equipment: {
+          include: {
+            item: { select: { itemName: true } };
+          };
+        };
+      };
+    }>;
 
     await this.assertNoActiveMaintenance(log.equipmentId, id);
 
@@ -274,27 +319,53 @@ export class MaintenanceLogsService {
 
     try {
       const updated = await prisma.$transaction(async (tx) => {
+        // Prepare log update data
+        const logUpdateData: Prisma.MaintenanceLogUpdateInput & {
+          equipmentName?: string | null;
+          equipmentBrand?: string | null;
+          equipmentModel?: string | null;
+          equipmentCondition?: ConditionStatus | null;
+        } = {
+          description: data.description,
+          scheduledDate: data.scheduledDate,
+          performedBy:
+            data.performedById !== undefined
+              ? data.performedById
+                ? { connect: { id: data.performedById } }
+                : { disconnect: true }
+              : undefined,
+          performedByVendor:
+            data.performedByVendor !== undefined
+              ? data.performedByVendor
+              : undefined,
+          notes: data.notes,
+          status: data.status,
+          cost:
+            data.cost !== undefined
+              ? data.cost !== null
+                ? new Prisma.Decimal(data.cost)
+                : null
+              : undefined,
+          completedDate: data.completedDate,
+        };
+
+        // Snapshot equipment details on completion
+        if (data.status === MaintenanceStatus.COMPLETED) {
+          logUpdateData.equipmentName =
+            log.equipmentName || log.equipment.item?.itemName;
+          logUpdateData.equipmentBrand =
+            log.equipmentBrand || log.equipment.brand;
+          logUpdateData.equipmentModel =
+            log.equipmentModel || log.equipment.model;
+          logUpdateData.equipmentCondition =
+            data.postMaintenanceCondition ||
+            log.equipmentCondition ||
+            log.equipment.condition;
+        }
+
         const updatedLog = await tx.maintenanceLog.update({
           where: { id },
-          data: {
-            description: data.description,
-            scheduledDate: data.scheduledDate,
-            performedById:
-              data.performedById !== undefined ? data.performedById : undefined,
-            performedByVendor:
-              data.performedByVendor !== undefined
-                ? data.performedByVendor
-                : undefined,
-            notes: data.notes,
-            status: data.status,
-            cost:
-              data.cost !== undefined
-                ? data.cost !== null
-                  ? new Prisma.Decimal(data.cost)
-                  : null
-                : undefined,
-            completedDate: data.completedDate,
-          },
+          data: logUpdateData,
           include: {
             equipment: {
               include: { item: { select: { itemName: true } } },
@@ -310,17 +381,42 @@ export class MaintenanceLogsService {
           },
         });
 
-        // Synchronize Equipment status if status transitions to IN_PROGRESS or COMPLETED
+        // Synchronize Equipment status and condition if status transitions
         if (data.status === MaintenanceStatus.IN_PROGRESS) {
           await tx.equipment.update({
             where: { id: log.equipmentId },
             data: { status: EquipmentStatus.UNDER_MAINTENANCE },
           });
         } else if (data.status === MaintenanceStatus.COMPLETED) {
+          const nextCondition =
+            data.postMaintenanceCondition || log.equipment.condition;
+
           await tx.equipment.update({
             where: { id: log.equipmentId },
-            data: { status: EquipmentStatus.AVAILABLE },
+            data: {
+              status: EquipmentStatus.AVAILABLE,
+              condition: nextCondition,
+            },
           });
+
+          // Peer reviewer comment: if completed in bad condition, spawn a new unscheduled maintenance log slot
+          if (
+            nextCondition !== ConditionStatus.NEW &&
+            nextCondition !== ConditionStatus.GOOD
+          ) {
+            await tx.maintenanceLog.create({
+              data: {
+                equipmentId: log.equipmentId,
+                description: `Follow-up maintenance needed — Equipment in ${nextCondition} condition`,
+                status: MaintenanceStatus.SCHEDULED,
+                scheduledDate: null,
+                equipmentName: log.equipment.item?.itemName,
+                equipmentBrand: log.equipment.brand,
+                equipmentModel: log.equipment.model,
+                equipmentCondition: nextCondition,
+              },
+            });
+          }
         } else if (data.status === MaintenanceStatus.CANCELLED) {
           // Only revert to AVAILABLE if equipment is currently UNDER_MAINTENANCE
           // (meaning this maintenance session was started and is now cancelled).

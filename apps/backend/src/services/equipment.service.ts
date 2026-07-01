@@ -322,15 +322,25 @@ export class EquipmentService {
         });
 
         // Spawn initial maintenance log row linked to the equipment ID
-        await tx.maintenanceLog.create({
-          data: {
-            equipmentId: eq.id,
-            description:
-              'Initial maintenance record — No Maintenance Scheduled',
-            status: MaintenanceStatus.SCHEDULED,
-            scheduledDate: null,
-          },
-        });
+        // Peer reviewer comment: skip spawning for NEW or GOOD condition equipment
+        if (
+          eq.condition !== ConditionStatus.NEW &&
+          eq.condition !== ConditionStatus.GOOD
+        ) {
+          await tx.maintenanceLog.create({
+            data: {
+              equipmentId: eq.id,
+              description:
+                'Initial maintenance record — No Maintenance Scheduled',
+              status: MaintenanceStatus.SCHEDULED,
+              scheduledDate: null,
+              equipmentName: eq.item?.itemName ?? data.itemName,
+              equipmentBrand: eq.brand,
+              equipmentModel: eq.model,
+              equipmentCondition: eq.condition,
+            },
+          });
+        }
 
         await AuditLogService.log(
           'Equipment',

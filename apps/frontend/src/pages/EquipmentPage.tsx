@@ -35,6 +35,50 @@ const MANUALLY_SELECTABLE_EQUIPMENT_STATUSES: EquipmentStatus[] = [
 ];
 
 const CONDITION_STATUSES: ConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
+const NON_DAMAGED_CONDITION_STATUSES: ConditionStatus[] = CONDITION_STATUSES.filter(
+  (condition) => condition !== 'DAMAGED',
+);
+const DEFAULT_NON_DAMAGED_CONDITION: ConditionStatus = 'POOR';
+
+const CONDITION_LOCKED_TO_DAMAGED_STATUSES: EquipmentStatus[] = ['DAMAGED'];
+const CONDITION_UNAVAILABLE_STATUSES: EquipmentStatus[] = ['LOST', 'UNDER_MAINTENANCE'];
+
+type DisplayConditionStatus = ConditionStatus | 'UNAVAILABLE';
+
+function isConditionLockedToDamagedStatus(status: EquipmentStatus): boolean {
+  return CONDITION_LOCKED_TO_DAMAGED_STATUSES.includes(status);
+}
+
+function isConditionUnavailableStatus(status: EquipmentStatus): boolean {
+  return CONDITION_UNAVAILABLE_STATUSES.includes(status);
+}
+
+function getSelectableConditionStatuses(status: EquipmentStatus): ConditionStatus[] {
+  if (isConditionLockedToDamagedStatus(status)) return ['DAMAGED'];
+  if (isConditionUnavailableStatus(status)) return [];
+
+  return NON_DAMAGED_CONDITION_STATUSES;
+}
+
+function normalizeConditionForStatus(
+  status: EquipmentStatus,
+  condition: ConditionStatus,
+): ConditionStatus {
+  if (isConditionLockedToDamagedStatus(status)) return 'DAMAGED';
+
+  if (condition === 'DAMAGED') return DEFAULT_NON_DAMAGED_CONDITION;
+
+  return condition;
+}
+
+function getDisplayConditionForEquipment(
+  equipment: Pick<Equipment, 'status' | 'condition'>,
+): DisplayConditionStatus {
+  if (isConditionUnavailableStatus(equipment.status)) return 'UNAVAILABLE';
+  if (isConditionLockedToDamagedStatus(equipment.status)) return 'DAMAGED';
+
+  return equipment.condition;
+}
 
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
@@ -149,7 +193,7 @@ function equipmentToForm(eq: Equipment): FormState {
     serialNumber: eq.serialNumber || '',
     brand: eq.brand || '',
     model: eq.model || '',
-    condition: eq.condition,
+    condition: normalizeConditionForStatus(eq.status, eq.condition),
     status: eq.status,
     location: eq.location || '',
     warrantyStart: toDateInput(eq.warrantyStart),
@@ -399,6 +443,38 @@ export default function EquipmentPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
+
+    if (name === 'status') {
+      const nextStatus = value as EquipmentStatus;
+
+      setFormData((prev) => ({
+        ...prev,
+        status: nextStatus,
+        condition: normalizeConditionForStatus(nextStatus, prev.condition),
+      }));
+      return;
+    }
+
+    if (name === 'condition') {
+      setFormData((prev) => {
+        if (
+          isConditionLockedToDamagedStatus(prev.status) ||
+          isConditionUnavailableStatus(prev.status)
+        ) {
+          return prev;
+        }
+
+        const nextCondition = value as ConditionStatus;
+
+        if (!getSelectableConditionStatuses(prev.status).includes(nextCondition)) {
+          return prev;
+        }
+
+        return { ...prev, condition: nextCondition };
+      });
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -508,7 +584,7 @@ export default function EquipmentPage() {
           serialNumber: formData.serialNumber.trim() || null,
           brand: formData.brand.trim() || null,
           model: formData.model.trim() || null,
-          condition: formData.condition,
+          condition: normalizeConditionForStatus(formData.status, formData.condition),
           status: formData.status,
           location: formData.location.trim() || null,
           warrantyStart: formData.warrantyStart || null,
@@ -538,7 +614,7 @@ export default function EquipmentPage() {
           serialNumber: formData.serialNumber.trim() || null,
           brand: formData.brand.trim() || null,
           model: formData.model.trim() || null,
-          condition: formData.condition,
+          condition: normalizeConditionForStatus(formData.status, formData.condition),
           status: formData.status,
           location: formData.location.trim() || null,
           warrantyStart: formData.warrantyStart || null,
@@ -996,7 +1072,7 @@ export default function EquipmentPage() {
                             <div className="flex flex-col gap-1">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[var(--text-tertiary)]">Condition:</span>
-                                <ConditionBadge condition={eq.condition} />
+                                <EquipmentConditionBadge equipment={eq} />
                               </div>
                               {eq.replacementNeeded && (
                                 <div>
@@ -1123,7 +1199,7 @@ export default function EquipmentPage() {
                         <div className="flex flex-col gap-1 text-xs">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[var(--text-tertiary)]">Condition:</span>
-                            <ConditionBadge condition={eq.condition} />
+                            <EquipmentConditionBadge equipment={eq} />
                           </div>
                           {eq.replacementNeeded && (
                             <span className="inline-flex w-fit rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
@@ -1466,7 +1542,10 @@ export default function EquipmentPage() {
                                   setLocationOptions((prev) => [...prev, trimmed]);
                                 }
                                 if (trimmed) {
-                                  setFormData((prev) => ({ ...prev, location: trimmed }));
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    location: trimmed,
+                                  }));
                                 }
                                 setNewLocationValue('');
                                 setShowLocationInput(false);
@@ -1488,7 +1567,10 @@ export default function EquipmentPage() {
                                 setLocationOptions((prev) => [...prev, trimmed]);
                               }
                               if (trimmed) {
-                                setFormData((prev) => ({ ...prev, location: trimmed }));
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  location: trimmed,
+                                }));
                               }
                               setNewLocationValue('');
                               setShowLocationInput(false);
@@ -1582,18 +1664,38 @@ export default function EquipmentPage() {
                       <label className="text-xs font-semibold text-[var(--text-secondary)]">
                         Condition
                       </label>
-                      <select
-                        name="condition"
-                        value={formData.condition}
-                        onChange={handleInputChange}
-                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                      >
-                        {CONDITION_STATUSES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
+                      {isConditionUnavailableStatus(formData.status) ? (
+                        <>
+                          <div className="rounded-xl border border-[var(--input-border)] bg-[var(--background-tertiary)] px-4 py-2.5 text-sm text-[var(--text-tertiary)]">
+                            Unavailable
+                          </div>
+                          <p className="text-xs text-[var(--text-tertiary)]">
+                            Condition is unavailable while equipment is{' '}
+                            {formData.status.replace(/_/g, ' ').toLowerCase()}.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <select
+                            name="condition"
+                            value={normalizeConditionForStatus(formData.status, formData.condition)}
+                            onChange={handleInputChange}
+                            disabled={isConditionLockedToDamagedStatus(formData.status)}
+                            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] disabled:cursor-not-allowed disabled:bg-[var(--background-tertiary)] disabled:text-[var(--text-tertiary)]"
+                          >
+                            {getSelectableConditionStatuses(formData.status).map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                          {isConditionLockedToDamagedStatus(formData.status) && (
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              Condition is automatically set to DAMAGED when status is damaged.
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </fieldset>
@@ -1712,16 +1814,16 @@ export default function EquipmentPage() {
                 {replacementEquipment.replacementNeeded ? (
                   <>
                     This will remove the manual{' '}
-                    <span className="font-semibold">Replacement Needed </span>planning tag. The
-                    equipment may still appear in replacement planning if its condition, status, or
-                    lifecycle qualifies.
+                    <span className="font-semibold">Replacement Needed </span>
+                    planning tag. The equipment may still appear in replacement planning if its
+                    condition, status, or lifecycle qualifies.
                   </>
                 ) : (
                   <>
                     This will tag the equipment as{' '}
-                    <span className="font-semibold">Replacement Needed </span>for procurement
-                    planning only. It will not change the equipment status or submit a retirement
-                    request.
+                    <span className="font-semibold">Replacement Needed </span>
+                    for procurement planning only. It will not change the equipment status or submit
+                    a retirement request.
                   </>
                 )}
               </div>
@@ -1742,7 +1844,7 @@ export default function EquipmentPage() {
                   </div>
                   <div>
                     <span className="text-[var(--text-tertiary)]">Condition: </span>
-                    <span className="font-semibold">{replacementEquipment.condition}</span>
+                    <EquipmentConditionBadge equipment={replacementEquipment} />
                   </div>
                 </div>
               </div>
@@ -2176,6 +2278,18 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       {status.replace(/_/g, ' ')}
     </span>
   );
+}
+
+function EquipmentConditionBadge({ equipment }: { equipment: Equipment }) {
+  const condition = getDisplayConditionForEquipment(equipment);
+
+  if (condition === 'UNAVAILABLE') {
+    return (
+      <span className="text-xs font-semibold italic text-[var(--text-tertiary)]">Unavailable</span>
+    );
+  }
+
+  return <ConditionBadge condition={condition} />;
 }
 
 function ConditionBadge({ condition }: { condition: ConditionStatus }) {

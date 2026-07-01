@@ -43,8 +43,8 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
     set({ isLoading: true, error: null });
     try {
       const res = await api.get<ProcurementAlert[]>('/procurement-alerts');
-      const unread = res.data.filter((a) => !a.isRead);
-      set({ alerts: unread, unreadCount: unread.length, isLoading: false });
+      // Server already filters isRead: false — no client-side filter needed
+      set({ alerts: res.data, unreadCount: res.data.length, isLoading: false });
     } catch {
       set({ error: 'Failed to load procurement alerts.', isLoading: false });
     }
@@ -52,9 +52,8 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
 
   fetchUnreadCount: async () => {
     try {
-      const res = await api.get<ProcurementAlert[]>('/procurement-alerts');
-      const unread = res.data.filter((a) => !a.isRead);
-      set({ unreadCount: unread.length });
+      const res = await api.get<{ count: number }>('/procurement-alerts/count');
+      set({ unreadCount: res.data.count });
     } catch {
       // Silently fail for polling
     }
@@ -63,10 +62,9 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
   markAsRead: async (id: number) => {
     try {
       await api.patch(`/procurement-alerts/${id}/read`);
+      // Remove from panel immediately instead of just flipping the flag
       set((state) => ({
-        alerts: state.alerts.map((a) =>
-          a.id === id ? { ...a, isRead: true, readAt: new Date().toISOString() } : a,
-        ),
+        alerts: state.alerts.filter((a) => a.id !== id),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch {
@@ -77,14 +75,8 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
   markAllAsRead: async () => {
     try {
       await api.patch('/procurement-alerts/read-all');
-      set((state) => ({
-        alerts: state.alerts.map((a) => ({
-          ...a,
-          isRead: true,
-          readAt: new Date().toISOString(),
-        })),
-        unreadCount: 0,
-      }));
+      // Clear all alerts from panel immediately
+      set({ alerts: [], unreadCount: 0 });
     } catch {
       // ignore
     }

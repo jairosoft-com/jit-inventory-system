@@ -325,9 +325,10 @@ export default function DashboardLayout() {
     markAllAsRead: markAllProcurementAsRead,
   } = useProcurementAlertStore();
 
-  // Poll badge count every 60s
+// Poll badge count every 60s
+  const canViewProcurement = user?.role?.name === 'ADMIN' || user?.role?.name === 'MANAGER';
   usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
-  usePolling(fetchProcurementUnread, ALERT_POLL_INTERVAL_MS, !!user);
+  usePolling(fetchProcurementUnread, ALERT_POLL_INTERVAL_MS, !!user && canViewProcurement);
 
   // Close notification panel on click outside
   useEffect(() => {
@@ -394,10 +395,10 @@ export default function DashboardLayout() {
   const totalUnreadCount = unreadCount + procurementUnreadCount;
   const mergedAlerts = [
     ...alerts.map((a) => ({ ...a, source: 'inventory' as const })),
-    ...procurementAlerts.map((a) => ({
+    ...(canViewProcurement ? procurementAlerts.map((a) => ({
       id: a.id,
       alertType: a.alertType as string,
-      priority: 'NORMAL' as const,
+      priority: (a.alertType === 'PENDING_APPROVAL' ? 'WARNING' : 'NORMAL') as 'WARNING' | 'NORMAL',
       message: a.message,
       isRead: a.isRead,
       readAt: a.readAt,
@@ -405,8 +406,9 @@ export default function DashboardLayout() {
       resolvedAt: null,
       consumableProfile: null,
       source: 'procurement' as const,
-    })),
-  ].sort((a: { createdAt: string }, b: { createdAt: string }) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    })) : []),
+  ].sort(
+    (a: { createdAt: string }, b: { createdAt: string }) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (isLoading) {
     return (

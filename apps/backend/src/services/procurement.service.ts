@@ -496,13 +496,15 @@ export class ProcurementService {
               id,
               ProcurementAlertType.PENDING_APPROVAL,
               `Purchase order ${invoiceRef} from supplier "${supplierName}" requires your approval.`,
+              tx,
             );
           } else {
             // Notify relevant users of any other status change
             await ProcurementAlertService.create(
               id,
               ProcurementAlertType.STATUS_UPDATED,
-              `Purchase order ${invoiceRef} from supplier "${supplierName}" status has been updated to ${newStatus}.`,
+              `Purchase order ${invoiceRef} from supplier "${supplierName}" status has been updated to ${statusToSave}.`,
+              tx,
             );
           }
 

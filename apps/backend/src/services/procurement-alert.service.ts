@@ -1,7 +1,9 @@
-import { PrismaClient, ProcurementAlertType } from '@prisma/client';
+import { PrismaClient, ProcurementAlertType, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 const db: PrismaClient = prisma;
+
+type TransactionClient = Prisma.TransactionClient;
 
 export class ProcurementAlertService {
   // ── Create ───────────────────────────────────────────────────────────────────
@@ -10,8 +12,10 @@ export class ProcurementAlertService {
     purchaseOrderId: number,
     alertType: ProcurementAlertType,
     message: string,
+    tx?: TransactionClient,
   ) {
-    return db.procurementAlert.create({
+    const client = tx ?? db;
+    return client.procurementAlert.create({
       data: {
         purchaseOrderId,
         alertType,

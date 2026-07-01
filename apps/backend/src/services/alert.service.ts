@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, BorrowStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { BorrowService } from './borrow.service.js';
 
 // Typed alias ensures ESLint's type-checker resolves all Prisma model methods
 const db: PrismaClient = prisma;
@@ -108,6 +109,22 @@ export class AlertService {
             item: { select: { id: true, itemName: true } },
           },
         },
+        borrowRecord: {
+          select: {
+            id: true,
+            expectedReturn: true,
+            status: true,
+            equipment: {
+              select: {
+                assetId: true,
+                item: { select: { id: true, itemName: true } },
+              },
+            },
+            borrowedBy: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        },
       },
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     });
@@ -129,6 +146,22 @@ export class AlertService {
               reorderPoint: true,
               unit: true,
               item: { select: { id: true, itemName: true } },
+            },
+          },
+          borrowRecord: {
+            select: {
+              id: true,
+              expectedReturn: true,
+              status: true,
+              equipment: {
+                select: {
+                  assetId: true,
+                  item: { select: { id: true, itemName: true } },
+                },
+              },
+              borrowedBy: {
+                select: { id: true, firstName: true, lastName: true },
+              },
             },
           },
         },
@@ -198,6 +231,104 @@ export class AlertService {
 
     for (const profile of profiles) {
       await AlertService.checkAndCreateStockAlert(profile.id);
+    }
+  }
+
+  // ── Overdue equipment alerts ─────────────────────────────────────────────────
+
+  /**
+   * Creates (or refreshes) an OVERDUE_EQUIPMENT alert for a single borrow
+   * record that is currently in the OVERDUE state. Deduplicates the same
+   * way checkAndCreateStockAlert does: skips if an unresolved alert for
+   * this borrow record was already created within the cooldown window.
+   */
+  static async checkAndCreateOverdueAlert(
+    borrowRecordId: number,
+  ): Promise<void> {
+    const record = await db.borrowRecord.findUnique({
+      where: { id: borrowRecordId },
+      include: {
+        equipment: {
+          select: { assetId: true, item: { select: { itemName: true } } },
+        },
+        borrowedBy: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    if (!record || record.status !== BorrowStatus.OVERDUE) return;
+
+    const cooldownFrom = new Date(Date.now() - ALERT_COOLDOWN_MS);
+    const existing = await db.inventoryAlert.findFirst({
+      where: {
+        borrowRecordId,
+        alertType: 'OVERDUE_EQUIPMENT',
+        resolvedAt: null,
+        createdAt: { gte: cooldownFrom },
+      },
+    });
+
+    if (existing) return;
+
+    const borrowerName =
+      `${record.borrowedBy.firstName} ${record.borrowedBy.lastName}`.trim();
+    const dueDate = record.expectedReturn.toISOString().split('T')[0];
+
+    await db.inventoryAlert.create({
+      data: {
+        borrowRecordId,
+        alertType: 'OVERDUE_EQUIPMENT',
+        priority: 'CRITICAL',
+        message: `"${record.equipment.item.itemName}" (${record.equipment.assetId}) borrowed by ${borrowerName} was due back on ${dueDate} and is now overdue.`,
+      },
+    });
+  }
+
+  /**
+   * Resolves any open OVERDUE_EQUIPMENT alerts whose borrow record is no
+   * longer overdue (e.g. it was returned or cancelled after the alert was
+   * raised), so the alerts dropdown / notifications list stays in sync.
+   */
+  static async resolveStaleOverdueAlerts(): Promise<void> {
+    // updateMany() can't filter on relations directly, so first collect the
+    // ids of open OVERDUE_EQUIPMENT alerts whose linked borrow record is no
+    // longer overdue, then resolve them by id.
+    const staleAlerts = await db.inventoryAlert.findMany({
+      where: {
+        alertType: 'OVERDUE_EQUIPMENT',
+        resolvedAt: null,
+        borrowRecord: { status: { not: BorrowStatus.OVERDUE } },
+      },
+      select: { id: true },
+    });
+
+    if (staleAlerts.length === 0) return;
+
+    await db.inventoryAlert.updateMany({
+      where: { id: { in: staleAlerts.map((a) => a.id) } },
+      data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
+    });
+  }
+
+  /**
+   * Full overdue-equipment check: flags any newly-overdue borrow records,
+   * raises/refreshes alerts for everything currently overdue, and resolves
+   * alerts for anything that stopped being overdue (returned/cancelled).
+   * This is the entry point for both the manual "run overdue check" action
+   * and the scheduled job.
+   */
+  static async runOverdueScan(): Promise<void> {
+    await AlertService.resolveStaleOverdueAlerts();
+
+    // Flag newly overdue records
+    await BorrowService.flagOverdue();
+
+    // Fetch all overdue records to ensure they have active alerts
+    const allOverdue = await db.borrowRecord.findMany({
+      where: { status: BorrowStatus.OVERDUE },
+    });
+
+    for (const record of allOverdue) {
+      await AlertService.checkAndCreateOverdueAlert(record.id);
     }
   }
 }

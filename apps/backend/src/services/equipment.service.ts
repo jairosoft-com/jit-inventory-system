@@ -88,7 +88,7 @@ function getRejectedRetirementFallbackStatus(disposalReason: {
 }
 
 function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(date.toLocaleDateString('sv-SE'));
 }
 
 function addCalendarYears(date: Date, years: number) {

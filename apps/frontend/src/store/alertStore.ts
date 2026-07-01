@@ -14,6 +14,23 @@ export interface UnifiedAlert {
   createdAt: string;
   sourceType: 'stock' | 'maintenance';
   originalId: number;
+  resolvedAt: string | null;
+  consumableProfile?: {
+    quantity: number;
+    reorderPoint: number;
+    unit: string;
+    item: { id: number; itemName: string };
+  } | null;
+  borrowRecord?: {
+    id: number;
+    expectedReturn: string;
+    status: string;
+    equipment: {
+      assetId: string;
+      item: { id: number; itemName: string };
+    };
+    borrowedBy: { id: number; firstName: string; lastName: string };
+  } | null;
 }
 
 interface AlertState {

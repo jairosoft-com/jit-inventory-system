@@ -90,11 +90,12 @@ const server = app.listen(port, () => {
     `[Server] Backend listening on port ${port} in ${env.NODE_ENV} mode`,
   );
 
-  // Purge read alerts older than 24h, then scan for new stock alerts
+  // Purge read alerts older than 24h, then scan for new stock + overdue alerts
   void (async () => {
     try {
       await AlertService.purgeOldAlerts();
       await AlertService.runFullScan();
+      await AlertService.runOverdueScan();
     } catch (err) {
       console.warn(
         '[Alerts] Startup scan skipped — DB not ready:',
@@ -102,6 +103,22 @@ const server = app.listen(port, () => {
       );
     }
   })();
+
+  // Re-run the overdue equipment check on a recurring schedule so items
+  // crossing their due date get flagged without waiting for a manual
+  // trigger or the next server restart.
+  const overdueCheckInterval = setInterval(
+    () => {
+      void AlertService.runOverdueScan().catch((err) => {
+        console.warn(
+          '[Alerts] Scheduled overdue scan failed:',
+          err instanceof Error ? err.message : err,
+        );
+      });
+    },
+    15 * 60 * 1000, // every 15 minutes
+  );
+  overdueCheckInterval.unref();
 });
 
 // Graceful shutdown

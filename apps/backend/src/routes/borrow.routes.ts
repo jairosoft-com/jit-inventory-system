@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import { BorrowStatus } from '@prisma/client';
 import { BorrowService } from '../services/borrow.service.js';
+import { AlertService } from '../services/alert.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
@@ -238,6 +240,41 @@ router.patch(
         res.status(404).json({ message });
         return;
       }
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// ── POST /borrow/overdue-check ────────────────────────────────────────────────
+// Manually triggers the overdue-detection job: flags any APPROVED/BORROWED
+// records past their expectedReturn date as OVERDUE, raises alerts for
+// inventory managers, and resolves alerts for records no longer overdue.
+// Same scan also runs automatically on a schedule (see index.ts).
+// Restricted to MANAGER/ADMIN via the borrow:approve permission gate.
+
+router.post(
+  '/overdue-check',
+  authorize('borrow:approve'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      await AlertService.runOverdueScan();
+      const overdue = await BorrowService.findAll(
+        {
+          status: BorrowStatus.OVERDUE,
+          mine: false,
+          page: 1,
+          limit: 100,
+        },
+        req.user!.id,
+      );
+      res.status(200).json({
+        message: 'Overdue check completed.',
+        overdueCount: overdue.meta.total,
+        overdue: overdue.data,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ message });
     }
   },

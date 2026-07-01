@@ -105,12 +105,13 @@ router.patch(
 );
 
 // ── POST /api/alerts/scan ─────────────────────────────────────────────────────
-// Trigger a full scan of all consumable profiles (manual or scheduled)
+// Trigger a full scan: stock alerts + overdue equipment (manual or scheduled)
 router.post('/scan', async (_req: Request, res: Response): Promise<void> => {
   try {
     await AlertService.purgeOldAlerts();
     await AlertService.runFullScan();
-    res.status(200).json({ message: 'Stock scan completed successfully.' });
+    await AlertService.runOverdueScan();
+    res.status(200).json({ message: 'Alert scan completed successfully.' });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Internal server error';

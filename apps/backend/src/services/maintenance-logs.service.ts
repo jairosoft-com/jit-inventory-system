@@ -399,7 +399,8 @@ export class MaintenanceLogsService {
             },
           });
 
-          // Peer reviewer comment: if completed in bad condition, spawn a new unscheduled maintenance log slot
+          // Automatically spawn a new unscheduled maintenance log slot if the completed equipment
+          // remains in non-healthy status to ensure tracking is not lost.
           if (
             nextCondition !== ConditionStatus.NEW &&
             nextCondition !== ConditionStatus.GOOD

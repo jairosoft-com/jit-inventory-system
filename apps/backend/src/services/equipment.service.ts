@@ -321,8 +321,8 @@ export class EquipmentService {
           include: equipmentInclude,
         });
 
-        // Spawn initial maintenance log row linked to the equipment ID
-        // Peer reviewer comment: skip spawning for NEW or GOOD condition equipment
+        // Automatically create an initial unscheduled maintenance log only if the equipment
+        // is registered in non-healthy conditions (FAIR, POOR, DAMAGED).
         if (
           eq.condition !== ConditionStatus.NEW &&
           eq.condition !== ConditionStatus.GOOD
@@ -384,10 +384,10 @@ export class EquipmentService {
     }
   }
 
-  static async findAll(query: ListEquipmentQuery) {
+  static async findAll(query: ListEquipmentQuery & { needsMaintenance?: boolean }) {
     await this.syncCompletedRetirements();
 
-    const { status, condition, categoryId, assignedTo, search, page, limit } =
+    const { status, condition, categoryId, assignedTo, search, page = 1, limit = 20, needsMaintenance } =
       query;
 
     const skip = (page - 1) * limit;
@@ -401,6 +401,21 @@ export class EquipmentService {
         deletedAt: null,
         ...(categoryId && { categoryId }),
       },
+      ...(needsMaintenance && {
+        condition: {
+          in: [ConditionStatus.FAIR, ConditionStatus.POOR, ConditionStatus.DAMAGED],
+        },
+        status: {
+          notIn: [EquipmentStatus.RETIRED, EquipmentStatus.RETIREMENT_PENDING],
+        },
+        maintenanceLogs: {
+          none: {
+            status: {
+              in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+            },
+          },
+        },
+      }),
       ...(search && {
         OR: [
           { assetId: { contains: search, mode: 'insensitive' } },

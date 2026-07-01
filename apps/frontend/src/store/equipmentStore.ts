@@ -132,6 +132,7 @@ export interface ListEquipmentQuery {
   search?: string;
   page?: number;
   limit?: number;
+  needsMaintenance?: boolean;
 }
 
 export interface CreateEquipmentInput {
@@ -251,6 +252,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       if (query?.search) params.search = query.search;
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
+      if (query?.needsMaintenance !== undefined) params.needsMaintenance = String(query.needsMaintenance);
 
       const response = await api.get<{ data: Equipment[]; meta: PaginationMeta }>('/equipment', {
         params,

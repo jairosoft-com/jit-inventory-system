@@ -6,9 +6,6 @@ export class EmailService {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: false, // false for 1025, true for 465, false for other ports
-    tls: {
-      rejectUnauthorized: false,
-    },
   });
 
   /**

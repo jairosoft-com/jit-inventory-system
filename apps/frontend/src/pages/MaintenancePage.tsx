@@ -100,21 +100,34 @@ export default function MaintenancePage() {
       .then((res) => setUsers(res.data.data))
       .catch((err) => console.error('Failed to load users:', err));
 
-    void fetchEquipment({ limit: 100 });
+    void fetchEquipment({ needsMaintenance: true, limit: 100 });
   }, [loadData, fetchEquipment]);
 
   // Filter logs locally for unscheduled and scheduled_only helper filters when in 'all' tab
+  // Also safeguard tab states during loading/loading transitions
   const filteredLogs = useMemo(() => {
-    if (activeTab === 'all') {
+    let logs = maintenanceLogs;
+    if (activeTab === 'upcoming') {
+      logs = maintenanceLogs.filter(
+        (log) =>
+          (log.status === 'SCHEDULED' || log.status === 'IN_PROGRESS') &&
+          log.scheduledDate !== null
+      );
+    } else if (activeTab === 'history') {
+      logs = maintenanceLogs.filter(
+        (log) => log.status === 'COMPLETED' || log.status === 'CANCELLED'
+      );
+    } else if (activeTab === 'all') {
       if (statusFilter === 'unscheduled') {
-        return maintenanceLogs.filter((log) => log.scheduledDate === null);
-      }
-      if (statusFilter === 'scheduled_only') {
-        return maintenanceLogs.filter((log) => log.status === 'SCHEDULED' && log.scheduledDate !== null);
+        logs = maintenanceLogs.filter((log) => log.scheduledDate === null);
+      } else if (statusFilter === 'scheduled_only') {
+        logs = maintenanceLogs.filter((log) => log.status === 'SCHEDULED' && log.scheduledDate !== null);
       }
     }
-    return maintenanceLogs;
+    return logs;
   }, [maintenanceLogs, activeTab, statusFilter]);
+
+  const selectableEquipment = equipment;
 
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -266,7 +279,7 @@ export default function MaintenancePage() {
         completedDate: new Date(completedDate).toISOString(),
         cost: costNum,
         notes: notes.trim() || null,
-        postMaintenanceCondition: postMaintenanceCondition || null,
+        ...(postMaintenanceCondition ? { postMaintenanceCondition } : {}),
       });
 
       setSuccessMessage('Maintenance record completed successfully');
@@ -1004,7 +1017,7 @@ export default function MaintenancePage() {
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
                 >
                   <option value="">Choose asset...</option>
-                  {equipment.map((eq) => (
+                  {selectableEquipment.map((eq) => (
                     <option key={eq.id} value={eq.id}>
                       {eq.item.itemName} ({eq.assetId}) - {eq.status.replace('_', ' ')}
                     </option>

@@ -34,12 +34,17 @@ export interface MaintenanceLog {
     lastName: string;
     email: string;
   } | null;
+  equipmentName?: string | null;
+  equipmentCondition?: string | null;
+  equipmentBrand?: string | null;
+  equipmentModel?: string | null;
 }
 
 export interface ListMaintenanceLogsQuery {
   status?: MaintenanceStatus;
   equipmentId?: number;
   search?: string;
+  tab?: 'upcoming' | 'history' | 'all';
   page?: number;
   limit?: number;
 }
@@ -61,6 +66,7 @@ export interface UpdateMaintenanceScheduleInput {
   status?: MaintenanceStatus;
   cost?: number | null;
   completedDate?: string | null;
+  postMaintenanceCondition?: string | null;
 }
 
 interface PaginationMeta {
@@ -98,6 +104,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
       if (query?.status) params.status = query.status;
       if (query?.equipmentId) params.equipmentId = String(query.equipmentId);
       if (query?.search) params.search = query.search;
+      if (query?.tab) params.tab = query.tab;
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 

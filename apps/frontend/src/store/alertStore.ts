@@ -109,6 +109,10 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   markAsRead: async (id: string) => {
     const isMaint = id.startsWith('m-');
     const rawId = parseInt(id.replace(/^(m-|stock-)/, ''), 10);
+    if (isNaN(rawId)) {
+      console.error('Invalid alert ID format:', id);
+      return;
+    }
     try {
       if (isMaint) {
         await api.patch(`/maintenance-alerts/${rawId}/read`);

@@ -58,6 +58,7 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
 // PATCH /api/maintenance-alerts/read-all - Mark all as read
 router.patch(
   '/read-all',
+  authorize('maintenance:update'),
   async (_req: Request, res: Response): Promise<void> => {
     try {
       const result = await prisma.maintenanceAlert.updateMany({
@@ -76,6 +77,7 @@ router.patch(
 // PATCH /api/maintenance-alerts/:id/read - Mark a single alert as read
 router.patch(
   '/:id/read',
+  authorize('maintenance:update'),
   validate(alertIdSchema, 'params'),
   async (req: Request, res: Response): Promise<void> => {
     try {

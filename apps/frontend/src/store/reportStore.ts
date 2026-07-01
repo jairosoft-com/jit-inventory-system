@@ -24,6 +24,17 @@ export interface ReportPreview {
   data: Record<string, unknown>[];
 }
 
+export interface ReportFilters {
+  startDate?: string;   // 'yyyy-MM-dd'
+  endDate?: string;     // 'yyyy-MM-dd'
+  categoryId?: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+}
+
 interface ReportState {
   availableTypes: ReportTypeOption[];
   selectedType: ReportType | null;
@@ -33,11 +44,19 @@ interface ReportState {
   isExporting: boolean;
   error: string | null;
 
+  // Filters
+  filters: ReportFilters;
+  categories: Category[];
+  isLoadingCategories: boolean;
+
   fetchTypes: () => Promise<void>;
+  fetchCategories: () => Promise<void>;
   selectType: (type: ReportType) => void;
   generatePreview: () => Promise<void>;
   exportExcel: () => Promise<void>;
   exportPdf: () => Promise<void>;
+  setFilters: (partial: Partial<ReportFilters>) => void;
+  clearFilters: () => void;
   clearPreview: () => void;
   clearError: () => void;
 }
@@ -54,6 +73,15 @@ async function downloadBlob(url: string, filename: string) {
   window.URL.revokeObjectURL(blobUrl);
 }
 
+function buildFilterParams(filters: ReportFilters): string {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set('startDate', filters.startDate);
+  if (filters.endDate) params.set('endDate', filters.endDate);
+  if (filters.categoryId) params.set('categoryId', filters.categoryId);
+  const qs = params.toString();
+  return qs ? `&${qs}` : '';
+}
+
 export const useReportStore = create<ReportState>((set, get) => ({
   availableTypes: [],
   selectedType: null,
@@ -62,6 +90,10 @@ export const useReportStore = create<ReportState>((set, get) => ({
   isLoadingPreview: false,
   isExporting: false,
   error: null,
+
+  filters: {},
+  categories: [],
+  isLoadingCategories: false,
 
   fetchTypes: async () => {
     set({ isLoadingTypes: true, error: null });
@@ -73,16 +105,27 @@ export const useReportStore = create<ReportState>((set, get) => ({
     }
   },
 
+  fetchCategories: async () => {
+    set({ isLoadingCategories: true });
+    try {
+      const response = await api.get<Category[]>('/categories');
+      set({ categories: response.data, isLoadingCategories: false });
+    } catch {
+      set({ isLoadingCategories: false });
+    }
+  },
+
   selectType: (type) => {
     set({ selectedType: type, preview: null, error: null });
   },
 
   generatePreview: async () => {
-    const { selectedType } = get();
+    const { selectedType, filters } = get();
     if (!selectedType) return;
     set({ isLoadingPreview: true, error: null, preview: null });
     try {
-      const response = await api.get<ReportPreview>(`/reports/preview?type=${selectedType}`);
+      const qs = buildFilterParams(filters);
+      const response = await api.get<ReportPreview>(`/reports/preview?type=${selectedType}${qs}`);
       set({ preview: response.data, isLoadingPreview: false });
     } catch {
       set({ error: 'Failed to generate report. Please try again.', isLoadingPreview: false });
@@ -90,13 +133,14 @@ export const useReportStore = create<ReportState>((set, get) => ({
   },
 
   exportExcel: async () => {
-    const { selectedType } = get();
+    const { selectedType, filters } = get();
     if (!selectedType) return;
     set({ isExporting: true, error: null });
     try {
       const date = new Date().toISOString().split('T')[0];
+      const qs = buildFilterParams(filters);
       await downloadBlob(
-        `/reports/export/excel?type=${selectedType}`,
+        `/reports/export/excel?type=${selectedType}${qs}`,
         `${selectedType}-report-${date}.xlsx`,
       );
     } catch {
@@ -107,13 +151,14 @@ export const useReportStore = create<ReportState>((set, get) => ({
   },
 
   exportPdf: async () => {
-    const { selectedType } = get();
+    const { selectedType, filters } = get();
     if (!selectedType) return;
     set({ isExporting: true, error: null });
     try {
       const date = new Date().toISOString().split('T')[0];
+      const qs = buildFilterParams(filters);
       await downloadBlob(
-        `/reports/export/pdf?type=${selectedType}`,
+        `/reports/export/pdf?type=${selectedType}${qs}`,
         `${selectedType}-report-${date}.pdf`,
       );
     } catch {
@@ -121,6 +166,14 @@ export const useReportStore = create<ReportState>((set, get) => ({
     } finally {
       set({ isExporting: false });
     }
+  },
+
+  setFilters: (partial) => {
+    set((state) => ({ filters: { ...state.filters, ...partial }, preview: null }));
+  },
+
+  clearFilters: () => {
+    set({ filters: {}, preview: null });
   },
 
   clearPreview: () => set({ preview: null }),

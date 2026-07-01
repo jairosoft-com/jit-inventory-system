@@ -530,29 +530,48 @@ export default function DashboardLayout() {
 
         {/* Nav sections */}
         <nav className="dash-sidebar-nav">
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.label} className="dash-nav-section">
-              {!collapsed && <span className="dash-nav-label">{section.label}</span>}
-              <ul className="dash-nav-list">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <li key={item.name}>
-                      <button
-                        className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
-                        onClick={() => navigate(item.href)}
-                        title={collapsed ? item.name : undefined}
-                      >
-                        <item.icon />
-                        {!collapsed && <span>{item.name}</span>}
-                        {isActive && <div className="dash-nav-indicator" />}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {NAV_SECTIONS.map((section) => {
+            const isStaff = user?.role?.name === 'STAFF';
+            const filteredItems = section.items.filter((item) => {
+              if (isStaff) {
+                const hiddenStaffModules = [
+                  'Categories',
+                  'Suppliers',
+                  'Maintenance',
+                  'Users & Roles',
+                  'Reports',
+                ];
+                return !hiddenStaffModules.includes(item.name);
+              }
+              return true;
+            });
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={section.label} className="dash-nav-section">
+                {!collapsed && <span className="dash-nav-label">{section.label}</span>}
+                <ul className="dash-nav-list">
+                  {filteredItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <li key={item.name}>
+                        <button
+                          className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
+                          onClick={() => navigate(item.href)}
+                          title={collapsed ? item.name : undefined}
+                        >
+                          <item.icon />
+                          {!collapsed && <span>{item.name}</span>}
+                          {isActive && <div className="dash-nav-indicator" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Sidebar footer */}

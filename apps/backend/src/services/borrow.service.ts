@@ -9,8 +9,8 @@ import { AuditLogService } from './audit-log.service.js';
 import type {
   CreateBorrowInput,
   ListBorrowQuery,
+  ProcessReturnInput,
   RejectBorrowInput,
-  ReturnEquipmentInput,
 } from '../schemas/borrow.schema.js';
 
 // ── Shared include ────────────────────────────────────────────────────────────
@@ -39,6 +39,32 @@ const borrowInclude = Prisma.validator<Prisma.BorrowRecordInclude>()({
 
 export class BorrowService {
   // ── Guards ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Promotes any APPROVED/BORROWED record whose expectedReturn date has
+   * already passed to OVERDUE. Nothing in this codebase ever wrote
+   * BorrowStatus.OVERDUE to the database — the dashboard only *computed* an
+   * overdue count on the fly — so list/history views kept showing stale
+   * "Approved"/"Borrowed" badges and `?status=OVERDUE` filtering returned
+   * nothing. This is called before every read so the stored status is
+   * always accurate by the time it reaches the API response.
+   *
+   * This is a passive, time-derived transition rather than something a user
+   * did, so (unlike approve/reject/return) it is intentionally not written
+   * to the audit trail, which records actions performed by a specific user.
+   */
+  private static async syncOverdueStatuses(): Promise<void> {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    await prisma.borrowRecord.updateMany({
+      where: {
+        status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
+        expectedReturn: { lt: today },
+      },
+      data: { status: BorrowStatus.OVERDUE },
+    });
+  }
 
   /**
    * Ensures the equipment exists, is active, and is currently AVAILABLE.
@@ -90,6 +116,8 @@ export class BorrowService {
   // ── List ────────────────────────────────────────────────────────────────────
 
   static async findAll(query: ListBorrowQuery, requestingUserId: number) {
+    await this.syncOverdueStatuses();
+
     const { status, equipmentId, borrowedById, mine, page, limit } = query;
     const skip = (page - 1) * limit;
 
@@ -122,6 +150,8 @@ export class BorrowService {
   // ── Find one ─────────────────────────────────────────────────────────────────
 
   static async findOne(id: number) {
+    await this.syncOverdueStatuses();
+
     const record = await prisma.borrowRecord.findUnique({
       where: { id },
       include: borrowInclude,
@@ -136,20 +166,6 @@ export class BorrowService {
 
   // ── Approve ──────────────────────────────────────────────────────────────────
 
-  /**
-   * Approves a PENDING borrow request: flips the request to APPROVED, sets
-   * borrowDate to now, and transitions the equipment to BORROWED so it drops
-   * out of any AVAILABLE-filtered list.
-   *
-   * Both state transitions use updateMany() with the expected prior state
-   * baked into the `where` clause (status: PENDING / status: AVAILABLE)
-   * rather than a separate findUnique() read followed by an update(). This
-   * makes the check-and-set atomic at the database level: Postgres only
-   * matches and locks rows that still satisfy the where clause at the
-   * moment of the write, so two concurrent approve() calls for the same
-   * equipment can no longer both read AVAILABLE and both write BORROWED.
-   * The loser's updateMany() simply matches zero rows.
-   */
   static async approve(id: number, approverId: number) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
@@ -160,8 +176,6 @@ export class BorrowService {
         throw new Error('Borrow record not found');
       }
 
-      // Atomic check-and-set: only matches if the equipment is still
-      // AVAILABLE at the moment this statement executes.
       const eqUpdate = await tx.equipment.updateMany({
         where: { id: existing.equipmentId, status: EquipmentStatus.AVAILABLE },
         data: { status: EquipmentStatus.BORROWED },
@@ -170,8 +184,6 @@ export class BorrowService {
         throw new Error('Equipment is currently unavailable');
       }
 
-      // Atomic check-and-set: only matches if the request is still PENDING
-      // at the moment this statement executes.
       const recordUpdate = await tx.borrowRecord.updateMany({
         where: { id, status: BorrowStatus.PENDING },
         data: {
@@ -191,85 +203,6 @@ export class BorrowService {
     });
   }
 
-  // ── Return ───────────────────────────────────────────────────────────────────
-
-  /**
-   * Marks a BORROWED (or OVERDUE) borrow record as RETURNED, sets
-   * actualReturn to now, and transitions the equipment back to AVAILABLE.
-   *
-   * Uses the same atomic updateMany() pattern as approve/reject so
-   * concurrent return calls cannot double-process the same record.
-   */
-  static async returnEquipment(
-    id: number,
-    returnedById: number,
-    input: ReturnEquipmentInput,
-  ) {
-    return prisma.$transaction(async (tx) => {
-      const existing = await tx.borrowRecord.findUnique({
-        where: { id },
-        select: { id: true, equipmentId: true, status: true },
-      });
-
-      if (!existing) {
-        throw new Error('Borrow record not found');
-      }
-
-      if (
-        existing.status !== BorrowStatus.BORROWED &&
-        existing.status !== BorrowStatus.OVERDUE
-      ) {
-        throw new Error(
-          'Borrow record is not in a returnable state (must be BORROWED or OVERDUE)',
-        );
-      }
-
-      // Return the equipment to AVAILABLE atomically
-      await tx.equipment.update({
-        where: { id: existing.equipmentId },
-        data: { status: EquipmentStatus.AVAILABLE },
-      });
-
-      // Mark the record as RETURNED
-      await tx.borrowRecord.update({
-        where: { id },
-        data: {
-          status: BorrowStatus.RETURNED,
-          actualReturn: new Date(),
-          ...(input.returnCondition !== undefined && {
-            returnCondition: input.returnCondition,
-          }),
-          ...(input.notes !== undefined && { notes: input.notes }),
-        },
-      });
-
-      const updated = await tx.borrowRecord.findUniqueOrThrow({
-        where: { id },
-        include: borrowInclude,
-      });
-
-      await AuditLogService.log(
-        'BorrowRecord',
-        updated.id,
-        LogAction.UPDATED,
-        returnedById,
-        existing,
-        updated,
-        tx,
-      );
-
-      return updated;
-    });
-  }
-
-  /**
-   * Rejects a PENDING borrow request. The equipment is never touched — it
-   * was never reserved in the first place, so it simply stays AVAILABLE.
-   *
-   * Uses the same atomic updateMany() pattern as approve() so a concurrent
-   * approve/reject on the same record can't both succeed against a stale
-   * in-memory PENDING read.
-   */
   static async reject(id: number, approverId: number, data: RejectBorrowInput) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
@@ -300,6 +233,115 @@ export class BorrowService {
         where: { id },
         include: borrowInclude,
       });
+    });
+  }
+
+  // ── Process Return ────────────────────────────────────────────────────────────
+
+  static async processReturn(
+    id: number,
+    data: ProcessReturnInput,
+    processedById: number,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.borrowRecord.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          equipmentId: true,
+          status: true,
+          expectedReturn: true,
+          notes: true,
+        },
+      });
+
+      if (!existing) {
+        throw new Error('Borrow record not found');
+      }
+
+      if (
+        existing.status !== BorrowStatus.BORROWED &&
+        existing.status !== BorrowStatus.APPROVED &&
+        existing.status !== BorrowStatus.OVERDUE
+      ) {
+        if (existing.status === BorrowStatus.RETURNED) {
+          throw new Error('Equipment has already been returned');
+        }
+        throw new Error(
+          `Cannot process return — borrow record is currently ${existing.status}`,
+        );
+      }
+
+      const now = new Date();
+
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const expectedStr = new Date(existing.expectedReturn)
+        .toISOString()
+        .split('T')[0];
+      const isLate = todayStr > expectedStr;
+
+      const finalStatus = BorrowStatus.RETURNED;
+      const auditAction = isLate ? LogAction.UPDATED : LogAction.RETURNED;
+
+      const recordUpdate = await tx.borrowRecord.updateMany({
+        where: {
+          id,
+          status: {
+            in: [
+              BorrowStatus.BORROWED,
+              BorrowStatus.APPROVED,
+              BorrowStatus.OVERDUE,
+            ],
+          },
+        },
+        data: {
+          status: finalStatus,
+          actualReturn: now,
+          returnCondition: data.returnCondition,
+          notes: data.notes
+            ? [existing.notes, `[Return Notes] ${data.notes}`]
+                .filter(Boolean)
+                .join('\n')
+            : existing.notes,
+        },
+      });
+
+      if (recordUpdate.count === 0) {
+        throw new Error(
+          'Return could not be processed — record state changed concurrently',
+        );
+      }
+
+      await tx.equipment.update({
+        where: { id: existing.equipmentId },
+        data: {
+          status: EquipmentStatus.AVAILABLE,
+          // The condition logged on this return (FAIR/POOR/DAMAGED, etc.)
+          // must carry over to the equipment's own record — otherwise the
+          // asset keeps showing its last-known condition forever, and the
+          // retirement-eligibility / replacement-planning checks in
+          // equipment.service.ts (which read `equipment.condition`) never
+          // see it either.
+          condition: data.returnCondition,
+        },
+      });
+
+      const updated = await tx.borrowRecord.findUniqueOrThrow({
+        where: { id },
+        include: borrowInclude,
+      });
+
+      await AuditLogService.log(
+        'BorrowRecord',
+        id,
+        auditAction,
+        processedById,
+        { status: existing.status },
+        { status: finalStatus, returnCondition: data.returnCondition, isLate },
+        tx,
+      );
+
+      return { record: updated, isLate };
     });
   }
 }

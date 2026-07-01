@@ -58,7 +58,6 @@ app.use('/api/suppliers', mutativeLimiter); // Bucket 2
 app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
-app.use('/api/procurement', mutativeLimiter); // Bucket 2
 app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser

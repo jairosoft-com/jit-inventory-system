@@ -227,16 +227,16 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
 
   returnEquipment: async (id, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => {
     try {
-      const response = await api.patch<BorrowRecord>(`/borrow/${id}/return`, {
+      const response = await api.patch<{ record: BorrowRecord; isLate: boolean }>(`/borrow/${id}/return`, {
         returnCondition,
         notes,
       });
-      const updated = response.data;
+      const { record } = response.data;
       set((state) => ({
-        adminRecords: state.adminRecords.map((r) => (r.id === id ? updated : r)),
-        myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
+        adminRecords: state.adminRecords.map((r) => (r.id === id ? record : r)),
+        myRecords: state.myRecords.map((r) => (r.id === id ? record : r)),
       }));
-      return updated;
+      return record;
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };

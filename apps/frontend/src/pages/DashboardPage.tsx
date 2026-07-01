@@ -58,22 +58,8 @@ const purchaseOrderStatusColors: Record<string, { bg: string; text: string }> = 
   DRAFT: { bg: 'rgba(107, 114, 128, 0.08)', text: '#6b7280' },
   PENDING: { bg: 'rgba(245, 158, 11, 0.08)', text: '#d97706' },
   APPROVED: { bg: 'rgba(59, 130, 246, 0.08)', text: '#2563eb' },
-  REJECTED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
-  COMPLETED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
-  CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
-  ARCHIVED: { bg: 'rgba(139, 92, 246, 0.08)', text: '#8b5cf6' },
   RECEIVED: { bg: 'rgba(16, 185, 129, 0.08)', text: '#10b981' },
-};
-
-const purchaseOrderStatusLabels: Record<string, string> = {
-  DRAFT: 'Draft',
-  PENDING: 'Pending Approval',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  ARCHIVED: 'Completed',
-  RECEIVED: 'Completed',
+  CANCELLED: { bg: 'rgba(239, 68, 68, 0.08)', text: '#ef4444' },
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -240,19 +226,23 @@ export default function DashboardPage() {
 
   const totalEquipmentCount = equipmentBreakdown.reduce((sum, item) => sum + item.count, 0);
 
-  const lowStockAlertsMapped = (alerts?.lowStock || []).map((item) => {
-    const isOutOfStock = item.quantity === 0 || item.status === 'OUT_OF_STOCK';
-    const reorderPointText = `Reorder Point: ${item.reorderPoint} ${item.unit}`;
-
-    return {
-      id: `low-stock-${item.id}`,
-      severity: isOutOfStock ? 'critical' : 'warning',
+  const outOfStockAlerts = (alerts?.lowStock || [])
+    .filter((item) => item.quantity === 0 || item.status === 'OUT_OF_STOCK')
+    .map((item) => ({
+      id: `out-of-stock-${item.id}`,
+      severity: 'critical' as const,
       itemName: item.itemName,
-      detail: isOutOfStock
-        ? `Out of stock · ${item.quantity} ${item.unit} remaining (${reorderPointText})`
-        : `${item.quantity} ${item.unit} remaining (${reorderPointText})`,
-    };
-  });
+      detail: `Out of stock · 0 ${item.unit} remaining (Reorder Point: ${item.reorderPoint} ${item.unit})`,
+    }));
+
+  const lowStockAlertsMapped = (alerts?.lowStock || [])
+    .filter((item) => item.quantity > 0 && item.status !== 'OUT_OF_STOCK')
+    .map((item) => ({
+      id: `low-stock-${item.id}`,
+      severity: 'warning' as const,
+      itemName: item.itemName,
+      detail: `${item.quantity} ${item.unit} remaining (Reorder Point: ${item.reorderPoint} ${item.unit})`,
+    }));
 
   const warrantyAlerts = alerts?.warrantyExpiring || [];
   const replacementNeededItems = replacementNeeded || [];
@@ -449,6 +439,25 @@ export default function DashboardPage() {
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          ),
+        },
+        {
+          label: 'Out of Stock',
+          color: '#ef4444',
+          value: outOfStockAlerts.length.toLocaleString(),
+          subtext: 'needs immediate restock',
+          icon: (
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
             </svg>
           ),
         },
@@ -922,7 +931,7 @@ export default function DashboardPage() {
                                       color: color.text,
                                     }}
                                   >
-                                    {purchaseOrderStatusLabels[po.status] || po.status}
+                                    {po.status}
                                   </span>
                                 </td>
                                 <td className="dash-po-date">{formatDate(po.orderDate)}</td>
@@ -959,8 +968,73 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {(isLoading || lowStockAlertsMapped.length > 0) && (
-          <div className="dash-card dash-card--wide">
+        {(isLoading || outOfStockAlerts.length > 0 || lowStockAlertsMapped.length > 0) && (
+          <div className="dash-stock-alerts-grid">
+            {(isLoading || outOfStockAlerts.length > 0) && (
+          <div className="dash-card">
+            <div className="dash-card-header">
+              <h2 className="dash-card-title">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Out of Stock
+              </h2>
+            </div>
+
+            <div className="dash-card-content">
+              {isLoading && outOfStockAlerts.length === 0 ? (
+                <div className="dash-skeleton-list">
+                  {[1, 2, 3].map((id) => (
+                    <div key={id} className="dash-skeleton-row animate-pulse">
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                      <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dash-alerts-list">
+                  {outOfStockAlerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="dash-alert-row dash-alert-row--critical"
+                    >
+                      <div className="dash-alert-badge">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#ef4444"
+                          strokeWidth="2"
+                        >
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      </div>
+                      <div className="dash-alert-content">
+                        <span className="dash-alert-itemName">{alert.itemName}</span>
+                        <span className="dash-alert-detail">{alert.detail}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+            )}
+
+            {(isLoading || lowStockAlertsMapped.length > 0) && (
+          <div className="dash-card">
             <div className="dash-card-header">
               <h2 className="dash-card-title">
                 <svg
@@ -994,7 +1068,7 @@ export default function DashboardPage() {
                   {lowStockAlertsMapped.map((alert) => (
                     <div
                       key={alert.id}
-                      className={`dash-alert-row dash-alert-row--${alert.severity}`}
+                      className="dash-alert-row dash-alert-row--warning"
                     >
                       <div className="dash-alert-badge">
                         <svg
@@ -1002,7 +1076,7 @@ export default function DashboardPage() {
                           height="16"
                           viewBox="0 0 24 24"
                           fill="none"
-                          stroke={alert.severity === 'critical' ? '#ef4444' : '#d97706'}
+                          stroke="#d97706"
                           strokeWidth="2"
                         >
                           <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -1010,7 +1084,6 @@ export default function DashboardPage() {
                           <line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                       </div>
-
                       <div className="dash-alert-content">
                         <span className="dash-alert-itemName">{alert.itemName}</span>
                         <span className="dash-alert-detail">{alert.detail}</span>
@@ -1020,6 +1093,8 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+            )}
           </div>
         )}
 

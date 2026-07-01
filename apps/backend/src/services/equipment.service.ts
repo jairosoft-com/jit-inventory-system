@@ -649,23 +649,48 @@ export class EquipmentService {
 
       const existingDisposal = await tx.disposal.findUnique({
         where: { equipmentId: id },
-        select: { id: true },
-      });
-
-      if (existingDisposal) {
-        throw new Error('Equipment already has a disposal record');
-      }
-
-      const disposal = await tx.disposal.create({
-        data: {
-          equipmentId: id,
-          approvedById: requestedById,
-          reason: data.reason,
-          approvalStatus: DisposalApprovalStatus.PENDING,
-          method: data.method,
-          notes: data.notes ?? null,
+        select: {
+          id: true,
+          approvalStatus: true,
+          reason: true,
+          method: true,
+          notes: true,
+          disposalDate: true,
         },
       });
+
+      if (existingDisposal?.approvalStatus === DisposalApprovalStatus.PENDING) {
+        throw new Error('Equipment already has a pending disposal request');
+      }
+
+      if (
+        existingDisposal?.approvalStatus === DisposalApprovalStatus.COMPLETED
+      ) {
+        throw new Error('Equipment already has a completed disposal record');
+      }
+
+      const disposal = existingDisposal
+        ? await tx.disposal.update({
+            where: { id: existingDisposal.id },
+            data: {
+              approvedById: requestedById,
+              reason: data.reason,
+              approvalStatus: DisposalApprovalStatus.PENDING,
+              method: data.method,
+              notes: data.notes ?? null,
+              disposalDate: new Date(),
+            },
+          })
+        : await tx.disposal.create({
+            data: {
+              equipmentId: id,
+              approvedById: requestedById,
+              reason: data.reason,
+              approvalStatus: DisposalApprovalStatus.PENDING,
+              method: data.method,
+              notes: data.notes ?? null,
+            },
+          });
 
       const updatedEquipment = await tx.equipment.update({
         where: { id },
@@ -688,9 +713,9 @@ export class EquipmentService {
       await AuditLogService.log(
         'Disposal',
         disposal.id,
-        LogAction.CREATED,
+        existingDisposal ? LogAction.UPDATED : LogAction.CREATED,
         requestedById,
-        null,
+        existingDisposal ?? null,
         disposal,
         tx,
       );

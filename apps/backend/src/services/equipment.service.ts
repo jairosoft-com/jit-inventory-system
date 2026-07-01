@@ -57,6 +57,23 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
   ConditionStatus.DAMAGED,
 ]);
 
+const FALLBACK_NON_DAMAGED_CONDITION = ConditionStatus.POOR;
+
+function normalizeConditionForEquipmentStatus(
+  status: EquipmentStatus,
+  condition: ConditionStatus,
+): ConditionStatus {
+  if (status === EquipmentStatus.DAMAGED) {
+    return ConditionStatus.DAMAGED;
+  }
+
+  if (condition === ConditionStatus.DAMAGED) {
+    return FALLBACK_NON_DAMAGED_CONDITION;
+  }
+
+  return condition;
+}
+
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
 function getRejectedRetirementFallbackStatus(disposalReason: {
@@ -310,7 +327,10 @@ export class EquipmentService {
             serialNumber: data.serialNumber ?? null,
             brand: data.brand ?? null,
             model: data.model ?? null,
-            condition: data.condition,
+            condition: normalizeConditionForEquipmentStatus(
+              data.status,
+              data.condition,
+            ),
             status: data.status,
             location: data.location ?? null,
             acquisitionDate: data.acquisitionDate ?? null,
@@ -527,10 +547,17 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
+    const nextStatus = equipmentFields.status ?? equipment.status;
+    const nextCondition = equipmentFields.condition ?? equipment.condition;
+
     const updated = await prisma.equipment.update({
       where: { id },
       data: {
         ...equipmentFields,
+        condition: normalizeConditionForEquipmentStatus(
+          nextStatus,
+          nextCondition,
+        ),
         ...(purchasePrice !== undefined && {
           purchasePrice:
             purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,

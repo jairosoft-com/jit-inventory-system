@@ -4,6 +4,7 @@ import api from '../lib/api';
 export type AlertPriority = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERDUE_EQUIPMENT' | 'MAINTENANCE_DUE';
 export type AlertCategoryFilter = 'ALL' | AlertType;
+export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE';
 
 export interface UnifiedAlert {
   id: string; // Combined format: 'stock-1' or 'm-1' to avoid key collisions
@@ -22,15 +23,11 @@ export interface UnifiedAlert {
     unit: string;
     item: { id: number; itemName: string };
   } | null;
-  borrowRecord?: {
+  equipment?: {
     id: number;
-    expectedReturn: string;
-    status: string;
-    equipment: {
-      assetId: string;
-      item: { id: number; itemName: string };
-    };
-    borrowedBy: { id: number; firstName: string; lastName: string };
+    assetId: string;
+    warrantyEnd: string | null;
+    item: { id: number; itemName: string; category: { id: number; name: string } };
   } | null;
 }
 
@@ -82,12 +79,21 @@ interface AlertState {
   reset: () => void;
 }
 
-// Filter out alerts older than 24 hours client-side as a safety net for the current dropdown
+// Filter out alerts older than 24 hours client-side as a safety net.
+// Only applies to stock alerts (LOW_STOCK/OUT_OF_STOCK), which are
+// recreated/refreshed frequently. Equipment lifecycle alerts
+// (WARRANTY_EXPIRING/REPLACEMENT_NEEDED) are long-lived by design — an
+// expired warranty or a replacement tag can stay open for weeks — and
+// runWarrantyScan() updates the same alert row in place rather than
+// recreating it, so createdAt does not reflect how current the alert is.
 const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const PERSISTENT_ALERT_TYPES: AlertType[] = ['WARRANTY_EXPIRING', 'REPLACEMENT_NEEDED'];
 
 function filterFreshAlerts(alerts: UnifiedAlert[]): UnifiedAlert[] {
   const cutoff = Date.now() - ALERT_MAX_AGE_MS;
-  return alerts.filter((a) => new Date(a.createdAt).getTime() > cutoff);
+  return alerts.filter(
+    (a) => PERSISTENT_ALERT_TYPES.includes(a.alertType) || new Date(a.createdAt).getTime() > cutoff,
+  );
 }
 
 function mapStockAlert(a: StockAlertResponse): UnifiedAlert {

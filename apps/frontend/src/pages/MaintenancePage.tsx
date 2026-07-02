@@ -149,6 +149,21 @@ export default function MaintenancePage() {
     setCurrentPage(1);
   };
 
+  // Get minimum selectable date for calendar picker
+  const getMinDate = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    if (!selectedLog) return todayStr;
+
+    const activeBorrow = selectedLog.equipment.borrowRecords?.[0];
+    if (activeBorrow) {
+      const returnDate = new Date(activeBorrow.expectedReturn);
+      const dayAfter = new Date(returnDate.getTime() + 24 * 60 * 60 * 1000);
+      return dayAfter.toISOString().split('T')[0];
+    }
+    return todayStr;
+  };
+
   // Open Schedule Modal
   const handleOpenSchedule = (log: MaintenanceLog) => {
     setSelectedLog(log);
@@ -188,6 +203,25 @@ export default function MaintenancePage() {
     if (selectedDateObj < today) {
       setFormError('Scheduled date cannot be in the past');
       return;
+    }
+
+    const activeBorrow = selectedLog.equipment.borrowRecords?.[0];
+    if (activeBorrow) {
+      const returnDate = new Date(activeBorrow.expectedReturn);
+      returnDate.setHours(0, 0, 0, 0);
+      const schedDateObj = new Date(scheduledDate);
+      schedDateObj.setHours(0, 0, 0, 0);
+
+      if (schedDateObj <= returnDate) {
+        const formattedReturnDate = new Date(activeBorrow.expectedReturn).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        });
+        setFormError(`Cannot schedule maintenance: This asset is currently borrowed until ${formattedReturnDate}`);
+        return;
+      }
     }
 
     let performedByIdNum: number | null = null;
@@ -656,8 +690,10 @@ export default function MaintenancePage() {
                                 Reschedule
                               </button>
                               <button
+                                disabled={!!log.equipment.borrowRecords?.[0]}
                                 onClick={() => handleTransitionStatus(log, 'IN_PROGRESS')}
-                                className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition"
+                                className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                title={log.equipment.borrowRecords?.[0] ? `Cannot start maintenance: This asset is currently borrowed.` : undefined}
                               >
                                 Start
                               </button>
@@ -752,6 +788,21 @@ export default function MaintenancePage() {
                 />
               </div>
 
+              {selectedLog.equipment.borrowRecords?.[0] && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col gap-1">
+                  <span className="font-semibold">⚠️ Borrow Notice</span>
+                  <span>
+                    This equipment is currently physically borrowed. It is expected to return on{' '}
+                    {new Date(selectedLog.equipment.borrowRecords[0].expectedReturn).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      timeZone: 'UTC',
+                    })}.
+                  </span>
+                </div>
+              )}
+
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="sch-desc" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
                   Maintenance Type / Description <span className="text-red-500">*</span>
@@ -775,6 +826,7 @@ export default function MaintenancePage() {
                   id="sch-date"
                   type="date"
                   required
+                  min={getMinDate()}
                   value={scheduleData.scheduledDate}
                   onChange={(e) => setScheduleData({ ...scheduleData, scheduledDate: e.target.value })}
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"

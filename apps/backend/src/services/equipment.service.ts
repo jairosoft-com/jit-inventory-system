@@ -18,6 +18,7 @@ import type {
   EquipmentImageInput,
   UpdateImageInput,
   ListEquipmentQuery,
+  ListRetiredArchiveQuery,
   RetirementRequestInput,
   UpdateDisposalApprovalInput,
   ReplacementNeededInput,
@@ -240,6 +241,12 @@ export class EquipmentService {
     }
 
     return equipment;
+  }
+
+  private static assertNotRetired(equipment: { status: EquipmentStatus }) {
+    if (equipment.status === EquipmentStatus.RETIRED) {
+      throw new Error('Retired equipment is archived and cannot be modified');
+    }
   }
 
   private static async syncCompletedRetirements() {
@@ -470,10 +477,17 @@ export class EquipmentService {
     } = query;
 
     const skip = (page - 1) * limit;
+    const statusFilters: Prisma.EquipmentWhereInput[] = [
+      { status: { not: EquipmentStatus.RETIRED } },
+    ];
+
+    if (status) {
+      statusFilters.push({ status });
+    }
 
     const where: Prisma.EquipmentWhereInput = {
       deletedAt: null,
-      ...(status && { status }),
+      AND: statusFilters,
       ...(condition && { condition }),
       ...(assignedTo && { assignedTo }),
       item: {
@@ -545,6 +559,7 @@ export class EquipmentService {
 
   static async update(id: number, data: UpdateEquipmentInput, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
+    this.assertNotRetired(equipment);
 
     if (data.categoryId) {
       await this.assertCategoryIsEquipment(data.categoryId);
@@ -664,6 +679,7 @@ static async setReplacementNeeded(
     userId: number,
   ) {
     const equipment = await this.findActiveOrThrow(id);
+    this.assertNotRetired(equipment);
 
     const updated = await prisma.equipment.update({
       where: { id },
@@ -721,6 +737,8 @@ static async setReplacementNeeded(
       if (!equipment || equipment.deletedAt) {
         throw new Error('Equipment not found');
       }
+
+      this.assertNotRetired(equipment);
 
       const eligibilityError = getRetirementEligibilityError(equipment);
 
@@ -864,6 +882,106 @@ static async setReplacementNeeded(
     });
   }
 
+  static async getRetiredArchive(query: ListRetiredArchiveQuery) {
+    await this.syncCompletedRetirements();
+
+    const {
+      search,
+      categoryId,
+      reason,
+      retirementDateFrom,
+      retirementDateTo,
+      page = 1,
+      limit = 20,
+    } = query;
+
+    const skip = (page - 1) * limit;
+    const retirementDateToEnd = retirementDateTo
+      ? new Date(retirementDateTo)
+      : undefined;
+    retirementDateToEnd?.setHours(23, 59, 59, 999);
+
+    const where: Prisma.DisposalWhereInput = {
+      approvalStatus: DisposalApprovalStatus.COMPLETED,
+      ...(reason && { reason }),
+      ...(retirementDateFrom || retirementDateToEnd
+        ? {
+            disposalDate: {
+              ...(retirementDateFrom && { gte: retirementDateFrom }),
+              ...(retirementDateToEnd && { lte: retirementDateToEnd }),
+            },
+          }
+        : {}),
+      equipment: {
+        status: EquipmentStatus.RETIRED,
+        deletedAt: null,
+        item: {
+          deletedAt: null,
+          ...(categoryId && { categoryId }),
+        },
+        ...(search && {
+          OR: [
+            { assetId: { contains: search, mode: 'insensitive' } },
+            {
+              item: {
+                itemName: { contains: search, mode: 'insensitive' },
+              },
+            },
+          ],
+        }),
+      },
+    };
+
+    const include = {
+      equipment: {
+        include: {
+          item: {
+            select: {
+              id: true,
+              itemName: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      approvedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+    } satisfies Prisma.DisposalInclude;
+
+    const [data, total] = await Promise.all([
+      prisma.disposal.findMany({
+        where,
+        include,
+        orderBy: [{ disposalDate: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.disposal.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   static async updateDisposalApproval(
     id: number,
     data: UpdateDisposalApprovalInput,
@@ -971,6 +1089,7 @@ static async setReplacementNeeded(
 
   static async softDelete(id: number, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
+    this.assertNotRetired(equipment);
 
     const deletedAt = new Date();
 
@@ -1000,7 +1119,8 @@ static async setReplacementNeeded(
   // ── Image management ────────────────────────────────────────────────────────
 
   static async addImage(equipmentId: number, data: EquipmentImageInput) {
-    await this.findActiveOrThrow(equipmentId);
+    const equipment = await this.findActiveOrThrow(equipmentId);
+    this.assertNotRetired(equipment);
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
@@ -1028,7 +1148,8 @@ static async setReplacementNeeded(
     imageId: number,
     data: UpdateImageInput,
   ) {
-    await this.findActiveOrThrow(equipmentId);
+    const equipment = await this.findActiveOrThrow(equipmentId);
+    this.assertNotRetired(equipment);
 
     const image = await prisma.equipmentImage.findFirst({
       where: {
@@ -1060,7 +1181,8 @@ static async setReplacementNeeded(
   }
 
   static async deleteImage(equipmentId: number, imageId: number) {
-    await this.findActiveOrThrow(equipmentId);
+    const equipment = await this.findActiveOrThrow(equipmentId);
+    this.assertNotRetired(equipment);
 
     const image = await prisma.equipmentImage.findFirst({
       where: {

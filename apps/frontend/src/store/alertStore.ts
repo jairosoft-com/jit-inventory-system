@@ -116,7 +116,6 @@ export const useAlertStore = create<AlertState>((set, get) => ({
         readAt: a.readAt,
         resolvedAt: a.resolvedAt ?? null,
         createdAt: a.createdAt,
-        resolvedAt: null,
       }));
 
       const combined = [...stockAlerts, ...maintAlerts];

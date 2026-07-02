@@ -7,6 +7,7 @@ import {
   type EquipmentStatus,
   type ConditionStatus,
   type ListEquipmentQuery,
+  type ListRetiredArchiveQuery,
   type DisposalReason,
   type DisposalApprovalStatus,
 } from '../store/equipmentStore';
@@ -22,7 +23,6 @@ const EQUIPMENT_STATUSES: EquipmentStatus[] = [
   'LOST',
   'BORROWED',
   'RETIREMENT_PENDING',
-  'RETIRED',
 ];
 
 const MANUALLY_SELECTABLE_EQUIPMENT_STATUSES: EquipmentStatus[] = [
@@ -304,8 +304,12 @@ export default function EquipmentPage() {
     error: storeError,
     disposalHistory,
     isDisposalHistoryLoading,
+    retiredArchive,
+    retiredArchiveMeta,
+    isRetiredArchiveLoading,
     fetchEquipment,
     fetchDisposalHistory,
+    fetchRetiredArchive,
     createEquipment,
     updateEquipment,
     submitRetirementRequest,
@@ -314,6 +318,7 @@ export default function EquipmentPage() {
     addImage,
     deleteImage,
     clearError,
+    updateDisposalApproval,
   } = useEquipmentStore();
   const { categories, fetchCategories } = useCategoryStore();
 
@@ -359,6 +364,17 @@ export default function EquipmentPage() {
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDisposalHistoryOpen, setIsDisposalHistoryOpen] = useState(false);
   const [disposalHistoryError, setDisposalHistoryError] = useState<string | null>(null);
+  const [disposalActionId, setDisposalActionId] = useState<number | null>(null);
+  const [disposalStatusFilter, setDisposalStatusFilter] = useState<DisposalApprovalStatus | ''>('');
+  const [isRetiredArchiveOpen, setIsRetiredArchiveOpen] = useState(false);
+  const [retiredArchiveError, setRetiredArchiveError] = useState<string | null>(null);
+  const [retiredArchiveSearchInput, setRetiredArchiveSearchInput] = useState('');
+  const [retiredArchiveAppliedSearch, setRetiredArchiveAppliedSearch] = useState('');
+  const [retiredArchiveCategoryFilter, setRetiredArchiveCategoryFilter] = useState('');
+  const [retiredArchiveReasonFilter, setRetiredArchiveReasonFilter] = useState<DisposalReason | ''>('');
+  const [retiredArchiveDateFrom, setRetiredArchiveDateFrom] = useState('');
+  const [retiredArchiveDateTo, setRetiredArchiveDateTo] = useState('');
+  const [retiredArchivePage, setRetiredArchivePage] = useState(1);
 
   const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
   const [replacementError, setReplacementError] = useState<string | null>(null);
@@ -383,6 +399,49 @@ export default function EquipmentPage() {
       return fetchEquipment(query);
     },
     [currentPage, searchInput, statusFilter, fetchEquipment],
+  );
+
+
+  type RetiredArchiveFilterOverrides = {
+    search?: string;
+    categoryFilter?: string;
+    reasonFilter?: DisposalReason | '';
+    dateFrom?: string;
+    dateTo?: string;
+  };
+
+  const loadRetiredArchive = useCallback(
+    (page?: number, overrides: RetiredArchiveFilterOverrides = {}) => {
+      const query: ListRetiredArchiveQuery = {
+        page: page ?? retiredArchivePage,
+        limit: PAGE_SIZE,
+      };
+
+      const search = overrides.search ?? retiredArchiveAppliedSearch;
+      const categoryFilter = overrides.categoryFilter ?? retiredArchiveCategoryFilter;
+      const reasonFilter = overrides.reasonFilter ?? retiredArchiveReasonFilter;
+      const dateFrom = overrides.dateFrom ?? retiredArchiveDateFrom;
+      const dateTo = overrides.dateTo ?? retiredArchiveDateTo;
+
+      if (search) query.search = search;
+      if (categoryFilter) {
+        query.categoryId = Number(categoryFilter);
+      }
+      if (reasonFilter) query.reason = reasonFilter;
+      if (dateFrom) query.retirementDateFrom = dateFrom;
+      if (dateTo) query.retirementDateTo = dateTo;
+
+      return fetchRetiredArchive(query);
+    },
+    [
+      fetchRetiredArchive,
+      retiredArchiveAppliedSearch,
+      retiredArchiveCategoryFilter,
+      retiredArchiveDateFrom,
+      retiredArchiveDateTo,
+      retiredArchivePage,
+      retiredArchiveReasonFilter,
+    ],
   );
 
   useEffect(() => {
@@ -818,6 +877,9 @@ export default function EquipmentPage() {
     try {
       await fetchDisposalHistory();
       await loadEquipment(currentPage, searchInput.trim(), statusFilter);
+      if (isRetiredArchiveOpen) {
+        await loadRetiredArchive(retiredArchivePage);
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to fetch disposal history';
 
@@ -828,6 +890,121 @@ export default function EquipmentPage() {
   const handleCloseDisposalHistory = () => {
     setIsDisposalHistoryOpen(false);
     setDisposalHistoryError(null);
+    setDisposalStatusFilter('');
+  };
+
+  const handleOpenRetiredArchive = async () => {
+    setIsRetiredArchiveOpen(true);
+    setRetiredArchiveError(null);
+    setRetiredArchivePage(1);
+
+    try {
+      await loadRetiredArchive(1);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleCloseRetiredArchive = () => {
+    setIsRetiredArchiveOpen(false);
+    setRetiredArchiveError(null);
+  };
+
+  const handleRetiredArchiveSearch = async () => {
+    const search = retiredArchiveSearchInput.trim();
+
+    setRetiredArchiveAppliedSearch(search);
+    setRetiredArchivePage(1);
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(1, { search });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleRetiredArchiveSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void handleRetiredArchiveSearch();
+  };
+
+  const handleRetiredArchiveFilterChange = async (
+    overrides: RetiredArchiveFilterOverrides,
+    applyState: () => void,
+  ) => {
+    applyState();
+    setRetiredArchivePage(1);
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(1, overrides);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleRetiredArchivePageChange = async (page: number) => {
+    setRetiredArchivePage(page);
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(page);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleClearRetiredArchiveFilters = async () => {
+    setRetiredArchiveSearchInput('');
+    setRetiredArchiveAppliedSearch('');
+    setRetiredArchiveCategoryFilter('');
+    setRetiredArchiveReasonFilter('');
+    setRetiredArchiveDateFrom('');
+    setRetiredArchiveDateTo('');
+    setRetiredArchivePage(1);
+    setRetiredArchiveError(null);
+
+    try {
+      await fetchRetiredArchive({ page: 1, limit: PAGE_SIZE });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+      setRetiredArchiveError(message);
+    }
+  };
+
+  const handleUpdateDisposalApproval = async (
+    recordId: number,
+    approvalStatus: Exclude<DisposalApprovalStatus, 'PENDING'>,
+  ) => {
+    setDisposalHistoryError(null);
+    setSuccessMessage(null);
+    setDisposalActionId(recordId);
+
+    try {
+      const updated = await updateDisposalApproval(recordId, { approvalStatus });
+      await fetchDisposalHistory();
+      await loadEquipment(currentPage, searchInput.trim(), statusFilter);
+
+      setSuccessMessage(
+        `Disposal record for "${updated.equipment.item.itemName}" was marked as ${DISPOSAL_APPROVAL_STATUS_LABELS[approvalStatus]}.`,
+      );
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update disposal approval status';
+      setDisposalHistoryError(message);
+    } finally {
+      setDisposalActionId(null);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -861,6 +1038,17 @@ export default function EquipmentPage() {
                 className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
               >
                 Disposal History
+              </button>
+            )}
+
+
+            {canRead && (
+              <button
+                type="button"
+                onClick={handleOpenRetiredArchive}
+                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              >
+                Retired Archive
               </button>
             )}
 
@@ -1949,6 +2137,245 @@ export default function EquipmentPage() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ── Retired Equipment Archive Modal ───────────────────────────── */}
+      {isRetiredArchiveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+          <section className="w-full max-w-6xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Retired Equipment Archive
+                </h2>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Read-only archive of completed disposals for retired equipment.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseRetiredArchive}
+                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
+              {retiredArchiveError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {retiredArchiveError}
+                </div>
+              )}
+
+              <div className="mb-4 rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      Archive search and filters
+                    </p>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Search by equipment name or asset ID and filter completed retired records.
+                    </p>
+                  </div>
+                  {(retiredArchiveSearchInput ||
+                    retiredArchiveAppliedSearch ||
+                    retiredArchiveCategoryFilter ||
+                    retiredArchiveReasonFilter ||
+                    retiredArchiveDateFrom ||
+                    retiredArchiveDateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => void handleClearRetiredArchiveFilters()}
+                      className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[1.2fr_180px_180px_150px_150px_auto]">
+                  <input
+                    value={retiredArchiveSearchInput}
+                    onChange={(e) => setRetiredArchiveSearchInput(e.target.value)}
+                    onKeyDown={handleRetiredArchiveSearchKeyDown}
+                    placeholder="Search name or asset ID..."
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+
+                  <select
+                    value={retiredArchiveCategoryFilter}
+                    onChange={(e) => {
+                      const categoryFilter = e.target.value;
+                      void handleRetiredArchiveFilterChange(
+                        { categoryFilter },
+                        () => setRetiredArchiveCategoryFilter(categoryFilter),
+                      );
+                    }}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  >
+                    <option value="">All Categories</option>
+                    {equipmentCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={retiredArchiveReasonFilter}
+                    onChange={(e) => {
+                      const reasonFilter = e.target.value as DisposalReason | '';
+                      void handleRetiredArchiveFilterChange(
+                        { reasonFilter },
+                        () => setRetiredArchiveReasonFilter(reasonFilter),
+                      );
+                    }}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  >
+                    <option value="">All Reasons</option>
+                    {DISPOSAL_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {DISPOSAL_REASON_LABELS[reason]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={retiredArchiveDateFrom}
+                    onChange={(e) => {
+                      const dateFrom = e.target.value;
+                      void handleRetiredArchiveFilterChange(
+                        { dateFrom },
+                        () => setRetiredArchiveDateFrom(dateFrom),
+                      );
+                    }}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    aria-label="Retirement date from"
+                  />
+
+                  <input
+                    type="date"
+                    value={retiredArchiveDateTo}
+                    onChange={(e) => {
+                      const dateTo = e.target.value;
+                      void handleRetiredArchiveFilterChange(
+                        { dateTo },
+                        () => setRetiredArchiveDateTo(dateTo),
+                      );
+                    }}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    aria-label="Retirement date to"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => void handleRetiredArchiveSearch()}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-3 text-xs font-medium text-[var(--text-tertiary)]">
+                Showing {retiredArchive.length} of {retiredArchiveMeta.total} retired records
+                {retiredArchiveMeta.totalPages > 1 &&
+                  ` · Page ${retiredArchiveMeta.page} of ${retiredArchiveMeta.totalPages}`}
+              </div>
+
+              {isRetiredArchiveLoading ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                  <h3 className="mt-3 font-medium text-[var(--text-primary)]">
+                    Loading retired equipment archive...
+                  </h3>
+                </div>
+              ) : retiredArchive.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                  <h3 className="font-semibold text-[var(--text-primary)]">
+                    No Retired Equipment Found
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Completed retired equipment records will appear here after disposal is completed.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Equipment Name</th>
+                          <th className="px-4 py-3 font-semibold">Asset ID</th>
+                          <th className="px-4 py-3 font-semibold">Category</th>
+                          <th className="px-4 py-3 font-semibold">Disposal Reason</th>
+                          <th className="px-4 py-3 font-semibold">Retirement Date</th>
+                          <th className="px-4 py-3 font-semibold">Final Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {retiredArchive.map((record) => (
+                          <tr key={record.id}>
+                            <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                              {record.equipment.item.itemName}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-xs text-[var(--text-tertiary)]">
+                              {record.equipment.assetId}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {record.equipment.item.category.name}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {DISPOSAL_REASON_LABELS[record.reason]}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {formatDisplayDate(record.disposalDate)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusBadge status="RETIRED" />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {retiredArchiveMeta.totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between border-t border-[var(--surface-border)] pt-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleRetiredArchivePageChange(Math.max(1, retiredArchivePage - 1))
+                        }
+                        disabled={retiredArchivePage <= 1}
+                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-xs text-[var(--text-tertiary)]">
+                        Page {retiredArchiveMeta.page} of {retiredArchiveMeta.totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleRetiredArchivePageChange(
+                            Math.min(retiredArchiveMeta.totalPages, retiredArchivePage + 1),
+                          )
+                        }
+                        disabled={retiredArchivePage >= retiredArchiveMeta.totalPages}
+                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>

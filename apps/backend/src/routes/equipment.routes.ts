@@ -13,6 +13,7 @@ import {
   retirementRequestSchema,
   updateDisposalApprovalSchema,
   replacementNeededSchema,
+  retiredArchiveQuerySchema,
   type CreateEquipmentInput,
   type UpdateEquipmentInput,
   type EquipmentImageInput,
@@ -20,6 +21,7 @@ import {
   type RetirementRequestInput,
   type UpdateDisposalApprovalInput,
   type ReplacementNeededInput,
+  type ListRetiredArchiveQuery,
 } from '../schemas/equipment.schema.js';
 
 const router = Router();
@@ -47,6 +49,11 @@ router.post(
 
       if (message.includes('not found')) {
         res.status(404).json({ message });
+        return;
+      }
+
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
         return;
       }
 
@@ -96,6 +103,27 @@ router.get(
       const history = await EquipmentService.getDisposalHistory();
 
       res.status(200).json(history);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// GET /equipment/retired-archive
+router.get(
+  '/retired-archive',
+  authorize('equipment:read'),
+  validate(retiredArchiveQuerySchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const archive = await EquipmentService.getRetiredArchive(
+        req.query as unknown as ListRetiredArchiveQuery,
+      );
+
+      res.status(200).json(archive);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
@@ -169,6 +197,11 @@ router.get(
         return;
       }
 
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
+        return;
+      }
+
       res.status(500).json({ message });
     }
   },
@@ -207,6 +240,7 @@ router.post(
         message.includes('borrowed') ||
         message.includes('already') ||
         message.includes('cannot be retired') ||
+        message.includes('archived and cannot be modified') ||
         message.includes('disposal record')
       ) {
         res.status(409).json({ message });
@@ -244,6 +278,11 @@ router.patch(
 
       if (message.includes('not found')) {
         res.status(404).json({ message });
+        return;
+      }
+
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
         return;
       }
 
@@ -297,6 +336,11 @@ router.patch(
         return;
       }
 
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
+        return;
+      }
+
       if (
         message.includes('already in use') ||
         message.includes('already exists')
@@ -338,6 +382,11 @@ router.delete(
         return;
       }
 
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
+        return;
+      }
+
       res.status(500).json({ message });
     }
   },
@@ -370,6 +419,11 @@ router.post(
 
       if (message.includes('not found')) {
         res.status(404).json({ message });
+        return;
+      }
+
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
         return;
       }
 
@@ -408,6 +462,11 @@ router.patch(
         return;
       }
 
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
+        return;
+      }
+
       res.status(400).json({ message });
     }
   },
@@ -436,6 +495,11 @@ router.delete(
 
       if (message.includes('not found')) {
         res.status(404).json({ message });
+        return;
+      }
+
+      if (message.includes('archived and cannot be modified')) {
+        res.status(409).json({ message });
         return;
       }
 

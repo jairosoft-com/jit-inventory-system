@@ -60,6 +60,19 @@ export interface DisposalHistoryRecord extends Disposal {
   };
 }
 
+
+export type RetiredArchiveRecord = DisposalHistoryRecord;
+
+export interface ListRetiredArchiveQuery {
+  search?: string;
+  categoryId?: number;
+  reason?: DisposalReason;
+  retirementDateFrom?: string;
+  retirementDateTo?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface EquipmentImage {
   id: number;
   equipmentId: number;
@@ -214,9 +227,13 @@ interface EquipmentState {
   error: string | null;
   disposalHistory: DisposalHistoryRecord[];
   isDisposalHistoryLoading: boolean;
+  retiredArchive: RetiredArchiveRecord[];
+  retiredArchiveMeta: PaginationMeta;
+  isRetiredArchiveLoading: boolean;
 
   fetchEquipment: (query?: ListEquipmentQuery) => Promise<void>;
   fetchDisposalHistory: () => Promise<DisposalHistoryRecord[]>;
+  fetchRetiredArchive: (query?: ListRetiredArchiveQuery) => Promise<RetiredArchiveRecord[]>;
   createEquipment: (data: CreateEquipmentInput) => Promise<Equipment>;
   updateEquipment: (id: number, data: UpdateEquipmentInput) => Promise<Equipment>;
   submitRetirementRequest: (
@@ -244,6 +261,9 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
   error: null,
   disposalHistory: [],
   isDisposalHistoryLoading: false,
+  retiredArchive: [],
+  retiredArchiveMeta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+  isRetiredArchiveLoading: false,
 
   clearError: () => set({ error: null }),
 
@@ -303,6 +323,47 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         err.response?.data?.message || err.message || 'Failed to fetch disposal history';
 
       set({ error: errMsg, isDisposalHistoryLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+
+  fetchRetiredArchive: async (query) => {
+    set({ isRetiredArchiveLoading: true, error: null });
+
+    try {
+      const params: Record<string, string> = {};
+
+      if (query?.search) params.search = query.search;
+      if (query?.categoryId) params.categoryId = String(query.categoryId);
+      if (query?.reason) params.reason = query.reason;
+      if (query?.retirementDateFrom) params.retirementDateFrom = query.retirementDateFrom;
+      if (query?.retirementDateTo) params.retirementDateTo = query.retirementDateTo;
+      if (query?.page) params.page = String(query.page);
+      if (query?.limit) params.limit = String(query.limit);
+
+      const response = await api.get<{
+        data: RetiredArchiveRecord[];
+        meta: PaginationMeta;
+      }>('/equipment/retired-archive', { params });
+
+      set({
+        retiredArchive: response.data.data,
+        retiredArchiveMeta: response.data.meta,
+        isRetiredArchiveLoading: false,
+      });
+
+      return response.data.data;
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      const errMsg =
+        err.response?.data?.message || err.message || 'Failed to fetch retired equipment archive';
+
+      set({ error: errMsg, isRetiredArchiveLoading: false });
       throw new Error(errMsg);
     }
   },

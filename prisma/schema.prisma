@@ -147,6 +147,7 @@ enum AlertType {
   OUT_OF_STOCK
   WARRANTY_EXPIRING
   REPLACEMENT_NEEDED
+  OVERDUE_EQUIPMENT
 }
 
 enum AlertPriority {
@@ -730,6 +731,7 @@ model InventoryAlert {
   id                  Int           @id @default(autoincrement())
   consumableProfileId Int?          @map("consumable_profile_id")
   equipmentId         Int?          @map("equipment_id")
+  borrowRecordId      Int?          @map("borrow_record_id")
   alertType           AlertType     @map("alert_type")
   priority            AlertPriority
   message             String        @db.Text
@@ -740,11 +742,13 @@ model InventoryAlert {
 
   consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
   equipment         Equipment?          @relation(fields: [equipmentId], references: [id])
+  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id])
 
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
   @@index([equipmentId])
+  @@index([borrowRecordId])
   @@map("inventory_alerts")
 }
 

@@ -5,6 +5,7 @@ import {
   EquipmentStatus,
   Prisma,
   ConditionStatus,
+  BorrowStatus,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
 import type {
@@ -32,6 +33,53 @@ export class MaintenanceLogsService {
       throw new Error(
         'Equipment already has an active/open maintenance record',
       );
+    }
+  }
+
+  private static async assertNotBorrowed(
+    equipmentId: number,
+    scheduledDate: Date | string | null,
+  ) {
+    if (!scheduledDate) return;
+
+    const targetDate = new Date(scheduledDate);
+
+    const activeBorrow = await prisma.borrowRecord.findFirst({
+      where: {
+        equipmentId,
+        status: {
+          in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+        },
+        actualReturn: null,
+      },
+      orderBy: {
+        expectedReturn: 'desc',
+      },
+    });
+
+    if (activeBorrow) {
+      const targetMidnight = new Date(targetDate.getTime());
+      targetMidnight.setUTCHours(0, 0, 0, 0);
+
+      const expectedReturnMidnight = new Date(
+        activeBorrow.expectedReturn.getTime(),
+      );
+      expectedReturnMidnight.setUTCHours(0, 0, 0, 0);
+
+      if (targetMidnight <= expectedReturnMidnight) {
+        const formattedDate = activeBorrow.expectedReturn.toLocaleDateString(
+          'en-US',
+          {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'UTC',
+          },
+        );
+        throw new Error(
+          `Cannot schedule maintenance: This asset is currently borrowed until ${formattedDate}`,
+        );
+      }
     }
   }
 
@@ -64,7 +112,16 @@ export class MaintenanceLogsService {
         },
         include: {
           equipment: {
-            include: { item: { select: { itemName: true } } },
+            include: {
+              item: { select: { itemName: true } },
+              borrowRecords: {
+                where: {
+                  status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  actualReturn: null,
+                },
+                select: { expectedReturn: true },
+              },
+            },
           },
         },
       });
@@ -169,6 +226,13 @@ export class MaintenanceLogsService {
           equipment: {
             include: {
               item: { select: { itemName: true } },
+              borrowRecords: {
+                where: {
+                  status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  actualReturn: null,
+                },
+                select: { expectedReturn: true },
+              },
             },
           },
           performedBy: {
@@ -200,6 +264,13 @@ export class MaintenanceLogsService {
         equipment: {
           include: {
             item: { select: { itemName: true } },
+            borrowRecords: {
+              where: {
+                status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                actualReturn: null,
+              },
+              select: { expectedReturn: true },
+            },
           },
         },
         performedBy: {
@@ -224,6 +295,8 @@ export class MaintenanceLogsService {
 
     await this.assertNoActiveMaintenance(log.equipmentId, id);
 
+    await this.assertNotBorrowed(log.equipmentId, data.scheduledDate);
+
     if (data.performedById) {
       const user = await prisma.user.findUnique({
         where: { id: data.performedById },
@@ -246,7 +319,16 @@ export class MaintenanceLogsService {
         },
         include: {
           equipment: {
-            include: { item: { select: { itemName: true } } },
+            include: {
+              item: { select: { itemName: true } },
+              borrowRecords: {
+                where: {
+                  status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  actualReturn: null,
+                },
+                select: { expectedReturn: true },
+              },
+            },
           },
           performedBy: {
             select: { id: true, firstName: true, lastName: true, email: true },
@@ -287,12 +369,19 @@ export class MaintenanceLogsService {
         equipment: {
           include: {
             item: { select: { itemName: true } };
+            borrowRecords: {
+              select: { expectedReturn: true };
+            };
           };
         };
       };
     }>;
 
     await this.assertNoActiveMaintenance(log.equipmentId, id);
+
+    if (data.scheduledDate !== undefined) {
+      await this.assertNotBorrowed(log.equipmentId, data.scheduledDate);
+    }
 
     if (data.performedById) {
       const user = await prisma.user.findUnique({
@@ -368,7 +457,18 @@ export class MaintenanceLogsService {
           data: logUpdateData,
           include: {
             equipment: {
-              include: { item: { select: { itemName: true } } },
+              include: {
+                item: { select: { itemName: true } },
+                borrowRecords: {
+                  where: {
+                    status: {
+                      in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+                    },
+                    actualReturn: null,
+                  },
+                  select: { expectedReturn: true },
+                },
+              },
             },
             performedBy: {
               select: {

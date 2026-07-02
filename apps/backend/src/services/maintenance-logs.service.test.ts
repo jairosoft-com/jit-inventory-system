@@ -6,6 +6,7 @@ import {
   ConditionStatus,
   MaintenanceStatus,
   EquipmentStatus,
+  BorrowStatus,
 } from '@prisma/client';
 
 describe('Maintenance Flow Unit Tests', () => {
@@ -50,6 +51,9 @@ describe('Maintenance Flow Unit Tests', () => {
   afterAll(async () => {
     // Cleanup
     if (createdEquipmentIds.length > 0) {
+      await prisma.borrowRecord.deleteMany({
+        where: { equipmentId: { in: createdEquipmentIds } },
+      });
       await prisma.maintenanceLog.deleteMany({
         where: { equipmentId: { in: createdEquipmentIds } },
       });
@@ -289,5 +293,84 @@ describe('Maintenance Flow Unit Tests', () => {
     expect(statsAfter.total).toBe(statsBefore.total + 1); // Incremented by 1 due to automatic log creation
     expect(statsAfter.scheduled).toBe(statsBefore.scheduled + 1); // Incremented by 1 because we scheduled it
     expect(statsAfter.unscheduled).toBe(statsBefore.unscheduled); // Stays the same (created 1 unscheduled, then scheduled it)
+  });
+
+  it('should not allow scheduling maintenance on a borrowed asset if scheduled date is before or equal to expected return date', async () => {
+    // 1. Create a healthy equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Borrow Block Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-BORR-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.BORROWED,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Create a maintenance log slot manually
+    const log = await prisma.maintenanceLog.create({
+      data: {
+        equipmentId: eq.id,
+        description: 'Scheduled maintenance check',
+        status: MaintenanceStatus.SCHEDULED,
+        scheduledDate: null,
+      },
+    });
+
+    // 2. Create an active borrow record for the equipment
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 5);
+    expectedReturnDate.setHours(0, 0, 0, 0);
+
+    await prisma.borrowRecord.create({
+      data: {
+        equipmentId: eq.id,
+        borrowedById: testUserId,
+        expectedReturn: expectedReturnDate,
+        status: BorrowStatus.BORROWED,
+      },
+    });
+
+    // 3. Attempt to schedule maintenance on a date before expectedReturn (e.g. 2 days from now)
+    const invalidScheduleDate = new Date();
+    invalidScheduleDate.setDate(invalidScheduleDate.getDate() + 2);
+
+    await expect(
+      MaintenanceLogsService.schedule(
+        log.id,
+        {
+          description: 'Routine Checkup',
+          scheduledDate: invalidScheduleDate,
+          performedByVendor: 'Test Vendor',
+        },
+        testUserId,
+      ),
+    ).rejects.toThrow(
+      /Cannot schedule maintenance: This asset is currently borrowed until/,
+    );
+
+    // 4. Attempt to schedule maintenance on a date after expectedReturn (e.g. 6 days from now)
+    const validScheduleDate = new Date();
+    validScheduleDate.setDate(validScheduleDate.getDate() + 6);
+
+    const updated = await MaintenanceLogsService.schedule(
+      log.id,
+      {
+        description: 'Routine Checkup',
+        scheduledDate: validScheduleDate,
+        performedByVendor: 'Test Vendor',
+      },
+      testUserId,
+    );
+
+    expect(updated.status).toBe(MaintenanceStatus.SCHEDULED);
+    expect(new Date(updated.scheduledDate!).getDate()).toBe(
+      validScheduleDate.getDate(),
+    );
   });
 });

@@ -190,6 +190,25 @@ export default function MaintenancePage() {
       return;
     }
 
+    const activeBorrow = selectedLog.equipment.borrowRecords?.[0];
+    if (activeBorrow) {
+      const returnDate = new Date(activeBorrow.expectedReturn);
+      returnDate.setHours(0, 0, 0, 0);
+      const schedDateObj = new Date(scheduledDate);
+      schedDateObj.setHours(0, 0, 0, 0);
+
+      if (schedDateObj <= returnDate) {
+        const formattedReturnDate = new Date(activeBorrow.expectedReturn).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        });
+        setFormError(`Cannot schedule maintenance: This asset is currently borrowed until ${formattedReturnDate}`);
+        return;
+      }
+    }
+
     let performedByIdNum: number | null = null;
     let vendorStr: string | null = null;
 
@@ -751,6 +770,21 @@ export default function MaintenancePage() {
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--background-secondary)] px-4 py-2.5 text-sm cursor-not-allowed"
                 />
               </div>
+
+              {selectedLog.equipment.borrowRecords?.[0] && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col gap-1">
+                  <span className="font-semibold">⚠️ Borrow Notice</span>
+                  <span>
+                    This equipment is currently physically borrowed. It is expected to return on{' '}
+                    {new Date(selectedLog.equipment.borrowRecords[0].expectedReturn).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      timeZone: 'UTC',
+                    })}.
+                  </span>
+                </div>
+              )}
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="sch-desc" className="text-xs font-bold text-[var(--text-secondary)] uppercase">

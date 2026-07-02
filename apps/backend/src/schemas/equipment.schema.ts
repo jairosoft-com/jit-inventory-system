@@ -3,6 +3,7 @@ import {
   EquipmentStatus,
   ConditionStatus,
   DisposalReason,
+  DisposalApprovalStatus,
 } from '@prisma/client';
 
 // ── Image sub-schema ──────────────────────────────────────────────────────────
@@ -90,6 +91,13 @@ export const retirementRequestSchema = z.object({
   notes: z.string().trim().max(1000).optional().nullable(),
 });
 
+export const updateDisposalApprovalSchema = z.object({
+  approvalStatus: z.union([
+    z.literal(DisposalApprovalStatus.COMPLETED),
+    z.literal(DisposalApprovalStatus.REJECTED),
+  ]),
+});
+
 export const replacementNeededSchema = z.object({
   replacementNeeded: z.boolean(),
 });
@@ -102,6 +110,9 @@ export const listEquipmentQuerySchema = z.object({
   search: z.string().trim().optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  needsMaintenance: z
+    .preprocess((val) => val === 'true' || val === true, z.boolean())
+    .optional(),
 });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -109,6 +120,9 @@ export const listEquipmentQuerySchema = z.object({
 export type CreateEquipmentInput = z.infer<typeof createEquipmentSchema>;
 export type UpdateEquipmentInput = z.infer<typeof updateEquipmentSchema>;
 export type RetirementRequestInput = z.infer<typeof retirementRequestSchema>;
+export type UpdateDisposalApprovalInput = z.infer<
+  typeof updateDisposalApprovalSchema
+>;
 export type ReplacementNeededInput = z.infer<typeof replacementNeededSchema>;
 export type EquipmentImageInput = z.infer<typeof equipmentImageSchema>;
 export type UpdateImageInput = z.infer<typeof updateImageSchema>;

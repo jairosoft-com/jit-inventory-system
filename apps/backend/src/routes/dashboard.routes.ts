@@ -86,6 +86,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       summary,
       lowStock,
       warrantyExpiring,
+      overdueEquipment,
       activity,
       equipmentStatus,
       procurementSummary,
@@ -102,6 +103,10 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
 
       access.canReadEquipment
         ? DashboardService.getWarrantyAlerts()
+        : Promise.resolve([]),
+
+      access.canReadEquipment
+        ? DashboardService.getOverdueEquipment()
         : Promise.resolve([]),
 
       access.canReadInventory || access.canReadEquipment
@@ -132,6 +137,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       alerts: {
         lowStock,
         warrantyExpiring,
+        overdueEquipment,
       },
       recentActivity: activity,
       equipmentBreakdown: equipmentStatus,
@@ -163,7 +169,7 @@ router.get('/alerts', async (req: Request, res: Response): Promise<void> => {
   try {
     const access = await getDashboardAccess(req);
 
-    const [lowStock, warrantyExpiring] = await Promise.all([
+    const [lowStock, warrantyExpiring, overdueEquipment] = await Promise.all([
       access.canViewLowStockDetails
         ? DashboardService.getLowStockItems()
         : Promise.resolve([]),
@@ -171,11 +177,16 @@ router.get('/alerts', async (req: Request, res: Response): Promise<void> => {
       access.canReadEquipment
         ? DashboardService.getWarrantyAlerts()
         : Promise.resolve([]),
+
+      access.canReadEquipment
+        ? DashboardService.getOverdueEquipment()
+        : Promise.resolve([]),
     ]);
 
     res.status(200).json({
       lowStock,
       warrantyExpiring,
+      overdueEquipment,
     });
   } catch (error) {
     sendDashboardError(res, error);
@@ -227,6 +238,29 @@ router.get('/activity', async (req: Request, res: Response): Promise<void> => {
     sendDashboardError(res, error);
   }
 });
+
+// GET /api/dashboard/overdue-equipment
+// Returns the list of currently-overdue borrow records for the dashboard
+// overdue card. Restricted to MANAGER / ADMIN (canReadEquipment).
+router.get(
+  '/overdue-equipment',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const access = await getDashboardAccess(req);
+
+      if (!access.canReadEquipment) {
+        res.status(200).json([]);
+        return;
+      }
+
+      const overdueEquipment = await DashboardService.getOverdueEquipment();
+
+      res.status(200).json(overdueEquipment);
+    } catch (error) {
+      sendDashboardError(res, error);
+    }
+  },
+);
 
 // GET /api/dashboard/replacement-needed
 router.get(

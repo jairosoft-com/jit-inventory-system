@@ -91,6 +91,8 @@ interface BorrowState {
   rejectRequest: (id: number, reason?: string) => Promise<BorrowRecord>;
   /** Mark a BORROWED/OVERDUE record as returned (requires borrow:return) */
   returnEquipment: (id: number, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => Promise<BorrowRecord>;
+  /** Trigger manual overdue check scan */
+  runOverdueCheck: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -227,16 +229,16 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
 
   returnEquipment: async (id, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => {
     try {
-      const response = await api.patch<BorrowRecord>(`/borrow/${id}/return`, {
+      const response = await api.patch<{ record: BorrowRecord; isLate: boolean }>(`/borrow/${id}/return`, {
         returnCondition,
         notes,
       });
-      const updated = response.data;
+      const { record } = response.data;
       set((state) => ({
-        adminRecords: state.adminRecords.map((r) => (r.id === id ? updated : r)),
-        myRecords: state.myRecords.map((r) => (r.id === id ? updated : r)),
+        adminRecords: state.adminRecords.map((r) => (r.id === id ? record : r)),
+        myRecords: state.myRecords.map((r) => (r.id === id ? record : r)),
       }));
-      return updated;
+      return record;
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { message?: string } };
@@ -244,6 +246,24 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       };
       const errMsg = err.response?.data?.message || err.message || 'Failed to process return';
       throw new Error(errMsg);
+    }
+  },
+
+  runOverdueCheck: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.post('/borrow/overdue-check');
+      await get().fetchAdminRecords();
+      const alertStore = (await import('./alertStore')).useAlertStore;
+      void alertStore.getState().fetchUnreadCount();
+      if (alertStore.getState().isOpen) {
+        void alertStore.getState().fetchUnread();
+      }
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err.response?.data?.message || 'Failed to run overdue check';
+      set({ error: message, isLoading: false });
+      throw new Error(message);
     }
   },
 }));

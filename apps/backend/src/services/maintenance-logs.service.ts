@@ -48,7 +48,7 @@ export class MaintenanceLogsService {
       where: {
         equipmentId,
         status: {
-          in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+          in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
         },
         actualReturn: null,
       },
@@ -116,7 +116,7 @@ export class MaintenanceLogsService {
               item: { select: { itemName: true } },
               borrowRecords: {
                 where: {
-                  status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
                   actualReturn: null,
                 },
                 select: { expectedReturn: true },
@@ -228,7 +228,7 @@ export class MaintenanceLogsService {
               item: { select: { itemName: true } },
               borrowRecords: {
                 where: {
-                  status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
                   actualReturn: null,
                 },
                 select: { expectedReturn: true },
@@ -266,7 +266,7 @@ export class MaintenanceLogsService {
             item: { select: { itemName: true } },
             borrowRecords: {
               where: {
-                status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
                 actualReturn: null,
               },
               select: { expectedReturn: true },
@@ -323,7 +323,7 @@ export class MaintenanceLogsService {
               item: { select: { itemName: true } },
               borrowRecords: {
                 where: {
-                  status: { in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
                   actualReturn: null,
                 },
                 select: { expectedReturn: true },
@@ -381,6 +381,30 @@ export class MaintenanceLogsService {
 
     if (data.scheduledDate !== undefined) {
       await this.assertNotBorrowed(log.equipmentId, data.scheduledDate);
+    }
+
+    if (data.status === MaintenanceStatus.IN_PROGRESS) {
+      const activeBorrow = await prisma.borrowRecord.findFirst({
+        where: {
+          equipmentId: log.equipmentId,
+          status: {
+            in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+          },
+          actualReturn: null,
+        },
+      });
+
+      if (activeBorrow) {
+        const formattedDate = activeBorrow.expectedReturn.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        });
+        throw new Error(
+          `Cannot start maintenance: This asset is currently borrowed until ${formattedDate}`,
+        );
+      }
     }
 
     if (data.performedById) {
@@ -462,7 +486,7 @@ export class MaintenanceLogsService {
                 borrowRecords: {
                   where: {
                     status: {
-                      in: [BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+                      in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
                     },
                     actualReturn: null,
                   },

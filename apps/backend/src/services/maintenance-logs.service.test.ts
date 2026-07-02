@@ -332,7 +332,7 @@ describe('Maintenance Flow Unit Tests', () => {
         equipmentId: eq.id,
         borrowedById: testUserId,
         expectedReturn: expectedReturnDate,
-        status: BorrowStatus.BORROWED,
+        status: BorrowStatus.APPROVED,
       },
     });
 
@@ -372,5 +372,111 @@ describe('Maintenance Flow Unit Tests', () => {
     expect(new Date(updated.scheduledDate!).getDate()).toBe(
       validScheduleDate.getDate(),
     );
+  });
+
+  it('should not allow starting maintenance (transitioning to IN_PROGRESS) on a currently borrowed asset', async () => {
+    // 1. Create equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Start Block Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-START-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.BORROWED,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Create a maintenance log slot manually
+    const log = await prisma.maintenanceLog.create({
+      data: {
+        equipmentId: eq.id,
+        description: 'Scheduled maintenance check',
+        status: MaintenanceStatus.SCHEDULED,
+        scheduledDate: new Date(),
+      },
+    });
+
+    // 2. Create an active borrow record for the equipment
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 5);
+    expectedReturnDate.setHours(0, 0, 0, 0);
+
+    await prisma.borrowRecord.create({
+      data: {
+        equipmentId: eq.id,
+        borrowedById: testUserId,
+        expectedReturn: expectedReturnDate,
+        status: BorrowStatus.BORROWED,
+      },
+    });
+
+    // 3. Attempt to transition status to IN_PROGRESS
+    await expect(
+      MaintenanceLogsService.update(
+        log.id,
+        {
+          status: MaintenanceStatus.IN_PROGRESS,
+        },
+        testUserId,
+      )
+    ).rejects.toThrow(/Cannot start maintenance: This asset is currently borrowed until/);
+  });
+
+  it('should not allow starting maintenance (transitioning to IN_PROGRESS) on a currently APPROVED borrowed asset', async () => {
+    // 1. Create equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Start Block APP Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-START-APP-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.BORROWED,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Create a maintenance log slot manually
+    const log = await prisma.maintenanceLog.create({
+      data: {
+        equipmentId: eq.id,
+        description: 'Scheduled maintenance check',
+        status: MaintenanceStatus.SCHEDULED,
+        scheduledDate: new Date(),
+      },
+    });
+
+    // 2. Create an active borrow record for the equipment
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 5);
+    expectedReturnDate.setHours(0, 0, 0, 0);
+
+    await prisma.borrowRecord.create({
+      data: {
+        equipmentId: eq.id,
+        borrowedById: testUserId,
+        expectedReturn: expectedReturnDate,
+        status: BorrowStatus.APPROVED,
+      },
+    });
+
+    // 3. Attempt to transition status to IN_PROGRESS
+    await expect(
+      MaintenanceLogsService.update(
+        log.id,
+        {
+          status: MaintenanceStatus.IN_PROGRESS,
+        },
+        testUserId,
+      )
+    ).rejects.toThrow(/Cannot start maintenance: This asset is currently borrowed until/);
   });
 });

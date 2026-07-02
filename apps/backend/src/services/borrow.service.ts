@@ -35,6 +35,12 @@ const borrowInclude = Prisma.validator<Prisma.BorrowRecordInclude>()({
   },
 });
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function startOfDay(date: Date): Date {
+  return new Date(date.toLocaleDateString('sv-SE'));
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class BorrowService {
@@ -42,28 +48,51 @@ export class BorrowService {
 
   /**
    * Promotes any APPROVED/BORROWED record whose expectedReturn date has
-   * already passed to OVERDUE. Nothing in this codebase ever wrote
+   * already passed to OVERDUE, and returns the records that were just
+   * flagged (with the relations AlertService needs to raise overdue-
+   * equipment alerts for them). Nothing in this codebase ever wrote
    * BorrowStatus.OVERDUE to the database — the dashboard only *computed* an
    * overdue count on the fly — so list/history views kept showing stale
    * "Approved"/"Borrowed" badges and `?status=OVERDUE` filtering returned
-   * nothing. This is called before every read so the stored status is
-   * always accurate by the time it reaches the API response.
+   * nothing.
    *
    * This is a passive, time-derived transition rather than something a user
    * did, so (unlike approve/reject/return) it is intentionally not written
    * to the audit trail, which records actions performed by a specific user.
    */
-  private static async syncOverdueStatuses(): Promise<void> {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  static async flagOverdue() {
+    const today = startOfDay(new Date());
 
-    await prisma.borrowRecord.updateMany({
+    const toFlag = await prisma.borrowRecord.findMany({
       where: {
         status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
         expectedReturn: { lt: today },
       },
+      include: {
+        equipment: {
+          select: { assetId: true, item: { select: { itemName: true } } },
+        },
+        borrowedBy: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    if (toFlag.length === 0) return toFlag;
+
+    await prisma.borrowRecord.updateMany({
+      where: { id: { in: toFlag.map((record) => record.id) } },
       data: { status: BorrowStatus.OVERDUE },
     });
+
+    return toFlag;
+  }
+
+  /**
+   * Called before every read so the stored status is always accurate by
+   * the time it reaches the API response. Thin wrapper around
+   * `flagOverdue()` for call sites that only need the side effect.
+   */
+  private static async syncOverdueStatuses(): Promise<void> {
+    await BorrowService.flagOverdue();
   }
 
   /**

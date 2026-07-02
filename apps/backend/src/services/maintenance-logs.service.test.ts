@@ -485,8 +485,10 @@ describe('Maintenance Flow Unit Tests', () => {
           status: MaintenanceStatus.IN_PROGRESS,
         },
         testUserId,
-      )
-    ).rejects.toThrow(/Cannot start maintenance: This asset is currently borrowed until/);
+      ),
+    ).rejects.toThrow(
+      /Cannot start maintenance: This asset is currently borrowed until/,
+    );
   });
 
   it('should not allow starting maintenance (transitioning to IN_PROGRESS) on a currently APPROVED borrowed asset', async () => {
@@ -538,7 +540,9 @@ describe('Maintenance Flow Unit Tests', () => {
           status: MaintenanceStatus.IN_PROGRESS,
         },
         testUserId,
-      )
-    ).rejects.toThrow(/Cannot start maintenance: This asset is currently borrowed until/);
+      ),
+    ).rejects.toThrow(
+      /Cannot start maintenance: This asset is currently borrowed until/,
+    );
   });
 });

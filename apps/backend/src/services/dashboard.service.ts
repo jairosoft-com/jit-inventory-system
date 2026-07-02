@@ -345,10 +345,14 @@ export class DashboardService {
       where: {
         warrantyEnd: {
           not: null,
-          gte: today,
+          // No lower bound: already-expired warranties must keep showing
+          // here, not just ones expiring in the next 30 days. Previously
+          // `gte: today` silently dropped expired items off the dashboard
+          // the moment they crossed into the past.
           lte: warrantyWindowEnd,
         },
         deletedAt: null,
+        status: { not: EquipmentStatus.RETIRED },
         item: {
           deletedAt: null,
         },

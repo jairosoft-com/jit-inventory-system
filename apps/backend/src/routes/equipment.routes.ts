@@ -17,7 +17,6 @@ import {
   type UpdateEquipmentInput,
   type EquipmentImageInput,
   type UpdateImageInput,
-  type ListEquipmentQuery,
   type RetirementRequestInput,
   type UpdateDisposalApprovalInput,
   type ReplacementNeededInput,
@@ -76,9 +75,7 @@ router.get(
   validate(listEquipmentQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await EquipmentService.findAll(
-        req.query as unknown as ListEquipmentQuery,
-      );
+      const result = await EquipmentService.findAll(req.query);
 
       res.status(200).json(result);
     } catch (error) {

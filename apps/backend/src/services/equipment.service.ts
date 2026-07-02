@@ -58,6 +58,23 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
   ConditionStatus.DAMAGED,
 ]);
 
+const FALLBACK_NON_DAMAGED_CONDITION = ConditionStatus.POOR;
+
+function normalizeConditionForEquipmentStatus(
+  status: EquipmentStatus,
+  condition: ConditionStatus,
+): ConditionStatus {
+  if (status === EquipmentStatus.DAMAGED) {
+    return ConditionStatus.DAMAGED;
+  }
+
+  if (condition === ConditionStatus.DAMAGED) {
+    return FALLBACK_NON_DAMAGED_CONDITION;
+  }
+
+  return condition;
+}
+
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
 function getRejectedRetirementFallbackStatus(disposalReason: {
@@ -89,7 +106,7 @@ function getRejectedRetirementFallbackStatus(disposalReason: {
 }
 
 function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(date.toLocaleDateString('sv-SE'));
 }
 
 function addCalendarYears(date: Date, years: number) {
@@ -329,7 +346,10 @@ export class EquipmentService {
             serialNumber: data.serialNumber ?? null,
             brand: data.brand ?? null,
             model: data.model ?? null,
-            condition: data.condition,
+            condition: normalizeConditionForEquipmentStatus(
+              data.status,
+              data.condition,
+            ),
             status: data.status,
             location: data.location ?? null,
             acquisitionDate: data.acquisitionDate ?? null,
@@ -370,16 +390,26 @@ export class EquipmentService {
           include: equipmentInclude,
         });
 
-        // Spawn initial maintenance log row linked to the equipment ID
-        await tx.maintenanceLog.create({
-          data: {
-            equipmentId: eq.id,
-            description:
-              'Initial maintenance record — No Maintenance Scheduled',
-            status: MaintenanceStatus.SCHEDULED,
-            scheduledDate: null,
-          },
-        });
+        // Automatically create an initial unscheduled maintenance log only if the equipment
+        // is registered in non-healthy conditions (FAIR, POOR, DAMAGED).
+        if (
+          eq.condition !== ConditionStatus.NEW &&
+          eq.condition !== ConditionStatus.GOOD
+        ) {
+          await tx.maintenanceLog.create({
+            data: {
+              equipmentId: eq.id,
+              description:
+                'Initial maintenance record — No Maintenance Scheduled',
+              status: MaintenanceStatus.SCHEDULED,
+              scheduledDate: null,
+              equipmentName: eq.item?.itemName ?? data.itemName,
+              equipmentBrand: eq.brand,
+              equipmentModel: eq.model,
+              equipmentCondition: eq.condition,
+            },
+          });
+        }
 
         await AuditLogService.log(
           'Equipment',
@@ -423,11 +453,21 @@ export class EquipmentService {
     }
   }
 
-  static async findAll(query: ListEquipmentQuery) {
+  static async findAll(
+    query: Partial<ListEquipmentQuery> & { needsMaintenance?: boolean },
+  ) {
     await this.syncCompletedRetirements();
 
-    const { status, condition, categoryId, assignedTo, search, page, limit } =
-      query;
+    const {
+      status,
+      condition,
+      categoryId,
+      assignedTo,
+      search,
+      page = 1,
+      limit = 20,
+      needsMaintenance,
+    } = query;
 
     const skip = (page - 1) * limit;
 
@@ -440,6 +480,25 @@ export class EquipmentService {
         deletedAt: null,
         ...(categoryId && { categoryId }),
       },
+      ...(needsMaintenance && {
+        condition: {
+          in: [
+            ConditionStatus.FAIR,
+            ConditionStatus.POOR,
+            ConditionStatus.DAMAGED,
+          ],
+        },
+        status: {
+          notIn: [EquipmentStatus.RETIRED, EquipmentStatus.RETIREMENT_PENDING],
+        },
+        maintenanceLogs: {
+          none: {
+            status: {
+              in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+            },
+          },
+        },
+      }),
       ...(search && {
         OR: [
           { assetId: { contains: search, mode: 'insensitive' } },
@@ -546,10 +605,17 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
+    const nextStatus = equipmentFields.status ?? equipment.status;
+    const nextCondition = equipmentFields.condition ?? equipment.condition;
+
     const updated = await prisma.equipment.update({
       where: { id },
       data: {
         ...equipmentFields,
+        condition: normalizeConditionForEquipmentStatus(
+          nextStatus,
+          nextCondition,
+        ),
         ...(purchasePrice !== undefined && {
           purchasePrice:
             purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,

@@ -19,6 +19,7 @@ import reportsRouter from './routes/reports.routes.js';
 import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
+import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
 import { startCronJobs } from './lib/cron.js';
 
@@ -60,6 +61,7 @@ app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
+app.use('/api/maintenance-alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
@@ -78,6 +80,7 @@ app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/maintenance-alerts', maintenanceAlertsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {
@@ -91,11 +94,13 @@ const server = app.listen(port, () => {
     `[Server] Backend listening on port ${port} in ${env.NODE_ENV} mode`,
   );
 
-  // Purge read alerts older than 24h, then scan for new stock alerts
+  // Purge read alerts older than 24h, then scan for new stock + overdue alerts
   void (async () => {
     try {
       await AlertService.purgeOldAlerts();
       await AlertService.runFullScan();
+      await MaintenanceReminderService.scanAndNotify();
+      await AlertService.runOverdueScan();
     } catch (err) {
       console.warn(
         '[Alerts] Startup scan skipped — DB not ready:',

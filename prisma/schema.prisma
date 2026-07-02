@@ -140,17 +140,26 @@ enum LogAction {
   MAINTENANCE_STARTED
   MAINTENANCE_COMPLETED
   RENEWED
+  LOGIN
+  LOGOUT
 }
 
 enum AlertType {
   LOW_STOCK
   OUT_OF_STOCK
+  WARRANTY_EXPIRING
+  REPLACEMENT_NEEDED
   OVERDUE_EQUIPMENT
 }
 
 enum AlertPriority {
   WARNING
   CRITICAL
+}
+
+enum ProcurementAlertType {
+  PENDING_APPROVAL
+  STATUS_UPDATED
 }
 
 // ────────────────────────────────────────────
@@ -228,6 +237,7 @@ model User {
   stockAdjustments  StockAdjustment[]      @relation("AdjustedByUser")
   stockMovements    StockMovement[]        @relation("StockMovementPerformedBy")
   poHistoryEntries  PurchaseOrderHistory[] @relation("POHistoryChangedBy")
+  procurementAlerts ProcurementAlert[]
 
   @@index([isActive])
   @@index([roleId])
@@ -373,6 +383,7 @@ model Equipment {
   borrowRecords   BorrowRecord[]
   maintenanceLogs MaintenanceLog[]
   disposal        Disposal?
+  alerts          InventoryAlert[]
 
   @@index([status])
   @@index([assignedTo])
@@ -473,6 +484,7 @@ model PurchaseOrder {
   equipment   Equipment[]
   history     PurchaseOrderHistory[]
   attachments PurchaseOrderAttachment[]
+  procurementAlerts ProcurementAlert[]
 
   @@index([status])
   @@index([supplierId])
@@ -727,6 +739,7 @@ model InventoryLog {
 model InventoryAlert {
   id                  Int           @id @default(autoincrement())
   consumableProfileId Int?          @map("consumable_profile_id")
+  equipmentId         Int?          @map("equipment_id")
   borrowRecordId      Int?          @map("borrow_record_id")
   alertType           AlertType     @map("alert_type")
   priority            AlertPriority
@@ -736,16 +749,38 @@ model InventoryAlert {
   resolvedAt          DateTime?     @map("resolved_at")
   createdAt           DateTime      @default(now()) @map("created_at")
 
-  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
-  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id])
+  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id], onDelete: SetNull)
+  equipment         Equipment?          @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id], onDelete: SetNull)
 
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
+  @@index([equipmentId])
   @@index([borrowRecordId])
   @@map("inventory_alerts")
 }
 
+// 20. Procurement Alerts
+model ProcurementAlert {
+  id              Int                   @id @default(autoincrement())
+  purchaseOrderId Int                   @map("purchase_order_id")
+  userId          Int                   @map("user_id")
+  alertType       ProcurementAlertType  @map("alert_type")
+  message         String                @db.Text
+  isRead          Boolean               @default(false) @map("is_read")
+  readAt          DateTime?             @map("read_at")
+  createdAt       DateTime              @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+
+  @@index([isRead])
+  @@index([userId])
+  @@index([purchaseOrderId])
+  @@index([alertType])
+  @@map("procurement_alerts")
+}
 // ────────────────────────────────────────────
 // 20. Maintenance Alerts
 // ────────────────────────────────────────────
@@ -764,4 +799,3 @@ model MaintenanceAlert {
   @@index([isRead])
   @@map("maintenance_alerts")
 }
-

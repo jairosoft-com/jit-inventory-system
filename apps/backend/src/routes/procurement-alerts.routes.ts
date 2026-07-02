@@ -8,14 +8,14 @@ const router = Router();
 router.use(authenticate);
 
 // ── GET /procurement-alerts ───────────────────────────────────────────────────
-// Returns all unread procurement alerts. Admin/Manager only.
+// Returns unread procurement alerts for the authenticated user.
+// Accessible by any authenticated user (Staff, Manager, Admin).
 
 router.get(
   '/',
-  authorize('purchase_orders:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const alerts = await ProcurementAlertService.getUnreadAlerts();
+      const alerts = await ProcurementAlertService.getUnreadAlerts(req.user!.id);
       res.status(200).json(alerts);
     } catch (error) {
       const message =
@@ -47,13 +47,13 @@ router.get(
 
 // ── GET /procurement-alerts/count ─────────────────────────────────────────────
 // Returns unread count only — lightweight endpoint for badge polling.
+// Accessible by any authenticated user.
 
 router.get(
   '/count',
-  authorize('purchase_orders:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const count = await ProcurementAlertService.getUnreadCount();
+      const count = await ProcurementAlertService.getUnreadCount(req.user!.id);
       res.status(200).json({ count });
     } catch (error) {
       const message =
@@ -68,7 +68,6 @@ router.get(
 
 router.patch(
   '/:id/read',
-  authorize('purchase_orders:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
@@ -87,14 +86,13 @@ router.patch(
 );
 
 // ── PATCH /procurement-alerts/read-all ────────────────────────────────────────
-// Marks all procurement alerts as read.
+// Marks all procurement alerts as read for the authenticated user.
 
 router.patch(
   '/read-all',
-  authorize('purchase_orders:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      await ProcurementAlertService.markAllAsRead();
+      await ProcurementAlertService.markAllAsRead(req.user!.id);
       res.status(200).json({ message: 'All procurement alerts marked as read' });
     } catch (error) {
       const message =

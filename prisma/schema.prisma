@@ -233,6 +233,7 @@ model User {
   stockAdjustments  StockAdjustment[]      @relation("AdjustedByUser")
   stockMovements    StockMovement[]        @relation("StockMovementPerformedBy")
   poHistoryEntries  PurchaseOrderHistory[] @relation("POHistoryChangedBy")
+  procurementAlerts ProcurementAlert[]
 
   @@index([isActive])
   @@index([roleId])
@@ -756,6 +757,7 @@ model InventoryAlert {
 model ProcurementAlert {
   id              Int                   @id @default(autoincrement())
   purchaseOrderId Int                   @map("purchase_order_id")
+  userId          Int                   @map("user_id")
   alertType       ProcurementAlertType  @map("alert_type")
   message         String                @db.Text
   isRead          Boolean               @default(false) @map("is_read")
@@ -763,8 +765,10 @@ model ProcurementAlert {
   createdAt       DateTime              @default(now()) @map("created_at")
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
 
   @@index([isRead])
+  @@index([userId])
   @@index([purchaseOrderId])
   @@index([alertType])
   @@map("procurement_alerts")

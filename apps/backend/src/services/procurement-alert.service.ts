@@ -10,6 +10,7 @@ export class ProcurementAlertService {
 
   static async create(
     purchaseOrderId: number,
+    userId: number,
     alertType: ProcurementAlertType,
     message: string,
     tx?: TransactionClient,
@@ -18,6 +19,7 @@ export class ProcurementAlertService {
     return client.procurementAlert.create({
       data: {
         purchaseOrderId,
+        userId,
         alertType,
         message,
       },
@@ -26,9 +28,9 @@ export class ProcurementAlertService {
 
   // ── Get Unread Alerts ────────────────────────────────────────────────────────
 
-  static getUnreadAlerts() {
+  static getUnreadAlerts(userId: number) {
     return db.procurementAlert.findMany({
-      where: { isRead: false },
+      where: { isRead: false, userId },
       include: {
         purchaseOrder: {
           select: {
@@ -89,18 +91,18 @@ export class ProcurementAlertService {
 
   // ── Mark All as Read ─────────────────────────────────────────────────────────
 
-  static markAllAsRead() {
+  static markAllAsRead(userId: number) {
     return db.procurementAlert.updateMany({
-      where: { isRead: false },
+      where: { isRead: false, userId },
       data: { isRead: true, readAt: new Date() },
     });
   }
 
   // ── Get Unread Count ─────────────────────────────────────────────────────────
 
-  static getUnreadCount() {
+  static getUnreadCount(userId: number) {
     return db.procurementAlert.count({
-      where: { isRead: false },
+      where: { isRead: false, userId },
     });
   }
 }

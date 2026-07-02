@@ -338,6 +338,7 @@ export default function EquipmentPage() {
 
   const roleName = user?.role?.name?.toUpperCase() || '';
   const isAdmin = roleName.includes('ADMIN');
+  const isStaff = roleName === 'STAFF';
   const canRead = isAdmin || permissions.includes('equipment:read');
   const canCreate = isAdmin || permissions.includes('equipment:create');
   const canUpdate = isAdmin || permissions.includes('equipment:update');

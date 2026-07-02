@@ -272,7 +272,9 @@ export default function AuditLogsPage() {
     user?.role?.name === 'ADMIN' ||
     user?.role?.name === 'MANAGER' ||
     user?.permissions?.some((p: unknown) =>
-      typeof p === 'string' ? p === 'audit:read' : (p as { name?: string })?.name === 'audit:read',
+      typeof p === 'string'
+        ? p === 'audit_logs:read'
+        : (p as { name?: string })?.name === 'audit_logs:read',
     );
 
   const load = useCallback(
@@ -845,3 +847,4 @@ export default function AuditLogsPage() {
     </div>
   );
 }
+

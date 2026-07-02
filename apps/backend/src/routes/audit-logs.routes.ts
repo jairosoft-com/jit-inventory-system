@@ -16,7 +16,7 @@ router.use(authenticate);
 // ── GET /audit-logs ───────────────────────────────────────────────────────────
 router.get(
   '/',
-  authorize('audit:read'),
+  authorize('audit_logs:read'),
   validate(auditLogQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -43,7 +43,7 @@ router.get(
 // ── GET /audit-logs/:id ───────────────────────────────────────────────────────
 router.get(
   '/:id',
-  authorize('audit:read'),
+  authorize('audit_logs:read'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = parseInt(req.params.id as string, 10);
@@ -66,4 +66,3 @@ router.get(
 );
 
 export default router;
-

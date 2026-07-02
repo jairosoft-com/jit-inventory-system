@@ -133,9 +133,11 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
     ]);
 
     let filteredEquipmentStatus = equipmentStatus;
-    const roleAccess = await DashboardService.getRoleAccess(req.user!.roleId!);
+    const roleAccess = await DashboardService.getRoleAccess(req.user!.roleId);
     if (roleAccess.roleName === 'STAFF') {
-      filteredEquipmentStatus = equipmentStatus.filter((item: any) => item.status !== 'DAMAGED');
+      filteredEquipmentStatus = equipmentStatus.filter(
+        (item: { status: string }) => item.status !== 'DAMAGED',
+      );
     }
 
     res.status(200).json({

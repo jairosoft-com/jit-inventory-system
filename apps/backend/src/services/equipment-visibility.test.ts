@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '../lib/prisma.js';
 import { EquipmentService } from './equipment.service.js';
-import {
-  ConditionStatus,
-  EquipmentStatus,
-} from '@prisma/client';
+import { ConditionStatus, EquipmentStatus } from '@prisma/client';
 
 describe('Equipment Damage Visibility Tests', () => {
   let testCategoryId: number;
@@ -113,13 +110,13 @@ describe('Equipment Damage Visibility Tests', () => {
 
     // 3. FindAll with adminRoleId
     const adminResult = await EquipmentService.findAll({}, adminRoleId);
-    const adminIds = adminResult.data.map(e => e.id);
+    const adminIds = adminResult.data.map((e) => e.id);
     expect(adminIds).toContain(eqDmg.id);
     expect(adminIds).toContain(eqAvail.id);
 
     // 4. FindAll with staffRoleId
     const staffResult = await EquipmentService.findAll({}, staffRoleId);
-    const staffIds = staffResult.data.map(e => e.id);
+    const staffIds = staffResult.data.map((e) => e.id);
     expect(staffIds).not.toContain(eqDmg.id);
     expect(staffIds).toContain(eqAvail.id);
   });

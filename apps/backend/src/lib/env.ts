@@ -37,5 +37,6 @@ export const env = {
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   SMTP_HOST: process.env.SMTP_HOST || 'localhost',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '1025', 10),
-  SMTP_FROM: process.env.SMTP_FROM || 'JIT Inventory System <noreply@jitims.com>',
+  SMTP_FROM:
+    process.env.SMTP_FROM || 'JIT Inventory System <noreply@jitims.com>',
 };

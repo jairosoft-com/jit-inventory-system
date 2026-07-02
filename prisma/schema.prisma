@@ -66,6 +66,7 @@ model User {
   stockMovements    StockMovement[]        @relation("StockMovementPerformedBy")
   stockOutReleased  StockOut[]             @relation("ReleasedByUser")
   role              Role                   @relation(fields: [roleId], references: [id])
+  procurementAlerts ProcurementAlert[]
 
   @@index([isActive])
   @@index([roleId])
@@ -266,11 +267,12 @@ model PurchaseOrder {
   updatedAt     DateTime                  @updatedAt @map("updated_at")
   equipment     Equipment[]
   attachments   PurchaseOrderAttachment[]
-  history       PurchaseOrderHistory[]
-  lineItems     PurchaseOrderItem[]
-  createdBy     User                      @relation("CreatedByUser", fields: [createdById], references: [id])
-  supplier      Supplier                  @relation(fields: [supplierId], references: [id])
-  stockIns      StockIn[]
+  history           PurchaseOrderHistory[]
+  lineItems         PurchaseOrderItem[]
+  createdBy         User                      @relation("CreatedByUser", fields: [createdById], references: [id])
+  supplier          Supplier                  @relation(fields: [supplierId], references: [id])
+  stockIns          StockIn[]
+  procurementAlerts ProcurementAlert[]
 
   @@index([status])
   @@index([supplierId])
@@ -646,9 +648,35 @@ enum AlertType {
   LOW_STOCK
   OUT_OF_STOCK
   OVERDUE_EQUIPMENT
+  WARRANTY_EXPIRING
+  REPLACEMENT_NEEDED
 }
 
 enum AlertPriority {
   WARNING
   CRITICAL
+}
+
+enum ProcurementAlertType {
+  PENDING_APPROVAL
+  STATUS_UPDATED
+}
+
+model ProcurementAlert {
+  id              Int                  @id @default(autoincrement())
+  purchaseOrderId Int                  @map("purchase_order_id")
+  alertType       ProcurementAlertType @map("alert_type")
+  message         String
+  isRead          Boolean              @default(false) @map("is_read")
+  readAt          DateTime?            @map("read_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  userId          Int                  @map("user_id")
+  purchaseOrder   PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  user            User                 @relation(fields: [userId], references: [id])
+
+  @@index([isRead])
+  @@index([purchaseOrderId])
+  @@index([alertType])
+  @@index([userId])
+  @@map("procurement_alerts")
 }

@@ -96,7 +96,9 @@ export class CategoriesService {
       });
 
       if (activeItemsCount > 0) {
-        throw new Error('Cannot change category type when active items are linked');
+        throw new Error(
+          'Cannot change category type when active items are linked',
+        );
       }
     }
 

@@ -681,7 +681,7 @@ export class EquipmentService {
 
   // ── Replacement needed tagging ──────────────────────────────────────────────
 
-static async setReplacementNeeded(
+  static async setReplacementNeeded(
     id: number,
     data: ReplacementNeededInput,
     userId: number,
@@ -707,7 +707,7 @@ static async setReplacementNeeded(
       updated,
     );
 
-   // Notify Admin + Manager when the replacement tag is newly saved
+    // Notify Admin + Manager when the replacement tag is newly saved
     if (data.replacementNeeded) {
       const created = await AlertService.triggerReplacementAlert(id);
       if (created) {
@@ -716,7 +716,11 @@ static async setReplacementNeeded(
     } else {
       // Tag was cleared — resolve any open alert so re-tagging can notify again
       await prisma.inventoryAlert.updateMany({
-        where: { equipmentId: id, alertType: 'REPLACEMENT_NEEDED', resolvedAt: null },
+        where: {
+          equipmentId: id,
+          alertType: 'REPLACEMENT_NEEDED',
+          resolvedAt: null,
+        },
         data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
       });
     }

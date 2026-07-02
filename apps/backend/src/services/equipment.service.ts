@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { AlertService } from './alert.service.js';
 import {
   BorrowStatus,
   ConditionStatus,
@@ -17,6 +18,7 @@ import type {
   EquipmentImageInput,
   UpdateImageInput,
   ListEquipmentQuery,
+  ListRetiredArchiveQuery,
   RetirementRequestInput,
   UpdateDisposalApprovalInput,
   ReplacementNeededInput,
@@ -56,6 +58,23 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
   ConditionStatus.POOR,
   ConditionStatus.DAMAGED,
 ]);
+
+const FALLBACK_NON_DAMAGED_CONDITION = ConditionStatus.POOR;
+
+function normalizeConditionForEquipmentStatus(
+  status: EquipmentStatus,
+  condition: ConditionStatus,
+): ConditionStatus {
+  if (status === EquipmentStatus.DAMAGED) {
+    return ConditionStatus.DAMAGED;
+  }
+
+  if (condition === ConditionStatus.DAMAGED) {
+    return FALLBACK_NON_DAMAGED_CONDITION;
+  }
+
+  return condition;
+}
 
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
@@ -224,6 +243,12 @@ export class EquipmentService {
     return equipment;
   }
 
+  private static assertNotRetired(equipment: { status: EquipmentStatus }) {
+    if (equipment.status === EquipmentStatus.RETIRED) {
+      throw new Error('Retired equipment is archived and cannot be modified');
+    }
+  }
+
   private static async syncCompletedRetirements() {
     const completedRetirements = await prisma.disposal.findMany({
       where: {
@@ -246,6 +271,15 @@ export class EquipmentService {
       return;
     }
 
+    const equipmentsToRetire = await prisma.equipment.findMany({
+      where: {
+        id: { in: equipmentIds },
+        status: EquipmentStatus.RETIREMENT_PENDING,
+        deletedAt: null,
+      },
+      select: { id: true, replacementNeeded: true },
+    });
+
     await prisma.equipment.updateMany({
       where: {
         id: { in: equipmentIds },
@@ -256,8 +290,17 @@ export class EquipmentService {
         status: EquipmentStatus.RETIRED,
       },
     });
-  }
 
+    // Fire replacement notifications for retired equipment tagged for replacement
+    for (const eq of equipmentsToRetire) {
+      if (eq.replacementNeeded) {
+        const created = await AlertService.triggerReplacementAlert(eq.id);
+        if (created) {
+          void AlertService.sendReplacementNeededEmail(eq.id);
+        }
+      }
+    }
+  }
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   static async create(data: CreateEquipmentInput, registeredBy: number) {
@@ -310,7 +353,10 @@ export class EquipmentService {
             serialNumber: data.serialNumber ?? null,
             brand: data.brand ?? null,
             model: data.model ?? null,
-            condition: data.condition,
+            condition: normalizeConditionForEquipmentStatus(
+              data.status,
+              data.condition,
+            ),
             status: data.status,
             location: data.location ?? null,
             acquisitionDate: data.acquisitionDate ?? null,
@@ -431,10 +477,17 @@ export class EquipmentService {
     } = query;
 
     const skip = (page - 1) * limit;
+    const statusFilters: Prisma.EquipmentWhereInput[] = [
+      { status: { not: EquipmentStatus.RETIRED } },
+    ];
+
+    if (status) {
+      statusFilters.push({ status });
+    }
 
     const where: Prisma.EquipmentWhereInput = {
       deletedAt: null,
-      ...(status && { status }),
+      AND: statusFilters,
       ...(condition && { condition }),
       ...(assignedTo && { assignedTo }),
       item: {
@@ -506,6 +559,7 @@ export class EquipmentService {
 
   static async update(id: number, data: UpdateEquipmentInput, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
+    this.assertNotRetired(equipment);
 
     if (data.categoryId) {
       await this.assertCategoryIsEquipment(data.categoryId);
@@ -566,10 +620,17 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
+    const nextStatus = equipmentFields.status ?? equipment.status;
+    const nextCondition = equipmentFields.condition ?? equipment.condition;
+
     const updated = await prisma.equipment.update({
       where: { id },
       data: {
         ...equipmentFields,
+        condition: normalizeConditionForEquipmentStatus(
+          nextStatus,
+          nextCondition,
+        ),
         ...(purchasePrice !== undefined && {
           purchasePrice:
             purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
@@ -612,12 +673,13 @@ export class EquipmentService {
 
   // ── Replacement needed tagging ──────────────────────────────────────────────
 
-  static async setReplacementNeeded(
+static async setReplacementNeeded(
     id: number,
     data: ReplacementNeededInput,
     userId: number,
   ) {
     const equipment = await this.findActiveOrThrow(id);
+    this.assertNotRetired(equipment);
 
     const updated = await prisma.equipment.update({
       where: { id },
@@ -637,9 +699,21 @@ export class EquipmentService {
       updated,
     );
 
+   // Notify Admin + Manager when the replacement tag is newly saved
+    if (data.replacementNeeded) {
+      const created = await AlertService.triggerReplacementAlert(id);
+      if (created) {
+        void AlertService.sendReplacementNeededEmail(id);
+      }
+    } else {
+      // Tag was cleared — resolve any open alert so re-tagging can notify again
+      await prisma.inventoryAlert.updateMany({
+        where: { equipmentId: id, alertType: 'REPLACEMENT_NEEDED', resolvedAt: null },
+        data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
+      });
+    }
     return updated;
   }
-
   // ── Retirement request ──────────────────────────────────────────────────────
 
   static async submitRetirementRequest(
@@ -663,6 +737,8 @@ export class EquipmentService {
       if (!equipment || equipment.deletedAt) {
         throw new Error('Equipment not found');
       }
+
+      this.assertNotRetired(equipment);
 
       const eligibilityError = getRetirementEligibilityError(equipment);
 
@@ -806,6 +882,106 @@ export class EquipmentService {
     });
   }
 
+  static async getRetiredArchive(query: ListRetiredArchiveQuery) {
+    await this.syncCompletedRetirements();
+
+    const {
+      search,
+      categoryId,
+      reason,
+      retirementDateFrom,
+      retirementDateTo,
+      page = 1,
+      limit = 20,
+    } = query;
+
+    const skip = (page - 1) * limit;
+    const retirementDateToEnd = retirementDateTo
+      ? new Date(retirementDateTo)
+      : undefined;
+    retirementDateToEnd?.setHours(23, 59, 59, 999);
+
+    const where: Prisma.DisposalWhereInput = {
+      approvalStatus: DisposalApprovalStatus.COMPLETED,
+      ...(reason && { reason }),
+      ...(retirementDateFrom || retirementDateToEnd
+        ? {
+            disposalDate: {
+              ...(retirementDateFrom && { gte: retirementDateFrom }),
+              ...(retirementDateToEnd && { lte: retirementDateToEnd }),
+            },
+          }
+        : {}),
+      equipment: {
+        status: EquipmentStatus.RETIRED,
+        deletedAt: null,
+        item: {
+          deletedAt: null,
+          ...(categoryId && { categoryId }),
+        },
+        ...(search && {
+          OR: [
+            { assetId: { contains: search, mode: 'insensitive' } },
+            {
+              item: {
+                itemName: { contains: search, mode: 'insensitive' },
+              },
+            },
+          ],
+        }),
+      },
+    };
+
+    const include = {
+      equipment: {
+        include: {
+          item: {
+            select: {
+              id: true,
+              itemName: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      approvedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+    } satisfies Prisma.DisposalInclude;
+
+    const [data, total] = await Promise.all([
+      prisma.disposal.findMany({
+        where,
+        include,
+        orderBy: [{ disposalDate: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.disposal.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   static async updateDisposalApproval(
     id: number,
     data: UpdateDisposalApprovalInput,
@@ -913,6 +1089,7 @@ export class EquipmentService {
 
   static async softDelete(id: number, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
+    this.assertNotRetired(equipment);
 
     const deletedAt = new Date();
 
@@ -942,7 +1119,8 @@ export class EquipmentService {
   // ── Image management ────────────────────────────────────────────────────────
 
   static async addImage(equipmentId: number, data: EquipmentImageInput) {
-    await this.findActiveOrThrow(equipmentId);
+    const equipment = await this.findActiveOrThrow(equipmentId);
+    this.assertNotRetired(equipment);
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
@@ -970,7 +1148,8 @@ export class EquipmentService {
     imageId: number,
     data: UpdateImageInput,
   ) {
-    await this.findActiveOrThrow(equipmentId);
+    const equipment = await this.findActiveOrThrow(equipmentId);
+    this.assertNotRetired(equipment);
 
     const image = await prisma.equipmentImage.findFirst({
       where: {
@@ -1002,7 +1181,8 @@ export class EquipmentService {
   }
 
   static async deleteImage(equipmentId: number, imageId: number) {
-    await this.findActiveOrThrow(equipmentId);
+    const equipment = await this.findActiveOrThrow(equipmentId);
+    this.assertNotRetired(equipment);
 
     const image = await prisma.equipmentImage.findFirst({
       where: {

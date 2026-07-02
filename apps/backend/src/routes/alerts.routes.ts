@@ -14,9 +14,12 @@ router.use(authorize('reports:export'));
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
-const paginationSchema = z.object({
+const alertHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(50).optional().default(30),
+  alertType: z
+    .enum(['LOW_STOCK', 'OUT_OF_STOCK', 'OVERDUE_EQUIPMENT'])
+    .optional(),
 });
 
 const alertIdSchema = z.object({
@@ -53,13 +56,13 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
 // All alerts paginated
 router.get(
   '/',
-  validate(paginationSchema, 'query'),
+  validate(alertHistoryQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { page, pageSize } = req.query as unknown as z.infer<
-        typeof paginationSchema
+      const query = req.query as unknown as z.infer<
+        typeof alertHistoryQuerySchema
       >;
-      const result = await AlertService.getAllAlerts(page, pageSize);
+      const result = await AlertService.getAllAlerts(query);
       res.status(200).json(result);
     } catch (error) {
       const message =

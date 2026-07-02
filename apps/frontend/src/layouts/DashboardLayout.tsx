@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useAlertStore, ALERT_POLL_INTERVAL_MS } from '../store/alertStore';
+import { useAlertStore, ALERT_POLL_INTERVAL_MS, type AlertCategoryFilter } from '../store/alertStore';
 import { usePolling } from '../lib/usePolling';
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
@@ -300,16 +300,23 @@ export default function DashboardLayout() {
   const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
+  const [notifView, setNotifView] = useState<'current' | 'history'>('current');
+  const [notifCategory, setNotifCategory] = useState<AlertCategoryFilter>('ALL');
   const hasCheckedAuthRef = useRef(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const {
     unreadCount,
     alerts,
+    historyAlerts,
     isOpen: notifOpen,
     isLoading: notifLoading,
+    isHistoryLoading,
+    historyError,
     fetchUnreadCount,
     fetchUnread,
+    fetchHistory,
+    scanAlerts,
     markAsRead,
     markAllAsRead,
     toggleOpen,
@@ -330,6 +337,15 @@ export default function DashboardLayout() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [notifOpen, closeNotif]);
+
+
+  useEffect(() => {
+    if (!notifOpen || notifView !== 'history') {
+      return;
+    }
+
+    void fetchHistory({ category: notifCategory });
+  }, [fetchHistory, notifCategory, notifOpen, notifView]);
 
   useEffect(() => {
     if (hasCheckedAuthRef.current) {
@@ -498,6 +514,46 @@ export default function DashboardLayout() {
     return (f + l).toUpperCase();
   };
 
+
+  const displayedNotifications = notifView === 'history' ? historyAlerts : alerts;
+  const notificationsLoading = notifView === 'history' ? isHistoryLoading : notifLoading;
+  const notificationEmptyText = notifView === 'history'
+    ? 'No notification history found'
+    : 'No alerts right now';
+
+  const handleNotificationViewChange = (view: 'current' | 'history') => {
+    setNotifView(view);
+    if (view === 'current') {
+      void fetchUnread();
+    }
+  };
+
+  const handleNotificationCategoryChange = (category: AlertCategoryFilter) => {
+    setNotifCategory(category);
+  };
+
+  const handleNotificationRefresh = async () => {
+    await scanAlerts();
+    await fetchUnreadCount();
+
+    if (notifView === 'history') {
+      await fetchHistory({ category: notifCategory });
+      return;
+    }
+
+    await fetchUnread();
+  };
+
+  const formatAlertTypeLabel = (category: AlertCategoryFilter) => {
+    if (category === 'ALL') return 'All Categories';
+
+    return category
+      .toLowerCase()
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   return (
     <div className="dash-layout">
       {/* Sidebar */}
@@ -630,26 +686,96 @@ export default function DashboardLayout() {
               {notifOpen && (
                 <div className="dash-notif-panel">
                   <div className="dash-notif-header">
-                    <span className="dash-notif-title">Notifications</span>
-                    {unreadCount > 0 && (
-                      <button className="dash-notif-mark-all" onClick={() => void markAllAsRead()}>
-                        Mark all read
+                    <div>
+                      <span className="dash-notif-title">Notifications</span>
+                      <p className="dash-notif-subtitle">
+                        Updates refresh every {Math.round(ALERT_POLL_INTERVAL_MS / 1000)} seconds.
+                      </p>
+                    </div>
+                    <div className="dash-notif-header-actions">
+                      <button
+                        type="button"
+                        className="dash-notif-refresh"
+                        onClick={() => void handleNotificationRefresh()}
+                        disabled={notificationsLoading}
+                        title="Refresh notifications"
+                        aria-label="Refresh notifications"
+                      >
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 12a9 9 0 01-15.32 6.36" />
+                          <path d="M3 12a9 9 0 0115.32-6.36" />
+                          <path d="M18 3v4h-4" />
+                          <path d="M6 21v-4h4" />
+                        </svg>
                       </button>
-                    )}
+
+                      {unreadCount > 0 && (
+                        <button className="dash-notif-mark-all" onClick={() => void markAllAsRead()}>
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="dash-notif-body">
-                    {notifLoading ? (
+                  <div className="dash-notif-tabs">
+                    <button
+                      type="button"
+                      className={`dash-notif-tab ${notifView === 'current' ? 'dash-notif-tab--active' : ''}`}
+                      onClick={() => handleNotificationViewChange('current')}
+                    >
+                      Current
+                    </button>
+                    <button
+                      type="button"
+                      className={`dash-notif-tab ${notifView === 'history' ? 'dash-notif-tab--active' : ''}`}
+                      onClick={() => handleNotificationViewChange('history')}
+                    >
+                      History
+                    </button>
+                  </div>
+
+                  {notifView === 'history' && (
+                    <div className="dash-notif-filter-row">
+                      <label htmlFor="notification-category-filter">Category</label>
+                      <select
+                        id="notification-category-filter"
+                        value={notifCategory}
+                        onChange={(event) =>
+                          handleNotificationCategoryChange(event.target.value as AlertCategoryFilter)
+                        }
+                      >
+                        {(['ALL', 'LOW_STOCK', 'OUT_OF_STOCK', 'OVERDUE_EQUIPMENT', 'MAINTENANCE_DUE'] as AlertCategoryFilter[]).map((category) => (
+                          <option key={category} value={category}>
+                            {formatAlertTypeLabel(category)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className={`dash-notif-body ${notifView === 'history' ? 'dash-notif-body--history' : ''}`}>
+                    {notificationsLoading ? (
                       <div className="dash-notif-empty">Loading...</div>
-                    ) : alerts.length === 0 ? (
+                    ) : historyError && notifView === 'history' ? (
+                      <div className="dash-notif-empty">{historyError}</div>
+                    ) : displayedNotifications.length === 0 ? (
                       <div className="dash-notif-empty">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, marginBottom: 8 }}>
                           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
                         </svg>
-                        <span>No alerts right now</span>
+                        <span>{notificationEmptyText}</span>
                       </div>
                     ) : (
-                      alerts.map((alert) => (
+                      displayedNotifications.map((alert) => (
                         <div
                           key={alert.id}
                           className={`dash-notif-item ${!alert.isRead ? 'dash-notif-item--unread' : ''} ${alert.priority === 'CRITICAL' ? 'dash-notif-item--critical' : ''}`}
@@ -659,12 +785,17 @@ export default function DashboardLayout() {
                           <div className="dash-notif-item-body">
                             <span className="dash-notif-item-msg">{alert.message}</span>
                             <span className="dash-notif-item-time">
-                              {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {formatAlertTypeLabel(alert.alertType)} • {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
-                            {alert.priority}
-                          </span>
+                          <div className="dash-notif-tags">
+                            <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
+                              {alert.priority}
+                            </span>
+                            <span className={`dash-notif-status ${alert.isRead ? 'dash-notif-status--read' : 'dash-notif-status--unread'}`}>
+                              {alert.isRead ? 'Read' : 'Unread'}
+                            </span>
+                          </div>
                         </div>
                       ))
                     )}
@@ -1049,6 +1180,44 @@ export default function DashboardLayout() {
           color: var(--text-primary);
         }
 
+        .dash-notif-subtitle {
+          margin: 2px 0 0;
+          font-size: 11px;
+          color: var(--text-tertiary);
+        }
+
+        .dash-notif-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .dash-notif-refresh {
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--surface-border);
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .dash-notif-refresh:hover:not(:disabled) {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-muted);
+        }
+
+        .dash-notif-refresh:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+
         .dash-notif-mark-all {
           background: none;
           border: none;
@@ -1061,9 +1230,75 @@ export default function DashboardLayout() {
         }
         .dash-notif-mark-all:hover { text-decoration: underline; }
 
+        .dash-notif-tabs {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--surface-border);
+          background: var(--background-tertiary);
+        }
+
+        .dash-notif-tab {
+          border: 1px solid var(--surface-border);
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 7px 10px;
+          transition: all var(--transition-fast);
+        }
+
+        .dash-notif-tab--active,
+        .dash-notif-tab:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-muted);
+        }
+
+        .dash-notif-filter-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--surface-border);
+        }
+
+        .dash-notif-filter-row label {
+          color: var(--text-tertiary);
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .dash-notif-filter-row select {
+          flex: 1;
+          border: 1px solid var(--surface-border);
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-primary);
+          font: inherit;
+          font-size: 12px;
+          padding: 7px 9px;
+        }
+
         .dash-notif-body {
           max-height: 380px;
           overflow-y: auto;
+        }
+
+        .dash-notif-body--history {
+          margin: 12px;
+          max-height: 340px;
+          border: 1px solid var(--surface-border);
+          border-radius: 10px;
+          background: var(--surface);
+          overflow: hidden auto;
         }
 
         .dash-notif-empty {
@@ -1122,8 +1357,15 @@ export default function DashboardLayout() {
           color: var(--text-tertiary);
         }
 
-        .dash-notif-tag {
+        .dash-notif-tags {
           flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+        }
+
+        .dash-notif-tag {
           font-size: 10px;
           font-weight: 700;
           padding: 2px 6px;
@@ -1138,6 +1380,25 @@ export default function DashboardLayout() {
         .dash-notif-tag--critical {
           background: rgba(220,38,38,0.1);
           color: var(--danger, #dc2626);
+        }
+
+        .dash-notif-status {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 999px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .dash-notif-status--read {
+          background: var(--background-tertiary);
+          color: var(--text-tertiary);
+        }
+
+        .dash-notif-status--unread {
+          background: var(--accent-muted);
+          color: var(--accent);
         }
 
         /* ------ Page Content Area ------ */

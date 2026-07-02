@@ -4,6 +4,7 @@ import { useDashboardStore } from '../store/dashboardStore';
 import { usePolling } from '../lib/usePolling';
 import { useAuthStore } from '../store/authStore';
 import AnalyticsSection from './AnalyticsSection';
+import EquipmentLifecycleAlertsWidget from '../components/EquipmentLifecycleAlertsWidget';
 import './DashboardPage.css';
 
 interface QuickAction {
@@ -90,6 +91,11 @@ function formatDate(dateStr: string): string {
 }
 
 function formatDaysRemaining(daysRemaining: number): string {
+  if (daysRemaining < 0) {
+    const daysAgo = Math.abs(daysRemaining);
+    return `Expired ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago`;
+  }
+
   if (daysRemaining === 0) {
     return 'Expires today';
   }
@@ -1184,6 +1190,8 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {isAuthorizedForAnalytics && <EquipmentLifecycleAlertsWidget />}
+
         <div className="dash-card">
           <div className="dash-card-header">
             <h2 className="dash-card-title">
@@ -1301,7 +1309,8 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">All warranties valid</h3>
                 <p className="dash-empty-text">
-                  No equipment warranties are nearing expiration within the next 30 days.
+                  No equipment warranties are expired or nearing expiration within the next 30
+                  days.
                 </p>
               </div>
             )}

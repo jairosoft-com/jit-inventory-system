@@ -509,6 +509,7 @@ model InventoryAlert {
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
+  @@index([equipmentId])
   @@index([borrowRecordId])
   @@map("inventory_alerts")
 }
@@ -648,4 +649,3 @@ enum AlertPriority {
   WARNING
   CRITICAL
 }
-

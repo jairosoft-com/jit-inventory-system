@@ -604,6 +604,7 @@ export default function CategoryManagementPage() {
                 <select
                   id="cat-type"
                   required
+                  disabled={editingCategory !== null && (editingCategory._count?.items ?? 0) > 0}
                   value={formData.type}
                   onChange={(e) =>
                     setFormData({
@@ -611,7 +612,11 @@ export default function CategoryManagementPage() {
                       type: e.target.value as 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL',
                     })
                   }
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  className={`rounded-xl border px-4 py-2.5 text-sm outline-none transition ${
+                    editingCategory !== null && (editingCategory._count?.items ?? 0) > 0
+                      ? 'bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed border-[var(--surface-border)]'
+                      : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
+                  }`}
                 >
                   <option value="EQUIPMENT">
                     Equipment (Trackable individual assets with serial numbers)
@@ -623,6 +628,11 @@ export default function CategoryManagementPage() {
                     Digital Asset (Licenses, subscriptions, software keys)
                   </option>
                 </select>
+                {editingCategory !== null && (editingCategory._count?.items ?? 0) > 0 && (
+                  <p className="text-xs text-[var(--text-secondary)] italic mt-1">
+                    Category type cannot be changed because items are currently linked to this category.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">

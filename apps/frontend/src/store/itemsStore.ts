@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../lib/api';
+import type { Equipment } from './equipmentStore';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ export interface Item {
   category: { id: number; name: string; type: string };
   consumableProfile: ConsumableProfile | null;
   digitalAsset: DigitalAsset | null;
-  equipment?: any | null;
+  equipment?: Equipment | null;
   images: ItemImage[];
 }
 

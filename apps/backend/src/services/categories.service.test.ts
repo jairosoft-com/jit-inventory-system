@@ -9,10 +9,10 @@ describe('Categories Service Unit Tests', () => {
   beforeAll(async () => {
     // Cleanup any remnants from previous failed tests
     await prisma.item.deleteMany({
-      where: { itemName: 'Test Archiving Item' },
+      where: { itemName: { in: ['Test Archiving Item', 'Test Type Change Item'] } },
     });
     await prisma.category.deleteMany({
-      where: { name: 'Test Archiving Category' },
+      where: { name: { in: ['Test Archiving Category', 'Test Type Change Category'] } },
     });
   });
 
@@ -73,5 +73,47 @@ describe('Categories Service Unit Tests', () => {
     // 2. Attempt to archive category -> should succeed
     const archivedCategory = await CategoriesService.archive(testCategoryId);
     expect(archivedCategory.deletedAt).not.toBeNull();
+  });
+
+  it('should prevent changing category type when active items are linked', async () => {
+    // 1. Create a new category
+    const category = await prisma.category.create({
+      data: {
+        name: 'Test Type Change Category',
+        type: 'CONSUMABLE',
+      },
+    });
+
+    // 2. Create active item linked to it
+    const item = await prisma.item.create({
+      data: {
+        itemName: 'Test Type Change Item',
+        categoryId: category.id,
+        itemType: 'CONSUMABLE',
+        consumableProfile: {
+          create: {
+            unit: 'pcs',
+            quantity: 5,
+            reorderPoint: 2,
+          },
+        },
+      },
+    });
+
+    // 3. Attempt to change category type -> should fail
+    await expect(CategoriesService.update(category.id, { type: 'EQUIPMENT' })).rejects.toThrow(
+      'Cannot change category type when active items are linked',
+    );
+
+    // 4. Cleanup
+    await prisma.consumableProfile.deleteMany({
+      where: { itemId: item.id },
+    });
+    await prisma.item.deleteMany({
+      where: { id: item.id },
+    });
+    await prisma.category.delete({
+      where: { id: category.id },
+    });
   });
 });

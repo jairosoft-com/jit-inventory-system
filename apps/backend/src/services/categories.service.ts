@@ -70,7 +70,7 @@ export class CategoriesService {
 
   static async update(id: number, data: UpdateCategoryInput) {
     // Ensures archived categories cannot be updated (will throw 'Category not found')
-    await this.findOne(id);
+    const current = await this.findOne(id);
 
     if (data.name) {
       const existing = await prisma.category.findFirst({
@@ -84,6 +84,19 @@ export class CategoriesService {
 
       if (existing && existing.id !== id) {
         throw new Error('Category name already exists');
+      }
+    }
+
+    if (data.type && data.type !== current.type) {
+      const activeItemsCount = await prisma.item.count({
+        where: {
+          categoryId: id,
+          deletedAt: null,
+        },
+      });
+
+      if (activeItemsCount > 0) {
+        throw new Error('Cannot change category type when active items are linked');
       }
     }
 

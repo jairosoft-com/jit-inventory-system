@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAlertStore, ALERT_POLL_INTERVAL_MS, type AlertCategoryFilter } from '../store/alertStore';
+import { useProcurementAlertStore } from '../store/procurementAlertStore';
 import { usePolling } from '../lib/usePolling';
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
@@ -323,8 +324,17 @@ export default function DashboardLayout() {
     close: closeNotif,
   } = useAlertStore();
 
+  const {
+    alerts: procurementAlerts,
+    unreadCount: procurementUnreadCount,
+    fetchUnread: fetchProcurementUnread,
+    markAsRead: markProcurementAsRead,
+    markAllAsRead: markAllProcurementAsRead,
+  } = useProcurementAlertStore();
+
   // Poll badge count every 60s
   usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
+  usePolling(fetchProcurementUnread, ALERT_POLL_INTERVAL_MS, !!user);
 
   // Close notification panel on click outside
   useEffect(() => {
@@ -395,6 +405,45 @@ export default function DashboardLayout() {
 
     void checkAuth();
   };
+
+  // Merge inventory/maintenance and procurement alerts for the Current tab.
+  type DisplayedNotification = {
+    id: string | number;
+    alertType: string;
+    priority: 'INFO' | 'WARNING' | 'CRITICAL' | 'NORMAL';
+    message: string;
+    isRead: boolean;
+    readAt: string | null;
+    createdAt: string;
+    source: 'inventory' | 'procurement';
+  };
+
+  const totalUnreadCount = unreadCount + procurementUnreadCount;
+  const currentNotifications: DisplayedNotification[] = [
+    ...alerts.map((alert) => ({ ...alert, source: 'inventory' as const })),
+    ...procurementAlerts.map((alert) => ({
+      id: alert.id,
+      alertType: alert.alertType as string,
+      priority: (alert.alertType === 'PENDING_APPROVAL' ? 'WARNING' : 'NORMAL') as
+        | 'WARNING'
+        | 'NORMAL',
+      message: alert.message,
+      isRead: alert.isRead,
+      readAt: alert.readAt,
+      createdAt: alert.createdAt,
+      source: 'procurement' as const,
+    })),
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+  const historyNotifications: DisplayedNotification[] = historyAlerts.map((alert) => ({
+    ...alert,
+    source: 'inventory' as const,
+  }));
+
+  const displayedNotifications =
+    notifView === 'history' ? historyNotifications : currentNotifications;
 
   if (isLoading) {
     return (
@@ -515,7 +564,6 @@ export default function DashboardLayout() {
   };
 
 
-  const displayedNotifications = notifView === 'history' ? historyAlerts : alerts;
   const notificationsLoading = notifView === 'history' ? isHistoryLoading : notifLoading;
   const notificationEmptyText = notifView === 'history'
     ? 'No notification history found'
@@ -534,17 +582,17 @@ export default function DashboardLayout() {
 
   const handleNotificationRefresh = async () => {
     await scanAlerts();
-    await fetchUnreadCount();
+    await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
 
     if (notifView === 'history') {
       await fetchHistory({ category: notifCategory });
       return;
     }
 
-    await fetchUnread();
+    await Promise.all([fetchUnread(), fetchProcurementUnread()]);
   };
 
-  const formatAlertTypeLabel = (category: AlertCategoryFilter) => {
+  const formatAlertTypeLabel = (category: string) => {
     if (category === 'ALL') return 'All Categories';
 
     return category
@@ -677,8 +725,10 @@ export default function DashboardLayout() {
                 >
                   <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
-                {unreadCount > 0 && (
-                  <span className="dash-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                {totalUnreadCount > 0 && (
+                  <span className="dash-notif-badge">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </span>
                 )}
               </button>
 
@@ -718,8 +768,14 @@ export default function DashboardLayout() {
                         </svg>
                       </button>
 
-                      {unreadCount > 0 && (
-                        <button className="dash-notif-mark-all" onClick={() => void markAllAsRead()}>
+                      {totalUnreadCount > 0 && (
+                        <button
+                          className="dash-notif-mark-all"
+                          onClick={() => {
+                            void markAllAsRead();
+                            void markAllProcurementAsRead();
+                          }}
+                        >
                           Mark all read
                         </button>
                       )}
@@ -753,7 +809,15 @@ export default function DashboardLayout() {
                           handleNotificationCategoryChange(event.target.value as AlertCategoryFilter)
                         }
                       >
-                        {(['ALL', 'LOW_STOCK', 'OUT_OF_STOCK', 'OVERDUE_EQUIPMENT', 'MAINTENANCE_DUE'] as AlertCategoryFilter[]).map((category) => (
+                        {([
+                          'ALL',
+                          'LOW_STOCK',
+                          'OUT_OF_STOCK',
+                          'OVERDUE_EQUIPMENT',
+                          'WARRANTY_EXPIRING',
+                          'REPLACEMENT_NEEDED',
+                          'MAINTENANCE_DUE',
+                        ] as AlertCategoryFilter[]).map((category) => (
                           <option key={category} value={category}>
                             {formatAlertTypeLabel(category)}
                           </option>
@@ -777,9 +841,17 @@ export default function DashboardLayout() {
                     ) : (
                       displayedNotifications.map((alert) => (
                         <div
-                          key={alert.id}
+                          key={`${alert.source}-${alert.id}`}
                           className={`dash-notif-item ${!alert.isRead ? 'dash-notif-item--unread' : ''} ${alert.priority === 'CRITICAL' ? 'dash-notif-item--critical' : ''}`}
-                          onClick={() => { if (!alert.isRead) void markAsRead(alert.id); }}
+                          onClick={() => {
+                            if (!alert.isRead) {
+                              if (alert.source === 'procurement') {
+                                void markProcurementAsRead(String(alert.id));
+                              } else {
+                                void markAsRead(String(alert.id));
+                              }
+                            }
+                          }}
                         >
                           <div className="dash-notif-dot" />
                           <div className="dash-notif-item-body">
@@ -789,13 +861,16 @@ export default function DashboardLayout() {
                             </span>
                           </div>
                           <div className="dash-notif-tags">
-                            <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
-                              {alert.priority}
-                            </span>
+                            {alert.priority !== 'NORMAL' && (
+                              <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
+                                {alert.priority}
+                              </span>
+                            )}
                             <span className={`dash-notif-status ${alert.isRead ? 'dash-notif-status--read' : 'dash-notif-status--unread'}`}>
                               {alert.isRead ? 'Read' : 'Unread'}
                             </span>
                           </div>
+
                         </div>
                       ))
                     )}

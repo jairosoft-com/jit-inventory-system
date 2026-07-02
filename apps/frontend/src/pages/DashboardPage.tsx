@@ -4,6 +4,7 @@ import { useDashboardStore } from '../store/dashboardStore';
 import { usePolling } from '../lib/usePolling';
 import { useAuthStore } from '../store/authStore';
 import AnalyticsSection from './AnalyticsSection';
+import EquipmentLifecycleAlertsWidget from '../components/EquipmentLifecycleAlertsWidget';
 import './DashboardPage.css';
 
 interface QuickAction {
@@ -1188,6 +1189,8 @@ export default function DashboardPage() {
             )}
           </div>
         )}
+
+        {isAuthorizedForAnalytics && <EquipmentLifecycleAlertsWidget />}
 
         <div className="dash-card">
           <div className="dash-card-header">

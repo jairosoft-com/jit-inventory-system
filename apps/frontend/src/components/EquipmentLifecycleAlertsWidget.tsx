@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAlertStore, InventoryAlert } from '../store/alertStore';
+import { useAlertStore, UnifiedAlert } from '../store/alertStore';
 
 interface GroupedAlert {
   key: string;
@@ -10,7 +10,7 @@ interface GroupedAlert {
   alertType: 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED';
 }
 
-function groupEquipmentAlerts(alerts: InventoryAlert[]): GroupedAlert[] {
+function groupEquipmentAlerts(alerts: UnifiedAlert[]): GroupedAlert[] {
   const groups = new Map<string, GroupedAlert>();
 
   for (const alert of alerts) {

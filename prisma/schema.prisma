@@ -140,6 +140,8 @@ enum LogAction {
   MAINTENANCE_STARTED
   MAINTENANCE_COMPLETED
   RENEWED
+  LOGIN
+  LOGOUT
 }
 
 enum AlertType {
@@ -740,9 +742,9 @@ model InventoryAlert {
   resolvedAt          DateTime?     @map("resolved_at")
   createdAt           DateTime      @default(now()) @map("created_at")
 
-  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
-  equipment         Equipment?          @relation(fields: [equipmentId], references: [id])
-  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id])
+  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id], onDelete: SetNull)
+  equipment         Equipment?          @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id], onDelete: SetNull)
 
   @@index([isRead])
   @@index([resolvedAt])
@@ -770,4 +772,3 @@ model MaintenanceAlert {
   @@index([isRead])
   @@map("maintenance_alerts")
 }
-

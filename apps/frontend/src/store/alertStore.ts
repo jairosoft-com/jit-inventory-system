@@ -96,6 +96,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
         message: a.message,
         isRead: a.isRead,
         readAt: a.readAt,
+        resolvedAt: a.resolvedAt ?? null,
         createdAt: a.createdAt,
       }));
 
@@ -108,6 +109,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
         message: a.message,
         isRead: a.isRead,
         readAt: a.readAt,
+        resolvedAt: a.resolvedAt ?? null,
         createdAt: a.createdAt,
       }));
 
@@ -179,3 +181,4 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     error: null,
   }),
 }));
+

@@ -92,18 +92,18 @@ export const useAlertStore = create<AlertState>((set, get) => ({
         api.get<{ alerts: any[]; count: number }>('/maintenance-alerts'),
       ]);
 
-     const stockAlerts: UnifiedAlert[] = stockRes.data.alerts.map((a) => ({
-          id: `stock-${a.id}`,
-          originalId: a.id,
-          sourceType: 'stock',
-          alertType: a.alertType,
-          priority: a.priority,
-          message: a.message,
-          isRead: a.isRead,
-          readAt: a.readAt,
-          createdAt: a.createdAt,
-          resolvedAt: a.resolvedAt,
-        }));
+      const stockAlerts: UnifiedAlert[] = stockRes.data.alerts.map((a) => ({
+        id: `stock-${a.id}`,
+        originalId: a.id,
+        sourceType: 'stock',
+        alertType: a.alertType,
+        priority: a.priority,
+        message: a.message,
+        isRead: a.isRead,
+        readAt: a.readAt,
+        resolvedAt: a.resolvedAt ?? null,
+        createdAt: a.createdAt,
+      }));
 
       const maintAlerts: UnifiedAlert[] = maintRes.data.alerts.map((a) => ({
         id: `m-${a.id}`,
@@ -114,6 +114,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
         message: a.message,
         isRead: a.isRead,
         readAt: a.readAt,
+        resolvedAt: a.resolvedAt ?? null,
         createdAt: a.createdAt,
         resolvedAt: null,
       }));
@@ -186,3 +187,4 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     error: null,
   }),
 }));
+

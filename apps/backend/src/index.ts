@@ -5,7 +5,6 @@ import cookieParser from 'cookie-parser';
 import { env } from './lib/env.js';
 import { prisma } from './lib/prisma.js';
 import { redis } from './lib/redis.js';
-
 import authRouter from './routes/auth.routes.js';
 import usersRouter from './routes/users.routes.js';
 import categoriesRouter from './routes/categories.routes.js';
@@ -23,6 +22,7 @@ import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
 import { startCronJobs } from './lib/cron.js';
+import auditLogsRouter from './routes/audit-logs.routes.js';
 
 const app = express();
 
@@ -60,7 +60,6 @@ app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
 app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
-app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
 app.use('/api/maintenance-alerts', globalLimiter); // Bucket 1: lightweight polling
 
@@ -82,6 +81,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/maintenance-alerts', maintenanceAlertsRouter);
+app.use('/api/audit-logs', auditLogsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

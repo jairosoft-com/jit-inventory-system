@@ -32,6 +32,7 @@ const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
   },
   consumableProfile: true,
   digitalAsset: true,
+  equipment: true,
   images: {
     where: { deletedAt: null },
     orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],

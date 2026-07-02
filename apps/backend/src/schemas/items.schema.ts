@@ -123,7 +123,13 @@ export const listItemsQuerySchema = z.object({
   status: stockStatusFilterSchema.optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(1000).optional().default(20),
-  includeArchived: z.coerce.boolean().optional().default(false),
+  includeArchived: z
+    .preprocess((val) => {
+      if (val === 'true' || val === true) return true;
+      if (val === 'false' || val === false) return false;
+      return undefined;
+    }, z.boolean().optional())
+    .default(false),
 });
 
 // ── Types ─────────────────────────────────────────────────────────────────────

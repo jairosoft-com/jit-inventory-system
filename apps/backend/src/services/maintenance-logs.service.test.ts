@@ -96,7 +96,7 @@ describe('Maintenance Flow Unit Tests', () => {
         brand: 'TestBrand',
         model: 'TestModel',
         condition: ConditionStatus.DAMAGED,
-        status: EquipmentStatus.AVAILABLE,
+        status: EquipmentStatus.DAMAGED,
         images: [],
       },
       testUserId,

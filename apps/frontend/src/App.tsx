@@ -5,13 +5,13 @@ import DashboardPage from './pages/DashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
 import EquipmentPage from './pages/EquipmentPage';
-import PlaceholderPage from './pages/PlaceholderPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
 import ReportsPage from './pages/ReportsPage';
 import MaintenancePage from './pages/MaintenancePage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 export default function App() {
   return (
@@ -31,7 +31,7 @@ export default function App() {
           <Route path="orders" element={<PurchaseOrderPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="maintenance" element={<MaintenancePage />} />
-          <Route path="logs" element={<PlaceholderPage />} />
+          <Route path="logs" element={<AuditLogsPage />} />
           <Route path="reports" element={<ReportsPage />} />
         </Route>
  

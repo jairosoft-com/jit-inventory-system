@@ -186,6 +186,7 @@ model Equipment {
   purchaseOrder       PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
   images              EquipmentImage[]
   maintenanceLogs     MaintenanceLog[]
+  alerts              InventoryAlert[]
 
   @@index([status])
   @@index([assignedTo])
@@ -415,27 +416,27 @@ model BorrowRecord {
 }
 
 model MaintenanceLog {
-  id                  Int               @id @default(autoincrement())
-  equipmentId         Int               @map("equipment_id")
-  description         String
-  status              MaintenanceStatus @default(SCHEDULED)
-  scheduledDate       DateTime?         @map("scheduled_date") @db.Date
-  completedDate       DateTime?         @map("completed_date") @db.Date
-  cost                Decimal?          @db.Decimal(10, 2)
-  performedById       Int?              @map("performed_by_id")
-  performedByVendor   String?           @map("performed_by_vendor") @db.VarChar(255)
-  notes               String?
+  id                 Int                @id @default(autoincrement())
+  equipmentId        Int                @map("equipment_id")
+  description        String
+  status             MaintenanceStatus  @default(SCHEDULED)
+  scheduledDate      DateTime?          @map("scheduled_date") @db.Date
+  completedDate      DateTime?          @map("completed_date") @db.Date
+  cost               Decimal?           @db.Decimal(10, 2)
+  performedById      Int?               @map("performed_by_id")
+  performedByVendor  String?            @map("performed_by_vendor") @db.VarChar(255)
+  notes              String?
   // Snapshot fields — captured at completion time so the history record is
   // self-contained even if the linked Equipment row is later modified or deleted.
-  equipmentName       String?           @map("equipment_name") @db.VarChar(255)
-  equipmentBrand      String?           @map("equipment_brand") @db.VarChar(255)
-  equipmentModel      String?           @map("equipment_model") @db.VarChar(255)
-  equipmentCondition  ConditionStatus?  @map("equipment_condition")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  equipment           Equipment          @relation(fields: [equipmentId], references: [id])
-  performedBy         User?              @relation("PerformedByUser", fields: [performedById], references: [id])
-  alerts              MaintenanceAlert[]
+  equipmentName      String?            @map("equipment_name") @db.VarChar(255)
+  equipmentBrand     String?            @map("equipment_brand") @db.VarChar(255)
+  equipmentModel     String?            @map("equipment_model") @db.VarChar(255)
+  equipmentCondition ConditionStatus?   @map("equipment_condition")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  equipment          Equipment          @relation(fields: [equipmentId], references: [id])
+  performedBy        User?              @relation("PerformedByUser", fields: [performedById], references: [id])
+  alerts             MaintenanceAlert[]
 
   @@index([equipmentId])
   @@index([status])
@@ -497,6 +498,7 @@ model InventoryAlert {
   alertType           AlertType          @map("alert_type")
   priority            AlertPriority
   consumableProfileId Int?               @map("consumable_profile_id")
+  equipmentId         Int?               @map("equipment_id") // Add this field
   message             String
   isRead              Boolean            @default(false) @map("is_read")
   readAt              DateTime?          @map("read_at")
@@ -505,11 +507,12 @@ model InventoryAlert {
   borrowRecordId      Int?               @map("borrow_record_id")
   borrowRecord        BorrowRecord?      @relation(fields: [borrowRecordId], references: [id])
   consumableProfile   ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
+  equipment           Equipment?         @relation(fields: [equipmentId], references: [id]) // Add relation
 
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
-  @@index([equipmentId])
+  @@index([equipmentId]) // Keep the index
   @@index([borrowRecordId])
   @@map("inventory_alerts")
 }

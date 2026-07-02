@@ -137,7 +137,10 @@ export class AlertService {
 
     const expiring = await db.equipment.findMany({
       where: {
-        warrantyEnd: { not: null, gte: today, lte: windowEnd },
+        // No lower bound: already-expired warranties must keep alerting,
+        // not just ones expiring in the next 30 days. RETIRED equipment
+        // is excluded separately below, so this can't loop forever.
+        warrantyEnd: { not: null, lte: windowEnd },
         deletedAt: null,
         status: { not: EquipmentStatus.RETIRED },
         item: { deletedAt: null },
@@ -147,9 +150,12 @@ export class AlertService {
 
     for (const equipment of expiring) {
       const daysRemaining = daysBetween(equipment.warrantyEnd!, today);
+      const isExpired = daysRemaining < 0;
       const priority: 'WARNING' | 'CRITICAL' =
-        daysRemaining <= WARRANTY_CRITICAL_THRESHOLD_DAYS ? 'CRITICAL' : 'WARNING';
-      const message = `"${equipment.item.itemName}" (${equipment.assetId}) warranty expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} (${equipment.warrantyEnd!.toDateString()}).`;
+        isExpired || daysRemaining <= WARRANTY_CRITICAL_THRESHOLD_DAYS ? 'CRITICAL' : 'WARNING';
+      const message = isExpired
+        ? `"${equipment.item.itemName}" (${equipment.assetId}) warranty expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'} ago (${equipment.warrantyEnd!.toDateString()}).`
+        : `"${equipment.item.itemName}" (${equipment.assetId}) warranty expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} (${equipment.warrantyEnd!.toDateString()}).`;
 
       const existing = await db.inventoryAlert.findFirst({
         where: { equipmentId: equipment.id, alertType: 'WARRANTY_EXPIRING', resolvedAt: null },
@@ -202,7 +208,9 @@ export class AlertService {
 
     const expiring = await db.equipment.findMany({
       where: {
-        warrantyEnd: { not: null, gte: today, lte: windowEnd },
+        // No lower bound — see runWarrantyScan for why already-expired
+        // warranties must stay in this list.
+        warrantyEnd: { not: null, lte: windowEnd },
         deletedAt: null,
         status: { not: EquipmentStatus.RETIRED },
         item: { deletedAt: null },
@@ -223,7 +231,11 @@ export class AlertService {
     const rows = expiring
       .map((e) => {
         const daysRemaining = daysBetween(e.warrantyEnd!, today);
-        return `<tr><td>${e.item.itemName}</td><td>${e.assetId}</td><td>${e.warrantyEnd!.toDateString()}</td><td>${daysRemaining} day(s)</td></tr>`;
+        const daysLabel =
+          daysRemaining < 0
+            ? `Expired ${Math.abs(daysRemaining)} day(s) ago`
+            : `${daysRemaining} day(s)`;
+        return `<tr><td>${e.item.itemName}</td><td>${e.assetId}</td><td>${e.warrantyEnd!.toDateString()}</td><td>${daysLabel}</td></tr>`;
       })
       .join('');
 

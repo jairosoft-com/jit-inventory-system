@@ -23,6 +23,7 @@ import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
 import cron from 'node-cron';
 import { MaintenanceReminderService } from './services/maintenance-reminder.service.js';
+import auditLogsRouter from './routes/audit-logs.routes.js';
 
 const app = express();
 
@@ -82,6 +83,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/maintenance-alerts', maintenanceAlertsRouter);
+app.use('/api/audit-logs', auditLogsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {

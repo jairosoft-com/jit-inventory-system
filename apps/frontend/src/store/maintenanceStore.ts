@@ -27,6 +27,9 @@ export interface MaintenanceLog {
     item: {
       itemName: string;
     };
+    borrowRecords?: {
+      expectedReturn: string;
+    }[];
   };
   performedBy?: {
     id: number;

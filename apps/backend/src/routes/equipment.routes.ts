@@ -82,7 +82,10 @@ router.get(
   validate(listEquipmentQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await EquipmentService.findAll(req.query);
+      const result = await EquipmentService.findAll(
+        req.query,
+        req.user?.roleId,
+      );
 
       res.status(200).json(result);
     } catch (error) {
@@ -186,6 +189,16 @@ router.get(
       }
 
       const equipment = await EquipmentService.findOne(id);
+
+      if (req.user?.roleId && equipment) {
+        const role = await prisma.role.findUnique({
+          where: { id: req.user.roleId },
+        });
+        if (role?.name === 'STAFF' && equipment.status === 'DAMAGED') {
+          res.status(404).json({ message: 'Equipment not found' });
+          return;
+        }
+      }
 
       res.status(200).json(equipment);
     } catch (error) {

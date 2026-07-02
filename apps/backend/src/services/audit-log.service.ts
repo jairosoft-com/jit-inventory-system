@@ -42,7 +42,16 @@ export class AuditLogService {
   }
 
   static async findAll(query: AuditLogQuery) {
-    const { entityType, entityId, action, performedBy, startDate, endDate, page, limit } = query;
+    const {
+      entityType,
+      entityId,
+      action,
+      performedBy,
+      startDate,
+      endDate,
+      page,
+      limit,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.InventoryLogWhereInput = {
@@ -54,7 +63,9 @@ export class AuditLogService {
         ? {
             performedAt: {
               ...(startDate && { gte: new Date(startDate) }),
-              ...(endDate && { lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)) }),
+              ...(endDate && {
+                lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)),
+              }),
             },
           }
         : {}),

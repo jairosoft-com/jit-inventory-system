@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import api from '../lib/api';
 
 export type AlertPriority = 'INFO' | 'WARNING' | 'CRITICAL';
-export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED';
+export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE';
 
 export interface UnifiedAlert {
   id: string; // Combined format: 'stock-1' or 'm-1' to avoid key collisions

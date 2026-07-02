@@ -18,6 +18,7 @@ import suppliersRouter from './routes/suppliers.routes.js';
 import reportsRouter from './routes/reports.routes.js';
 import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
+import { MaintenanceReminderService } from './services/maintenance-reminder.service.js';
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
@@ -111,6 +112,22 @@ const server = app.listen(port, () => {
 
   // Task 206597: daily 08:00 warranty expiry scan + digest email
   startCronJobs();
+
+  // Re-run the overdue equipment check on a recurring schedule so items
+  // crossing their due date get flagged without waiting for a manual
+  // trigger or the next server restart.
+  const overdueCheckInterval = setInterval(
+    () => {
+      void AlertService.runOverdueScan().catch((err) => {
+        console.warn(
+          '[Alerts] Scheduled overdue scan failed:',
+          err instanceof Error ? err.message : err,
+        );
+      });
+    },
+    15 * 60 * 1000, // every 15 minutes
+  );
+  overdueCheckInterval.unref();
 });
 
 // Graceful shutdown

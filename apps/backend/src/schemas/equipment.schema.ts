@@ -102,6 +102,16 @@ export const replacementNeededSchema = z.object({
   replacementNeeded: z.boolean(),
 });
 
+export const retiredArchiveQuerySchema = z.object({
+  search: z.string().trim().optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  reason: z.nativeEnum(DisposalReason).optional(),
+  retirementDateFrom: z.coerce.date().optional(),
+  retirementDateTo: z.coerce.date().optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
+
 export const listEquipmentQuerySchema = z.object({
   status: z.nativeEnum(EquipmentStatus).optional(),
   condition: z.nativeEnum(ConditionStatus).optional(),
@@ -127,3 +137,4 @@ export type ReplacementNeededInput = z.infer<typeof replacementNeededSchema>;
 export type EquipmentImageInput = z.infer<typeof equipmentImageSchema>;
 export type UpdateImageInput = z.infer<typeof updateImageSchema>;
 export type ListEquipmentQuery = z.infer<typeof listEquipmentQuerySchema>;
+export type ListRetiredArchiveQuery = z.infer<typeof retiredArchiveQuerySchema>;

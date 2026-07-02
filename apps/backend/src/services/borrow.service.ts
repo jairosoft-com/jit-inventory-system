@@ -261,8 +261,8 @@ export class BorrowService {
           approvedById: approverId,
           notes: data.reason
             ? [existing.notes, `Rejection reason: ${data.reason}`]
-              .filter(Boolean)
-              .join('\n')
+                .filter(Boolean)
+                .join('\n')
             : existing.notes,
         },
       });
@@ -281,7 +281,11 @@ export class BorrowService {
         LogAction.REJECTED,
         approverId,
         { status: existing.status },
-        { status: BorrowStatus.REJECTED, approvedById: approverId, reason: data.reason ?? null },
+        {
+          status: BorrowStatus.REJECTED,
+          approvedById: approverId,
+          reason: data.reason ?? null,
+        },
         tx,
       );
 
@@ -360,8 +364,8 @@ export class BorrowService {
           returnCondition: data.returnCondition,
           notes: data.notes
             ? [existing.notes, `[Return Notes] ${data.notes}`]
-              .filter(Boolean)
-              .join('\n')
+                .filter(Boolean)
+                .join('\n')
             : existing.notes,
         },
       });
@@ -405,4 +409,3 @@ export class BorrowService {
     });
   }
 }
-

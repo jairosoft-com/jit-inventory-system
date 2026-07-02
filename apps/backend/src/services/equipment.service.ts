@@ -462,6 +462,7 @@ export class EquipmentService {
 
   static async findAll(
     query: Partial<ListEquipmentQuery> & { needsMaintenance?: boolean },
+    userRoleId?: number,
   ) {
     await this.syncCompletedRetirements();
 
@@ -480,6 +481,13 @@ export class EquipmentService {
     const statusFilters: Prisma.EquipmentWhereInput[] = [
       { status: { not: EquipmentStatus.RETIRED } },
     ];
+
+    if (userRoleId) {
+      const role = await prisma.role.findUnique({ where: { id: userRoleId } });
+      if (role?.name === 'STAFF') {
+        statusFilters.push({ status: { not: EquipmentStatus.DAMAGED } });
+      }
+    }
 
     if (status) {
       statusFilters.push({ status });

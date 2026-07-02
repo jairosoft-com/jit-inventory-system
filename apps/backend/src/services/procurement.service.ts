@@ -15,6 +15,8 @@ import type {
   UpdatePurchaseOrderStatusInput,
   AddAttachmentInput,
 } from '../schemas/procurement.schema.js';
+import { ProcurementAlertService } from './procurement-alert.service.js';
+import { ProcurementAlertType } from '@prisma/client';
 
 // ── Allowed status transitions (state machine) ──────────────────────────────
 const ALLOWED_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> =
@@ -482,6 +484,56 @@ export class ProcurementService {
               { status: newStatus },
               tx,
             );
+          }
+
+ // ── Procurement Alerts ──────────────────────────────────────────
+          const supplierName = existing.supplier.supplierName;
+          const invoiceRef = existing.invoiceNumber || `PO #${id}`;
+          const poCreatorId = existing.createdById;
+
+          // Fetch all ADMIN and MANAGER users to notify
+          const approvers = await tx.user.findMany({
+            where: {
+              isActive: true,
+              deletedAt: null,
+              role: { name: { in: ['ADMIN', 'MANAGER'] } },
+            },
+            select: { id: true },
+          });
+
+          if (newStatus === 'PENDING') {
+            // Notify all approvers (ADMIN/MANAGER) that a PO requires approval
+            for (const approver of approvers) {
+              await ProcurementAlertService.create(
+                id,
+                approver.id,
+                ProcurementAlertType.PENDING_APPROVAL,
+                `Purchase order ${invoiceRef} from supplier "${supplierName}" requires your approval.`,
+                tx,
+              );
+            }
+          } else {
+            // Notify the PO creator about status update
+            await ProcurementAlertService.create(
+              id,
+              poCreatorId,
+              ProcurementAlertType.STATUS_UPDATED,
+              `Your purchase order ${invoiceRef} from supplier "${supplierName}" status has been updated to ${statusToSave}.`,
+              tx,
+            );
+
+            // Also notify all ADMIN/MANAGER users (skip if creator is already an admin/manager)
+            for (const approver of approvers) {
+              if (approver.id !== poCreatorId) {
+                await ProcurementAlertService.create(
+                  id,
+                  approver.id,
+                  ProcurementAlertType.STATUS_UPDATED,
+                  `Purchase order ${invoiceRef} from supplier "${supplierName}" status has been updated to ${statusToSave}.`,
+                  tx,
+                );
+              }
+            }
           }
 
           // If the status transitions to COMPLETED, auto-update the inventory

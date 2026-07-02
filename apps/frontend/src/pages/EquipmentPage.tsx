@@ -1116,7 +1116,7 @@ export default function EquipmentPage() {
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
             >
               <option value="">All Statuses</option>
-              {EQUIPMENT_STATUSES.map((s) => (
+              {EQUIPMENT_STATUSES.filter((s) => !(isStaff && s === 'DAMAGED')).map((s) => (
                 <option key={s} value={s}>
                   {s.replace(/_/g, ' ')}
                 </option>
@@ -1159,7 +1159,7 @@ export default function EquipmentPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--surface-border)]">
-                    {equipment.map((eq) => {
+                    {equipment.filter((eq) => !(isStaff && eq.status === 'DAMAGED')).map((eq) => {
                       const primaryImg = getPrimaryImage(eq);
                       return (
                         <tr
@@ -1312,7 +1312,7 @@ export default function EquipmentPage() {
 
               {/* Mobile Cards */}
               <div className="mt-6 grid gap-4 md:hidden">
-                {equipment.map((eq) => {
+                {equipment.filter((eq) => !(isStaff && eq.status === 'DAMAGED')).map((eq) => {
                   const primaryImg = getPrimaryImage(eq);
                   return (
                     <article

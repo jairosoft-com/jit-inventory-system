@@ -19,8 +19,10 @@ import reportsRouter from './routes/reports.routes.js';
 import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
-import auditLogsRouter from './routes/audit-logs.routes.js';
+import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
+import cron from 'node-cron';
+import { MaintenanceReminderService } from './services/maintenance-reminder.service.js';
 
 const app = express();
 
@@ -60,7 +62,7 @@ app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
-app.use('/api/audit-logs', heavyLimiter); // Bucket 4: admin-only, low-frequency reads
+app.use('/api/maintenance-alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
@@ -79,7 +81,7 @@ app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
-app.use('/api/audit-logs', auditLogsRouter);
+app.use('/api/maintenance-alerts', maintenanceAlertsRouter);
 
 // Health Check
 app.get('/api/healthz', (req, res) => {
@@ -98,6 +100,7 @@ const server = app.listen(port, () => {
     try {
       await AlertService.purgeOldAlerts();
       await AlertService.runFullScan();
+      await MaintenanceReminderService.scanAndNotify();
       await AlertService.runOverdueScan();
     } catch (err) {
       console.warn(
@@ -107,6 +110,10 @@ const server = app.listen(port, () => {
     }
   })();
 
+  // Daily maintenance reminder scan job at 08:00 AM server time
+  cron.schedule('0 8 * * *', () => {
+    void MaintenanceReminderService.scanAndNotify();
+  });
   // Re-run the overdue equipment check on a recurring schedule so items
   // crossing their due date get flagged without waiting for a manual
   // trigger or the next server restart.

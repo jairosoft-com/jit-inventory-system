@@ -7,6 +7,7 @@ import {
   Prisma,
   LogAction,
   DisposalApprovalStatus,
+  DisposalReason,
   MaintenanceStatus,
 } from '@prisma/client';
 import { AuditLogService } from './audit-log.service.js';
@@ -17,6 +18,7 @@ import type {
   UpdateImageInput,
   ListEquipmentQuery,
   RetirementRequestInput,
+  UpdateDisposalApprovalInput,
   ReplacementNeededInput,
 } from '../schemas/equipment.schema.js';
 
@@ -55,10 +57,55 @@ const retirementEligibleConditions = new Set<ConditionStatus>([
   ConditionStatus.DAMAGED,
 ]);
 
+const FALLBACK_NON_DAMAGED_CONDITION = ConditionStatus.POOR;
+
+function normalizeConditionForEquipmentStatus(
+  status: EquipmentStatus,
+  condition: ConditionStatus,
+): ConditionStatus {
+  if (status === EquipmentStatus.DAMAGED) {
+    return ConditionStatus.DAMAGED;
+  }
+
+  if (condition === ConditionStatus.DAMAGED) {
+    return FALLBACK_NON_DAMAGED_CONDITION;
+  }
+
+  return condition;
+}
+
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 
+function getRejectedRetirementFallbackStatus(disposalReason: {
+  reason: DisposalReason;
+  equipment: {
+    status: EquipmentStatus;
+    condition: ConditionStatus;
+  };
+}) {
+  if (disposalReason.equipment.status !== EquipmentStatus.RETIREMENT_PENDING) {
+    return disposalReason.equipment.status;
+  }
+
+  if (
+    disposalReason.reason === DisposalReason.LOST ||
+    disposalReason.reason === DisposalReason.STOLEN
+  ) {
+    return EquipmentStatus.LOST;
+  }
+
+  if (
+    disposalReason.reason === DisposalReason.DAMAGED_BEYOND_REPAIR ||
+    disposalReason.equipment.condition === ConditionStatus.DAMAGED
+  ) {
+    return EquipmentStatus.DAMAGED;
+  }
+
+  return EquipmentStatus.AVAILABLE;
+}
+
 function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return new Date(date.toLocaleDateString('sv-SE'));
 }
 
 function addCalendarYears(date: Date, years: number) {
@@ -280,7 +327,10 @@ export class EquipmentService {
             serialNumber: data.serialNumber ?? null,
             brand: data.brand ?? null,
             model: data.model ?? null,
-            condition: data.condition,
+            condition: normalizeConditionForEquipmentStatus(
+              data.status,
+              data.condition,
+            ),
             status: data.status,
             location: data.location ?? null,
             acquisitionDate: data.acquisitionDate ?? null,
@@ -321,16 +371,26 @@ export class EquipmentService {
           include: equipmentInclude,
         });
 
-        // Spawn initial maintenance log row linked to the equipment ID
-        await tx.maintenanceLog.create({
-          data: {
-            equipmentId: eq.id,
-            description:
-              'Initial maintenance record — No Maintenance Scheduled',
-            status: MaintenanceStatus.SCHEDULED,
-            scheduledDate: null,
-          },
-        });
+        // Automatically create an initial unscheduled maintenance log only if the equipment
+        // is registered in non-healthy conditions (FAIR, POOR, DAMAGED).
+        if (
+          eq.condition !== ConditionStatus.NEW &&
+          eq.condition !== ConditionStatus.GOOD
+        ) {
+          await tx.maintenanceLog.create({
+            data: {
+              equipmentId: eq.id,
+              description:
+                'Initial maintenance record — No Maintenance Scheduled',
+              status: MaintenanceStatus.SCHEDULED,
+              scheduledDate: null,
+              equipmentName: eq.item?.itemName ?? data.itemName,
+              equipmentBrand: eq.brand,
+              equipmentModel: eq.model,
+              equipmentCondition: eq.condition,
+            },
+          });
+        }
 
         await AuditLogService.log(
           'Equipment',
@@ -374,11 +434,21 @@ export class EquipmentService {
     }
   }
 
-  static async findAll(query: ListEquipmentQuery) {
+  static async findAll(
+    query: Partial<ListEquipmentQuery> & { needsMaintenance?: boolean },
+  ) {
     await this.syncCompletedRetirements();
 
-    const { status, condition, categoryId, assignedTo, search, page, limit } =
-      query;
+    const {
+      status,
+      condition,
+      categoryId,
+      assignedTo,
+      search,
+      page = 1,
+      limit = 20,
+      needsMaintenance,
+    } = query;
 
     const skip = (page - 1) * limit;
 
@@ -391,6 +461,25 @@ export class EquipmentService {
         deletedAt: null,
         ...(categoryId && { categoryId }),
       },
+      ...(needsMaintenance && {
+        condition: {
+          in: [
+            ConditionStatus.FAIR,
+            ConditionStatus.POOR,
+            ConditionStatus.DAMAGED,
+          ],
+        },
+        status: {
+          notIn: [EquipmentStatus.RETIRED, EquipmentStatus.RETIREMENT_PENDING],
+        },
+        maintenanceLogs: {
+          none: {
+            status: {
+              in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+            },
+          },
+        },
+      }),
       ...(search && {
         OR: [
           { assetId: { contains: search, mode: 'insensitive' } },
@@ -497,10 +586,17 @@ export class EquipmentService {
       ...equipmentFields
     } = data;
 
+    const nextStatus = equipmentFields.status ?? equipment.status;
+    const nextCondition = equipmentFields.condition ?? equipment.condition;
+
     const updated = await prisma.equipment.update({
       where: { id },
       data: {
         ...equipmentFields,
+        condition: normalizeConditionForEquipmentStatus(
+          nextStatus,
+          nextCondition,
+        ),
         ...(purchasePrice !== undefined && {
           purchasePrice:
             purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
@@ -619,23 +715,48 @@ export class EquipmentService {
 
       const existingDisposal = await tx.disposal.findUnique({
         where: { equipmentId: id },
-        select: { id: true },
-      });
-
-      if (existingDisposal) {
-        throw new Error('Equipment already has a disposal record');
-      }
-
-      const disposal = await tx.disposal.create({
-        data: {
-          equipmentId: id,
-          approvedById: requestedById,
-          reason: data.reason,
-          approvalStatus: DisposalApprovalStatus.PENDING,
-          method: data.method,
-          notes: data.notes ?? null,
+        select: {
+          id: true,
+          approvalStatus: true,
+          reason: true,
+          method: true,
+          notes: true,
+          disposalDate: true,
         },
       });
+
+      if (existingDisposal?.approvalStatus === DisposalApprovalStatus.PENDING) {
+        throw new Error('Equipment already has a pending disposal request');
+      }
+
+      if (
+        existingDisposal?.approvalStatus === DisposalApprovalStatus.COMPLETED
+      ) {
+        throw new Error('Equipment already has a completed disposal record');
+      }
+
+      const disposal = existingDisposal
+        ? await tx.disposal.update({
+            where: { id: existingDisposal.id },
+            data: {
+              approvedById: requestedById,
+              reason: data.reason,
+              approvalStatus: DisposalApprovalStatus.PENDING,
+              method: data.method,
+              notes: data.notes ?? null,
+              disposalDate: new Date(),
+            },
+          })
+        : await tx.disposal.create({
+            data: {
+              equipmentId: id,
+              approvedById: requestedById,
+              reason: data.reason,
+              approvalStatus: DisposalApprovalStatus.PENDING,
+              method: data.method,
+              notes: data.notes ?? null,
+            },
+          });
 
       const updatedEquipment = await tx.equipment.update({
         where: { id },
@@ -658,9 +779,9 @@ export class EquipmentService {
       await AuditLogService.log(
         'Disposal',
         disposal.id,
-        LogAction.CREATED,
+        existingDisposal ? LogAction.UPDATED : LogAction.CREATED,
         requestedById,
-        null,
+        existingDisposal ?? null,
         disposal,
         tx,
       );
@@ -677,15 +798,11 @@ export class EquipmentService {
     await this.syncCompletedRetirements();
 
     return prisma.disposal.findMany({
-      where: {
-        approvalStatus: {
-          in: [
-            DisposalApprovalStatus.COMPLETED,
-            DisposalApprovalStatus.REJECTED,
-          ],
-        },
-      },
-      orderBy: [{ disposalDate: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { approvalStatus: 'asc' },
+        { disposalDate: 'desc' },
+        { createdAt: 'desc' },
+      ],
       include: {
         equipment: {
           include: {
@@ -713,6 +830,111 @@ export class EquipmentService {
           },
         },
       },
+    });
+  }
+
+  static async updateDisposalApproval(
+    id: number,
+    data: UpdateDisposalApprovalInput,
+    userId: number,
+  ) {
+    const { approvalStatus } = data;
+
+    return prisma.$transaction(async (tx) => {
+      const disposal = await tx.disposal.findUnique({
+        where: { id },
+        include: {
+          equipment: {
+            select: {
+              id: true,
+              status: true,
+              condition: true,
+              deletedAt: true,
+            },
+          },
+        },
+      });
+
+      if (!disposal || disposal.equipment.deletedAt) {
+        throw new Error('Disposal record not found');
+      }
+
+      if (disposal.approvalStatus !== DisposalApprovalStatus.PENDING) {
+        throw new Error(
+          'Only pending disposal records can be completed or rejected',
+        );
+      }
+
+      const nextEquipmentStatus =
+        approvalStatus === DisposalApprovalStatus.COMPLETED
+          ? EquipmentStatus.RETIRED
+          : getRejectedRetirementFallbackStatus(disposal);
+
+      const updatedDisposal = await tx.disposal.update({
+        where: { id },
+        data: {
+          approvalStatus,
+          approvedById: userId,
+          disposalDate: new Date(),
+        },
+        include: {
+          equipment: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  itemName: true,
+                  category: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      const updatedEquipment = await tx.equipment.update({
+        where: { id: disposal.equipmentId },
+        data: {
+          status: nextEquipmentStatus,
+        },
+        include: equipmentInclude,
+      });
+
+      await AuditLogService.log(
+        'Disposal',
+        updatedDisposal.id,
+        LogAction.UPDATED,
+        userId,
+        disposal,
+        updatedDisposal,
+        tx,
+      );
+
+      await AuditLogService.log(
+        'Equipment',
+        updatedEquipment.id,
+        LogAction.UPDATED,
+        userId,
+        disposal.equipment,
+        updatedEquipment,
+        tx,
+      );
+
+      return updatedDisposal;
     });
   }
 

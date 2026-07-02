@@ -46,9 +46,19 @@ export interface ReplacementNeededItem {
   replacementReasons: string[];
 }
 
+export interface OverdueEquipmentItem {
+  borrowRecordId: number;
+  assetId: string;
+  itemName: string;
+  borrowerName: string;
+  expectedReturn: string;
+  daysOverdue: number;
+}
+
 export interface DashboardAlerts {
   lowStock: LowStockItem[];
   warrantyExpiring: WarrantyAlert[];
+  overdueEquipment: OverdueEquipmentItem[];
 }
 
 export interface RecentActivity {
@@ -168,7 +178,7 @@ interface DashboardState {
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   summary: null,
-  alerts: { lowStock: [], warrantyExpiring: [] },
+  alerts: { lowStock: [], warrantyExpiring: [], overdueEquipment: [] },
   recentActivity: [],
   equipmentBreakdown: [],
   replacementNeeded: [],

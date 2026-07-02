@@ -6,11 +6,13 @@ import DashboardPage from './pages/DashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
 import PlaceholderPage from './pages/PlaceholderPage';
+import EquipmentPage from './pages/EquipmentPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';
 import ReportsPage from './pages/ReportsPage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 const EquipmentPage = lazy(() => import('./pages/EquipmentPage'));
 const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
@@ -50,6 +52,28 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <Routes>
+        {/* Public Login Route */}
+        <Route path="/" element={<LoginPage />} />
+ 
+        {/* Dashboard Shell Route */}
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="users" element={<UserManagementPage />} />
+          <Route path="categories" element={<CategoryManagementPage />} />
+          <Route path="inventory" element={<InventoryManagementPage />} />
+          <Route path="equipment" element={<EquipmentPage />} />
+          <Route path="borrow" element={<BorrowRequestPage />} />
+          <Route path="orders" element={<PurchaseOrderPage />} />
+          <Route path="suppliers" element={<SupplierManagementPage />} />
+          <Route path="maintenance" element={<MaintenancePage />} />
+          <Route path="logs" element={<AuditLogsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+        </Route>
+ 
+        {/* Catch-all Redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }

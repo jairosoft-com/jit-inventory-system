@@ -3,17 +3,9 @@ import { LogAction } from '@prisma/client';
 
 export const auditLogQuerySchema = z.object({
   entityType: z.string().optional(),
-  entityId: z
-    .string()
-    .optional()
-    .transform((v) => (v !== undefined ? parseInt(v, 10) : undefined))
-    .refine((v) => v === undefined || !isNaN(v), { message: 'entityId must be a number' }),
+  entityId: z.coerce.number().int().positive().optional(),
   action: z.nativeEnum(LogAction).optional(),
-  performedBy: z
-    .string()
-    .optional()
-    .transform((v) => (v !== undefined ? parseInt(v, 10) : undefined))
-    .refine((v) => v === undefined || !isNaN(v), { message: 'performedBy must be a number' }),
+  performedBy: z.coerce.number().int().positive().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   page: z
@@ -27,3 +19,4 @@ export const auditLogQuerySchema = z.object({
 });
 
 export type AuditLogQueryInput = z.infer<typeof auditLogQuerySchema>;
+

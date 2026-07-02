@@ -54,7 +54,7 @@ export class AuditLogService {
         ? {
             performedAt: {
               ...(startDate && { gte: new Date(startDate) }),
-              ...(endDate && { lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) }),
+              ...(endDate && { lte: new Date(new Date(endDate).setUTCHours(23, 59, 59, 999)) }),
             },
           }
         : {}),
@@ -101,4 +101,3 @@ export class AuditLogService {
     return log;
   }
 }
-

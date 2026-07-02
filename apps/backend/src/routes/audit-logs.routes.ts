@@ -14,11 +14,6 @@ const router = Router();
 router.use(authenticate);
 
 // ── GET /audit-logs ───────────────────────────────────────────────────────────
-// Paginated query of the inventory_logs table.
-// Read-only — no POST / PATCH / DELETE routes exist by design, enforcing
-// Scenario 3 (prevent modification of audit logs) at the API layer.
-// DB-level immutability is enforced separately by a BEFORE UPDATE/DELETE trigger.
-
 router.get(
   '/',
   authorize('audit:read'),
@@ -46,8 +41,6 @@ router.get(
 );
 
 // ── GET /audit-logs/:id ───────────────────────────────────────────────────────
-// Fetch a single audit log entry by ID.
-
 router.get(
   '/:id',
   authorize('audit:read'),
@@ -73,3 +66,4 @@ router.get(
 );
 
 export default router;
+

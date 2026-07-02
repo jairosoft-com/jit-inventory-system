@@ -6,7 +6,6 @@ import DashboardPage from './pages/DashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
 import CategoryManagementPage from './pages/CategoryManagementPage';
 import PlaceholderPage from './pages/PlaceholderPage';
-import EquipmentPage from './pages/EquipmentPage';
 import InventoryManagementPage from './pages/InventoryManagementPage';
 import BorrowRequestPage from './pages/BorrowRequestPage';
 import SupplierManagementPage from './pages/SupplierManagementPage';

@@ -161,7 +161,10 @@ router.patch(
       const message = error instanceof Error ? error.message : 'Bad request';
       if (message.includes('not found')) {
         res.status(404).json({ message });
-      } else if (message.includes('active/open')) {
+      } else if (
+        message.includes('active/open') ||
+        message.includes('already been completed')
+      ) {
         res.status(409).json({ message });
       } else {
         res.status(400).json({ message });

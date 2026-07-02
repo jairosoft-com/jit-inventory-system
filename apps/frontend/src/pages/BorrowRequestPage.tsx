@@ -495,7 +495,7 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
 // state with HistoryPanel and won't flicker when switching between tabs.
 
 function AdminPanel() {
-  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest } =
+  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest, runOverdueCheck } =
     useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
@@ -571,18 +571,34 @@ function AdminPanel() {
             {adminMeta.total} total request{adminMeta.total !== 1 ? 's' : ''}
           </p>
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as BorrowStatus | '');
-            setPage(1);
-          }}
-          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--accent)]"
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await runOverdueCheck();
+              } catch (err) {
+                // error is already stored in the store and displayed
+              }
+            }}
+            disabled={isLoading}
+            className="rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          >
+            {isLoading ? 'Running…' : 'Run Overdue Check'}
+          </button>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as BorrowStatus | '');
+              setPage(1);
+            }}
+            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--accent)]"
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && (

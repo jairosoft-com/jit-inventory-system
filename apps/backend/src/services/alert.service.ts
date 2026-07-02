@@ -109,7 +109,10 @@ export class AlertService {
           },
         },
       },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
   }
 

@@ -53,8 +53,8 @@ app.use('/api/borrow', mutativeLimiter); // Bucket 2
 app.use('/api/categories', mutativeLimiter); // Bucket 2
 app.use('/api/users', mutativeLimiter); // Bucket 2
 app.use('/api/suppliers', mutativeLimiter); // Bucket 2
-app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
-app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
+app.use('/api/reports', heavyLimiter);     // Bucket 4: report generation is heavy
+app.use('/api/alerts', globalLimiter);     // Bucket 1: lightweight polling
 
 // Body Parser
 app.use(express.json());
@@ -90,10 +90,7 @@ const server = app.listen(port, () => {
       await AlertService.purgeOldAlerts();
       await AlertService.runFullScan();
     } catch (err) {
-      console.warn(
-        '[Alerts] Startup scan skipped — DB not ready:',
-        err instanceof Error ? err.message : err,
-      );
+      console.warn('[Alerts] Startup scan skipped — DB not ready:', err instanceof Error ? err.message : err);
     }
   })();
 });

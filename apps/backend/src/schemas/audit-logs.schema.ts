@@ -19,4 +19,3 @@ export const auditLogQuerySchema = z.object({
 });
 
 export type AuditLogQueryInput = z.infer<typeof auditLogQuerySchema>;
-

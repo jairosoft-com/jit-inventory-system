@@ -433,12 +433,28 @@ model MaintenanceLog {
   equipmentCondition  ConditionStatus?  @map("equipment_condition")
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
-  equipment           Equipment         @relation(fields: [equipmentId], references: [id])
-  performedBy         User?             @relation("PerformedByUser", fields: [performedById], references: [id])
+  equipment           Equipment          @relation(fields: [equipmentId], references: [id])
+  performedBy         User?              @relation("PerformedByUser", fields: [performedById], references: [id])
+  alerts              MaintenanceAlert[]
 
   @@index([equipmentId])
   @@index([status])
   @@map("maintenance_logs")
+}
+
+model MaintenanceAlert {
+  id               Int            @id @default(autoincrement())
+  maintenanceLogId Int            @map("maintenance_log_id")
+  message          String
+  isRead           Boolean        @default(false) @map("is_read")
+  readAt           DateTime?      @map("read_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  maintenanceLog   MaintenanceLog @relation(fields: [maintenanceLogId], references: [id], onDelete: Cascade)
+
+  @@index([isRead])
+  @@index([maintenanceLogId])
+  @@index([createdAt])
+  @@map("maintenance_alerts")
 }
 
 model Disposal {

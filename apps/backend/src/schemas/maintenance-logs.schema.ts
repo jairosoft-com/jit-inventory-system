@@ -98,7 +98,8 @@ export const updateMaintenanceScheduleSchema = z
       return true;
     },
     {
-      message: 'Completion date is required when completing a maintenance record',
+      message:
+        'Completion date is required when completing a maintenance record',
       path: ['completedDate'],
     },
   );
@@ -129,4 +130,3 @@ export type ListMaintenanceLogsQuery = z.infer<
 export type CreateMaintenanceLogInput = z.infer<
   typeof createMaintenanceLogSchema
 >;
-

@@ -520,4 +520,3 @@ export class MaintenanceLogsService {
     return { total, unscheduled, scheduled, inProgress, completed };
   }
 }
-

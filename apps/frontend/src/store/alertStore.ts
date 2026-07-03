@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import api from '../lib/api';
 
-export type AlertPriority = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE' | 'OVERDUE_EQUIPMENT' | 'BORROW_RETURNED';
+export type AlertPriority = 'WARNING' | 'CRITICAL';
+export type AlertCategoryFilter = 'ALL' | AlertType;
 
 export interface UnifiedAlert {
   id: string; // Combined format: 'stock-1' or 'm-1' to avoid key collisions
@@ -27,17 +28,63 @@ export interface UnifiedAlert {
     warrantyEnd: string | null;
     item: { id: number; itemName: string; category: { id: number; name: string } };
   } | null;
+  borrowRecord?: {
+    id?: number;
+    status?: string;
+    expectedReturn?: string;
+    equipment?: {
+      assetId: string;
+      item: { itemName: string };
+    };
+    borrowedBy?: {
+      firstName: string;
+      lastName: string;
+    };
+  } | null;
+}
+
+interface StockAlertResponse {
+  id: number;
+  alertType: Exclude<AlertType, 'MAINTENANCE_DUE'>;
+  priority: AlertPriority;
+  message: string;
+  isRead: boolean;
+  readAt: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  consumableProfile?: UnifiedAlert['consumableProfile'];
+  equipment?: UnifiedAlert['equipment'];
+  borrowRecord?: UnifiedAlert['borrowRecord'];
+}
+
+interface MaintenanceAlertResponse {
+  id: number;
+  alertType?: string;
+  message: string;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+interface AlertHistoryParams {
+  category?: AlertCategoryFilter;
 }
 
 interface AlertState {
   alerts: UnifiedAlert[];
+  historyAlerts: UnifiedAlert[];
   unreadCount: number;
   isOpen: boolean;
   isLoading: boolean;
+  isHistoryLoading: boolean;
   error: string | null;
+  historyError: string | null;
+  historyCategory: AlertCategoryFilter;
 
   fetchUnreadCount: () => Promise<void>;
   fetchUnread: () => Promise<void>;
+  fetchHistory: (params?: AlertHistoryParams) => Promise<void>;
+  scanAlerts: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   toggleOpen: () => void;
@@ -46,7 +93,7 @@ interface AlertState {
 }
 
 // Filter out alerts older than 24 hours client-side as a safety net.
-// Only applies to stock alerts (LOW_STOCK/OUT_OF_STOCK), which are
+// Only applies to short-lived stock alerts (LOW_STOCK/OUT_OF_STOCK), which are
 // recreated/refreshed frequently. Equipment lifecycle alerts
 // (WARRANTY_EXPIRING/REPLACEMENT_NEEDED) are long-lived by design — an
 // expired warranty or a replacement tag can stay open for weeks — and
@@ -58,8 +105,55 @@ const PERSISTENT_ALERT_TYPES: AlertType[] = ['WARRANTY_EXPIRING', 'REPLACEMENT_N
 function filterFreshAlerts(alerts: UnifiedAlert[]): UnifiedAlert[] {
   const cutoff = Date.now() - ALERT_MAX_AGE_MS;
   return alerts.filter(
-    (a) => PERSISTENT_ALERT_TYPES.includes(a.alertType) || new Date(a.createdAt).getTime() > cutoff,
+    (alert) =>
+      PERSISTENT_ALERT_TYPES.includes(alert.alertType) ||
+      new Date(alert.createdAt).getTime() > cutoff,
   );
+}
+
+function mapStockAlert(alert: StockAlertResponse): UnifiedAlert {
+  return {
+    id: `stock-${alert.id}`,
+    originalId: alert.id,
+    sourceType: 'stock',
+    alertType: alert.alertType,
+    priority: alert.priority,
+    message: alert.message,
+    isRead: alert.isRead,
+    readAt: alert.readAt,
+    resolvedAt: alert.resolvedAt ?? null,
+    createdAt: alert.createdAt,
+    consumableProfile: alert.consumableProfile ?? null,
+    equipment: alert.equipment ?? null,
+    borrowRecord: alert.borrowRecord ?? null,
+  };
+}
+
+function mapMaintenanceAlert(alert: MaintenanceAlertResponse): UnifiedAlert {
+  return {
+    id: `m-${alert.id}`,
+    originalId: alert.id,
+    sourceType: 'maintenance',
+    alertType: 'MAINTENANCE_DUE',
+    priority: 'WARNING',
+    message: alert.message,
+    isRead: alert.isRead,
+    readAt: alert.readAt,
+    resolvedAt: null,
+    createdAt: alert.createdAt,
+  };
+}
+
+function sortAlertsNewestFirst(alerts: UnifiedAlert[]): UnifiedAlert[] {
+  return [...alerts].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function getStockAlertType(
+  category: AlertCategoryFilter,
+): Exclude<AlertType, 'MAINTENANCE_DUE'> | undefined {
+  return category !== 'ALL' && category !== 'MAINTENANCE_DUE' ? category : undefined;
 }
 
 // Poll interval for the badge count (every 60 seconds)
@@ -67,12 +161,16 @@ export const ALERT_POLL_INTERVAL_MS = 60_000;
 
 export const useAlertStore = create<AlertState>((set, get) => ({
   alerts: [],
+  historyAlerts: [],
   unreadCount: 0,
   isOpen: false,
   isLoading: false,
+  isHistoryLoading: false,
   error: null,
+  historyError: null,
+  historyCategory: 'ALL',
 
-fetchUnreadCount: async () => {
+  fetchUnreadCount: async () => {
     try {
       const stockRes = await api.get<{ count: number }>('/alerts/count');
       let maintCount = 0;
@@ -88,7 +186,7 @@ fetchUnreadCount: async () => {
     }
   },
 
-fetchUnread: async () => {
+  fetchUnread: async () => {
     set({ isLoading: true, error: null });
     try {
       const stockRes = await api.get<{ alerts: any[]; count: number }>('/alerts/unread');
@@ -100,41 +198,59 @@ fetchUnread: async () => {
         // Staff may not have maintenance alert permission — silently ignore
       }
 
-      const stockAlerts: UnifiedAlert[] = stockRes.data.alerts.map((a) => ({
-        id: `stock-${a.id}`,
-        originalId: a.id,
-        sourceType: 'stock',
-        alertType: a.alertType,
-        priority: a.priority,
-        message: a.message,
-        isRead: a.isRead,
-        readAt: a.readAt,
-        resolvedAt: a.resolvedAt ?? null,
-        createdAt: a.createdAt,
-      }));
+      const stockAlerts = stockRes.data.alerts.map(mapStockAlert);
+      const maintAlerts = maintAlertsList.map(mapMaintenanceAlert);
+      const fresh = filterFreshAlerts([...stockAlerts, ...maintAlerts]);
 
-const maintAlerts: UnifiedAlert[] = maintAlertsList.map((a) => ({
-        id: `m-${a.id}`,
-        originalId: a.id,
-        sourceType: 'maintenance',
-        alertType: 'MAINTENANCE_DUE',
-        priority: 'WARNING',
-        message: a.message,
-        isRead: a.isRead,
-        readAt: a.readAt,
-        resolvedAt: a.resolvedAt ?? null,
-        createdAt: a.createdAt,
-      }));
-
-      const combined = [...stockAlerts, ...maintAlerts];
-      const fresh = filterFreshAlerts(combined);
-
-      // Sort by newest first
-      fresh.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      set({ alerts: fresh, unreadCount: fresh.length, isLoading: false });
+      set({ alerts: sortAlertsNewestFirst(fresh), isLoading: false });
     } catch {
       set({ error: 'Failed to load alerts.', isLoading: false });
+    }
+  },
+
+  fetchHistory: async (params) => {
+    const category = params?.category ?? get().historyCategory;
+    set({ isHistoryLoading: true, historyError: null, historyCategory: category });
+
+    try {
+      const shouldFetchStock = category === 'ALL' || category !== 'MAINTENANCE_DUE';
+      const shouldFetchMaintenance = category === 'ALL' || category === 'MAINTENANCE_DUE';
+      const stockAlertType = getStockAlertType(category);
+
+      const [stockRes, maintRes] = await Promise.all([
+        shouldFetchStock
+          ? api.get<{ alerts: StockAlertResponse[] }>('/alerts', {
+              params: {
+                page: 1,
+                pageSize: 50,
+                ...(stockAlertType && { alertType: stockAlertType }),
+              },
+            })
+          : Promise.resolve({ data: { alerts: [] as StockAlertResponse[] } }),
+        shouldFetchMaintenance
+          ? api.get<{ alerts: MaintenanceAlertResponse[] }>('/maintenance-alerts/history', {
+              params: { page: 1, pageSize: 50, alertType: 'MAINTENANCE_DUE' },
+            })
+          : Promise.resolve({ data: { alerts: [] as MaintenanceAlertResponse[] } }),
+      ]);
+
+      const stockAlerts = stockRes.data.alerts.map(mapStockAlert);
+      const maintAlerts = maintRes.data.alerts.map(mapMaintenanceAlert);
+
+      set({
+        historyAlerts: sortAlertsNewestFirst([...stockAlerts, ...maintAlerts]),
+        isHistoryLoading: false,
+      });
+    } catch {
+      set({ historyError: 'Failed to load notification history.', isHistoryLoading: false });
+    }
+  },
+
+  scanAlerts: async () => {
+    try {
+      await api.post('/alerts/scan');
+    } catch {
+      // Ignore scan errors so the refresh button can still reload existing notifications.
     }
   },
 
@@ -145,15 +261,21 @@ const maintAlerts: UnifiedAlert[] = maintAlertsList.map((a) => ({
       console.error('Invalid alert ID format:', id);
       return;
     }
+
     try {
       if (isMaint) {
         await api.patch(`/maintenance-alerts/${rawId}/read`);
       } else {
         await api.patch(`/alerts/${rawId}/read`);
       }
+
+      const readAt = new Date().toISOString();
       set((state) => ({
-        alerts: state.alerts.map((a) =>
-          a.id === id ? { ...a, isRead: true, readAt: new Date().toISOString() } : a,
+        alerts: state.alerts.map((alert) =>
+          alert.id === id ? { ...alert, isRead: true, readAt } : alert,
+        ),
+        historyAlerts: state.historyAlerts.map((alert) =>
+          alert.id === id ? { ...alert, isRead: true, readAt } : alert,
         ),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
@@ -164,12 +286,11 @@ const maintAlerts: UnifiedAlert[] = maintAlertsList.map((a) => ({
 
   markAllAsRead: async () => {
     try {
-      await Promise.all([
-        api.patch('/alerts/read-all'),
-        api.patch('/maintenance-alerts/read-all'),
-      ]);
+      await Promise.all([api.patch('/alerts/read-all'), api.patch('/maintenance-alerts/read-all')]);
+      const readAt = new Date().toISOString();
       set((state) => ({
-        alerts: state.alerts.map((a) => ({ ...a, isRead: true, readAt: new Date().toISOString() })),
+        alerts: state.alerts.map((alert) => ({ ...alert, isRead: true, readAt })),
+        historyAlerts: state.historyAlerts.map((alert) => ({ ...alert, isRead: true, readAt })),
         unreadCount: 0,
       }));
     } catch {
@@ -186,12 +307,16 @@ const maintAlerts: UnifiedAlert[] = maintAlertsList.map((a) => ({
 
   close: () => set({ isOpen: false }),
 
-  reset: () => set({
-    alerts: [],
-    unreadCount: 0,
-    isOpen: false,
-    isLoading: false,
-    error: null,
-  }),
+  reset: () =>
+    set({
+      alerts: [],
+      historyAlerts: [],
+      unreadCount: 0,
+      isOpen: false,
+      isLoading: false,
+      isHistoryLoading: false,
+      error: null,
+      historyError: null,
+      historyCategory: 'ALL',
+    }),
 }));
-

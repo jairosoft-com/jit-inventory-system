@@ -408,7 +408,7 @@ await AuditLogService.log(
       );
 
 // Resolve any open overdue alerts for this borrow record
-      await AlertService.resolveOverdueAlertsForBorrow(id);
+      await AlertService.resolveOverdueAlertsForBorrow(id, tx);
 
       // Notify borrower that return was recorded
       await AlertService.createReturnAlert(
@@ -416,6 +416,7 @@ await AuditLogService.log(
         updated.borrowedById,
         updated.equipment.item.itemName,
         updated.equipment.assetId,
+        tx,
       );
 
       return { record: updated, isLate };

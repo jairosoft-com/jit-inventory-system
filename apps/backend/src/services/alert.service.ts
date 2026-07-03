@@ -1,4 +1,10 @@
-import { PrismaClient, EquipmentStatus, BorrowStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  Prisma,
+  EquipmentStatus,
+  BorrowStatus,
+  AlertType,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { sendMail } from '../lib/mailer.js';
 import { BorrowService } from './borrow.service.js';
@@ -8,6 +14,12 @@ const db: PrismaClient = prisma;
 
 // How long to suppress duplicate alerts for the same item (24 hours)
 const ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+type AlertHistoryQuery = {
+  page?: number;
+  pageSize?: number;
+  alertType?: AlertType;
+};
 
 // Per Decision 8 in the DevPlan
 const WARRANTY_ALERT_WINDOW_DAYS = 30;
@@ -313,15 +325,14 @@ export class AlertService {
 
   // ── Read/query methods ───────────────────────────────────────────────────────
 
-  static getUnreadAlerts(userId?: number) {
+  static getUnreadAlerts(userId?: number, isAdminOrManager = false) {
     return db.inventoryAlert.findMany({
       where: {
         isRead: false,
         resolvedAt: null,
-        OR: [
-          { userId: userId ?? undefined },
-          { userId: null },
-        ],
+        OR: isAdminOrManager
+          ? [{ userId: userId ?? undefined }, { userId: null }]
+          : [{ userId: userId ?? undefined }],
       },
       include: {
         consumableProfile: {
@@ -345,10 +356,19 @@ export class AlertService {
     });
   }
 
-  static async getAllAlerts(page = 1, pageSize = 30) {
+  /**
+   * Fetch alert history (read + unread), paginated and optionally filtered
+   * by notification category/type.
+   */
+  static async getAllAlerts(query: AlertHistoryQuery = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 30;
     const skip = (page - 1) * pageSize;
+    const where = query.alertType ? { alertType: query.alertType } : {};
+
     const [alerts, total] = await Promise.all([
       db.inventoryAlert.findMany({
+        where,
         skip,
         take: pageSize,
         include: {
@@ -371,45 +391,48 @@ export class AlertService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      db.inventoryAlert.count(),
+      db.inventoryAlert.count({ where }),
     ]);
     return { alerts, total, page, pageSize };
   }
 
-  static async markAsRead(alertId: number, userId?: number) {
+  static async markAsRead(alertId: number, userId?: number, isAdminOrManager = false) {
     const alert = await db.inventoryAlert.findUnique({ where: { id: alertId } });
     if (!alert) throw new Error('Alert not found');
-    if (userId && alert.userId !== null && alert.userId !== userId) {
+
+    const isOwnAlert = alert.userId !== null && alert.userId === userId;
+    const isGlobalAlert = alert.userId === null;
+
+    if (!isOwnAlert && !(isGlobalAlert && isAdminOrManager)) {
       throw new Error('Forbidden: you do not own this alert');
     }
+
     return db.inventoryAlert.update({
       where: { id: alertId },
       data: { isRead: true, readAt: new Date() },
     });
   }
 
-  static markAllAsRead(userId?: number) {
+  static markAllAsRead(userId?: number, isAdminOrManager = false) {
     return db.inventoryAlert.updateMany({
       where: {
         isRead: false,
-        OR: [
-          { userId: userId ?? undefined },
-          { userId: null },
-        ],
+        OR: isAdminOrManager
+          ? [{ userId: userId ?? undefined }, { userId: null }]
+          : [{ userId: userId ?? undefined }],
       },
       data: { isRead: true, readAt: new Date() },
     });
   }
 
-  static getUnreadCount(userId?: number) {
+  static getUnreadCount(userId?: number, isAdminOrManager = false) {
     return db.inventoryAlert.count({
       where: {
         isRead: false,
         resolvedAt: null,
-        OR: [
-          { userId: userId ?? undefined },
-          { userId: null },
-        ],
+        OR: isAdminOrManager
+          ? [{ userId: userId ?? undefined }, { userId: null }]
+          : [{ userId: userId ?? undefined }],
       },
     });
   }
@@ -514,31 +537,35 @@ export class AlertService {
 
   // ── Borrow return alert ──────────────────────────────────────────────────────
 
-  static async createReturnAlert(
-    borrowRecordId: number,
-    borrowedById: number,
-    equipmentName: string,
-    assetId: string,
-  ): Promise<void> {
-    await db.inventoryAlert.create({
-      data: {
-        borrowRecordId,
-        userId: borrowedById,
-        alertType: 'BORROW_RETURNED',
-        priority: 'WARNING',
-        message: `Your borrowed equipment "${equipmentName}" (${assetId}) has been successfully returned. Thank you!`,
-      },
-    });
-  }
-  
-  static async resolveOverdueAlertsForBorrow(borrowRecordId: number): Promise<void> {
-    await db.inventoryAlert.updateMany({
-      where: {
-        borrowRecordId,
-        alertType: 'OVERDUE_EQUIPMENT',
-        resolvedAt: null,
-      },
-      data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
-    });
-  }
+static async createReturnAlert(
+  borrowRecordId: number,
+  borrowedById: number,
+  equipmentName: string,
+  assetId: string,
+  tx: Prisma.TransactionClient | PrismaClient = db,
+): Promise<void> {
+  await tx.inventoryAlert.create({
+    data: {
+      borrowRecordId,
+      userId: borrowedById,
+      alertType: 'BORROW_RETURNED',
+      priority: 'WARNING',
+      message: `Your borrowed equipment "${equipmentName}" (${assetId}) has been successfully returned. Thank you!`,
+    },
+  });
+}
+
+static async resolveOverdueAlertsForBorrow(
+  borrowRecordId: number,
+  tx: Prisma.TransactionClient | PrismaClient = db,
+): Promise<void> {
+  await tx.inventoryAlert.updateMany({
+    where: {
+      borrowRecordId,
+      alertType: 'OVERDUE_EQUIPMENT',
+      resolvedAt: null,
+    },
+    data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
+  });
+}
 }

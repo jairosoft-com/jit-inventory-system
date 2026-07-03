@@ -37,12 +37,6 @@ const equipmentAlertInclude = {
 export class AlertService {
   // ── Consumable stock alerts (existing) ──────────────────────────────────────
 
-  /**
-   * Called after any stock change. Checks the consumable profile
-   * and creates a low stock / out of stock alert if needed.
-   * Deduplicates: skips if an unresolved alert of the same type
-   * was already created within the cooldown window.
-   */
   static async checkAndCreateStockAlert(
     consumableProfileId: number,
   ): Promise<void> {
@@ -127,12 +121,6 @@ export class AlertService {
 
   // ── Equipment warranty expiration alerts (Task 206597) ──────────────────────
 
-  /**
-   * Scans equipment for warranties expiring within the alert window
-   * (30 days). Creates/refreshes a WARRANTY_EXPIRING alert per item and
-   * resolves alerts for equipment that's since been renewed, retired,
-   * or removed. Intended to run daily via cron.
-   */
   static async runWarrantyScan(): Promise<void> {
     const today = startOfDay(new Date());
     const windowEnd = new Date(today);
@@ -140,9 +128,6 @@ export class AlertService {
 
     const expiring = await db.equipment.findMany({
       where: {
-        // No lower bound: already-expired warranties must keep alerting,
-        // not just ones expiring in the next 30 days. RETIRED equipment
-        // is excluded separately below, so this can't loop forever.
         warrantyEnd: { not: null, lte: windowEnd },
         deletedAt: null,
         status: { not: EquipmentStatus.RETIRED },
@@ -187,7 +172,6 @@ export class AlertService {
       }
     }
 
-    // Resolve alerts for equipment no longer in the window (renewed, retired, deleted)
     const openAlerts = await db.inventoryAlert.findMany({
       where: { alertType: 'WARRANTY_EXPIRING', resolvedAt: null },
       select: { id: true, equipmentId: true },
@@ -208,10 +192,6 @@ export class AlertService {
     }
   }
 
-  /**
-   * Sends a digest email to all Manager users listing equipment whose
-   * warranty expires within the alert window. Called by the daily cron job.
-   */
   static async sendWarrantyDigestEmail(): Promise<void> {
     const today = startOfDay(new Date());
     const windowEnd = new Date(today);
@@ -219,8 +199,6 @@ export class AlertService {
 
     const expiring = await db.equipment.findMany({
       where: {
-        // No lower bound — see runWarrantyScan for why already-expired
-        // warranties must stay in this list.
         warrantyEnd: { not: null, lte: windowEnd },
         deletedAt: null,
         status: { not: EquipmentStatus.RETIRED },
@@ -272,11 +250,6 @@ export class AlertService {
 
   // ── Replacement-needed alerts (Task 206598) ──────────────────────────────────
 
-  /**
-   * Creates a REPLACEMENT_NEEDED alert for the given equipment if one
-   * isn't already open. Returns true if a new alert was created (used by
-   * callers to decide whether to also fire the notification email).
-   */
   static async triggerReplacementAlert(equipmentId: number): Promise<boolean> {
     const existing = await db.inventoryAlert.findFirst({
       where: { equipmentId, alertType: 'REPLACEMENT_NEEDED', resolvedAt: null },
@@ -303,7 +276,6 @@ export class AlertService {
     return true;
   }
 
-  /** Emails all Admin and Manager users that equipment needs replacement. */
   static async sendReplacementNeededEmail(equipmentId: number): Promise<void> {
     const equipment = await db.equipment.findUnique({
       where: { id: equipmentId },
@@ -339,11 +311,18 @@ export class AlertService {
     );
   }
 
-  // ── Read/query methods (updated to include equipment context) ───────────────
+  // ── Read/query methods ───────────────────────────────────────────────────────
 
-  static getUnreadAlerts() {
+  static getUnreadAlerts(userId?: number) {
     return db.inventoryAlert.findMany({
-      where: { isRead: false, resolvedAt: null },
+      where: {
+        isRead: false,
+        resolvedAt: null,
+        OR: [
+          { userId: userId ?? undefined },
+          { userId: null },
+        ],
+      },
       include: {
         consumableProfile: {
           select: {
@@ -397,23 +376,41 @@ export class AlertService {
     return { alerts, total, page, pageSize };
   }
 
-  static markAsRead(alertId: number) {
+  static async markAsRead(alertId: number, userId?: number) {
+    const alert = await db.inventoryAlert.findUnique({ where: { id: alertId } });
+    if (!alert) throw new Error('Alert not found');
+    if (userId && alert.userId !== null && alert.userId !== userId) {
+      throw new Error('Forbidden: you do not own this alert');
+    }
     return db.inventoryAlert.update({
       where: { id: alertId },
       data: { isRead: true, readAt: new Date() },
     });
   }
 
-  static markAllAsRead() {
+  static markAllAsRead(userId?: number) {
     return db.inventoryAlert.updateMany({
-      where: { isRead: false },
+      where: {
+        isRead: false,
+        OR: [
+          { userId: userId ?? undefined },
+          { userId: null },
+        ],
+      },
       data: { isRead: true, readAt: new Date() },
     });
   }
 
-  static getUnreadCount() {
+  static getUnreadCount(userId?: number) {
     return db.inventoryAlert.count({
-      where: { isRead: false, resolvedAt: null },
+      where: {
+        isRead: false,
+        resolvedAt: null,
+        OR: [
+          { userId: userId ?? undefined },
+          { userId: null },
+        ],
+      },
     });
   }
 
@@ -429,12 +426,6 @@ export class AlertService {
 
   // ── Overdue equipment alerts ─────────────────────────────────────────────────
 
-  /**
-   * Creates (or refreshes) an OVERDUE_EQUIPMENT alert for a single borrow
-   * record that is currently in the OVERDUE state. Deduplicates the same
-   * way checkAndCreateStockAlert does: skips if an unresolved alert for
-   * this borrow record was already created within the cooldown window.
-   */
   static async checkAndCreateOverdueAlert(
     borrowRecordId: number,
   ): Promise<void> {
@@ -444,7 +435,7 @@ export class AlertService {
         equipment: {
           select: { assetId: true, item: { select: { itemName: true } } },
         },
-        borrowedBy: { select: { firstName: true, lastName: true } },
+        borrowedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
 
@@ -464,8 +455,21 @@ export class AlertService {
 
     const borrowerName =
       `${record.borrowedBy.firstName} ${record.borrowedBy.lastName}`.trim();
+    const borrowedById = record.borrowedBy.id;
     const dueDate = record.expectedReturn.toISOString().split('T')[0];
 
+    // Notify the borrower personally
+    await db.inventoryAlert.create({
+      data: {
+        borrowRecordId,
+        userId: borrowedById,
+        alertType: 'OVERDUE_EQUIPMENT',
+        priority: 'CRITICAL',
+        message: `Your borrowed equipment "${record.equipment.item.itemName}" (${record.equipment.assetId}) was due back on ${dueDate} and is now overdue. Please return it immediately.`,
+      },
+    });
+
+    // Notify managers/admins (global alert - no userId)
     await db.inventoryAlert.create({
       data: {
         borrowRecordId,
@@ -476,15 +480,7 @@ export class AlertService {
     });
   }
 
-  /**
-   * Resolves any open OVERDUE_EQUIPMENT alerts whose borrow record is no
-   * longer overdue (e.g. it was returned or cancelled after the alert was
-   * raised), so the alerts dropdown / notifications list stays in sync.
-   */
   static async resolveStaleOverdueAlerts(): Promise<void> {
-    // updateMany() can't filter on relations directly, so first collect the
-    // ids of open OVERDUE_EQUIPMENT alerts whose linked borrow record is no
-    // longer overdue, then resolve them by id.
     const staleAlerts = await db.inventoryAlert.findMany({
       where: {
         alertType: 'OVERDUE_EQUIPMENT',
@@ -502,20 +498,11 @@ export class AlertService {
     });
   }
 
-  /**
-   * Full overdue-equipment check: flags any newly-overdue borrow records,
-   * raises/refreshes alerts for everything currently overdue, and resolves
-   * alerts for anything that stopped being overdue (returned/cancelled).
-   * This is the entry point for both the manual "run overdue check" action
-   * and the scheduled job.
-   */
   static async runOverdueScan(): Promise<void> {
     await AlertService.resolveStaleOverdueAlerts();
 
-    // Flag newly overdue records
     await BorrowService.flagOverdue();
 
-    // Fetch all overdue records to ensure they have active alerts
     const allOverdue = await db.borrowRecord.findMany({
       where: { status: BorrowStatus.OVERDUE },
     });
@@ -523,5 +510,35 @@ export class AlertService {
     for (const record of allOverdue) {
       await AlertService.checkAndCreateOverdueAlert(record.id);
     }
+  }
+
+  // ── Borrow return alert ──────────────────────────────────────────────────────
+
+  static async createReturnAlert(
+    borrowRecordId: number,
+    borrowedById: number,
+    equipmentName: string,
+    assetId: string,
+  ): Promise<void> {
+    await db.inventoryAlert.create({
+      data: {
+        borrowRecordId,
+        userId: borrowedById,
+        alertType: 'BORROW_RETURNED',
+        priority: 'WARNING',
+        message: `Your borrowed equipment "${equipmentName}" (${assetId}) has been successfully returned. Thank you!`,
+      },
+    });
+  }
+  
+  static async resolveOverdueAlertsForBorrow(borrowRecordId: number): Promise<void> {
+    await db.inventoryAlert.updateMany({
+      where: {
+        borrowRecordId,
+        alertType: 'OVERDUE_EQUIPMENT',
+        resolvedAt: null,
+      },
+      data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
+    });
   }
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import api from '../lib/api';
 
 export type AlertPriority = 'INFO' | 'WARNING' | 'CRITICAL';
-export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE';
+export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE' | 'OVERDUE_EQUIPMENT' | 'BORROW_RETURNED';
 
 export interface UnifiedAlert {
   id: string; // Combined format: 'stock-1' or 'm-1' to avoid key collisions
@@ -53,7 +53,7 @@ interface AlertState {
 // runWarrantyScan() updates the same alert row in place rather than
 // recreating it, so createdAt does not reflect how current the alert is.
 const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const PERSISTENT_ALERT_TYPES: AlertType[] = ['WARRANTY_EXPIRING', 'REPLACEMENT_NEEDED'];
+const PERSISTENT_ALERT_TYPES: AlertType[] = ['WARRANTY_EXPIRING', 'REPLACEMENT_NEEDED', 'OVERDUE_EQUIPMENT', 'BORROW_RETURNED'];
 
 function filterFreshAlerts(alerts: UnifiedAlert[]): UnifiedAlert[] {
   const cutoff = Date.now() - ALERT_MAX_AGE_MS;
@@ -72,25 +72,33 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchUnreadCount: async () => {
+fetchUnreadCount: async () => {
     try {
-      const [stockRes, maintRes] = await Promise.all([
-        api.get<{ count: number }>('/alerts/count'),
-        api.get<{ count: number }>('/maintenance-alerts/count'),
-      ]);
-      set({ unreadCount: stockRes.data.count + maintRes.data.count });
+      const stockRes = await api.get<{ count: number }>('/alerts/count');
+      let maintCount = 0;
+      try {
+        const maintRes = await api.get<{ count: number }>('/maintenance-alerts/count');
+        maintCount = maintRes.data.count;
+      } catch {
+        // Staff may not have maintenance alert permission — silently ignore
+      }
+      set({ unreadCount: stockRes.data.count + maintCount });
     } catch {
       // Silently fail for polling
     }
   },
 
-  fetchUnread: async () => {
+fetchUnread: async () => {
     set({ isLoading: true, error: null });
     try {
-      const [stockRes, maintRes] = await Promise.all([
-        api.get<{ alerts: any[]; count: number }>('/alerts/unread'),
-        api.get<{ alerts: any[]; count: number }>('/maintenance-alerts'),
-      ]);
+      const stockRes = await api.get<{ alerts: any[]; count: number }>('/alerts/unread');
+      let maintAlertsList: any[] = [];
+      try {
+        const maintRes = await api.get<{ alerts: any[]; count: number }>('/maintenance-alerts');
+        maintAlertsList = maintRes.data.alerts;
+      } catch {
+        // Staff may not have maintenance alert permission — silently ignore
+      }
 
       const stockAlerts: UnifiedAlert[] = stockRes.data.alerts.map((a) => ({
         id: `stock-${a.id}`,
@@ -105,7 +113,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
         createdAt: a.createdAt,
       }));
 
-      const maintAlerts: UnifiedAlert[] = maintRes.data.alerts.map((a) => ({
+const maintAlerts: UnifiedAlert[] = maintAlertsList.map((a) => ({
         id: `m-${a.id}`,
         originalId: a.id,
         sourceType: 'maintenance',

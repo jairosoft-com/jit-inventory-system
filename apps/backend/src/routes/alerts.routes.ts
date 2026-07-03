@@ -7,10 +7,7 @@ import { AlertService } from '../services/alert.service.js';
 
 const router = Router();
 
-// All alert routes require auth + reports:export permission
-// (Admins and Managers only, same permission gate as reports)
 router.use(authenticate);
-router.use(authorize('reports:export'));
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -24,10 +21,10 @@ const alertIdSchema = z.object({
 });
 
 // ── GET /api/alerts/unread ────────────────────────────────────────────────────
-// Returns all unread, unresolved alerts (for the dropdown)
-router.get('/unread', async (_req: Request, res: Response): Promise<void> => {
+// Returns unread alerts for the current user
+router.get('/unread', async (req: Request, res: Response): Promise<void> => {
   try {
-    const alerts = await AlertService.getUnreadAlerts();
+    const alerts = await AlertService.getUnreadAlerts(req.user!.id);
     res.status(200).json({ alerts, count: alerts.length });
   } catch (error) {
     const message =
@@ -38,9 +35,9 @@ router.get('/unread', async (_req: Request, res: Response): Promise<void> => {
 
 // ── GET /api/alerts/count ─────────────────────────────────────────────────────
 // Lightweight endpoint for the bell badge
-router.get('/count', async (_req: Request, res: Response): Promise<void> => {
+router.get('/count', async (req: Request, res: Response): Promise<void> => {
   try {
-    const count = await AlertService.getUnreadCount();
+    const count = await AlertService.getUnreadCount(req.user!.id);
     res.status(200).json({ count });
   } catch (error) {
     const message =
@@ -50,9 +47,10 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // ── GET /api/alerts ───────────────────────────────────────────────────────────
-// All alerts paginated
+// All alerts paginated — Admin/Manager only
 router.get(
   '/',
+  authorize('reports:export'),
   validate(paginationSchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -70,13 +68,12 @@ router.get(
 );
 
 // ── PATCH /api/alerts/read-all ────────────────────────────────────────────────
-// Mark all unread alerts as read
-// NOTE: must be registered before /:id/read to avoid route conflict
+// Mark all unread alerts as read for the current user
 router.patch(
   '/read-all',
-  async (_req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await AlertService.markAllAsRead();
+      const result = await AlertService.markAllAsRead(req.user!.id);
       res.status(200).json({ updated: result.count });
     } catch (error) {
       const message =
@@ -94,7 +91,7 @@ router.patch(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params as unknown as z.infer<typeof alertIdSchema>;
-      const alert = await AlertService.markAsRead(id);
+      const alert = await AlertService.markAsRead(id, req.user!.id);
       res.status(200).json({ alert });
     } catch (error) {
       const message =
@@ -105,18 +102,22 @@ router.patch(
 );
 
 // ── POST /api/alerts/scan ─────────────────────────────────────────────────────
-// Trigger a full scan: stock alerts + overdue equipment (manual or scheduled)
-router.post('/scan', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    await AlertService.purgeOldAlerts();
-    await AlertService.runFullScan();
-    await AlertService.runOverdueScan();
-    res.status(200).json({ message: 'Alert scan completed successfully.' });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
+// Trigger a full scan — Admin/Manager only
+router.post(
+  '/scan',
+  authorize('reports:export'),
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      await AlertService.purgeOldAlerts();
+      await AlertService.runFullScan();
+      await AlertService.runOverdueScan();
+      res.status(200).json({ message: 'Alert scan completed successfully.' });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 export default router;

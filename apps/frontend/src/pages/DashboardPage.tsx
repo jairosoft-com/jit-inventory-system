@@ -274,15 +274,19 @@ export default function DashboardPage() {
     }));
 
   const overdueAlertsMapped = (alerts?.overdueEquipment || []).map((item) => {
+    const isDueToday = item.daysOverdue === 0;
     return {
       id: `overdue-${item.borrowRecordId}`,
-      severity: 'critical',
+      severity: isDueToday ? 'warning' : 'critical',
       assetId: item.assetId,
       itemName: item.itemName,
       borrowerName: item.borrowerName,
       expectedReturn: item.expectedReturn,
       daysOverdue: item.daysOverdue,
-      detail: `Asset ID: ${item.assetId} · Borrowed by ${item.borrowerName} · Expected Return: ${formatDate(item.expectedReturn)} (${item.daysOverdue} days overdue)`,
+      isDueToday,
+      detail: isDueToday
+        ? `Asset ID: ${item.assetId} · Borrowed by ${item.borrowerName} · Due back today`
+        : `Asset ID: ${item.assetId} · Borrowed by ${item.borrowerName} · Expected Return: ${formatDate(item.expectedReturn)} (${item.daysOverdue} day${item.daysOverdue === 1 ? '' : 's'} overdue)`,
     };
   });
 
@@ -1058,7 +1062,7 @@ export default function DashboardPage() {
                   {overdueAlertsMapped.map((alert) => (
                     <div
                       key={alert.id}
-                      className="dash-alert-row dash-alert-row--critical"
+                      className={`dash-alert-row ${alert.isDueToday ? 'dash-alert-row--warning' : 'dash-alert-row--critical'}`}
                     >
                       <div className="dash-alert-badge">
                         <svg
@@ -1066,7 +1070,7 @@ export default function DashboardPage() {
                           height="16"
                           viewBox="0 0 24 24"
                           fill="none"
-                          stroke="#ef4444"
+                          stroke={alert.isDueToday ? '#d97706' : '#ef4444'}
                           strokeWidth="2"
                         >
                           <circle cx="12" cy="12" r="10" />
@@ -1076,9 +1080,18 @@ export default function DashboardPage() {
                       </div>
 
                       <div className="dash-alert-content">
-                        <span className="dash-alert-itemName">{alert.itemName} ({alert.assetId})</span>
+                        <span className="dash-alert-itemName">
+                          {alert.itemName} ({alert.assetId})
+                          {alert.isDueToday && (
+                            <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 600, color: '#d97706', background: 'rgba(217,119,6,0.1)', borderRadius: '4px', padding: '1px 6px' }}>DUE TODAY</span>
+                          )}
+                        </span>
                         <span className="dash-alert-detail">
-                          Borrowed by <strong>{alert.borrowerName}</strong> · Due back on {formatDate(alert.expectedReturn)} ({alert.daysOverdue} days overdue)
+                          Borrowed by <strong>{alert.borrowerName}</strong>
+                          {alert.isDueToday
+                            ? ' · Due back today'
+                            : ` · Due back on ${formatDate(alert.expectedReturn)} (${alert.daysOverdue} day${alert.daysOverdue === 1 ? '' : 's'} overdue)`
+                          }
                         </span>
                       </div>
                     </div>

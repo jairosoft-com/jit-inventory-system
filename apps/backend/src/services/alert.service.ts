@@ -19,7 +19,9 @@ function startOfDay(date: Date): Date {
 }
 
 function daysBetween(target: Date, from: Date): number {
-  return Math.ceil((startOfDay(target).getTime() - startOfDay(from).getTime()) / MS_PER_DAY);
+  return Math.ceil(
+    (startOfDay(target).getTime() - startOfDay(from).getTime()) / MS_PER_DAY,
+  );
 }
 
 const equipmentAlertInclude = {
@@ -153,13 +155,19 @@ export class AlertService {
       const daysRemaining = daysBetween(equipment.warrantyEnd!, today);
       const isExpired = daysRemaining < 0;
       const priority: 'WARNING' | 'CRITICAL' =
-        isExpired || daysRemaining <= WARRANTY_CRITICAL_THRESHOLD_DAYS ? 'CRITICAL' : 'WARNING';
+        isExpired || daysRemaining <= WARRANTY_CRITICAL_THRESHOLD_DAYS
+          ? 'CRITICAL'
+          : 'WARNING';
       const message = isExpired
         ? `"${equipment.item.itemName}" (${equipment.assetId}) warranty expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'} ago (${equipment.warrantyEnd!.toDateString()}).`
         : `"${equipment.item.itemName}" (${equipment.assetId}) warranty expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} (${equipment.warrantyEnd!.toDateString()}).`;
 
       const existing = await db.inventoryAlert.findFirst({
-        where: { equipmentId: equipment.id, alertType: 'WARRANTY_EXPIRING', resolvedAt: null },
+        where: {
+          equipmentId: equipment.id,
+          alertType: 'WARRANTY_EXPIRING',
+          resolvedAt: null,
+        },
       });
 
       if (existing) {
@@ -187,7 +195,9 @@ export class AlertService {
 
     const stillValidIds = new Set(expiring.map((e) => e.id));
     const toResolve = openAlerts
-      .filter((a) => a.equipmentId !== null && !stillValidIds.has(a.equipmentId))
+      .filter(
+        (a) => a.equipmentId !== null && !stillValidIds.has(a.equipmentId),
+      )
       .map((a) => a.id);
 
     if (toResolve.length > 0) {

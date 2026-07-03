@@ -9,10 +9,14 @@ describe('Categories Service Unit Tests', () => {
   beforeAll(async () => {
     // Cleanup any remnants from previous failed tests
     await prisma.item.deleteMany({
-      where: { itemName: { in: ['Test Archiving Item', 'Test Type Change Item'] } },
+      where: {
+        itemName: { in: ['Test Archiving Item', 'Test Type Change Item'] },
+      },
     });
     await prisma.category.deleteMany({
-      where: { name: { in: ['Test Archiving Category', 'Test Type Change Category'] } },
+      where: {
+        name: { in: ['Test Archiving Category', 'Test Type Change Category'] },
+      },
     });
   });
 
@@ -24,9 +28,11 @@ describe('Categories Service Unit Tests', () => {
     await prisma.item.deleteMany({
       where: { id: testItemId },
     });
-    await prisma.category.delete({
-      where: { id: testCategoryId },
-    }).catch(() => {});
+    await prisma.category
+      .delete({
+        where: { id: testCategoryId },
+      })
+      .catch(() => {});
   });
 
   it('should prevent archiving a category that has linked active inventory items', async () => {
@@ -101,7 +107,9 @@ describe('Categories Service Unit Tests', () => {
     });
 
     // 3. Attempt to change category type -> should fail
-    await expect(CategoriesService.update(category.id, { type: 'EQUIPMENT' })).rejects.toThrow(
+    await expect(
+      CategoriesService.update(category.id, { type: 'EQUIPMENT' }),
+    ).rejects.toThrow(
       'Cannot change category type when active items are linked',
     );
 

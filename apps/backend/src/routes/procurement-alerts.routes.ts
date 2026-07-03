@@ -11,19 +11,16 @@ router.use(authenticate);
 // Returns unread procurement alerts for the authenticated user.
 // Accessible by any authenticated user (Staff, Manager, Admin).
 
-router.get(
-  '/',
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const alerts = await ProcurementAlertService.getUnreadAlerts(req.user!.id);
-      res.status(200).json(alerts);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      res.status(500).json({ message });
-    }
-  },
-);
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const alerts = await ProcurementAlertService.getUnreadAlerts(req.user!.id);
+    res.status(200).json(alerts);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ message });
+  }
+});
 
 // ── GET /procurement-alerts/all ───────────────────────────────────────────────
 // Returns all alerts paginated. Admin/Manager only.
@@ -49,19 +46,16 @@ router.get(
 // Returns unread count only — lightweight endpoint for badge polling.
 // Accessible by any authenticated user.
 
-router.get(
-  '/count',
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const count = await ProcurementAlertService.getUnreadCount(req.user!.id);
-      res.status(200).json({ count });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      res.status(500).json({ message });
-    }
-  },
-);
+router.get('/count', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const count = await ProcurementAlertService.getUnreadCount(req.user!.id);
+    res.status(200).json({ count });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ message });
+  }
+});
 
 // ── PATCH /procurement-alerts/:id/read ────────────────────────────────────────
 // Marks a single procurement alert as read.
@@ -93,7 +87,9 @@ router.patch(
   async (req: Request, res: Response): Promise<void> => {
     try {
       await ProcurementAlertService.markAllAsRead(req.user!.id);
-      res.status(200).json({ message: 'All procurement alerts marked as read' });
+      res
+        .status(200)
+        .json({ message: 'All procurement alerts marked as read' });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';

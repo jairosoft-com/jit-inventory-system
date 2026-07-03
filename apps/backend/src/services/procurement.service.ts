@@ -486,7 +486,7 @@ export class ProcurementService {
             );
           }
 
- // ── Procurement Alerts ──────────────────────────────────────────
+          // ── Procurement Alerts ──────────────────────────────────────────
           const supplierName = existing.supplier.supplierName;
           const invoiceRef = existing.invoiceNumber || `PO #${id}`;
           const poCreatorId = existing.createdById;

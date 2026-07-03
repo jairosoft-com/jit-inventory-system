@@ -18,7 +18,9 @@ interface DashboardAccess {
 }
 
 function startOfDay(date: Date): Date {
-  return new Date(date.toLocaleDateString('sv-SE'));
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
 }
 
 function calculateDaysRemaining(warrantyEnd: Date, today: Date): number {
@@ -394,7 +396,12 @@ export class DashboardService {
     const overdueRecords = await prisma.borrowRecord.findMany({
       where: {
         OR: [
-          { status: BorrowStatus.OVERDUE },
+          // Already persisted as OVERDUE but only if the return date is strictly
+          // before today — items due today should be DUE TODAY, not OVERDUE.
+          {
+            status: BorrowStatus.OVERDUE,
+            expectedReturn: { lt: today },
+          },
           {
             status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
             expectedReturn: { lt: today },
@@ -882,7 +889,11 @@ export class DashboardService {
       prisma.borrowRecord.count({
         where: {
           OR: [
-            { status: BorrowStatus.OVERDUE },
+            // Persisted OVERDUE records whose return date is strictly before today
+            {
+              status: BorrowStatus.OVERDUE,
+              expectedReturn: { lt: today },
+            },
             {
               status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
               expectedReturn: { lt: today },

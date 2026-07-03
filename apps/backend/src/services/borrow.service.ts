@@ -61,12 +61,16 @@ export class BorrowService {
    * to the audit trail, which records actions performed by a specific user.
    */
   static async flagOverdue() {
-    const today = startOfDay(new Date());
+    // Compute UTC midnight for today so the comparison is timezone-independent.
+    // Items whose expectedReturn date (stored as UTC midnight) matches today
+    // are NOT overdue — only records strictly before today qualify.
+    const todayUtcMidnight = new Date();
+    todayUtcMidnight.setUTCHours(0, 0, 0, 0);
 
     const toFlag = await prisma.borrowRecord.findMany({
       where: {
         status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED] },
-        expectedReturn: { lt: today },
+        expectedReturn: { lt: todayUtcMidnight },
       },
       include: {
         equipment: {

@@ -6,6 +6,7 @@ import {
   ConditionStatus,
   MaintenanceStatus,
   EquipmentStatus,
+  BorrowStatus,
 } from '@prisma/client';
 
 describe('Maintenance Flow Unit Tests', () => {
@@ -50,6 +51,9 @@ describe('Maintenance Flow Unit Tests', () => {
   afterAll(async () => {
     // Cleanup
     if (createdEquipmentIds.length > 0) {
+      await prisma.borrowRecord.deleteMany({
+        where: { equipmentId: { in: createdEquipmentIds } },
+      });
       await prisma.maintenanceLog.deleteMany({
         where: { equipmentId: { in: createdEquipmentIds } },
       });
@@ -92,7 +96,7 @@ describe('Maintenance Flow Unit Tests', () => {
         brand: 'TestBrand',
         model: 'TestModel',
         condition: ConditionStatus.DAMAGED,
-        status: EquipmentStatus.AVAILABLE,
+        status: EquipmentStatus.DAMAGED,
         images: [],
       },
       testUserId,
@@ -117,7 +121,7 @@ describe('Maintenance Flow Unit Tests', () => {
         brand: 'TestBrand',
         model: 'TestModel',
         condition: ConditionStatus.DAMAGED,
-        status: EquipmentStatus.AVAILABLE,
+        status: EquipmentStatus.DAMAGED,
         images: [],
       },
       testUserId,
@@ -159,6 +163,68 @@ describe('Maintenance Flow Unit Tests', () => {
     expect(activeLogs.length).toBe(1);
     expect(activeLogs[0].scheduledDate).toBeNull();
     expect(activeLogs[0].equipmentCondition).toBe(ConditionStatus.POOR);
+  });
+
+  it('should reject a duplicate completion request and leave the existing record unchanged', async () => {
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Equipment Dup Complete',
+        categoryId: testCategoryId,
+        assetId: `VT-DUP-${Date.now()}`,
+        serialNumber: `SN-VT-DUP-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.AVAILABLE,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    const log = await MaintenanceLogsService.create(
+      { equipmentId: eq.id, description: 'Routine check' },
+      testUserId,
+    );
+
+    await prisma.maintenanceLog.update({
+      where: { id: log.id },
+      data: { scheduledDate: new Date() },
+    });
+
+    const completed = await MaintenanceLogsService.update(
+      log.id,
+      {
+        status: MaintenanceStatus.COMPLETED,
+        completedDate: new Date(),
+        performedByVendor: 'Acme Repairs',
+        notes: 'All good',
+        postMaintenanceCondition: ConditionStatus.GOOD,
+      },
+      testUserId,
+    );
+    expect(completed.status).toBe(MaintenanceStatus.COMPLETED);
+
+    // Second completion attempt must be rejected
+    await expect(
+      MaintenanceLogsService.update(
+        log.id,
+        {
+          status: MaintenanceStatus.COMPLETED,
+          completedDate: new Date(),
+          postMaintenanceCondition: ConditionStatus.DAMAGED,
+        },
+        testUserId,
+      ),
+    ).rejects.toThrow('already been completed');
+
+    // Existing record must remain unchanged
+    const unchanged = await prisma.maintenanceLog.findUnique({
+      where: { id: log.id },
+    });
+    expect(unchanged?.equipmentCondition).toBe(ConditionStatus.GOOD);
+    expect(unchanged?.performedByVendor).toBe('Acme Repairs');
+    expect(unchanged?.notes).toBe('All good');
   });
 
   it('should filter candidate equipment correctly when needsMaintenance is true', async () => {
@@ -220,7 +286,7 @@ describe('Maintenance Flow Unit Tests', () => {
         brand: 'TestBrand',
         model: 'TestModel',
         condition: ConditionStatus.DAMAGED,
-        status: EquipmentStatus.AVAILABLE,
+        status: EquipmentStatus.DAMAGED,
         images: [],
       },
       testUserId,
@@ -289,5 +355,194 @@ describe('Maintenance Flow Unit Tests', () => {
     expect(statsAfter.total).toBe(statsBefore.total + 1); // Incremented by 1 due to automatic log creation
     expect(statsAfter.scheduled).toBe(statsBefore.scheduled + 1); // Incremented by 1 because we scheduled it
     expect(statsAfter.unscheduled).toBe(statsBefore.unscheduled); // Stays the same (created 1 unscheduled, then scheduled it)
+  });
+
+  it('should not allow scheduling maintenance on a borrowed asset if scheduled date is before or equal to expected return date', async () => {
+    // 1. Create a healthy equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Borrow Block Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-BORR-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.BORROWED,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Create a maintenance log slot manually
+    const log = await prisma.maintenanceLog.create({
+      data: {
+        equipmentId: eq.id,
+        description: 'Scheduled maintenance check',
+        status: MaintenanceStatus.SCHEDULED,
+        scheduledDate: null,
+      },
+    });
+
+    // 2. Create an active borrow record for the equipment
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 5);
+    expectedReturnDate.setHours(0, 0, 0, 0);
+
+    await prisma.borrowRecord.create({
+      data: {
+        equipmentId: eq.id,
+        borrowedById: testUserId,
+        expectedReturn: expectedReturnDate,
+        status: BorrowStatus.APPROVED,
+      },
+    });
+
+    // 3. Attempt to schedule maintenance on a date before expectedReturn (e.g. 2 days from now)
+    const invalidScheduleDate = new Date();
+    invalidScheduleDate.setDate(invalidScheduleDate.getDate() + 2);
+
+    await expect(
+      MaintenanceLogsService.schedule(
+        log.id,
+        {
+          description: 'Routine Checkup',
+          scheduledDate: invalidScheduleDate,
+          performedByVendor: 'Test Vendor',
+        },
+        testUserId,
+      ),
+    ).rejects.toThrow(
+      /Cannot schedule maintenance: This asset is currently borrowed until/,
+    );
+
+    // 4. Attempt to schedule maintenance on a date after expectedReturn (e.g. 6 days from now)
+    const validScheduleDate = new Date();
+    validScheduleDate.setDate(validScheduleDate.getDate() + 6);
+
+    const updated = await MaintenanceLogsService.schedule(
+      log.id,
+      {
+        description: 'Routine Checkup',
+        scheduledDate: validScheduleDate,
+        performedByVendor: 'Test Vendor',
+      },
+      testUserId,
+    );
+
+    expect(updated.status).toBe(MaintenanceStatus.SCHEDULED);
+    expect(new Date(updated.scheduledDate!).getDate()).toBe(
+      validScheduleDate.getDate(),
+    );
+  });
+
+  it('should not allow starting maintenance (transitioning to IN_PROGRESS) on a currently borrowed asset', async () => {
+    // 1. Create equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Start Block Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-START-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.BORROWED,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Create a maintenance log slot manually
+    const log = await prisma.maintenanceLog.create({
+      data: {
+        equipmentId: eq.id,
+        description: 'Scheduled maintenance check',
+        status: MaintenanceStatus.SCHEDULED,
+        scheduledDate: new Date(),
+      },
+    });
+
+    // 2. Create an active borrow record for the equipment
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 5);
+    expectedReturnDate.setHours(0, 0, 0, 0);
+
+    await prisma.borrowRecord.create({
+      data: {
+        equipmentId: eq.id,
+        borrowedById: testUserId,
+        expectedReturn: expectedReturnDate,
+        status: BorrowStatus.BORROWED,
+      },
+    });
+
+    // 3. Attempt to transition status to IN_PROGRESS
+    await expect(
+      MaintenanceLogsService.update(
+        log.id,
+        {
+          status: MaintenanceStatus.IN_PROGRESS,
+        },
+        testUserId,
+      ),
+    ).rejects.toThrow(
+      /Cannot start maintenance: This asset is currently borrowed until/,
+    );
+  });
+
+  it('should not allow starting maintenance (transitioning to IN_PROGRESS) on a currently APPROVED borrowed asset', async () => {
+    // 1. Create equipment
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Start Block APP Eq',
+        categoryId: testCategoryId,
+        assetId: `VT-START-APP-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.BORROWED,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    // Create a maintenance log slot manually
+    const log = await prisma.maintenanceLog.create({
+      data: {
+        equipmentId: eq.id,
+        description: 'Scheduled maintenance check',
+        status: MaintenanceStatus.SCHEDULED,
+        scheduledDate: new Date(),
+      },
+    });
+
+    // 2. Create an active borrow record for the equipment
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 5);
+    expectedReturnDate.setHours(0, 0, 0, 0);
+
+    await prisma.borrowRecord.create({
+      data: {
+        equipmentId: eq.id,
+        borrowedById: testUserId,
+        expectedReturn: expectedReturnDate,
+        status: BorrowStatus.APPROVED,
+      },
+    });
+
+    // 3. Attempt to transition status to IN_PROGRESS
+    await expect(
+      MaintenanceLogsService.update(
+        log.id,
+        {
+          status: MaintenanceStatus.IN_PROGRESS,
+        },
+        testUserId,
+      ),
+    ).rejects.toThrow(
+      /Cannot start maintenance: This asset is currently borrowed until/,
+    );
   });
 });

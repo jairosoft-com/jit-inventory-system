@@ -3,7 +3,7 @@ import api from '../lib/api';
 
 // ── Enums (must match backend Prisma enums) ──────────────────────────────────
 
-export type ItemType = 'CONSUMABLE' | 'DIGITAL';
+export type ItemType = 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL';
 export type ItemStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'ARCHIVED';
 export type DigitalStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED';
 export type DigitalAssetType = 'SOFTWARE' | 'SUBSCRIPTION' | 'DOMAIN' | 'LICENSE' | 'API_KEY';

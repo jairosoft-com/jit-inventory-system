@@ -863,4 +863,3 @@ export class ProcurementService {
     return updatedEquipment;
   }
 }
-

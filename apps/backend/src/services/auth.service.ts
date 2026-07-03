@@ -6,7 +6,6 @@ import { env } from '../lib/env.js';
 import { LogAction, Prisma } from '@prisma/client';
 import type { User } from '@prisma/client';
 
-
 export type UserWithoutPassword = Omit<User, 'password'> & {
   role?: any;
   permissions?: any;
@@ -54,7 +53,7 @@ export class AuthService {
           action,
           performedBy: userId === SYSTEM_USER_ID ? 1 : userId,
           oldData: Prisma.JsonNull,
-          newData: details as any,
+          newData: details as Prisma.InputJsonValue,
         },
       });
     } catch {

@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { ItemType, ItemStatus, Prisma } from '@prisma/client';
+import { ItemType, ItemStatus, Prisma, LogAction } from '@prisma/client';
 import type {
   CreateItemInput,
   UpdateItemInput,
@@ -23,6 +23,83 @@ function normalizeDuplicateText(value: string) {
   return value.trim().replace(/\s+/g, ' ');
 }
 
+type InventoryLogJsonObject = Record<string, Prisma.InputJsonValue | null>;
+
+function serializeForInventoryLog(
+  value: unknown,
+): Prisma.InputJsonValue | null {
+  if (value === undefined || value === null) return null;
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (value instanceof Prisma.Decimal) {
+    return value.toString();
+  }
+
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => serializeForInventoryLog(entry));
+  }
+
+  if (typeof value === 'object') {
+    const result: InventoryLogJsonObject = {};
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      result[key] = serializeForInventoryLog(nestedValue);
+    }
+
+    return result;
+  }
+
+  return value;
+}
+
+function isJsonObject(
+  value: Prisma.InputJsonValue | null,
+): value is Prisma.InputJsonObject {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function buildInventoryChangeSet(
+  previous: Prisma.InputJsonObject,
+  next: Prisma.InputJsonObject,
+): {
+  oldData: InventoryLogJsonObject;
+  newData: InventoryLogJsonObject;
+} {
+  const oldData: InventoryLogJsonObject = {};
+  const newData: InventoryLogJsonObject = {};
+  const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
+
+  for (const key of keys) {
+    const previousValue = previous[key] ?? null;
+    const nextValue = next[key] ?? null;
+
+    if (isJsonObject(previousValue) && isJsonObject(nextValue)) {
+      const nestedChangeSet = buildInventoryChangeSet(previousValue, nextValue);
+
+      if (Object.keys(nestedChangeSet.oldData).length > 0) {
+        oldData[key] = nestedChangeSet.oldData;
+        newData[key] = nestedChangeSet.newData;
+      }
+
+      continue;
+    }
+
+    if (JSON.stringify(previousValue) !== JSON.stringify(nextValue)) {
+      oldData[key] = previousValue;
+      newData[key] = nextValue;
+    }
+  }
+
+  return { oldData, newData };
+}
+
 // ── Shared include ────────────────────────────────────────────────────────────
 
 const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
@@ -38,6 +115,48 @@ const itemInclude = Prisma.validator<Prisma.ItemInclude>()({
     orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'asc' }],
   },
 });
+
+type ItemWithDetails = Prisma.ItemGetPayload<{ include: typeof itemInclude }>;
+
+function buildInventoryLogSnapshot(
+  item: ItemWithDetails,
+): Prisma.InputJsonObject {
+  const snapshot: InventoryLogJsonObject = {
+    itemName: item.itemName,
+    description: item.description,
+    categoryId: item.categoryId,
+    barcode: item.barcode,
+    imageUrl: item.imageUrl,
+    itemType: item.itemType,
+  };
+
+  if (item.consumableProfile) {
+    snapshot.consumableProfile = {
+      unit: item.consumableProfile.unit,
+      quantity: item.consumableProfile.quantity,
+      reorderPoint: item.consumableProfile.reorderPoint,
+      status: item.consumableProfile.status,
+    };
+  }
+
+  if (item.digitalAsset) {
+    snapshot.digitalAsset = {
+      assetType: item.digitalAsset.assetType,
+      url: item.digitalAsset.url,
+      vendor: item.digitalAsset.vendor,
+      licenseKey: item.digitalAsset.licenseKey,
+      credentialsRef: item.digitalAsset.credentialsRef,
+      seats: item.digitalAsset.seats,
+      expiryDate: serializeForInventoryLog(item.digitalAsset.expiryDate),
+      cost: serializeForInventoryLog(item.digitalAsset.cost),
+      billingCycle: item.digitalAsset.billingCycle,
+      status: item.digitalAsset.status,
+      notes: item.digitalAsset.notes,
+    };
+  }
+
+  return snapshot;
+}
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -269,7 +388,7 @@ export class ItemsService {
     return this.findActiveOrThrow(id);
   }
 
-  static async update(id: number, data: UpdateItemInput) {
+  static async update(id: number, data: UpdateItemInput, performedBy: number) {
     const item = await this.findActiveOrThrow(id);
 
     if (data.categoryId) {
@@ -323,73 +442,99 @@ export class ItemsService {
       notes,
     } = data;
 
-    return prisma.item.update({
-      where: { id },
-      data: {
-        ...(itemName !== undefined && { itemName: nextItemName }),
-        ...(description !== undefined && { description }),
-        ...(categoryId !== undefined && { categoryId }),
-        ...(barcode !== undefined && { barcode }),
-        ...(imageUrl !== undefined && { imageUrl }),
+    return prisma.$transaction(async (tx) => {
+      const updatedItem = await tx.item.update({
+        where: { id },
+        data: {
+          ...(itemName !== undefined && { itemName: nextItemName }),
+          ...(description !== undefined && { description }),
+          ...(categoryId !== undefined && { categoryId }),
+          ...(barcode !== undefined && { barcode }),
+          ...(imageUrl !== undefined && { imageUrl }),
 
-        // Update consumable profile if item is CONSUMABLE
-        ...(item.itemType === ItemType.CONSUMABLE &&
-          (unit !== undefined ||
-            quantity !== undefined ||
-            reorderPoint !== undefined) && {
-            consumableProfile: {
-              update: (() => {
-                const existingProfile = item.consumableProfile!;
-                const newQuantity =
-                  quantity !== undefined ? quantity : existingProfile.quantity;
-                const newReorderPoint =
-                  reorderPoint !== undefined
-                    ? reorderPoint
-                    : existingProfile.reorderPoint;
+          // Update consumable profile if item is CONSUMABLE
+          ...(item.itemType === ItemType.CONSUMABLE &&
+            (unit !== undefined ||
+              quantity !== undefined ||
+              reorderPoint !== undefined) && {
+              consumableProfile: {
+                update: (() => {
+                  const existingProfile = item.consumableProfile!;
+                  const newQuantity =
+                    quantity !== undefined
+                      ? quantity
+                      : existingProfile.quantity;
+                  const newReorderPoint =
+                    reorderPoint !== undefined
+                      ? reorderPoint
+                      : existingProfile.reorderPoint;
 
-                return {
-                  ...(unit !== undefined && { unit }),
-                  ...(quantity !== undefined && { quantity }),
-                  ...(reorderPoint !== undefined && { reorderPoint }),
-                  status: calculateStockStatus(newQuantity, newReorderPoint),
-                };
-              })(),
-            },
-          }),
-
-        // Update digital asset if item is DIGITAL
-        ...(item.itemType === ItemType.DIGITAL &&
-          (assetType !== undefined ||
-            url !== undefined ||
-            vendor !== undefined ||
-            licenseKey !== undefined ||
-            credentialsRef !== undefined ||
-            seats !== undefined ||
-            expiryDate !== undefined ||
-            cost !== undefined ||
-            billingCycle !== undefined ||
-            status !== undefined ||
-            notes !== undefined) && {
-            digitalAsset: {
-              update: {
-                ...(assetType !== undefined && { assetType }),
-                ...(url !== undefined && { url }),
-                ...(vendor !== undefined && { vendor }),
-                ...(licenseKey !== undefined && { licenseKey }),
-                ...(credentialsRef !== undefined && { credentialsRef }),
-                ...(seats !== undefined && { seats }),
-                ...(expiryDate !== undefined && { expiryDate }),
-                ...(cost !== undefined && {
-                  cost: cost != null ? new Prisma.Decimal(cost) : null,
-                }),
-                ...(billingCycle !== undefined && { billingCycle }),
-                ...(status !== undefined && { status }),
-                ...(notes !== undefined && { notes }),
+                  return {
+                    ...(unit !== undefined && { unit }),
+                    ...(quantity !== undefined && { quantity }),
+                    ...(reorderPoint !== undefined && { reorderPoint }),
+                    status: calculateStockStatus(newQuantity, newReorderPoint),
+                  };
+                })(),
               },
-            },
-          }),
-      },
-      include: itemInclude,
+            }),
+
+          // Update digital asset if item is DIGITAL
+          ...(item.itemType === ItemType.DIGITAL &&
+            (assetType !== undefined ||
+              url !== undefined ||
+              vendor !== undefined ||
+              licenseKey !== undefined ||
+              credentialsRef !== undefined ||
+              seats !== undefined ||
+              expiryDate !== undefined ||
+              cost !== undefined ||
+              billingCycle !== undefined ||
+              status !== undefined ||
+              notes !== undefined) && {
+              digitalAsset: {
+                update: {
+                  ...(assetType !== undefined && { assetType }),
+                  ...(url !== undefined && { url }),
+                  ...(vendor !== undefined && { vendor }),
+                  ...(licenseKey !== undefined && { licenseKey }),
+                  ...(credentialsRef !== undefined && { credentialsRef }),
+                  ...(seats !== undefined && { seats }),
+                  ...(expiryDate !== undefined && { expiryDate }),
+                  ...(cost !== undefined && {
+                    cost: cost != null ? new Prisma.Decimal(cost) : null,
+                  }),
+                  ...(billingCycle !== undefined && { billingCycle }),
+                  ...(status !== undefined && { status }),
+                  ...(notes !== undefined && { notes }),
+                },
+              },
+            }),
+        },
+        include: itemInclude,
+      });
+
+      const previousSnapshot = buildInventoryLogSnapshot(item);
+      const updatedSnapshot = buildInventoryLogSnapshot(updatedItem);
+      const { oldData, newData } = buildInventoryChangeSet(
+        previousSnapshot,
+        updatedSnapshot,
+      );
+
+      if (Object.keys(oldData).length > 0) {
+        await tx.inventoryLog.create({
+          data: {
+            entityType: 'ITEM',
+            entityId: id,
+            action: LogAction.UPDATED,
+            performedBy,
+            oldData,
+            newData,
+          },
+        });
+      }
+
+      return updatedItem;
     });
   }
 

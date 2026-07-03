@@ -846,7 +846,7 @@ export default function DashboardLayout() {
                           onClick={() => {
                             if (!alert.isRead) {
                               if (alert.source === 'procurement') {
-                                void markProcurementAsRead(String(alert.id));
+                                void markProcurementAsRead(Number(alert.id));
                               } else {
                                 void markAsRead(String(alert.id));
                               }

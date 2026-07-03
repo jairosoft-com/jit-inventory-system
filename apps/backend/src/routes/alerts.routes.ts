@@ -18,7 +18,13 @@ const alertHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(50).optional().default(30),
   alertType: z
-    .enum(['LOW_STOCK', 'OUT_OF_STOCK', 'OVERDUE_EQUIPMENT'])
+    .enum([
+      'LOW_STOCK',
+      'OUT_OF_STOCK',
+      'WARRANTY_EXPIRING',
+      'REPLACEMENT_NEEDED',
+      'OVERDUE_EQUIPMENT',
+    ])
     .optional(),
 });
 
@@ -108,11 +114,12 @@ router.patch(
 );
 
 // ── POST /api/alerts/scan ─────────────────────────────────────────────────────
-// Trigger a full scan: stock alerts + overdue equipment (manual or scheduled)
+// Trigger a full scan: stock, warranty, and overdue equipment alerts
 router.post('/scan', async (_req: Request, res: Response): Promise<void> => {
   try {
     await AlertService.purgeOldAlerts();
     await AlertService.runFullScan();
+    await AlertService.runWarrantyScan();
     await AlertService.runOverdueScan();
     res.status(200).json({ message: 'Alert scan completed successfully.' });
   } catch (error) {

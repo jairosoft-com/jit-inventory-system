@@ -45,6 +45,8 @@ const ACTION_CONFIG: Record<
   MAINTENANCE_STARTED:   { label: 'Maint. Started',      bg: '#fefce8', dot: '#eab308', text: '#713f12' },
   MAINTENANCE_COMPLETED: { label: 'Maint. Completed',    bg: '#f0fdf4', dot: '#84cc16', text: '#365314' },
   RENEWED:               { label: 'Renewed',              bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
+  LOGIN:                 { label: 'Login',                bg: '#f0f9ff', dot: '#0284c7', text: '#0c4a6e' },
+  LOGOUT:                { label: 'Logout',               bg: '#f9fafb', dot: '#6b7280', text: '#374151' },
 };
 
 function ActionBadge({ action }: { action: AuditAction }) {
@@ -246,6 +248,8 @@ const ACTION_OPTIONS: Array<{ value: AuditAction | ''; label: string }> = [
   { value: 'DISPOSED', label: 'Disposed' },
   { value: 'MAINTENANCE_STARTED', label: 'Maint. Started' },
   { value: 'MAINTENANCE_COMPLETED', label: 'Maint. Completed' },
+  { value: 'LOGIN', label: 'Login' },
+  { value: 'LOGOUT', label: 'Logout' },
 ];
 
 const ENTITY_OPTIONS = [
@@ -847,4 +851,3 @@ export default function AuditLogsPage() {
     </div>
   );
 }
-

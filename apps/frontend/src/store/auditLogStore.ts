@@ -15,7 +15,9 @@ export type AuditAction =
   | 'TRANSFERRED'
   | 'MAINTENANCE_STARTED'
   | 'MAINTENANCE_COMPLETED'
-  | 'RENEWED';
+  | 'RENEWED'
+  | 'LOGIN'
+  | 'LOGOUT';
 
 export interface AuditLog {
   id: number;

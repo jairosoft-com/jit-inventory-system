@@ -107,8 +107,7 @@ const DEFAULT_META: SupplierPaginationMeta = {
 };
 
 function normalizeSupplier(supplier: Supplier): Supplier {
-  const purchaseOrderCount =
-    supplier.purchaseOrderCount ?? supplier._count?.purchaseOrders ?? 0;
+  const purchaseOrderCount = supplier.purchaseOrderCount ?? supplier._count?.purchaseOrders ?? 0;
 
   return {
     ...supplier,
@@ -118,9 +117,10 @@ function normalizeSupplier(supplier: Supplier): Supplier {
   };
 }
 
-function normalizeSupplierResponse(
-  responseData: Supplier[] | SupplierListResponse,
-): { suppliers: Supplier[]; meta: SupplierPaginationMeta } {
+function normalizeSupplierResponse(responseData: Supplier[] | SupplierListResponse): {
+  suppliers: Supplier[];
+  meta: SupplierPaginationMeta;
+} {
   if (Array.isArray(responseData)) {
     const suppliers = responseData.map(normalizeSupplier);
 
@@ -180,10 +180,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
 
     try {
       const params = normalizeQuery(query);
-      const response = await api.get<Supplier[] | SupplierListResponse>(
-        '/suppliers',
-        { params },
-      );
+      const response = await api.get<Supplier[] | SupplierListResponse>('/suppliers', { params });
 
       const { suppliers, meta } = normalizeSupplierResponse(response.data);
 
@@ -232,9 +229,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
 
       set((state) => ({
         suppliers: state.suppliers
-          .map((supplier) =>
-            supplier.id === id ? updatedSupplier : supplier,
-          )
+          .map((supplier) => (supplier.id === id ? updatedSupplier : supplier))
           .sort((a, b) => a.supplierName.localeCompare(b.supplierName)),
         isLoading: false,
       }));
@@ -295,16 +290,11 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     set({ isLoading: true, error: null, supplierHistory: [] });
 
     try {
-      const response = await api.get<SupplierHistory[]>(
-        `/suppliers/${id}/history`,
-      );
+      const response = await api.get<SupplierHistory[]>(`/suppliers/${id}/history`);
 
       set({ supplierHistory: response.data, isLoading: false });
     } catch (error: unknown) {
-      const errMsg = getErrorMessage(
-        error,
-        'Failed to fetch supplier history',
-      );
+      const errMsg = getErrorMessage(error, 'Failed to fetch supplier history');
 
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);

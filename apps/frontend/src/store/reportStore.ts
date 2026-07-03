@@ -25,8 +25,8 @@ export interface ReportPreview {
 }
 
 export interface ReportFilters {
-  startDate?: string;   // 'yyyy-MM-dd'
-  endDate?: string;     // 'yyyy-MM-dd'
+  startDate?: string; // 'yyyy-MM-dd'
+  endDate?: string; // 'yyyy-MM-dd'
   categoryId?: string;
 }
 

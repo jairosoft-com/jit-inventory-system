@@ -395,27 +395,29 @@ export default function CategoryManagementPage() {
                                   Edit
                                 </button>
                               )}
-                              {canDelete && !cat.deletedAt && (() => {
-                                const hasLinkedItems = (cat._count?.items ?? 0) > 0;
-                                return hasLinkedItems ? (
-                                  <button
-                                    type="button"
-                                    disabled
-                                    title="this category is currently linked to items in your inventory, unlink to archive"
-                                    className="rounded-lg border border-[var(--surface-border)] bg-[var(--background-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--text-disabled)] cursor-not-allowed opacity-55"
-                                  >
-                                    Archive
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleArchive(cat.id, cat.name)}
-                                    className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
-                                  >
-                                    Archive
-                                  </button>
-                                );
-                              })()}
+                              {canDelete &&
+                                !cat.deletedAt &&
+                                (() => {
+                                  const hasLinkedItems = (cat._count?.items ?? 0) > 0;
+                                  return hasLinkedItems ? (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      title="this category is currently linked to items in your inventory, unlink to archive"
+                                      className="rounded-lg border border-[var(--surface-border)] bg-[var(--background-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                                    >
+                                      Archive
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleArchive(cat.id, cat.name)}
+                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
+                                    >
+                                      Archive
+                                    </button>
+                                  );
+                                })()}
                             </div>
                           </td>
                         )}
@@ -483,27 +485,29 @@ export default function CategoryManagementPage() {
                             Edit
                           </button>
                         )}
-                        {canDelete && !cat.deletedAt && (() => {
-                          const hasLinkedItems = (cat._count?.items ?? 0) > 0;
-                          return hasLinkedItems ? (
-                            <button
-                              type="button"
-                              disabled
-                              title="this category is currently linked to items in your inventory, unlink to archive"
-                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed opacity-55"
-                            >
-                              Archive
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleArchive(cat.id, cat.name)}
-                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
-                            >
-                              Archive
-                            </button>
-                          );
-                        })()}
+                        {canDelete &&
+                          !cat.deletedAt &&
+                          (() => {
+                            const hasLinkedItems = (cat._count?.items ?? 0) > 0;
+                            return hasLinkedItems ? (
+                              <button
+                                type="button"
+                                disabled
+                                title="this category is currently linked to items in your inventory, unlink to archive"
+                                className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                              >
+                                Archive
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleArchive(cat.id, cat.name)}
+                                className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
+                              >
+                                Archive
+                              </button>
+                            );
+                          })()}
                       </div>
                     </div>
                   </article>
@@ -630,7 +634,8 @@ export default function CategoryManagementPage() {
                 </select>
                 {editingCategory !== null && (editingCategory._count?.items ?? 0) > 0 && (
                   <p className="text-xs text-[var(--text-secondary)] italic mt-1">
-                    Category type cannot be changed because items are currently linked to this category.
+                    Category type cannot be changed because items are currently linked to this
+                    category.
                   </p>
                 )}
               </div>
@@ -757,20 +762,24 @@ export default function CategoryManagementPage() {
                             {item.itemType === 'CONSUMABLE' && item.consumableProfile && (
                               <div className="flex flex-col gap-0.5">
                                 <p>
-                                  <span className="font-medium text-[var(--text-primary)]">Quantity:</span>{' '}
+                                  <span className="font-medium text-[var(--text-primary)]">
+                                    Quantity:
+                                  </span>{' '}
                                   {item.consumableProfile.quantity} {item.consumableProfile.unit}
                                 </p>
                                 <p>
                                   <span className="font-medium">Reorder Point:</span>{' '}
                                   {item.consumableProfile.reorderPoint}
                                 </p>
-                                <span className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
-                                  item.consumableProfile.status === 'IN_STOCK'
-                                    ? 'bg-[var(--success-muted)] text-[var(--success)]'
-                                    : item.consumableProfile.status === 'LOW_STOCK'
-                                    ? 'bg-[var(--warning-muted)] text-[var(--warning)]'
-                                    : 'bg-red-50 text-red-700'
-                                }`}>
+                                <span
+                                  className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
+                                    item.consumableProfile.status === 'IN_STOCK'
+                                      ? 'bg-[var(--success-muted)] text-[var(--success)]'
+                                      : item.consumableProfile.status === 'LOW_STOCK'
+                                        ? 'bg-[var(--warning-muted)] text-[var(--warning)]'
+                                        : 'bg-red-50 text-red-700'
+                                  }`}
+                                >
                                   {item.consumableProfile.status.replace(/_/g, ' ')}
                                 </span>
                               </div>
@@ -780,7 +789,9 @@ export default function CategoryManagementPage() {
                             {item.itemType === 'EQUIPMENT' && item.equipment && (
                               <div className="flex flex-col gap-0.5">
                                 <p>
-                                  <span className="font-medium text-[var(--text-primary)]">Asset ID:</span>{' '}
+                                  <span className="font-medium text-[var(--text-primary)]">
+                                    Asset ID:
+                                  </span>{' '}
                                   {item.equipment.assetId}
                                 </p>
                                 {(item.equipment.brand || item.equipment.model) && (
@@ -810,7 +821,9 @@ export default function CategoryManagementPage() {
                             {item.itemType === 'DIGITAL' && item.digitalAsset && (
                               <div className="flex flex-col gap-0.5">
                                 <p>
-                                  <span className="font-medium text-[var(--text-primary)]">Asset Type:</span>{' '}
+                                  <span className="font-medium text-[var(--text-primary)]">
+                                    Asset Type:
+                                  </span>{' '}
                                   {item.digitalAsset.assetType}
                                 </p>
                                 {item.digitalAsset.vendor && (
@@ -825,18 +838,22 @@ export default function CategoryManagementPage() {
                                     {item.digitalAsset.seats}
                                   </p>
                                 )}
-                                <span className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
-                                  item.digitalAsset.status === 'ACTIVE'
-                                    ? 'bg-[var(--success-muted)] text-[var(--success)]'
-                                    : 'bg-red-50 text-red-700'
-                                }`}>
+                                <span
+                                  className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
+                                    item.digitalAsset.status === 'ACTIVE'
+                                      ? 'bg-[var(--success-muted)] text-[var(--success)]'
+                                      : 'bg-red-50 text-red-700'
+                                  }`}
+                                >
                                   {item.digitalAsset.status}
                                 </span>
                               </div>
                             )}
                           </td>
                           <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-                            {item.barcode || <span className="italic text-[var(--text-disabled)]">-</span>}
+                            {item.barcode || (
+                              <span className="italic text-[var(--text-disabled)]">-</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
                             {new Date(item.createdAt).toLocaleDateString()}

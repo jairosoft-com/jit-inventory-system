@@ -82,7 +82,12 @@ export default function MaintenancePage() {
   const loadData = useCallback(() => {
     // Determine status query param
     let statusQuery: MaintenanceStatus | undefined;
-    if (activeTab === 'all' && statusFilter !== 'all' && statusFilter !== 'unscheduled' && statusFilter !== 'scheduled_only') {
+    if (
+      activeTab === 'all' &&
+      statusFilter !== 'all' &&
+      statusFilter !== 'unscheduled' &&
+      statusFilter !== 'scheduled_only'
+    ) {
       statusQuery = statusFilter as MaintenanceStatus;
     }
 
@@ -98,7 +103,8 @@ export default function MaintenancePage() {
   // Fetch users for technician list and equipment
   useEffect(() => {
     loadData();
-    api.get<{ data: User[] }>('/users', { params: { limit: 100 } })
+    api
+      .get<{ data: User[] }>('/users', { params: { limit: 100 } })
       .then((res) => setUsers(res.data.data))
       .catch((err) => console.error('Failed to load users:', err));
 
@@ -113,17 +119,19 @@ export default function MaintenancePage() {
       logs = maintenanceLogs.filter(
         (log) =>
           (log.status === 'SCHEDULED' || log.status === 'IN_PROGRESS') &&
-          log.scheduledDate !== null
+          log.scheduledDate !== null,
       );
     } else if (activeTab === 'history') {
       logs = maintenanceLogs.filter(
-        (log) => log.status === 'COMPLETED' || log.status === 'CANCELLED'
+        (log) => log.status === 'COMPLETED' || log.status === 'CANCELLED',
       );
     } else if (activeTab === 'all') {
       if (statusFilter === 'unscheduled') {
         logs = maintenanceLogs.filter((log) => log.scheduledDate === null);
       } else if (statusFilter === 'scheduled_only') {
-        logs = maintenanceLogs.filter((log) => log.status === 'SCHEDULED' && log.scheduledDate !== null);
+        logs = maintenanceLogs.filter(
+          (log) => log.status === 'SCHEDULED' && log.scheduledDate !== null,
+        );
       }
     }
     return logs;
@@ -185,7 +193,8 @@ export default function MaintenancePage() {
     if (!selectedLog) return;
     setFormError(null);
 
-    const { description, scheduledDate, assigneeType, performedById, performedByVendor, notes } = scheduleData;
+    const { description, scheduledDate, assigneeType, performedById, performedByVendor, notes } =
+      scheduleData;
 
     if (!description.trim()) {
       setFormError('Maintenance description/type is required');
@@ -213,13 +222,18 @@ export default function MaintenancePage() {
       schedDateObj.setHours(0, 0, 0, 0);
 
       if (schedDateObj <= returnDate) {
-        const formattedReturnDate = new Date(activeBorrow.expectedReturn).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          timeZone: 'UTC',
-        });
-        setFormError(`Cannot schedule maintenance: This asset is currently borrowed until ${formattedReturnDate}`);
+        const formattedReturnDate = new Date(activeBorrow.expectedReturn).toLocaleDateString(
+          'en-US',
+          {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'UTC',
+          },
+        );
+        setFormError(
+          `Cannot schedule maintenance: This asset is currently borrowed until ${formattedReturnDate}`,
+        );
         return;
       }
     }
@@ -370,8 +384,6 @@ export default function MaintenancePage() {
     }
   };
 
-
-
   // Render Condition Badge
   const renderConditionBadge = (condition: string) => {
     const styles: Record<string, string> = {
@@ -382,7 +394,9 @@ export default function MaintenancePage() {
       DAMAGED: 'bg-red-100 text-red-800',
     };
     return (
-      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[condition] || 'bg-gray-100 text-gray-800'}`}>
+      <span
+        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[condition] || 'bg-gray-100 text-gray-800'}`}
+      >
         {condition}
       </span>
     );
@@ -441,7 +455,8 @@ export default function MaintenancePage() {
             <p className="text-sm font-medium text-[var(--accent)]">Operations</p>
             <h1 className="mt-1 text-2xl font-semibold">Equipment Maintenance</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Schedule, track, and complete preventive and corrective maintenance logs for registered hardware assets.
+              Schedule, track, and complete preventive and corrective maintenance logs for
+              registered hardware assets.
             </p>
           </div>
 
@@ -486,35 +501,45 @@ export default function MaintenancePage() {
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 stagger-children">
           <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Total Records</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Total Records
+              </p>
               <h3 className="text-2xl font-bold mt-1">{stats.total}</h3>
             </div>
             <div className="text-3xl">🛠️</div>
           </div>
           <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Unscheduled</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Unscheduled
+              </p>
               <h3 className="text-2xl font-bold mt-1 text-slate-500">{stats.unscheduled}</h3>
             </div>
             <div className="text-3xl">⏳</div>
           </div>
           <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Scheduled</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Scheduled
+              </p>
               <h3 className="text-2xl font-bold mt-1 text-blue-500">{stats.scheduled}</h3>
             </div>
             <div className="text-3xl">📅</div>
           </div>
           <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">In Progress</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                In Progress
+              </p>
               <h3 className="text-2xl font-bold mt-1 text-amber-500">{stats.inProgress}</h3>
             </div>
             <div className="text-3xl">⚙️</div>
           </div>
           <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Completed</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Completed
+              </p>
               <h3 className="text-2xl font-bold mt-1 text-green-500">{stats.completed}</h3>
             </div>
             <div className="text-3xl">✅</div>
@@ -527,7 +552,10 @@ export default function MaintenancePage() {
           <div className="flex border-b border-[var(--surface-border)] mb-6 overflow-x-auto whitespace-nowrap">
             <button
               type="button"
-              onClick={() => { setActiveTab('upcoming'); setCurrentPage(1); }}
+              onClick={() => {
+                setActiveTab('upcoming');
+                setCurrentPage(1);
+              }}
               className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
                 activeTab === 'upcoming'
                   ? 'border-[var(--accent)] text-[var(--accent)]'
@@ -538,7 +566,10 @@ export default function MaintenancePage() {
             </button>
             <button
               type="button"
-              onClick={() => { setActiveTab('history'); setCurrentPage(1); }}
+              onClick={() => {
+                setActiveTab('history');
+                setCurrentPage(1);
+              }}
               className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
                 activeTab === 'history'
                   ? 'border-[var(--accent)] text-[var(--accent)]'
@@ -549,7 +580,10 @@ export default function MaintenancePage() {
             </button>
             <button
               type="button"
-              onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
+              onClick={() => {
+                setActiveTab('all');
+                setCurrentPage(1);
+              }}
               className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
                 activeTab === 'all'
                   ? 'border-[var(--accent)] text-[var(--accent)]'
@@ -614,12 +648,16 @@ export default function MaintenancePage() {
             {isLoading ? (
               <div className="py-12 text-center">
                 <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--accent)]" />
-                <p className="mt-2 text-sm text-[var(--text-secondary)] animate-pulse">Loading maintenance logs...</p>
+                <p className="mt-2 text-sm text-[var(--text-secondary)] animate-pulse">
+                  Loading maintenance logs...
+                </p>
               </div>
             ) : filteredLogs.length === 0 ? (
               <div className="py-12 text-center text-[var(--text-secondary)]">
                 <p className="text-lg font-semibold">No maintenance logs found</p>
-                <p className="text-sm mt-1">Try expanding your search query or registering new equipment.</p>
+                <p className="text-sm mt-1">
+                  Try expanding your search query or registering new equipment.
+                </p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
@@ -652,21 +690,27 @@ export default function MaintenancePage() {
                       <td className="px-4 py-4 text-[var(--text-secondary)] max-w-xs truncate">
                         {log.description}
                       </td>
-                      <td className="px-4 py-4">
-                        {renderStatusBadge(log)}
+                      <td className="px-4 py-4">{renderStatusBadge(log)}</td>
+                      <td className="px-4 py-4 text-[var(--text-secondary)]">
+                        {log.scheduledDate
+                          ? new Date(log.scheduledDate).toLocaleDateString(undefined, {
+                              timeZone: 'UTC',
+                            })
+                          : '—'}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)]">
-                        {log.scheduledDate ? new Date(log.scheduledDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}
-                      </td>
-                      <td className="px-4 py-4 text-[var(--text-secondary)]">
-                        {log.completedDate ? new Date(log.completedDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : '—'}
+                        {log.completedDate
+                          ? new Date(log.completedDate).toLocaleDateString(undefined, {
+                              timeZone: 'UTC',
+                            })
+                          : '—'}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-secondary)]">
                         {log.performedBy
                           ? `${log.performedBy.firstName} ${log.performedBy.lastName}`
                           : log.performedByVendor
-                          ? `${log.performedByVendor} (Vendor)`
-                          : '—'}
+                            ? `${log.performedByVendor} (Vendor)`
+                            : '—'}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-primary)] font-semibold">
                         {log.cost !== null ? `$${Number(log.cost).toFixed(2)}` : '—'}
@@ -693,7 +737,11 @@ export default function MaintenancePage() {
                                 disabled={!!log.equipment.borrowRecords?.[0]}
                                 onClick={() => handleTransitionStatus(log, 'IN_PROGRESS')}
                                 className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                title={log.equipment.borrowRecords?.[0] ? `Cannot start maintenance: This asset is currently borrowed.` : undefined}
+                                title={
+                                  log.equipment.borrowRecords?.[0]
+                                    ? `Cannot start maintenance: This asset is currently borrowed.`
+                                    : undefined
+                                }
                               >
                                 Start
                               </button>
@@ -779,7 +827,9 @@ export default function MaintenancePage() {
 
             <form onSubmit={handleScheduleSubmit} className="space-y-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">Equipment Asset</label>
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                  Equipment Asset
+                </label>
                 <input
                   type="text"
                   disabled
@@ -793,18 +843,24 @@ export default function MaintenancePage() {
                   <span className="font-semibold">⚠️ Borrow Notice</span>
                   <span>
                     This equipment is currently physically borrowed. It is expected to return on{' '}
-                    {new Date(selectedLog.equipment.borrowRecords[0].expectedReturn).toLocaleDateString('en-US', {
+                    {new Date(
+                      selectedLog.equipment.borrowRecords[0].expectedReturn,
+                    ).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',
                       timeZone: 'UTC',
-                    })}.
+                    })}
+                    .
                   </span>
                 </div>
               )}
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sch-desc" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                <label
+                  htmlFor="sch-desc"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
                   Maintenance Type / Description <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -812,14 +868,19 @@ export default function MaintenancePage() {
                   type="text"
                   required
                   value={scheduleData.description}
-                  onChange={(e) => setScheduleData({ ...scheduleData, description: e.target.value })}
+                  onChange={(e) =>
+                    setScheduleData({ ...scheduleData, description: e.target.value })
+                  }
                   placeholder="e.g. Annual calibration, Repair broken screen..."
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sch-date" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                <label
+                  htmlFor="sch-date"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
                   Scheduled Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -828,20 +889,26 @@ export default function MaintenancePage() {
                   required
                   min={getMinDate()}
                   value={scheduleData.scheduledDate}
-                  onChange={(e) => setScheduleData({ ...scheduleData, scheduledDate: e.target.value })}
+                  onChange={(e) =>
+                    setScheduleData({ ...scheduleData, scheduledDate: e.target.value })
+                  }
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">Assignee Type</label>
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                  Assignee Type
+                </label>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
                     <input
                       type="radio"
                       name="assigneeType"
                       checked={scheduleData.assigneeType === 'internal'}
-                      onChange={() => setScheduleData({ ...scheduleData, assigneeType: 'internal' })}
+                      onChange={() =>
+                        setScheduleData({ ...scheduleData, assigneeType: 'internal' })
+                      }
                     />
                     Internal Technician
                   </label>
@@ -859,14 +926,19 @@ export default function MaintenancePage() {
 
               {scheduleData.assigneeType === 'internal' ? (
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="sch-tech" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                  <label
+                    htmlFor="sch-tech"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
                     Assign Technician <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="sch-tech"
                     required={scheduleData.assigneeType === 'internal'}
                     value={scheduleData.performedById}
-                    onChange={(e) => setScheduleData({ ...scheduleData, performedById: e.target.value })}
+                    onChange={(e) =>
+                      setScheduleData({ ...scheduleData, performedById: e.target.value })
+                    }
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
                   >
                     <option value="">Select Technician...</option>
@@ -879,7 +951,10 @@ export default function MaintenancePage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="sch-vendor" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                  <label
+                    htmlFor="sch-vendor"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
                     Service Provider / Vendor <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -887,7 +962,9 @@ export default function MaintenancePage() {
                     type="text"
                     required={scheduleData.assigneeType === 'vendor'}
                     value={scheduleData.performedByVendor}
-                    onChange={(e) => setScheduleData({ ...scheduleData, performedByVendor: e.target.value })}
+                    onChange={(e) =>
+                      setScheduleData({ ...scheduleData, performedByVendor: e.target.value })
+                    }
                     placeholder="e.g. Tektronix Inc., Acer Support..."
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                   />
@@ -895,7 +972,12 @@ export default function MaintenancePage() {
               )}
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="sch-notes" className="text-xs font-bold text-[var(--text-secondary)] uppercase">Notes</label>
+                <label
+                  htmlFor="sch-notes"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
+                  Notes
+                </label>
                 <textarea
                   id="sch-notes"
                   rows={2}
@@ -946,7 +1028,9 @@ export default function MaintenancePage() {
 
             <form onSubmit={handleCompleteSubmit} className="space-y-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">Equipment Asset</label>
+                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                  Equipment Asset
+                </label>
                 <input
                   type="text"
                   disabled
@@ -956,7 +1040,12 @@ export default function MaintenancePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cpl-cost" className="text-xs font-bold text-[var(--text-secondary)] uppercase">Maintenance Cost ($)</label>
+                <label
+                  htmlFor="cpl-cost"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
+                  Maintenance Cost ($)
+                </label>
                 <input
                   id="cpl-cost"
                   type="number"
@@ -970,26 +1059,38 @@ export default function MaintenancePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cpl-date" className="text-xs font-bold text-[var(--text-secondary)] uppercase">Completion Date <span className="text-red-500">*</span></label>
+                <label
+                  htmlFor="cpl-date"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
+                  Completion Date <span className="text-red-500">*</span>
+                </label>
                 <input
                   id="cpl-date"
                   type="date"
                   required
                   value={completeData.completedDate}
-                  onChange={(e) => setCompleteData({ ...completeData, completedDate: e.target.value })}
+                  onChange={(e) =>
+                    setCompleteData({ ...completeData, completedDate: e.target.value })
+                  }
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cpl-condition" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                <label
+                  htmlFor="cpl-condition"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
                   Equipment Condition Status <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="cpl-condition"
                   required
                   value={completeData.postMaintenanceCondition}
-                  onChange={(e) => setCompleteData({ ...completeData, postMaintenanceCondition: e.target.value })}
+                  onChange={(e) =>
+                    setCompleteData({ ...completeData, postMaintenanceCondition: e.target.value })
+                  }
                   className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
                 >
                   <option value="NEW">New</option>
@@ -1001,7 +1102,12 @@ export default function MaintenancePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cpl-notes" className="text-xs font-bold text-[var(--text-secondary)] uppercase">Technician Notes</label>
+                <label
+                  htmlFor="cpl-notes"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
+                  Technician Notes
+                </label>
                 <textarea
                   id="cpl-notes"
                   rows={3}
@@ -1040,7 +1146,9 @@ export default function MaintenancePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">Initialize Maintenance Log</h2>
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                Initialize Maintenance Log
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
@@ -1052,7 +1160,10 @@ export default function MaintenancePage() {
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cre-eq" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                <label
+                  htmlFor="cre-eq"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
                   Select Equipment <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -1072,7 +1183,10 @@ export default function MaintenancePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="cre-desc" className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                <label
+                  htmlFor="cre-desc"
+                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                >
                   Initial Description <span className="text-red-500">*</span>
                 </label>
                 <input

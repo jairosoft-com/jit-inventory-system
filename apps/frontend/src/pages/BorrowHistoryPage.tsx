@@ -463,14 +463,24 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
 // state with HistoryPanel and won't flicker when switching between tabs.
 
 function AdminPanel() {
-  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest, returnEquipment } =
-    useBorrowStore();
+  const {
+    adminRecords,
+    adminMeta,
+    isLoading,
+    error,
+    fetchAdminRecords,
+    approveRequest,
+    rejectRequest,
+    returnEquipment,
+  } = useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
   const [actioningId, setActioningId] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BorrowRecord | null>(null);
   const [returnTarget, setReturnTarget] = useState<BorrowRecord | null>(null);
-  const [returnCondition, setReturnCondition] = useState<'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | ''>('');
+  const [returnCondition, setReturnCondition] = useState<
+    'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | ''
+  >('');
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
 
   const load = useCallback(
@@ -522,11 +532,7 @@ function AdminPanel() {
     setRowError(null);
     setActioningId(returnTarget.id);
     try {
-      await returnEquipment(
-        returnTarget.id,
-        returnCondition || undefined,
-        undefined,
-      );
+      await returnEquipment(returnTarget.id, returnCondition || undefined, undefined);
       setReturnTarget(null);
       setReturnCondition('');
     } catch (err: unknown) {
@@ -669,10 +675,13 @@ function AdminPanel() {
                               Reject
                             </button>
                           </div>
-                        ) : (rec.status === 'BORROWED' || rec.status === 'OVERDUE') ? (
+                        ) : rec.status === 'BORROWED' || rec.status === 'OVERDUE' ? (
                           <button
                             type="button"
-                            onClick={() => { setReturnTarget(rec); setReturnCondition(''); }}
+                            onClick={() => {
+                              setReturnTarget(rec);
+                              setReturnCondition('');
+                            }}
                             disabled={isActioning}
                             className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -734,7 +743,8 @@ function AdminPanel() {
             </p>
 
             <label className="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-              Return condition <span className="font-normal text-[var(--text-disabled)]">(optional)</span>
+              Return condition{' '}
+              <span className="font-normal text-[var(--text-disabled)]">(optional)</span>
             </label>
             <select
               value={returnCondition}
@@ -752,7 +762,10 @@ function AdminPanel() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => { setReturnTarget(null); setReturnCondition(''); }}
+                onClick={() => {
+                  setReturnTarget(null);
+                  setReturnCondition('');
+                }}
                 disabled={actioningId === returnTarget.id}
                 className="rounded-xl border border-[var(--surface-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
               >

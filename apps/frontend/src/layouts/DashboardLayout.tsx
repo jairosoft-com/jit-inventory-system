@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAlertStore, ALERT_POLL_INTERVAL_MS, type AlertCategoryFilter } from '../store/alertStore';
@@ -246,26 +246,26 @@ const NAV_SECTIONS = [
     label: 'MAIN',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: IconDashboard },
-      { name: 'Inventory', href: '/dashboard/inventory', icon: IconInventory },
-      { name: 'Categories', href: '/dashboard/categories', icon: IconCategories },
-      { name: 'Equipment', href: '/dashboard/equipment', icon: IconEquipment },
+      { name: 'Inventory', href: '/dashboard/inventory', icon: IconInventory, requiredPermission: 'inventory:read' },
+      { name: 'Categories', href: '/dashboard/categories', icon: IconCategories, requiredPermission: 'categories:create' },
+      { name: 'Equipment', href: '/dashboard/equipment', icon: IconEquipment, requiredPermission: 'equipment:read' },
     ],
   },
   {
     label: 'OPERATIONS',
     items: [
-      { name: 'Borrow Requests', href: '/dashboard/borrow', icon: IconBorrow },
-      { name: 'Purchase Orders', href: '/dashboard/orders', icon: IconOrders },
-      { name: 'Suppliers', href: '/dashboard/suppliers', icon: IconSuppliers },
-      { name: 'Maintenance', href: '/dashboard/maintenance', icon: IconMaintenance },
+      { name: 'Borrow Requests', href: '/dashboard/borrow', icon: IconBorrow, requiredPermission: 'borrow:read' },
+      { name: 'Purchase Orders', href: '/dashboard/orders', icon: IconOrders, requiredPermission: 'purchase_orders:read' },
+      { name: 'Suppliers', href: '/dashboard/suppliers', icon: IconSuppliers, requiredPermission: 'suppliers:create' },
+      { name: 'Maintenance', href: '/dashboard/maintenance', icon: IconMaintenance, requiredPermission: 'maintenance:read' },
     ],
   },
   {
     label: 'ADMIN',
     items: [
-      { name: 'Users & Roles', href: '/dashboard/users', icon: IconUsers },
-      { name: 'Audit Logs', href: '/dashboard/logs', icon: IconLogs },
-      { name: 'Reports', href: '/dashboard/reports', icon: IconReports },
+      { name: 'Users & Roles', href: '/dashboard/users', icon: IconUsers, requiredPermission: 'users:read' },
+      { name: 'Audit Logs', href: '/dashboard/logs', icon: IconLogs, requiredPermission: 'audit_logs:read' },
+      { name: 'Reports', href: '/dashboard/reports', icon: IconReports, requiredPermission: 'reports:export' },
     ],
   },
 ];
@@ -305,6 +305,17 @@ export default function DashboardLayout() {
   const [notifCategory, setNotifCategory] = useState<AlertCategoryFilter>('ALL');
   const hasCheckedAuthRef = useRef(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const permissions = useMemo(() => {
+    if (!user || !user.permissions) return [];
+    return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
+  }, [user]);
+
+  const hasPermission = (requiredPermission?: string) => {
+    if (!requiredPermission) return true;
+    if (user?.role?.name === 'ADMIN') return true;
+    return permissions.includes(requiredPermission);
+  };
 
   const {
     unreadCount,
@@ -634,29 +645,37 @@ export default function DashboardLayout() {
 
         {/* Nav sections */}
         <nav className="dash-sidebar-nav">
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.label} className="dash-nav-section">
-              {!collapsed && <span className="dash-nav-label">{section.label}</span>}
-              <ul className="dash-nav-list">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <li key={item.name}>
-                      <button
-                        className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
-                        onClick={() => navigate(item.href)}
-                        title={collapsed ? item.name : undefined}
-                      >
-                        <item.icon />
-                        {!collapsed && <span>{item.name}</span>}
-                        {isActive && <div className="dash-nav-indicator" />}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {NAV_SECTIONS.map((section) => {
+            const filteredItems = section.items.filter((item) => {
+              return hasPermission(item.requiredPermission);
+            });
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={section.label} className="dash-nav-section">
+                {!collapsed && <span className="dash-nav-label">{section.label}</span>}
+                <ul className="dash-nav-list">
+                  {filteredItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <li key={item.name}>
+                        <button
+                          className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
+                          onClick={() => navigate(item.href)}
+                          title={collapsed ? item.name : undefined}
+                        >
+                          <item.icon />
+                          {!collapsed && <span>{item.name}</span>}
+                          {isActive && <div className="dash-nav-indicator" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Sidebar footer */}

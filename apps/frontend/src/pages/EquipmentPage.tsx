@@ -259,6 +259,10 @@ function getRetirementIneligibilityReason(eq: Equipment): string | null {
     return 'Equipment is already retired.';
   }
 
+  if (eq.status === 'UNDER_MAINTENANCE') {
+    return 'Equipment is under maintenance and cannot be retired.';
+  }
+
   if (eq.status === 'BORROWED' || eq.status === 'IN_USE') {
     return 'Equipment must be returned before retirement can be requested.';
   }
@@ -372,7 +376,9 @@ export default function EquipmentPage() {
   const [retiredArchiveSearchInput, setRetiredArchiveSearchInput] = useState('');
   const [retiredArchiveAppliedSearch, setRetiredArchiveAppliedSearch] = useState('');
   const [retiredArchiveCategoryFilter, setRetiredArchiveCategoryFilter] = useState('');
-  const [retiredArchiveReasonFilter, setRetiredArchiveReasonFilter] = useState<DisposalReason | ''>('');
+  const [retiredArchiveReasonFilter, setRetiredArchiveReasonFilter] = useState<DisposalReason | ''>(
+    '',
+  );
   const [retiredArchiveDateFrom, setRetiredArchiveDateFrom] = useState('');
   const [retiredArchiveDateTo, setRetiredArchiveDateTo] = useState('');
   const [retiredArchivePage, setRetiredArchivePage] = useState(1);
@@ -401,7 +407,6 @@ export default function EquipmentPage() {
     },
     [currentPage, searchInput, statusFilter, fetchEquipment],
   );
-
 
   type RetiredArchiveFilterOverrides = {
     search?: string;
@@ -1042,7 +1047,6 @@ export default function EquipmentPage() {
               </button>
             )}
 
-
             {canRead && (
               <button
                 type="button"
@@ -1160,253 +1164,329 @@ export default function EquipmentPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--surface-border)]">
-                    {equipment.filter((eq) => !(isStaff && eq.status === 'DAMAGED')).map((eq) => {
-                      const primaryImg = getPrimaryImage(eq);
-                      return (
-                        <tr
-                          key={eq.id}
-                          className="transition hover:bg-[var(--surface-hover)] group"
-                        >
-                          {/* Image */}
-                          <td className="px-4 py-4">
-                            {primaryImg ? (
-                              <div
-                                className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
-                                onClick={() => setPreviewImageUrl(primaryImg.url)}
-                              >
-                                <img
-                                  src={primaryImg.url}
-                                  alt={eq.item.itemName}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
-                                —
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Equipment Info */}
-                          <td className="px-4 py-4">
-                            <div className="font-medium text-[var(--text-primary)]">
-                              {eq.item.itemName}
-                            </div>
-                            <div className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5">
-                              {eq.assetId}
-                            </div>
-                            <div className="text-[var(--text-disabled)] text-xs mt-0.5">
-                              {eq.item.category.name}
-                            </div>
-                          </td>
-
-                          {/* Serial & Model */}
-                          <td className="px-4 py-4 text-[var(--text-secondary)]">
-                            <div>
-                              {eq.brand && <span className="font-medium">{eq.brand} </span>}
-                              {eq.model || '—'}
-                            </div>
-                            {eq.serialNumber && (
-                              <div className="font-mono text-xs text-[var(--text-tertiary)] mt-0.5">
-                                S/N: {eq.serialNumber}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Status */}
-                          <td className="px-4 py-4">
-                            <StatusBadge status={eq.status} />
-                          </td>
-
-                          {/* Monitoring Info — Condition + Warranty merged */}
-                          <td className="px-4 py-4 text-xs text-[var(--text-secondary)]">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[var(--text-tertiary)]">Condition:</span>
-                                <EquipmentConditionBadge equipment={eq} />
-                              </div>
-                              {eq.replacementNeeded && (
-                                <div>
-                                  <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
-                                    Replacement Needed
-                                  </span>
+                    {equipment
+                      .filter((eq) => !(isStaff && eq.status === 'DAMAGED'))
+                      .map((eq) => {
+                        const primaryImg = getPrimaryImage(eq);
+                        return (
+                          <tr
+                            key={eq.id}
+                            className="transition hover:bg-[var(--surface-hover)] group"
+                          >
+                            {/* Image */}
+                            <td className="px-4 py-4">
+                              {primaryImg ? (
+                                <div
+                                  className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
+                                  onClick={() => setPreviewImageUrl(primaryImg.url)}
+                                >
+                                  <img
+                                    src={primaryImg.url}
+                                    alt={eq.item.itemName}
+                                    className="w-full h-full object-cover"
+                                  />
                                 </div>
-                              )}
-                              {eq.warrantyEnd ? (
-                                <>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[var(--text-tertiary)]">Warranty: </span>
-                                    {new Date(eq.warrantyEnd).toLocaleDateString()}
-                                    <WarrantyBadge warrantyEnd={eq.warrantyEnd} />
-                                  </div>
-                                  {eq.warrantyProvider && (
-                                    <div className="text-[var(--text-disabled)]">
-                                      {eq.warrantyProvider}
-                                    </div>
-                                  )}
-                                </>
                               ) : (
-                                <div className="text-[var(--text-disabled)] italic">
-                                  No warranty
+                                <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
+                                  —
                                 </div>
                               )}
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Actions */}
-                          {(canUpdate || canDelete) && (
-                            <td className="px-4 py-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {canUpdate && (
-                                  <>
-                                    {canManageReplacementNeededTag(eq) && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenReplacementNeeded(eq)}
-                                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                                          eq.replacementNeeded
-                                            ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                            : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                                        }`}
-                                      >
-                                        {eq.replacementNeeded
-                                          ? 'Clear Planning Tag'
-                                          : 'Mark Replacement'}
-                                      </button>
-                                    )}
-                                    {canRequestRetirement(eq) && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenRetirementRequest(eq)}
-                                        className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
-                                      >
-                                        Request Retirement
-                                      </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEdit(eq)}
-                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                                    >
-                                      Edit
-                                    </button>
-                                  </>
+                            {/* Equipment Info */}
+                            <td className="px-4 py-4">
+                              <div className="font-medium text-[var(--text-primary)]">
+                                {eq.item.itemName}
+                              </div>
+                              <div className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5">
+                                {eq.assetId}
+                              </div>
+                              <div className="text-[var(--text-disabled)] text-xs mt-0.5">
+                                {eq.item.category.name}
+                              </div>
+                            </td>
+
+                            {/* Serial & Model */}
+                            <td className="px-4 py-4 text-[var(--text-secondary)]">
+                              <div>
+                                {eq.brand && <span className="font-medium">{eq.brand} </span>}
+                                {eq.model || '—'}
+                              </div>
+                              {eq.serialNumber && (
+                                <div className="font-mono text-xs text-[var(--text-tertiary)] mt-0.5">
+                                  S/N: {eq.serialNumber}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-4">
+                              <StatusBadge status={eq.status} />
+                            </td>
+
+                            {/* Monitoring Info — Condition + Warranty merged */}
+                            <td className="px-4 py-4 text-xs text-[var(--text-secondary)]">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[var(--text-tertiary)]">Condition:</span>
+                                  <EquipmentConditionBadge equipment={eq} />
+                                </div>
+                                {eq.replacementNeeded && (
+                                  <div>
+                                    <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                                      Replacement Needed
+                                    </span>
+                                  </div>
                                 )}
-                                {canDelete && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(eq)}
-                                    className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
-                                  >
-                                    Delete
-                                  </button>
+                                {eq.warrantyEnd ? (
+                                  <>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[var(--text-tertiary)]">
+                                        Warranty:{' '}
+                                      </span>
+                                      {new Date(eq.warrantyEnd).toLocaleDateString()}
+                                      <WarrantyBadge warrantyEnd={eq.warrantyEnd} />
+                                    </div>
+                                    {eq.warrantyProvider && (
+                                      <div className="text-[var(--text-disabled)]">
+                                        {eq.warrantyProvider}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="text-[var(--text-disabled)] italic">
+                                    No warranty
+                                  </div>
                                 )}
                               </div>
                             </td>
-                          )}
-                        </tr>
-                      );
-                    })}
+
+                            {/* Actions */}
+                            {(canUpdate || canDelete) && (
+                              <td className="px-4 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {canUpdate && (
+                                    <>
+                                      {canManageReplacementNeededTag(eq) &&
+                                        (eq.status === 'UNDER_MAINTENANCE' ? (
+                                          <button
+                                            type="button"
+                                            disabled
+                                            title="Equipment is under maintenance and cannot be modified"
+                                            className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                          >
+                                            {eq.replacementNeeded
+                                              ? 'Clear Planning Tag'
+                                              : 'Mark Replacement'}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenReplacementNeeded(eq)}
+                                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                              eq.replacementNeeded
+                                                ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                                : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                            }`}
+                                          >
+                                            {eq.replacementNeeded
+                                              ? 'Clear Planning Tag'
+                                              : 'Mark Replacement'}
+                                          </button>
+                                        ))}
+                                      {eq.status === 'UNDER_MAINTENANCE' ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          title="Equipment is under maintenance and cannot be retired"
+                                          className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                        >
+                                          Request Retirement
+                                        </button>
+                                      ) : (
+                                        canRequestRetirement(eq) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenRetirementRequest(eq)}
+                                            className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                          >
+                                            Request Retirement
+                                          </button>
+                                        )
+                                      )}
+                                      {eq.status === 'UNDER_MAINTENANCE' ? (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          title="Equipment is under maintenance and cannot be edited"
+                                          className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                        >
+                                          Edit
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenEdit(eq)}
+                                          className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                                        >
+                                          Edit
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(eq)}
+                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
 
               {/* Mobile Cards */}
               <div className="mt-6 grid gap-4 md:hidden">
-                {equipment.filter((eq) => !(isStaff && eq.status === 'DAMAGED')).map((eq) => {
-                  const primaryImg = getPrimaryImage(eq);
-                  return (
-                    <article
-                      key={eq.id}
-                      className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
-                    >
-                      <div className="flex items-start gap-3">
-                        {primaryImg ? (
-                          <img
-                            src={primaryImg.url}
-                            alt={eq.item.itemName}
-                            className="h-12 w-12 rounded-lg object-cover cursor-pointer flex-shrink-0"
-                            onClick={() => setPreviewImageUrl(primaryImg.url)}
-                          />
-                        ) : (
-                          <div className="h-12 w-12 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
-                            —
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-[var(--text-primary)] truncate">
-                            {eq.item.itemName}
-                          </h3>
-                          <p className="text-xs text-[var(--text-tertiary)] font-mono">
-                            {eq.assetId}
-                          </p>
-                          <p className="text-xs text-[var(--text-disabled)]">
-                            {eq.item.category.name}
-                          </p>
-                        </div>
-                        <StatusBadge status={eq.status} />
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
-                        <div className="flex flex-col gap-1 text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[var(--text-tertiary)]">Condition:</span>
-                            <EquipmentConditionBadge equipment={eq} />
-                          </div>
-                          {eq.replacementNeeded && (
-                            <span className="inline-flex w-fit rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
-                              Replacement Needed
-                            </span>
+                {equipment
+                  .filter((eq) => !(isStaff && eq.status === 'DAMAGED'))
+                  .map((eq) => {
+                    const primaryImg = getPrimaryImage(eq);
+                    return (
+                      <article
+                        key={eq.id}
+                        className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
+                      >
+                        <div className="flex items-start gap-3">
+                          {primaryImg ? (
+                            <img
+                              src={primaryImg.url}
+                              alt={eq.item.itemName}
+                              className="h-12 w-12 rounded-lg object-cover cursor-pointer flex-shrink-0"
+                              onClick={() => setPreviewImageUrl(primaryImg.url)}
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
+                              —
+                            </div>
                           )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-[var(--text-primary)] truncate">
+                              {eq.item.itemName}
+                            </h3>
+                            <p className="text-xs text-[var(--text-tertiary)] font-mono">
+                              {eq.assetId}
+                            </p>
+                            <p className="text-xs text-[var(--text-disabled)]">
+                              {eq.item.category.name}
+                            </p>
+                          </div>
+                          <StatusBadge status={eq.status} />
                         </div>
-                        <div className="flex items-center gap-2">
-                          {canUpdate && (
-                            <>
-                              {canManageReplacementNeededTag(eq) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenReplacementNeeded(eq)}
-                                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                                    eq.replacementNeeded
-                                      ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                      : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                                  }`}
-                                >
-                                  {eq.replacementNeeded ? 'Clear Planning Tag' : 'Mark Replacement'}
-                                </button>
-                              )}
-                              {canRequestRetirement(eq) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenRetirementRequest(eq)}
-                                  className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
-                                >
-                                  Request Retirement
-                                </button>
-                              )}
+
+                        <div className="mt-3 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
+                          <div className="flex flex-col gap-1 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[var(--text-tertiary)]">Condition:</span>
+                              <EquipmentConditionBadge equipment={eq} />
+                            </div>
+                            {eq.replacementNeeded && (
+                              <span className="inline-flex w-fit rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                                Replacement Needed
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {canUpdate && (
+                              <>
+                                {canManageReplacementNeededTag(eq) &&
+                                  (eq.status === 'UNDER_MAINTENANCE' ? (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      title="Equipment is under maintenance and cannot be modified"
+                                      className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                    >
+                                      {eq.replacementNeeded
+                                        ? 'Clear Planning Tag'
+                                        : 'Mark Replacement'}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenReplacementNeeded(eq)}
+                                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                        eq.replacementNeeded
+                                          ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                          : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                      }`}
+                                    >
+                                      {eq.replacementNeeded
+                                        ? 'Clear Planning Tag'
+                                        : 'Mark Replacement'}
+                                    </button>
+                                  ))}
+                                {eq.status === 'UNDER_MAINTENANCE' ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="Equipment is under maintenance and cannot be retired"
+                                    className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                  >
+                                    Request Retirement
+                                  </button>
+                                ) : (
+                                  canRequestRetirement(eq) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRetirementRequest(eq)}
+                                      className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
+                                    >
+                                      Request Retirement
+                                    </button>
+                                  )
+                                )}
+                                {eq.status === 'UNDER_MAINTENANCE' ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="Equipment is under maintenance and cannot be edited"
+                                    className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                  >
+                                    Edit
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(eq)}
+                                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {canDelete && (
                               <button
                                 type="button"
-                                onClick={() => handleOpenEdit(eq)}
-                                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                                onClick={() => handleDelete(eq)}
+                                className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
                               >
-                                Edit
+                                Delete
                               </button>
-                            </>
-                          )}
-                          {canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(eq)}
-                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                      </article>
+                    );
+                  })}
               </div>
 
               {/* Empty State */}
@@ -2165,8 +2245,7 @@ export default function EquipmentPage() {
                                 </span>
                               )
                             ) : (
-                              <span className="text-xs text-[var(--text-tertiary)]">
-                              </span>
+                              <span className="text-xs text-[var(--text-tertiary)]"></span>
                             )}
                           </td>
                         </tr>
@@ -2248,9 +2327,8 @@ export default function EquipmentPage() {
                     value={retiredArchiveCategoryFilter}
                     onChange={(e) => {
                       const categoryFilter = e.target.value;
-                      void handleRetiredArchiveFilterChange(
-                        { categoryFilter },
-                        () => setRetiredArchiveCategoryFilter(categoryFilter),
+                      void handleRetiredArchiveFilterChange({ categoryFilter }, () =>
+                        setRetiredArchiveCategoryFilter(categoryFilter),
                       );
                     }}
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
@@ -2267,9 +2345,8 @@ export default function EquipmentPage() {
                     value={retiredArchiveReasonFilter}
                     onChange={(e) => {
                       const reasonFilter = e.target.value as DisposalReason | '';
-                      void handleRetiredArchiveFilterChange(
-                        { reasonFilter },
-                        () => setRetiredArchiveReasonFilter(reasonFilter),
+                      void handleRetiredArchiveFilterChange({ reasonFilter }, () =>
+                        setRetiredArchiveReasonFilter(reasonFilter),
                       );
                     }}
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
@@ -2287,9 +2364,8 @@ export default function EquipmentPage() {
                     value={retiredArchiveDateFrom}
                     onChange={(e) => {
                       const dateFrom = e.target.value;
-                      void handleRetiredArchiveFilterChange(
-                        { dateFrom },
-                        () => setRetiredArchiveDateFrom(dateFrom),
+                      void handleRetiredArchiveFilterChange({ dateFrom }, () =>
+                        setRetiredArchiveDateFrom(dateFrom),
                       );
                     }}
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
@@ -2301,9 +2377,8 @@ export default function EquipmentPage() {
                     value={retiredArchiveDateTo}
                     onChange={(e) => {
                       const dateTo = e.target.value;
-                      void handleRetiredArchiveFilterChange(
-                        { dateTo },
-                        () => setRetiredArchiveDateTo(dateTo),
+                      void handleRetiredArchiveFilterChange({ dateTo }, () =>
+                        setRetiredArchiveDateTo(dateTo),
                       );
                     }}
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
@@ -2339,7 +2414,8 @@ export default function EquipmentPage() {
                     No Retired Equipment Found
                   </h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Completed retired equipment records will appear here after disposal is completed.
+                    Completed retired equipment records will appear here after disposal is
+                    completed.
                   </p>
                 </div>
               ) : (

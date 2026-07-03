@@ -82,10 +82,11 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
     }
   },
 
-  reset: () => set({
-    alerts: [],
-    unreadCount: 0,
-    isLoading: false,
-    error: null,
-  }),
+  reset: () =>
+    set({
+      alerts: [],
+      unreadCount: 0,
+      isLoading: false,
+      error: null,
+    }),
 }));

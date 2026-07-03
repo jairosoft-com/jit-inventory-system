@@ -82,21 +82,22 @@ function formatRelativeTime(dateStr: string): string {
 
 function formatAbsoluteDateTime(dateStr: string): string {
   const date = new Date(dateStr);
-  
+
   // Format as date (e.g. "Jul 3, 2026") and time (e.g. "9:45 AM") with system timezone representation.
   const dateFormatted = date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
-  
+
   const timeFormatted = date.toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',
   });
 
   // Include timezone shortcode (e.g. "PST", "GMT+8") if available
-  const tzFormatted = date.toLocaleDateString(undefined, { day: 'numeric', timeZoneName: 'short' })
+  const tzFormatted = date
+    .toLocaleDateString(undefined, { day: 'numeric', timeZoneName: 'short' })
     .split(' ')
     .pop();
 
@@ -130,11 +131,12 @@ function formatDaysRemaining(daysRemaining: number): string {
   return `${daysRemaining} days remaining`;
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat(undefined, {
+function formatCurrency(value: number | string | any): string {
+  const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+  return new Intl.NumberFormat('en-PH', {
     style: 'currency',
-    currency: 'USD',
-  }).format(value);
+    currency: 'PHP',
+  }).format(numValue);
 }
 
 function getActivityDetails(action: string) {
@@ -1105,129 +1107,123 @@ export default function DashboardPage() {
         {(isLoading || outOfStockAlerts.length > 0 || lowStockAlertsMapped.length > 0) && (
           <div className="dash-stock-alerts-grid">
             {(isLoading || outOfStockAlerts.length > 0) && (
-          <div className="dash-card">
-            <div className="dash-card-header">
-              <h2 className="dash-card-title">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ef4444"
-                  strokeWidth="2"
-                >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                Out of Stock
-              </h2>
-            </div>
-
-            <div className="dash-card-content">
-              {isLoading && outOfStockAlerts.length === 0 ? (
-                <div className="dash-skeleton-list">
-                  {[1, 2, 3].map((id) => (
-                    <div key={id} className="dash-skeleton-row animate-pulse">
-                      <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
-                      <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="dash-alerts-list">
-                  {outOfStockAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="dash-alert-row dash-alert-row--critical"
+              <div className="dash-card">
+                <div className="dash-card-header">
+                  <h2 className="dash-card-title">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#ef4444"
+                      strokeWidth="2"
                     >
-                      <div className="dash-alert-badge">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#ef4444"
-                          strokeWidth="2"
-                        >
-                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                      </div>
-                      <div className="dash-alert-content">
-                        <span className="dash-alert-itemName">{alert.itemName}</span>
-                        <span className="dash-alert-detail">{alert.detail}</span>
-                      </div>
-                    </div>
-                  ))}
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    Out of Stock
+                  </h2>
                 </div>
-              )}
-            </div>
-          </div>
+
+                <div className="dash-card-content">
+                  {isLoading && outOfStockAlerts.length === 0 ? (
+                    <div className="dash-skeleton-list">
+                      {[1, 2, 3].map((id) => (
+                        <div key={id} className="dash-skeleton-row animate-pulse">
+                          <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                          <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="dash-alerts-list">
+                      {outOfStockAlerts.map((alert) => (
+                        <div key={alert.id} className="dash-alert-row dash-alert-row--critical">
+                          <div className="dash-alert-badge">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#ef4444"
+                              strokeWidth="2"
+                            >
+                              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          </div>
+                          <div className="dash-alert-content">
+                            <span className="dash-alert-itemName">{alert.itemName}</span>
+                            <span className="dash-alert-detail">{alert.detail}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {(isLoading || lowStockAlertsMapped.length > 0) && (
-          <div className="dash-card">
-            <div className="dash-card-header">
-              <h2 className="dash-card-title">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#d97706"
-                  strokeWidth="2"
-                >
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                Low Stock Alerts
-              </h2>
-            </div>
-
-            <div className="dash-card-content">
-              {isLoading && lowStockAlertsMapped.length === 0 ? (
-                <div className="dash-skeleton-list">
-                  {[1, 2, 3].map((id) => (
-                    <div key={id} className="dash-skeleton-row animate-pulse">
-                      <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
-                      <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="dash-alerts-list">
-                  {lowStockAlertsMapped.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="dash-alert-row dash-alert-row--warning"
+              <div className="dash-card">
+                <div className="dash-card-header">
+                  <h2 className="dash-card-title">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#d97706"
+                      strokeWidth="2"
                     >
-                      <div className="dash-alert-badge">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#d97706"
-                          strokeWidth="2"
-                        >
-                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                      </div>
-                      <div className="dash-alert-content">
-                        <span className="dash-alert-itemName">{alert.itemName}</span>
-                        <span className="dash-alert-detail">{alert.detail}</span>
-                      </div>
-                    </div>
-                  ))}
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    Low Stock Alerts
+                  </h2>
                 </div>
-              )}
-            </div>
-          </div>
+
+                <div className="dash-card-content">
+                  {isLoading && lowStockAlertsMapped.length === 0 ? (
+                    <div className="dash-skeleton-list">
+                      {[1, 2, 3].map((id) => (
+                        <div key={id} className="dash-skeleton-row animate-pulse">
+                          <div className="dash-skeleton-pulse dash-skeleton-pulse--square" />
+                          <div className="dash-skeleton-pulse dash-skeleton-pulse--text-long" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="dash-alerts-list">
+                      {lowStockAlertsMapped.map((alert) => (
+                        <div key={alert.id} className="dash-alert-row dash-alert-row--warning">
+                          <div className="dash-alert-badge">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#d97706"
+                              strokeWidth="2"
+                            >
+                              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          </div>
+                          <div className="dash-alert-content">
+                            <span className="dash-alert-itemName">{alert.itemName}</span>
+                            <span className="dash-alert-detail">{alert.detail}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -1351,8 +1347,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="dash-empty-heading">All warranties valid</h3>
                 <p className="dash-empty-text">
-                  No equipment warranties are expired or nearing expiration within the next 30
-                  days.
+                  No equipment warranties are expired or nearing expiration within the next 30 days.
                 </p>
               </div>
             )}

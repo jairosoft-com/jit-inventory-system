@@ -14,7 +14,8 @@ function groupEquipmentAlerts(alerts: UnifiedAlert[]): GroupedAlert[] {
   const groups = new Map<string, GroupedAlert>();
 
   for (const alert of alerts) {
-    if (alert.alertType !== 'WARRANTY_EXPIRING' && alert.alertType !== 'REPLACEMENT_NEEDED') continue;
+    if (alert.alertType !== 'WARRANTY_EXPIRING' && alert.alertType !== 'REPLACEMENT_NEEDED')
+      continue;
     if (!alert.equipment) continue;
 
     const categoryName = alert.equipment.item.category?.name || 'Equipment';
@@ -56,7 +57,14 @@ export default function EquipmentLifecycleAlertsWidget() {
     <div className="dash-card">
       <div className="dash-card-header">
         <h2 className="dash-card-title">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="2"
+          >
             <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
           Equipment Lifecycle Alerts
@@ -95,7 +103,10 @@ export default function EquipmentLifecycleAlertsWidget() {
                     {group.count} {group.label}
                   </span>
                   <span className="dash-alert-detail">
-                    {group.alertType === 'WARRANTY_EXPIRING' ? 'Warranty expiration' : 'Replacement tag'} · Click to review
+                    {group.alertType === 'WARRANTY_EXPIRING'
+                      ? 'Warranty expiration'
+                      : 'Replacement tag'}{' '}
+                    · Click to review
                   </span>
                 </div>
               </div>

@@ -51,17 +51,19 @@ function BorrowStatusBadge({ status, expectedReturn }: { status: BorrowStatus; e
     );
   }
   const cfg: Record<BorrowStatus, { color: string; dot: string; label: string }> = {
-    PENDING:   { color: 'bg-amber-50 text-amber-700',   dot: 'bg-amber-500',  label: 'Pending' },
-    APPROVED:  { color: 'bg-blue-50 text-blue-700',     dot: 'bg-blue-500',   label: 'Approved' },
-    REJECTED:  { color: 'bg-red-50 text-red-700',       dot: 'bg-red-500',    label: 'Rejected' },
-    BORROWED:  { color: 'bg-purple-50 text-purple-700', dot: 'bg-purple-500', label: 'Borrowed' },
-    RETURNED:  { color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', label: 'Returned' },
-    OVERDUE:   { color: 'bg-red-100 text-red-800',      dot: 'bg-red-700',    label: 'Overdue' },
-    CANCELLED: { color: 'bg-gray-100 text-gray-500',    dot: 'bg-gray-400',   label: 'Cancelled' },
+    PENDING: { color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500', label: 'Pending' },
+    APPROVED: { color: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', label: 'Approved' },
+    REJECTED: { color: 'bg-red-50 text-red-700', dot: 'bg-red-500', label: 'Rejected' },
+    BORROWED: { color: 'bg-purple-50 text-purple-700', dot: 'bg-purple-500', label: 'Borrowed' },
+    RETURNED: { color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', label: 'Returned' },
+    OVERDUE: { color: 'bg-red-100 text-red-800', dot: 'bg-red-700', label: 'Overdue' },
+    CANCELLED: { color: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400', label: 'Cancelled' },
   };
   const { color, dot, label } = cfg[status] ?? cfg.CANCELLED;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${color}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
     </span>
@@ -73,9 +75,7 @@ function EquipmentStatusDot({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        available
-          ? 'bg-[var(--success-muted)] text-[var(--success)]'
-          : 'bg-gray-100 text-gray-500'
+        available ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-gray-100 text-gray-500'
       }`}
     >
       <span
@@ -157,9 +157,18 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
 
       {error && (
         <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
-          <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <svg
+            className="h-3.5 w-3.5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+            />
           </svg>
           {error}
         </p>
@@ -222,7 +231,10 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
             <div className="border-t border-[var(--surface-border)] p-2">
               <button
                 type="button"
-                onClick={() => { onSelect(null); setOpen(false); }}
+                onClick={() => {
+                  onSelect(null);
+                  setOpen(false);
+                }}
                 className="w-full rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
               >
                 Clear selection
@@ -291,7 +303,9 @@ function HistoryPanel() {
           className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs outline-none transition focus:border-[var(--accent)]"
         >
           {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
       </div>
@@ -335,9 +349,7 @@ function HistoryPanel() {
                   <p className="truncate font-semibold text-[var(--text-primary)]">
                     {rec.equipment.item.itemName}
                   </p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {rec.equipment.assetId}
-                  </p>
+                  <p className="text-xs text-[var(--text-secondary)]">{rec.equipment.assetId}</p>
                 </div>
                 <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
               </div>
@@ -381,7 +393,9 @@ function HistoryPanel() {
               )}
 
               {/* Return button — visible only for BORROWED or APPROVED records */}
-              {(rec.status === 'BORROWED' || rec.status === 'APPROVED' || rec.status === 'OVERDUE') && (
+              {(rec.status === 'BORROWED' ||
+                rec.status === 'APPROVED' ||
+                rec.status === 'OVERDUE') && (
                 <div className="mt-3 border-t border-[var(--surface-border)] pt-3">
                   <button
                     type="button"
@@ -422,11 +436,13 @@ function HistoryPanel() {
 
       {/* Return success banner */}
       {returnSuccess && (
-        <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-          returnSuccess.isLate
-            ? 'border-amber-200 bg-amber-50 text-amber-800'
-            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-        }`}>
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm font-medium ${
+            returnSuccess.isLate
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          }`}
+        >
           {returnSuccess.isLate
             ? 'Return recorded. Equipment was returned late and has been marked as OVERDUE in the audit trail.'
             : 'Return processed successfully. Equipment is now available.'}
@@ -514,14 +530,24 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
 // state with HistoryPanel and won't flicker when switching between tabs.
 
 function AdminPanel() {
-  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest, runOverdueCheck } =
-    useBorrowStore();
+  const {
+    adminRecords,
+    adminMeta,
+    isLoading,
+    error,
+    fetchAdminRecords,
+    approveRequest,
+    rejectRequest,
+    runOverdueCheck,
+  } = useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
   const [actioningId, setActioningId] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BorrowRecord | null>(null);
   const [returnTarget, setReturnTarget] = useState<BorrowRecord | null>(null);
-  const [returnSuccess, setReturnSuccess] = useState<{ name: string; isLate: boolean } | null>(null);
+  const [returnSuccess, setReturnSuccess] = useState<{ name: string; isLate: boolean } | null>(
+    null,
+  );
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
 
   const load = useCallback(
@@ -614,7 +640,9 @@ function AdminPanel() {
             className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--accent)]"
           >
             {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
         </div>
@@ -714,7 +742,9 @@ function AdminPanel() {
                               Reject
                             </button>
                           </div>
-                        ) : rec.status === 'BORROWED' || rec.status === 'APPROVED' || rec.status === 'OVERDUE' ? (
+                        ) : rec.status === 'BORROWED' ||
+                          rec.status === 'APPROVED' ||
+                          rec.status === 'OVERDUE' ? (
                           <button
                             type="button"
                             onClick={() => setReturnTarget(rec)}
@@ -782,11 +812,13 @@ function AdminPanel() {
       )}
 
       {returnSuccess && (
-        <div className={`mt-4 rounded-xl border px-4 py-3 text-sm font-medium ${
-          returnSuccess.isLate
-            ? 'border-amber-200 bg-amber-50 text-amber-800'
-            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-        }`}>
+        <div
+          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-medium ${
+            returnSuccess.isLate
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          }`}
+        >
           {returnSuccess.isLate
             ? `Return for "${returnSuccess.name}" recorded. Equipment was returned late and flagged as OVERDUE in the audit trail.`
             : `"${returnSuccess.name}" has been returned and is now available.`}
@@ -911,8 +943,7 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
           value={expectedReturn}
           onChange={(e) => {
             setExpectedReturn(e.target.value);
-            if (errors.expectedReturn)
-              setErrors((err) => ({ ...err, expectedReturn: undefined }));
+            if (errors.expectedReturn) setErrors((err) => ({ ...err, expectedReturn: undefined }));
           }}
           className={`w-full rounded-xl border ${
             errors.expectedReturn
@@ -922,9 +953,18 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
         />
         {errors.expectedReturn && (
           <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
-            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <svg
+              className="h-3.5 w-3.5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              />
             </svg>
             {errors.expectedReturn}
           </p>
@@ -992,8 +1032,7 @@ export default function BorrowRequestPage() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('request');
 
-  const isAdminOrManager =
-    user?.role?.name === 'ADMIN' || user?.role?.name === 'MANAGER';
+  const isAdminOrManager = user?.role?.name === 'ADMIN' || user?.role?.name === 'MANAGER';
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'request', label: 'New Request' },
@@ -1004,15 +1043,14 @@ export default function BorrowRequestPage() {
   return (
     <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
       <section className="mx-auto flex max-w-5xl flex-col gap-6">
-
         {/* Page header */}
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-medium text-[var(--accent)]">Operations</p>
             <h1 className="mt-1 text-2xl font-semibold">Borrow Requests</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Request available equipment for a defined period. All requests require
-              manager or admin approval before the equipment is released.
+              Request available equipment for a defined period. All requests require manager or
+              admin approval before the equipment is released.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -1059,9 +1097,7 @@ export default function BorrowRequestPage() {
 
           {/* Tab content */}
           <div className="p-6">
-            {activeTab === 'request' && (
-              <BorrowForm onSuccess={() => setActiveTab('history')} />
-            )}
+            {activeTab === 'request' && <BorrowForm onSuccess={() => setActiveTab('history')} />}
             {activeTab === 'history' && <HistoryPanel />}
             {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
           </div>

@@ -80,6 +80,29 @@ function formatRelativeTime(dateStr: string): string {
   return `${diffDay}d ago`;
 }
 
+function formatAbsoluteDateTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  
+  // Format as date (e.g. "Jul 3, 2026") and time (e.g. "9:45 AM") with system timezone representation.
+  const dateFormatted = date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  
+  const timeFormatted = date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  // Include timezone shortcode (e.g. "PST", "GMT+8") if available
+  const tzFormatted = date.toLocaleDateString(undefined, { day: 'numeric', timeZoneName: 'short' })
+    .split(' ')
+    .pop();
+
+  return `${dateFormatted} at ${timeFormatted} (${tzFormatted})`;
+}
+
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
 
@@ -635,9 +658,14 @@ export default function DashboardPage() {
                           </span>{' '}
                           {activity.itemName}
                         </div>
-                        <span className="dash-activity-time">
-                          {formatRelativeTime(activity.performedAt)}
-                        </span>
+                        <div className="dash-activity-time-container">
+                          <span className="dash-activity-absolute-time">
+                            {formatAbsoluteDateTime(activity.performedAt)}
+                          </span>
+                          <span className="dash-activity-relative-time">
+                            {formatRelativeTime(activity.performedAt)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );

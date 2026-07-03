@@ -39,10 +39,7 @@ const ALL_STATUSES: POStatus[] = [
   'ARCHIVED',
 ];
 
-const STATUS_CONFIG: Record<
-  POStatus,
-  { label: string; color: string; bg: string; dot: string }
-> = {
+const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string; dot: string }> = {
   DRAFT: {
     label: 'Draft',
     color: 'text-slate-700',
@@ -112,17 +109,13 @@ export default function PurchaseOrderPage() {
   // ── Permissions ──────────────────────────────────────────────────────────
   const permissions = useMemo(() => {
     if (!user || !user.permissions) return [];
-    return user.permissions.map((p) =>
-      typeof p === 'string' ? p : p.name || '',
-    );
+    return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
   }, [user]);
 
   const roleName = user?.role?.name?.toUpperCase() || '';
-  const isManagerOrAdmin =
-    roleName.includes('ADMIN') || roleName.includes('MANAGER');
+  const isManagerOrAdmin = roleName.includes('ADMIN') || roleName.includes('MANAGER');
   const canRead =
-    permissions.includes('purchase_orders:read') ||
-    permissions.includes('suppliers:read');
+    permissions.includes('purchase_orders:read') || permissions.includes('suppliers:read');
   const canCreate = permissions.includes('purchase_orders:create');
   const canUpdate = permissions.includes('purchase_orders:update');
 
@@ -151,7 +144,7 @@ export default function PurchaseOrderPage() {
           );
         }
       })
-      .catch(() => { });
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -167,9 +160,7 @@ export default function PurchaseOrderPage() {
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
-  const [detailTab, setDetailTab] = useState<
-    'items' | 'history' | 'attachments'
-  >('items');
+  const [detailTab, setDetailTab] = useState<'items' | 'history' | 'attachments'>('items');
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusAction, setStatusAction] = useState<POStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
@@ -197,19 +188,14 @@ export default function PurchaseOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active suppliers only
-  const activeSuppliers = useMemo(
-    () => suppliers.filter((s) => !s.deletedAt),
-    [suppliers],
-  );
+  const activeSuppliers = useMemo(() => suppliers.filter((s) => !s.deletedAt), [suppliers]);
 
   // ── Filtering ────────────────────────────────────────────────────────────
   const filteredPOs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return purchaseOrders.filter((po) => {
       const isArchived =
-        po.status === 'ARCHIVED' ||
-        po.status === 'REJECTED' ||
-        po.status === 'CANCELLED';
+        po.status === 'ARCHIVED' || po.status === 'REJECTED' || po.status === 'CANCELLED';
       const matchesTab = filterTab === 'active' ? !isArchived : isArchived;
 
       if (statusFilter && filterTab === 'active') {
@@ -235,10 +221,7 @@ export default function PurchaseOrderPage() {
   // ── Summaries ────────────────────────────────────────────────────────────
   const summaries = useMemo(() => {
     const active = purchaseOrders.filter(
-      (po) =>
-        po.status !== 'ARCHIVED' &&
-        po.status !== 'REJECTED' &&
-        po.status !== 'CANCELLED'
+      (po) => po.status !== 'ARCHIVED' && po.status !== 'REJECTED' && po.status !== 'CANCELLED',
     );
     return {
       total: active.length,
@@ -256,12 +239,10 @@ export default function PurchaseOrderPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-3xl">
             🔒
           </div>
-          <h1 className="mt-6 text-xl font-bold text-[var(--text-primary)]">
-            Access Denied
-          </h1>
+          <h1 className="mt-6 text-xl font-bold text-[var(--text-primary)]">Access Denied</h1>
           <p className="mt-3 text-sm text-[var(--text-secondary)]">
-            You do not have the required permissions to access procurement
-            records. Please contact your administrator.
+            You do not have the required permissions to access procurement records. Please contact
+            your administrator.
           </p>
         </section>
       </main>
@@ -296,7 +277,10 @@ export default function PurchaseOrderPage() {
   };
 
   const handleAddLineItem = () => {
-    setLineItems((prev) => [...prev, { itemId: 0, quantity: 1, unitCost: 0, selectedType: 'CONSUMABLE' }]);
+    setLineItems((prev) => [
+      ...prev,
+      { itemId: 0, quantity: 1, unitCost: 0, selectedType: 'CONSUMABLE' },
+    ]);
   };
 
   const handleRemoveLineItem = (index: number) => {
@@ -317,16 +301,15 @@ export default function PurchaseOrderPage() {
                 field === 'selectedType'
                   ? value
                   : typeof value === 'string'
-                  ? Number(value) || 0
-                  : value,
+                    ? Number(value) || 0
+                    : value,
             }
           : li,
       ),
     );
   };
 
-  const computeTotal = () =>
-    lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+  const computeTotal = () => lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
 
   const handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -380,8 +363,7 @@ export default function PurchaseOrderPage() {
       setIsFormOpen(false);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
-      const errMsg =
-        err instanceof Error ? err.message : 'An error occurred';
+      const errMsg = err instanceof Error ? err.message : 'An error occurred';
       setFormError(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -405,17 +387,18 @@ export default function PurchaseOrderPage() {
 
   // Fetch equipment units for selected Purchase Order if it has equipment lines
   const fetchPoEquipment = (poId: number) => {
-    api.get(`/procurement/${poId}/equipment`)
-      .then(res => {
+    api
+      .get(`/procurement/${poId}/equipment`)
+      .then((res) => {
         setPoEquipment(res.data || []);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Error fetching PO equipment:', err);
       });
   };
 
   useEffect(() => {
-    if (detailPO && detailPO.lineItems.some(li => li.item.itemType === 'EQUIPMENT')) {
+    if (detailPO && detailPO.lineItems.some((li) => li.item.itemType === 'EQUIPMENT')) {
       fetchPoEquipment(detailPO.id);
     } else {
       setPoEquipment([]);
@@ -466,19 +449,12 @@ export default function PurchaseOrderPage() {
     if (!detailPO || !statusAction) return;
     setIsSubmitting(true);
     try {
-      await updatePurchaseOrderStatus(
-        detailPO.id,
-        statusAction,
-        statusNotes.trim() || undefined,
-      );
+      await updatePurchaseOrderStatus(detailPO.id, statusAction, statusNotes.trim() || undefined);
       setIsStatusDialogOpen(false);
-      setSuccessMessage(
-        `Purchase order status changed to ${STATUS_CONFIG[statusAction].label}`,
-      );
+      setSuccessMessage(`Purchase order status changed to ${STATUS_CONFIG[statusAction].label}`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
-      const errMsg =
-        err instanceof Error ? err.message : 'Failed to update status';
+      const errMsg = err instanceof Error ? err.message : 'Failed to update status';
       alert(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -486,9 +462,7 @@ export default function PurchaseOrderPage() {
   };
 
   // ── Attachments ──────────────────────────────────────────────────────────
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!detailPO) return;
     const file = e.target.files?.[0];
     if (!file) return;
@@ -496,17 +470,13 @@ export default function PurchaseOrderPage() {
 
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(
-        `Invalid file type "${ext}". Only JPG, JPEG, and PNG files are allowed.`,
-      );
+      alert(`Invalid file type "${ext}". Only JPG, JPEG, and PNG files are allowed.`);
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      alert(
-        `File is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller file.`,
-      );
+      alert(`File is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller file.`);
       return;
     }
 
@@ -523,9 +493,7 @@ export default function PurchaseOrderPage() {
         setSuccessMessage('Attachment uploaded successfully');
         setTimeout(() => setSuccessMessage(null), 4000);
       } catch (err: unknown) {
-        alert(
-          err instanceof Error ? err.message : 'Failed to upload attachment',
-        );
+        alert(err instanceof Error ? err.message : 'Failed to upload attachment');
       }
     };
     reader.readAsDataURL(file);
@@ -533,8 +501,7 @@ export default function PurchaseOrderPage() {
 
   const handleDeleteAttachment = async (attachmentId: number) => {
     if (!detailPO) return;
-    if (!window.confirm('Are you sure you want to remove this attachment?'))
-      return;
+    if (!window.confirm('Are you sure you want to remove this attachment?')) return;
     try {
       await deleteAttachment(detailPO.id, attachmentId);
       setSuccessMessage('Attachment removed');
@@ -608,14 +575,11 @@ export default function PurchaseOrderPage() {
         {/* Header */}
         <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between animate-fade-in">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">
-              Procurement
-            </p>
+            <p className="text-sm font-medium text-[var(--accent)]">Procurement</p>
             <h1 className="mt-1 text-2xl font-semibold">Purchase Orders</h1>
             <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Create, track, and manage purchase orders. Submit orders for
-              approval, monitor workflow status, and maintain complete audit
-              trails.
+              Create, track, and manage purchase orders. Submit orders for approval, monitor
+              workflow status, and maintain complete audit trails.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -642,10 +606,7 @@ export default function PurchaseOrderPage() {
         {storeError && (
           <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-fade-in">
             <span>{storeError}</span>
-            <button
-              onClick={clearError}
-              className="font-semibold text-red-800 hover:text-red-950"
-            >
+            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
               Dismiss
             </button>
           </div>
@@ -660,11 +621,7 @@ export default function PurchaseOrderPage() {
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
           <SummaryCard title="Total Active" value={summaries.total} icon="📋" />
           <SummaryCard title="Drafts" value={summaries.draft} icon="📝" />
-          <SummaryCard
-            title="Pending Approval"
-            value={summaries.pending}
-            icon="⏳"
-          />
+          <SummaryCard title="Pending Approval" value={summaries.pending} icon="⏳" />
           <SummaryCard title="Approved" value={summaries.approved} icon="✅" />
         </section>
 
@@ -679,10 +636,11 @@ export default function PurchaseOrderPage() {
                   setFilterTab('active');
                   setStatusFilter('');
                 }}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'active'
-                  ? 'border-[var(--accent)] text-[var(--accent)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
+                  filterTab === 'active'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
               >
                 Active
               </button>
@@ -692,10 +650,11 @@ export default function PurchaseOrderPage() {
                   setFilterTab('archived');
                   setStatusFilter('');
                 }}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'archived'
-                  ? 'border-[var(--accent)] text-[var(--accent)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
+                  filterTab === 'archived'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
               >
                 Archived
               </button>
@@ -706,7 +665,9 @@ export default function PurchaseOrderPage() {
           </div>
 
           {/* Search + Supplier + Status Filters */}
-          <div className={`grid gap-3 ${filterTab === 'active' ? 'md:grid-cols-[1fr_200px_200px]' : 'md:grid-cols-[1fr_200px]'}`}>
+          <div
+            className={`grid gap-3 ${filterTab === 'active' ? 'md:grid-cols-[1fr_200px_200px]' : 'md:grid-cols-[1fr_200px]'}`}
+          >
             <div className="relative flex items-center">
               <input
                 value={searchTerm}
@@ -742,7 +703,9 @@ export default function PurchaseOrderPage() {
                 className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
               >
                 <option value="">All Statuses</option>
-                {ALL_STATUSES.filter((s) => s !== 'ARCHIVED' && s !== 'REJECTED' && s !== 'CANCELLED').map((s) => (
+                {ALL_STATUSES.filter(
+                  (s) => s !== 'ARCHIVED' && s !== 'REJECTED' && s !== 'CANCELLED',
+                ).map((s) => (
                   <option key={s} value={s}>
                     {STATUS_CONFIG[s].label}
                   </option>
@@ -776,9 +739,7 @@ export default function PurchaseOrderPage() {
                       <th className="px-5 py-3.5 font-semibold">Total</th>
                       <th className="px-5 py-3.5 font-semibold">Status</th>
                       <th className="px-5 py-3.5 font-semibold">Created</th>
-                      <th className="px-5 py-3.5 font-semibold text-right">
-                        Actions
-                      </th>
+                      <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--surface-border)]">
@@ -796,9 +757,7 @@ export default function PurchaseOrderPage() {
                         </td>
                         <td className="px-5 py-3.5 text-[var(--text-secondary)]">
                           {po.invoiceNumber || (
-                            <span className="italic text-[var(--text-disabled)]">
-                              N/A
-                            </span>
+                            <span className="italic text-[var(--text-disabled)]">N/A</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 font-medium text-[var(--text-secondary)]">
@@ -814,9 +773,7 @@ export default function PurchaseOrderPage() {
                           <StatusBadge status={po.status} />
                         </td>
                         <td className="px-5 py-3.5 text-xs text-[var(--text-secondary)]">
-                          <div>
-                            {new Date(po.createdAt).toLocaleDateString()}
-                          </div>
+                          <div>{new Date(po.createdAt).toLocaleDateString()}</div>
                           <div className="text-[var(--text-disabled)]">
                             by {po.createdBy.firstName} {po.createdBy.lastName}
                           </div>
@@ -874,9 +831,7 @@ export default function PurchaseOrderPage() {
                           minimumFractionDigits: 2,
                         })}
                       </span>
-                      <span>
-                        {new Date(po.createdAt).toLocaleDateString()}
-                      </span>
+                      <span>{new Date(po.createdAt).toLocaleDateString()}</span>
                     </div>
                   </article>
                 ))}
@@ -945,11 +900,7 @@ export default function PurchaseOrderPage() {
                 </div>
               )}
 
-              <form
-                id="po-form"
-                onSubmit={handleFormSubmit}
-                className="flex flex-col gap-5"
-              >
+              <form id="po-form" onSubmit={handleFormSubmit} className="flex flex-col gap-5">
                 {/* Supplier */}
                 <div className="flex flex-col gap-1.5">
                   <label
@@ -962,9 +913,7 @@ export default function PurchaseOrderPage() {
                     id="po-supplier"
                     required
                     value={formData.supplierId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, supplierId: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                   >
                     <option value="">Select a supplier...</option>
@@ -975,7 +924,6 @@ export default function PurchaseOrderPage() {
                     ))}
                   </select>
                 </div>
-
 
                 {/* Line Items */}
                 <div className="flex flex-col gap-3">
@@ -1036,18 +984,12 @@ export default function PurchaseOrderPage() {
                           )}
                           <SearchableItemSelect
                             value={li.itemId || null}
-                            onChange={(val) =>
-                              handleLineItemChange(
-                                index,
-                                'itemId',
-                                val,
-                              )
-                            }
+                            onChange={(val) => handleLineItemChange(index, 'itemId', val)}
                             items={availableItems.filter(
                               (item) =>
                                 item.itemType === (li.selectedType || 'CONSUMABLE') &&
                                 (item.id === li.itemId ||
-                                  !lineItems.some((otherLi) => otherLi.itemId === item.id))
+                                  !lineItems.some((otherLi) => otherLi.itemId === item.id)),
                             )}
                             placeholder="Select item..."
                           />
@@ -1063,11 +1005,7 @@ export default function PurchaseOrderPage() {
                             min="1"
                             value={li.quantity || ''}
                             onChange={(e) =>
-                              handleLineItemChange(
-                                index,
-                                'quantity',
-                                e.target.value,
-                              )
+                              handleLineItemChange(index, 'quantity', e.target.value)
                             }
                             className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                           />
@@ -1084,11 +1022,7 @@ export default function PurchaseOrderPage() {
                             step="0.01"
                             value={li.unitCost || ''}
                             onChange={(e) =>
-                              handleLineItemChange(
-                                index,
-                                'unitCost',
-                                e.target.value,
-                              )
+                              handleLineItemChange(index, 'unitCost', e.target.value)
                             }
                             className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                           />
@@ -1100,7 +1034,8 @@ export default function PurchaseOrderPage() {
                             </span>
                           )}
                           <div className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end">
-                            ₱{((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
+                            ₱
+                            {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
                               minimumFractionDigits: 2,
                             })}
                           </div>
@@ -1119,9 +1054,7 @@ export default function PurchaseOrderPage() {
 
                   {/* Total */}
                   <div className="flex items-center justify-end gap-2 border-t border-[var(--surface-border)] pt-3">
-                    <span className="text-sm font-medium text-[var(--text-secondary)]">
-                      Total:
-                    </span>
+                    <span className="text-sm font-medium text-[var(--text-secondary)]">Total:</span>
                     <span className="text-lg font-bold text-[var(--text-primary)]">
                       ₱
                       {computeTotal().toLocaleString('en-PH', {
@@ -1179,10 +1112,7 @@ export default function PurchaseOrderPage() {
                   {detailPO.invoiceNumber && (
                     <>
                       {' '}
-                      · Invoice:{' '}
-                      <span className="font-medium">
-                        {detailPO.invoiceNumber}
-                      </span>
+                      · Invoice: <span className="font-medium">{detailPO.invoiceNumber}</span>
                     </>
                   )}
                 </p>
@@ -1241,18 +1171,17 @@ export default function PurchaseOrderPage() {
             {/* Tabs */}
             <div className="flex gap-1 px-6 pt-3 border-b border-[var(--surface-border)]">
               {(
-                ['items', 'history', 'attachments'] as Array<
-                  'items' | 'history' | 'attachments'
-                >
+                ['items', 'history', 'attachments'] as Array<'items' | 'history' | 'attachments'>
               ).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setDetailTab(tab)}
-                  className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition capitalize ${detailTab === tab
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                  className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition capitalize ${
+                    detailTab === tab
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
+                      : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
                 >
                   {tab === 'items'
                     ? `Items (${detailPO.lineItems.length})`
@@ -1268,168 +1197,166 @@ export default function PurchaseOrderPage() {
               {detailTab === 'items' && (
                 <>
                   <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Item</th>
-                        <th className="px-4 py-3 font-semibold text-right">
-                          Qty
-                        </th>
-                        <th className="px-4 py-3 font-semibold text-right">
-                          Unit Cost
-                        </th>
-                        <th className="px-4 py-3 font-semibold text-right">
-                          Subtotal
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--surface-border)]">
-                      {detailPO.lineItems.map((li) => {
-                        const subtotal =
-                          li.quantity * parseFloat(li.unitCost);
-                        return (
-                          <tr key={li.id}>
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-[var(--text-primary)]">
-                                {li.item.itemName}
-                              </div>
-                              {li.item.barcode && (
-                                <div className="text-xs text-[var(--text-tertiary)] font-mono">
-                                  {li.item.barcode}
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Item</th>
+                          <th className="px-4 py-3 font-semibold text-right">Qty</th>
+                          <th className="px-4 py-3 font-semibold text-right">Unit Cost</th>
+                          <th className="px-4 py-3 font-semibold text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {detailPO.lineItems.map((li) => {
+                          const subtotal = li.quantity * parseFloat(li.unitCost);
+                          return (
+                            <tr key={li.id}>
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-[var(--text-primary)]">
+                                  {li.item.itemName}
                                 </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right font-medium">
-                              {li.quantity}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              ₱
-                              {parseFloat(li.unitCost).toLocaleString(
-                                'en-PH',
-                                { minimumFractionDigits: 2 },
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold">
-                              ₱
-                              {subtotal.toLocaleString('en-PH', {
-                                minimumFractionDigits: 2,
-                              })}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-[var(--background-tertiary)]">
-                        <td
-                          colSpan={3}
-                          className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]"
-                        >
-                          Total
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)] text-base">
-                          ₱
-                          {parseFloat(detailPO.totalAmount).toLocaleString(
-                            'en-PH',
-                            { minimumFractionDigits: 2 },
-                          )}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                {/* Equipment Assets Status Checklist */}
-                {detailPO.lineItems.some((li) => li.item.itemType === 'EQUIPMENT') && (
-                  <div className="mt-8 border-t border-[var(--surface-border)] pt-6">
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
-                      Equipment Registration Progress
-                    </h3>
-                    <p className="text-xs text-[var(--text-secondary)] mb-4">
-                      All physical equipment units purchased under this order must be cataloged and serialized.
-                    </p>
-                    
-                    {poEquipment.length === 0 ? (
-                      <div className="flex items-center justify-center p-6 border rounded-xl border-dashed border-[var(--surface-border)]">
-                        <span className="text-xs text-[var(--text-tertiary)] italic animate-pulse">
-                          Loading equipment records...
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] bg-[var(--background-tertiary)] px-4 py-2 rounded-lg">
-                          <span>
-                            Registration Progress
-                          </span>
-                          <span className="font-mono">
-                            {poEquipment.filter(u => u.deletedAt === null).length} / {poEquipment.length} Registered
-                          </span>
-                        </div>
-                        <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)] bg-[var(--surface)]">
-                          <table className="w-full border-collapse text-left text-xs">
-                            <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                              <tr>
-                                <th className="px-4 py-2 font-semibold">Asset ID</th>
-                                <th className="px-4 py-2 font-semibold">Item Model</th>
-                                <th className="px-4 py-2 font-semibold font-mono">Serial Number</th>
-                                <th className="px-4 py-2 font-semibold">Location</th>
-                                <th className="px-4 py-2 font-semibold">Condition</th>
-                                <th className="px-4 py-2 font-semibold text-center">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--surface-border)]">
-                              {poEquipment.map((unit) => {
-                                const isRegistered = unit.deletedAt === null;
-                                return (
-                                  <tr key={unit.id} className="hover:bg-[var(--surface-hover)] transition">
-                                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                                      {unit.assetId}
-                                    </td>
-                                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
-                                      {unit.item.itemName}
-                                    </td>
-                                    <td className="px-4 py-3 font-mono">
-                                      {isRegistered ? (
-                                        <span className="text-[var(--text-primary)] font-semibold">{unit.serialNumber}</span>
-                                      ) : (
-                                        <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700 font-semibold border border-yellow-200">
-                                          Unserialized
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="px-4 py-3 text-[var(--text-secondary)]">
-                                      {unit.location || '—'}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                        unit.condition === 'NEW'
-                                          ? 'bg-green-50 text-green-700 border border-green-200'
-                                          : unit.condition === 'GOOD'
-                                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                            : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                                      }`}>
-                                        {unit.condition}
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenRegister(unit)}
-                                        className="rounded bg-[var(--background-tertiary)] hover:bg-[var(--surface-border)] px-2 py-1 font-semibold text-[var(--text-primary)] border border-[var(--surface-border)] cursor-pointer transition text-[10px]"
-                                      >
-                                        {isRegistered ? 'Edit Details' : 'Register Unit'}
-                                      </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
+                                {li.item.barcode && (
+                                  <div className="text-xs text-[var(--text-tertiary)] font-mono">
+                                    {li.item.barcode}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right font-medium">{li.quantity}</td>
+                              <td className="px-4 py-3 text-right">
+                                ₱
+                                {parseFloat(li.unitCost).toLocaleString('en-PH', {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </td>
+                              <td className="px-4 py-3 text-right font-semibold">
+                                ₱
+                                {subtotal.toLocaleString('en-PH', {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-[var(--background-tertiary)]">
+                          <td
+                            colSpan={3}
+                            className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]"
+                          >
+                            Total
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)] text-base">
+                            ₱
+                            {parseFloat(detailPO.totalAmount).toLocaleString('en-PH', {
+                              minimumFractionDigits: 2,
+                            })}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
-                )}
+
+                  {/* Equipment Assets Status Checklist */}
+                  {detailPO.lineItems.some((li) => li.item.itemType === 'EQUIPMENT') && (
+                    <div className="mt-8 border-t border-[var(--surface-border)] pt-6">
+                      <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                        Equipment Registration Progress
+                      </h3>
+                      <p className="text-xs text-[var(--text-secondary)] mb-4">
+                        All physical equipment units purchased under this order must be cataloged
+                        and serialized.
+                      </p>
+
+                      {poEquipment.length === 0 ? (
+                        <div className="flex items-center justify-center p-6 border rounded-xl border-dashed border-[var(--surface-border)]">
+                          <span className="text-xs text-[var(--text-tertiary)] italic animate-pulse">
+                            Loading equipment records...
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] bg-[var(--background-tertiary)] px-4 py-2 rounded-lg">
+                            <span>Registration Progress</span>
+                            <span className="font-mono">
+                              {poEquipment.filter((u) => u.deletedAt === null).length} /{' '}
+                              {poEquipment.length} Registered
+                            </span>
+                          </div>
+                          <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)] bg-[var(--surface)]">
+                            <table className="w-full border-collapse text-left text-xs">
+                              <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                                <tr>
+                                  <th className="px-4 py-2 font-semibold">Asset ID</th>
+                                  <th className="px-4 py-2 font-semibold">Item Model</th>
+                                  <th className="px-4 py-2 font-semibold font-mono">
+                                    Serial Number
+                                  </th>
+                                  <th className="px-4 py-2 font-semibold">Location</th>
+                                  <th className="px-4 py-2 font-semibold">Condition</th>
+                                  <th className="px-4 py-2 font-semibold text-center">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[var(--surface-border)]">
+                                {poEquipment.map((unit) => {
+                                  const isRegistered = unit.deletedAt === null;
+                                  return (
+                                    <tr
+                                      key={unit.id}
+                                      className="hover:bg-[var(--surface-hover)] transition"
+                                    >
+                                      <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                                        {unit.assetId}
+                                      </td>
+                                      <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                                        {unit.item.itemName}
+                                      </td>
+                                      <td className="px-4 py-3 font-mono">
+                                        {isRegistered ? (
+                                          <span className="text-[var(--text-primary)] font-semibold">
+                                            {unit.serialNumber}
+                                          </span>
+                                        ) : (
+                                          <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700 font-semibold border border-yellow-200">
+                                            Unserialized
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                        {unit.location || '—'}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <span
+                                          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                            unit.condition === 'NEW'
+                                              ? 'bg-green-50 text-green-700 border border-green-200'
+                                              : unit.condition === 'GOOD'
+                                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                          }`}
+                                        >
+                                          {unit.condition}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenRegister(unit)}
+                                          className="rounded bg-[var(--background-tertiary)] hover:bg-[var(--surface-border)] px-2 py-1 font-semibold text-[var(--text-primary)] border border-[var(--surface-border)] cursor-pointer transition text-[10px]"
+                                        >
+                                          {isRegistered ? 'Edit Details' : 'Register Unit'}
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1446,13 +1373,10 @@ export default function PurchaseOrderPage() {
                         <div className="flex flex-col gap-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <StatusBadge status={entry.oldStatus} />
-                            <span className="text-xs text-[var(--text-tertiary)]">
-                              →
-                            </span>
+                            <span className="text-xs text-[var(--text-tertiary)]">→</span>
                             <StatusBadge status={entry.newStatus} />
                             <span className="text-xs text-[var(--text-secondary)] font-medium">
-                              by {entry.changedBy.firstName}{' '}
-                              {entry.changedBy.lastName}
+                              by {entry.changedBy.firstName} {entry.changedBy.lastName}
                             </span>
                           </div>
                           <span className="text-xs text-[var(--text-tertiary)]">
@@ -1504,13 +1428,8 @@ export default function PurchaseOrderPage() {
                                 {att.fileName}
                               </p>
                               <p className="text-xs text-[var(--text-tertiary)]">
-                                {att.fileSize
-                                  ? `${(att.fileSize / 1024).toFixed(1)} KB`
-                                  : ''}{' '}
-                                ·{' '}
-                                {new Date(
-                                  att.uploadedAt,
-                                ).toLocaleDateString()}
+                                {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : ''} ·{' '}
+                                {new Date(att.uploadedAt).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
@@ -1528,9 +1447,7 @@ export default function PurchaseOrderPage() {
                             {canUpdate && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  handleDeleteAttachment(att.id)
-                                }
+                                onClick={() => handleDeleteAttachment(att.id)}
                                 className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
                               >
                                 Remove
@@ -1554,14 +1471,15 @@ export default function PurchaseOrderPage() {
                       key={action.status}
                       type="button"
                       onClick={() => handleOpenStatusDialog(action.status)}
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${action.variant === 'primary'
-                        ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
-                        : action.variant === 'success'
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : action.variant === 'danger'
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'border border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                        }`}
+                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                        action.variant === 'primary'
+                          ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
+                          : action.variant === 'success'
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : action.variant === 'danger'
+                              ? 'bg-red-600 text-white hover:bg-red-700'
+                              : 'border border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                      }`}
                     >
                       {action.label}
                     </button>
@@ -1635,10 +1553,11 @@ export default function PurchaseOrderPage() {
                 type="button"
                 onClick={handleConfirmStatusChange}
                 disabled={isSubmitting}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 ${statusAction === 'REJECTED' || statusAction === 'CANCELLED'
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
-                  }`}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 ${
+                  statusAction === 'REJECTED' || statusAction === 'CANCELLED'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
+                }`}
               >
                 {isSubmitting && (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -1658,7 +1577,11 @@ export default function PurchaseOrderPage() {
               Register Equipment Details
             </h2>
             <p className="text-xs text-[var(--text-secondary)] mb-4">
-              Asset ID: <strong className="font-mono text-[var(--text-primary)]">{registeringUnit.assetId}</strong> ({registeringUnit.item.itemName})
+              Asset ID:{' '}
+              <strong className="font-mono text-[var(--text-primary)]">
+                {registeringUnit.assetId}
+              </strong>{' '}
+              ({registeringUnit.item.itemName})
             </p>
 
             <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-4">
@@ -1792,15 +1715,7 @@ function StatusBadge({ status }: { status: POStatus }) {
   );
 }
 
-function SummaryCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string;
-  value: number;
-  icon: string;
-}) {
+function SummaryCard({ title, value, icon }: { title: string; value: number; icon: string }) {
   return (
     <article className="flex items-center gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] hover:shadow-md transition duration-200">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-2xl">
@@ -1810,9 +1725,7 @@ function SummaryCard({
         <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
           {title}
         </p>
-        <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
-          {value}
-        </p>
+        <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
       </div>
     </article>
   );
@@ -1921,7 +1834,9 @@ function SearchableItemSelect({
         <span className="truncate">
           {selectedItem ? (
             <span className="flex items-center gap-2">
-              <span className="font-medium text-[var(--text-primary)]">{selectedItem.itemName}</span>
+              <span className="font-medium text-[var(--text-primary)]">
+                {selectedItem.itemName}
+              </span>
               {selectedItem.barcode && (
                 <span className="rounded bg-[var(--background-tertiary)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)] font-mono">
                   {selectedItem.barcode}
@@ -1932,7 +1847,9 @@ function SearchableItemSelect({
             <span className="text-[var(--text-tertiary)]">{placeholder}</span>
           )}
         </span>
-        <span className={`text-[var(--text-tertiary)] text-[10px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+        <span
+          className={`text-[var(--text-tertiary)] text-[10px] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        >
           ▼
         </span>
       </button>

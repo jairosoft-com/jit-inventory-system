@@ -162,36 +162,67 @@ body {
 /* ── Animations ─────────────────────────────── */
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-16px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
-  50%       { box-shadow: 0 0 15px 3px var(--accent-glow); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  50% {
+    box-shadow: 0 0 15px 3px var(--accent-glow);
+  }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes rp-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-fade-in {
@@ -210,12 +241,24 @@ body {
 .stagger-children > * {
   animation: fadeInUp 0.4s ease both;
 }
-.stagger-children > *:nth-child(1) { animation-delay: 0.03s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.06s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.09s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.12s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(6) { animation-delay: 0.18s; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0.03s;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 0.09s;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 0.12s;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 0.15s;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 0.18s;
+}
 
 /* ── Inventory Management ───────────────────── */
 
@@ -310,7 +353,9 @@ body {
 }
 
 .inventory-table tbody tr {
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .inventory-table tbody tr:hover {
@@ -327,9 +372,18 @@ body {
   line-height: 1.4;
 }
 
-.inventory-status-in-stock    { background: var(--success-muted); color: var(--success); }
-.inventory-status-low-stock   { background: var(--warning-muted); color: var(--warning); }
-.inventory-status-out-of-stock { background: var(--danger-muted);  color: var(--danger); }
+.inventory-status-in-stock {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.inventory-status-low-stock {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+.inventory-status-out-of-stock {
+  background: var(--danger-muted);
+  color: var(--danger);
+}
 
 .inventory-form {
   display: grid;
@@ -353,10 +407,14 @@ body {
   color: var(--text-primary);
   padding: 10px 12px;
   font: inherit;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
-.inventory-input::placeholder { color: var(--input-placeholder); }
+.inventory-input::placeholder {
+  color: var(--input-placeholder);
+}
 
 .inventory-input:focus {
   border-color: var(--input-border-focus);
@@ -562,8 +620,14 @@ body {
   line-height: 1.4;
 }
 
-.suppliers-status--active   { background: var(--success-muted); color: var(--success); }
-.suppliers-status--inactive { background: var(--danger-muted);  color: var(--danger); }
+.suppliers-status--active {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.suppliers-status--inactive {
+  background: var(--danger-muted);
+  color: var(--danger);
+}
 
 .suppliers-empty-state {
   border-top: 1px solid var(--surface-border);
@@ -990,21 +1054,81 @@ body {
 }
 
 /* Tailwind v4 animate-in / animate-out used by Popover and Select */
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
-@keyframes zoom-in-95 { from { transform: scale(0.95); } to { transform: scale(1); } }
-@keyframes zoom-out-95 { from { transform: scale(1); } to { transform: scale(0.95); } }
-@keyframes slide-in-from-top-2 { from { transform: translateY(-8px); } to { transform: translateY(0); } }
-@keyframes slide-in-from-bottom-2 { from { transform: translateY(8px); } to { transform: translateY(0); } }
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes zoom-in-95 {
+  from {
+    transform: scale(0.95);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes zoom-out-95 {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.95);
+  }
+}
+@keyframes slide-in-from-top-2 {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes slide-in-from-bottom-2 {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
 
-.animate-in  { animation-fill-mode: both; animation-duration: 150ms; }
-.animate-out { animation-fill-mode: both; animation-duration: 150ms; }
-.fade-in-0   { animation-name: fade-in; }
-.fade-out-0  { animation-name: fade-out; }
-.zoom-in-95  { animation-name: zoom-in-95; }
-.zoom-out-95 { animation-name: zoom-out-95; }
-.slide-in-from-top-2    { animation-name: slide-in-from-top-2; }
-.slide-in-from-bottom-2 { animation-name: slide-in-from-bottom-2; }
+.animate-in {
+  animation-fill-mode: both;
+  animation-duration: 150ms;
+}
+.animate-out {
+  animation-fill-mode: both;
+  animation-duration: 150ms;
+}
+.fade-in-0 {
+  animation-name: fade-in;
+}
+.fade-out-0 {
+  animation-name: fade-out;
+}
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+}
+.zoom-out-95 {
+  animation-name: zoom-out-95;
+}
+.slide-in-from-top-2 {
+  animation-name: slide-in-from-top-2;
+}
+.slide-in-from-bottom-2 {
+  animation-name: slide-in-from-bottom-2;
+}
 
 /* ── Report Filter Bar ───────────────────────────────────────────────────────*/
 

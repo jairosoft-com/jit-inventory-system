@@ -98,7 +98,10 @@ interface MaintenanceState {
   fetchStats: () => Promise<void>;
   createMaintenanceLog: (equipmentId: number, description: string) => Promise<MaintenanceLog>;
   scheduleMaintenance: (id: number, data: ScheduleMaintenanceInput) => Promise<MaintenanceLog>;
-  updateMaintenanceSchedule: (id: number, data: UpdateMaintenanceScheduleInput) => Promise<MaintenanceLog>;
+  updateMaintenanceSchedule: (
+    id: number,
+    data: UpdateMaintenanceScheduleInput,
+  ) => Promise<MaintenanceLog>;
   clearError: () => void;
 }
 
@@ -131,9 +134,12 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: MaintenanceLog[]; meta: PaginationMeta }>('/maintenance-logs', {
-        params,
-      });
+      const response = await api.get<{ data: MaintenanceLog[]; meta: PaginationMeta }>(
+        '/maintenance-logs',
+        {
+          params,
+        },
+      );
 
       set({
         maintenanceLogs: response.data.data,

@@ -142,7 +142,9 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
         background: 'rgba(0,0,0,0.45)',
         padding: '16px',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         style={{
@@ -158,19 +160,34 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
         }}
       >
         {/* Modal header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginBottom: '20px',
+          }}
+        >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}
+            >
               <ActionBadge action={log.action} />
-              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                #{log.id}
-              </span>
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>#{log.id}</span>
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+              }}
+            >
               {log.entityType} · ID {log.entityId}
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              {formatDateTime(log.performedAt)} · by {log.user.firstName} {log.user.lastName} ({log.user.email})
+              {formatDateTime(log.performedAt)} · by {log.user.firstName} {log.user.lastName} (
+              {log.user.email})
             </p>
           </div>
           <button
@@ -208,8 +225,19 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
 
 function IconAudit() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"
+      />
       <rect x="9" y="3" width="6" height="4" rx="1" />
       <path strokeLinecap="round" d="M9 12h6M9 16h4" />
     </svg>
@@ -218,8 +246,19 @@ function IconAudit() {
 
 function IconShield() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
     </svg>
   );
@@ -227,7 +266,14 @@ function IconShield() {
 
 function IconLock() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
     </svg>
@@ -329,15 +375,26 @@ export default function AuditLogsPage() {
           padding: '40px',
         }}
       >
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3 }}>
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          style={{ opacity: 0.3 }}
+        >
           <rect x="3" y="11" width="18" height="11" rx="2" />
           <path strokeLinecap="round" d="M7 11V7a5 5 0 0110 0v4" />
         </svg>
-        <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+        <h2
+          style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}
+        >
           Access Restricted
         </h2>
         <p style={{ margin: 0, maxWidth: '400px', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          Audit logs are only visible to Administrators and Managers. Contact your system admin if you believe this is an error.
+          Audit logs are only visible to Administrators and Managers. Contact your system admin if
+          you believe this is an error.
         </p>
       </div>
     );
@@ -352,8 +409,10 @@ export default function AuditLogsPage() {
   );
 
   return (
-    <div id="audit-logs-page" style={{ padding: '0', display: 'flex', flexDirection: 'column', gap: '0' }}>
-
+    <div
+      id="audit-logs-page"
+      style={{ padding: '0', display: 'flex', flexDirection: 'column', gap: '0' }}
+    >
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div
         style={{
@@ -362,7 +421,15 @@ export default function AuditLogsPage() {
           borderBottom: '1px solid var(--surface-border)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '16px',
+            marginBottom: '20px',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div
               style={{
@@ -438,8 +505,12 @@ export default function AuditLogsPage() {
             <IconShield />
           </span>
           <span>
-            Audit logs are <strong style={{ color: 'var(--text-primary)' }}>permanently stored and immutable</strong>.
-            No user or administrator can modify or delete entries — every action is preserved exactly as it occurred.
+            Audit logs are{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>
+              permanently stored and immutable
+            </strong>
+            . No user or administrator can modify or delete entries — every action is preserved
+            exactly as it occurred.
           </span>
         </div>
 
@@ -470,7 +541,9 @@ export default function AuditLogsPage() {
             }}
           >
             {ACTION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
 
@@ -491,13 +564,19 @@ export default function AuditLogsPage() {
             }}
           >
             {ENTITY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
 
           {/* Date start */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>From</label>
+            <label
+              style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
+            >
+              From
+            </label>
             <input
               id="audit-filter-start-date"
               type="date"
@@ -517,7 +596,11 @@ export default function AuditLogsPage() {
 
           {/* Date end */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>To</label>
+            <label
+              style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
+            >
+              To
+            </label>
             <input
               id="audit-filter-end-date"
               type="date"
@@ -592,7 +675,13 @@ export default function AuditLogsPage() {
           <span>{error}</span>
           <button
             onClick={clearError}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontSize: '16px' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#991b1b',
+              fontSize: '16px',
+            }}
           >
             ✕
           </button>
@@ -638,12 +727,26 @@ export default function AuditLogsPage() {
               textAlign: 'center',
             }}
           >
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.4 }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              style={{ opacity: 0.4 }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
             </svg>
             <p style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>No audit logs found</p>
             <p style={{ margin: 0, fontSize: '12px' }}>
-              {hasFilters ? 'Try adjusting or clearing your filters.' : 'Actions will appear here as they occur.'}
+              {hasFilters
+                ? 'Try adjusting or clearing your filters.'
+                : 'Actions will appear here as they occur.'}
             </p>
           </div>
         ) : (
@@ -666,24 +769,31 @@ export default function AuditLogsPage() {
                 }}
               >
                 <thead>
-                  <tr style={{ background: 'var(--background-tertiary)', borderBottom: '1px solid var(--surface-border)' }}>
-                    {['#', 'Action', 'Entity', 'Entity ID', 'Performed By', 'Timestamp', ''].map((col) => (
-                      <th
-                        key={col}
-                        style={{
-                          padding: '11px 16px',
-                          textAlign: 'left',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          letterSpacing: '0.05em',
-                          color: 'var(--text-tertiary)',
-                          textTransform: 'uppercase',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {col}
-                      </th>
-                    ))}
+                  <tr
+                    style={{
+                      background: 'var(--background-tertiary)',
+                      borderBottom: '1px solid var(--surface-border)',
+                    }}
+                  >
+                    {['#', 'Action', 'Entity', 'Entity ID', 'Performed By', 'Timestamp', ''].map(
+                      (col) => (
+                        <th
+                          key={col}
+                          style={{
+                            padding: '11px 16px',
+                            textAlign: 'left',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            letterSpacing: '0.05em',
+                            color: 'var(--text-tertiary)',
+                            textTransform: 'uppercase',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {col}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -692,12 +802,14 @@ export default function AuditLogsPage() {
                       key={log.id}
                       id={`audit-log-row-${log.id}`}
                       style={{
-                        borderBottom: idx < logs.length - 1 ? '1px solid var(--surface-border)' : 'none',
+                        borderBottom:
+                          idx < logs.length - 1 ? '1px solid var(--surface-border)' : 'none',
                         cursor: 'pointer',
                         transition: 'background 0.12s',
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-hover)';
+                        (e.currentTarget as HTMLTableRowElement).style.background =
+                          'var(--surface-hover)';
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLTableRowElement).style.background = 'transparent';
@@ -705,7 +817,14 @@ export default function AuditLogsPage() {
                       onClick={() => setSelectedLog(log)}
                     >
                       {/* Log ID */}
-                      <td style={{ padding: '13px 16px', color: 'var(--text-disabled)', fontSize: '11.5px', fontFamily: 'monospace' }}>
+                      <td
+                        style={{
+                          padding: '13px 16px',
+                          color: 'var(--text-disabled)',
+                          fontSize: '11.5px',
+                          fontFamily: 'monospace',
+                        }}
+                      >
                         #{log.id}
                       </td>
 
@@ -715,12 +834,25 @@ export default function AuditLogsPage() {
                       </td>
 
                       {/* Entity type */}
-                      <td style={{ padding: '13px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                      <td
+                        style={{
+                          padding: '13px 16px',
+                          color: 'var(--text-primary)',
+                          fontWeight: 600,
+                        }}
+                      >
                         {log.entityType}
                       </td>
 
                       {/* Entity ID */}
-                      <td style={{ padding: '13px 16px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '12px' }}>
+                      <td
+                        style={{
+                          padding: '13px 16px',
+                          color: 'var(--text-secondary)',
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                        }}
+                      >
                         {log.entityId}
                       </td>
 
@@ -729,7 +861,13 @@ export default function AuditLogsPage() {
                         <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>
                           {log.user.firstName} {log.user.lastName}
                         </p>
-                        <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                        <p
+                          style={{
+                            margin: '1px 0 0',
+                            fontSize: '11.5px',
+                            color: 'var(--text-secondary)',
+                          }}
+                        >
                           {log.user.email}
                         </p>
                       </td>
@@ -739,7 +877,13 @@ export default function AuditLogsPage() {
                         <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--text-primary)' }}>
                           {formatDateTime(log.performedAt)}
                         </p>
-                        <p style={{ margin: '1px 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                        <p
+                          style={{
+                            margin: '1px 0 0',
+                            fontSize: '11px',
+                            color: 'var(--text-tertiary)',
+                          }}
+                        >
                           {formatRelative(log.performedAt)}
                         </p>
                       </td>
@@ -759,16 +903,23 @@ export default function AuditLogsPage() {
                             transition: 'all 0.12s',
                           }}
                           onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent)';
+                            (e.currentTarget as HTMLButtonElement).style.background =
+                              'var(--accent)';
                             (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
+                            (e.currentTarget as HTMLButtonElement).style.borderColor =
+                              'var(--accent)';
                           }}
                           onMouseLeave={(e) => {
                             (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                            (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)';
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--surface-border)';
+                            (e.currentTarget as HTMLButtonElement).style.color =
+                              'var(--text-secondary)';
+                            (e.currentTarget as HTMLButtonElement).style.borderColor =
+                              'var(--surface-border)';
                           }}
-                          onClick={(e) => { e.stopPropagation(); setSelectedLog(log); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedLog(log);
+                          }}
                         >
                           Details
                         </button>
@@ -839,9 +990,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* ── Detail modal ─────────────────────────────────────────────────── */}
-      {selectedLog && (
-        <DetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
-      )}
+      {selectedLog && <DetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
 
       <style>{`
         @keyframes spin {

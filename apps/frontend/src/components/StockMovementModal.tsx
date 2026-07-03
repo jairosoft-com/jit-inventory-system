@@ -66,8 +66,10 @@ function matchesFilter(
   filter: 'ALL' | 'STOCK_IN' | 'STOCK_OUT',
 ): boolean {
   if (filter === 'ALL') return true;
-  if (filter === 'STOCK_IN') return movementType === 'STOCK_IN' || movementType === 'ADJUSTMENT_ADD';
-  if (filter === 'STOCK_OUT') return movementType === 'STOCK_OUT' || movementType === 'ADJUSTMENT_REMOVE';
+  if (filter === 'STOCK_IN')
+    return movementType === 'STOCK_IN' || movementType === 'ADJUSTMENT_ADD';
+  if (filter === 'STOCK_OUT')
+    return movementType === 'STOCK_OUT' || movementType === 'ADJUSTMENT_REMOVE';
   return false;
 }
 
@@ -99,9 +101,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'STOCK_IN' | 'STOCK_OUT'>('ALL');
 
   // preview quantity
-  const previewQty = txType === 'STOCK_IN'
-    ? profile.quantity + delta
-    : profile.quantity - delta;
+  const previewQty = txType === 'STOCK_IN' ? profile.quantity + delta : profile.quantity - delta;
 
   const previewSafe = Math.max(0, previewQty);
 
@@ -110,7 +110,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
     if (activeTab === 'history') {
       fetchHistory();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   // Fix 1 + 2 — Use the shared authenticated Axios client instead of raw fetch.
@@ -174,9 +174,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
       onClose();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
-      setFormError(
-        e.response?.data?.message || e.message || 'An unexpected error occurred.',
-      );
+      setFormError(e.response?.data?.message || e.message || 'An unexpected error occurred.');
       setIsSaving(false);
     }
   };
@@ -190,7 +188,6 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200">
-
         {/* Header */}
         <div className="border-b border-gray-100 p-4 sm:p-6 pb-4">
           <div className="flex items-start justify-between">
@@ -238,15 +235,23 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500">Current Quantity</span>
                 <span className="text-lg font-semibold text-gray-900">
-                  {profile.quantity} <span className="text-sm font-normal text-gray-500">{profile.unit}</span>
+                  {profile.quantity}{' '}
+                  <span className="text-sm font-normal text-gray-500">{profile.unit}</span>
                 </span>
               </div>
               <div className="mt-2 flex justify-between items-center text-sm border-t border-gray-200 pt-2">
                 <span className="text-gray-500">New Quantity</span>
-                <span className={`text-lg font-semibold ${
-                  previewSafe > profile.quantity ? 'text-emerald-600' : previewSafe < profile.quantity ? 'text-rose-600' : 'text-gray-900'
-                }`}>
-                  {previewSafe} <span className="text-sm font-normal text-gray-500">{profile.unit}</span>
+                <span
+                  className={`text-lg font-semibold ${
+                    previewSafe > profile.quantity
+                      ? 'text-emerald-600'
+                      : previewSafe < profile.quantity
+                        ? 'text-rose-600'
+                        : 'text-gray-900'
+                  }`}
+                >
+                  {previewSafe}{' '}
+                  <span className="text-sm font-normal text-gray-500">{profile.unit}</span>
                 </span>
               </div>
             </div>
@@ -330,7 +335,9 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
               </button>
               <button
                 type="submit"
-                disabled={isSaving || delta <= 0 || (txType === 'STOCK_OUT' && delta > profile.quantity)}
+                disabled={
+                  isSaving || delta <= 0 || (txType === 'STOCK_OUT' && delta > profile.quantity)
+                }
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
               >
                 {isSaving ? 'Saving...' : 'Confirm Update'}
@@ -342,7 +349,6 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
         {/* ── History Tab ── */}
         {activeTab === 'history' && (
           <div className="flex h-[400px] flex-col p-4 sm:p-6">
-
             {/* Filters */}
             <div className="mb-4 flex flex-wrap shrink-0 gap-2">
               <button
@@ -388,7 +394,9 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                 </div>
               ) : displayedMovements.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                  {movements.length === 0 ? 'No stock history found.' : 'No matching stock history found.'}
+                  {movements.length === 0
+                    ? 'No stock history found.'
+                    : 'No matching stock history found.'}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -397,34 +405,41 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
                     const isPositive = mov.quantityChange > 0;
 
                     return (
-                      <div key={mov.id} className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div
+                        key={mov.id}
+                        className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4"
+                      >
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold border ${status.color}`}>
+                            <span
+                              className={`inline-block rounded px-2 py-0.5 text-xs font-semibold border ${status.color}`}
+                            >
                               {status.label}
                             </span>
                             <div className="mt-1.5 text-sm font-medium text-gray-900">
                               {mov.performedBy.firstName} {mov.performedBy.lastName}
                             </div>
                           </div>
-                          <div className={`text-sm font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {isPositive ? '+' : '-'}{Math.abs(mov.quantityChange)}
+                          <div
+                            className={`text-sm font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}
+                          >
+                            {isPositive ? '+' : '-'}
+                            {Math.abs(mov.quantityChange)}
                           </div>
                         </div>
 
                         <div className="flex justify-between items-end mt-1">
+                          <div className="text-xs text-gray-500">{formatTs(mov.createdAt)}</div>
                           <div className="text-xs text-gray-500">
-                            {formatTs(mov.createdAt)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Balance: <span className="font-medium text-gray-700">{mov.quantityAfter}</span>
+                            Balance:{' '}
+                            <span className="font-medium text-gray-700">{mov.quantityAfter}</span>
                           </div>
                         </div>
 
                         {mov.reason && (
-                           <p className="mt-2 text-xs text-gray-600 border-l-2 border-gray-300 pl-2 py-0.5 bg-white rounded-r-md px-2 shadow-sm">
-                             "{mov.reason}"
-                           </p>
+                          <p className="mt-2 text-xs text-gray-600 border-l-2 border-gray-300 pl-2 py-0.5 bg-white rounded-r-md px-2 shadow-sm">
+                            "{mov.reason}"
+                          </p>
                         )}
                       </div>
                     );

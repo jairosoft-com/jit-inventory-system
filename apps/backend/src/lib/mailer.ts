@@ -16,7 +16,11 @@ interface SendMailInput {
   html: string;
 }
 
-export async function sendMail({ to, subject, html }: SendMailInput): Promise<void> {
+export async function sendMail({
+  to,
+  subject,
+  html,
+}: SendMailInput): Promise<void> {
   try {
     await transporter.sendMail({
       from: env.SMTP_FROM,

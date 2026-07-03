@@ -49,7 +49,10 @@ describe('UsersService activity logging (task 207940)', () => {
 
   afterAll(async () => {
     await prisma.inventoryLog.deleteMany({
-      where: { entityType: 'User', entityId: { in: [targetUserId, adminUserId] } },
+      where: {
+        entityType: 'User',
+        entityId: { in: [targetUserId, adminUserId] },
+      },
     });
     await prisma.user.deleteMany({
       where: { id: { in: [targetUserId, adminUserId] } },
@@ -106,7 +109,7 @@ describe('UsersService activity logging (task 207940)', () => {
     expect(log?.newData).not.toBeNull();
   });
 
-  it('logs an UPDATED entry when an admin changes a user\'s role or active status', async () => {
+  it("logs an UPDATED entry when an admin changes a user's role or active status", async () => {
     await UsersService.updateAccess(
       targetUserId,
       { isActive: false },

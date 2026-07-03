@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useAlertStore, ALERT_POLL_INTERVAL_MS } from '../store/alertStore';
+import { useAlertStore, ALERT_POLL_INTERVAL_MS, type AlertCategoryFilter } from '../store/alertStore';
 import { useProcurementAlertStore } from '../store/procurementAlertStore';
 import { usePolling } from '../lib/usePolling';
 
@@ -246,26 +246,26 @@ const NAV_SECTIONS = [
     label: 'MAIN',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: IconDashboard },
-      { name: 'Inventory', href: '/dashboard/inventory', icon: IconInventory },
-      { name: 'Categories', href: '/dashboard/categories', icon: IconCategories },
-      { name: 'Equipment', href: '/dashboard/equipment', icon: IconEquipment },
+      { name: 'Inventory', href: '/dashboard/inventory', icon: IconInventory, requiredPermission: 'inventory:read' },
+      { name: 'Categories', href: '/dashboard/categories', icon: IconCategories, requiredPermission: 'categories:create' },
+      { name: 'Equipment', href: '/dashboard/equipment', icon: IconEquipment, requiredPermission: 'equipment:read' },
     ],
   },
   {
     label: 'OPERATIONS',
     items: [
-      { name: 'Borrow Requests', href: '/dashboard/borrow', icon: IconBorrow },
-      { name: 'Purchase Orders', href: '/dashboard/orders', icon: IconOrders },
-      { name: 'Suppliers', href: '/dashboard/suppliers', icon: IconSuppliers },
-      { name: 'Maintenance', href: '/dashboard/maintenance', icon: IconMaintenance },
+      { name: 'Borrow Requests', href: '/dashboard/borrow', icon: IconBorrow, requiredPermission: 'borrow:read' },
+      { name: 'Purchase Orders', href: '/dashboard/orders', icon: IconOrders, requiredPermission: 'purchase_orders:read' },
+      { name: 'Suppliers', href: '/dashboard/suppliers', icon: IconSuppliers, requiredPermission: 'suppliers:create' },
+      { name: 'Maintenance', href: '/dashboard/maintenance', icon: IconMaintenance, requiredPermission: 'maintenance:read' },
     ],
   },
   {
     label: 'ADMIN',
     items: [
-      { name: 'Users & Roles', href: '/dashboard/users', icon: IconUsers },
-      { name: 'Audit Logs', href: '/dashboard/logs', icon: IconLogs },
-      { name: 'Reports', href: '/dashboard/reports', icon: IconReports },
+      { name: 'Users & Roles', href: '/dashboard/users', icon: IconUsers, requiredPermission: 'users:read' },
+      { name: 'Audit Logs', href: '/dashboard/logs', icon: IconLogs, requiredPermission: 'audit_logs:read' },
+      { name: 'Reports', href: '/dashboard/reports', icon: IconReports, requiredPermission: 'reports:export' },
     ],
   },
 ];
@@ -301,16 +301,34 @@ export default function DashboardLayout() {
   const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
+  const [notifView, setNotifView] = useState<'current' | 'history'>('current');
+  const [notifCategory, setNotifCategory] = useState<AlertCategoryFilter>('ALL');
   const hasCheckedAuthRef = useRef(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const permissions = useMemo(() => {
+    if (!user || !user.permissions) return [];
+    return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
+  }, [user]);
+
+  const hasPermission = (requiredPermission?: string) => {
+    if (!requiredPermission) return true;
+    if (user?.role?.name === 'ADMIN') return true;
+    return permissions.includes(requiredPermission);
+  };
 
   const {
     unreadCount,
     alerts,
+    historyAlerts,
     isOpen: notifOpen,
     isLoading: notifLoading,
+    isHistoryLoading,
+    historyError,
     fetchUnreadCount,
     fetchUnread,
+    fetchHistory,
+    scanAlerts,
     markAsRead,
     markAllAsRead,
     toggleOpen,
@@ -325,8 +343,8 @@ export default function DashboardLayout() {
     markAllAsRead: markAllProcurementAsRead,
   } = useProcurementAlertStore();
 
-// Poll badge count every 60s
-usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
+  // Poll badge count every 60s
+  usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
   usePolling(fetchProcurementUnread, ALERT_POLL_INTERVAL_MS, !!user);
 
   // Close notification panel on click outside
@@ -340,6 +358,15 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [notifOpen, closeNotif]);
+
+
+  useEffect(() => {
+    if (!notifOpen || notifView !== 'history') {
+      return;
+    }
+
+    void fetchHistory({ category: notifCategory });
+  }, [fetchHistory, notifCategory, notifOpen, notifView]);
 
   useEffect(() => {
     if (hasCheckedAuthRef.current) {
@@ -390,24 +417,44 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
     void checkAuth();
   };
 
-  // Merge and sort all alerts
+  // Merge inventory/maintenance and procurement alerts for the Current tab.
+  type DisplayedNotification = {
+    id: string | number;
+    alertType: string;
+    priority: 'INFO' | 'WARNING' | 'CRITICAL' | 'NORMAL';
+    message: string;
+    isRead: boolean;
+    readAt: string | null;
+    createdAt: string;
+    source: 'inventory' | 'procurement';
+  };
+
   const totalUnreadCount = unreadCount + procurementUnreadCount;
-  const mergedAlerts = [
-    ...alerts.map((a) => ({ ...a, source: 'inventory' as const })),
-    ...procurementAlerts.map((a) => ({
-      id: a.id,
-      alertType: a.alertType as string,
-      priority: (a.alertType === 'PENDING_APPROVAL' ? 'WARNING' : 'NORMAL') as 'WARNING' | 'NORMAL',
-      message: a.message,
-      isRead: a.isRead,
-      readAt: a.readAt,
-      createdAt: a.createdAt,
-      resolvedAt: null,
-      consumableProfile: null,
+  const currentNotifications: DisplayedNotification[] = [
+    ...alerts.map((alert) => ({ ...alert, source: 'inventory' as const })),
+    ...procurementAlerts.map((alert) => ({
+      id: alert.id,
+      alertType: alert.alertType as string,
+      priority: (alert.alertType === 'PENDING_APPROVAL' ? 'WARNING' : 'NORMAL') as
+        | 'WARNING'
+        | 'NORMAL',
+      message: alert.message,
+      isRead: alert.isRead,
+      readAt: alert.readAt,
+      createdAt: alert.createdAt,
       source: 'procurement' as const,
     })),
   ].sort(
-    (a: { createdAt: string }, b: { createdAt: string }) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+  const historyNotifications: DisplayedNotification[] = historyAlerts.map((alert) => ({
+    ...alert,
+    source: 'inventory' as const,
+  }));
+
+  const displayedNotifications =
+    notifView === 'history' ? historyNotifications : currentNotifications;
 
   if (isLoading) {
     return (
@@ -527,6 +574,45 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
     return (f + l).toUpperCase();
   };
 
+
+  const notificationsLoading = notifView === 'history' ? isHistoryLoading : notifLoading;
+  const notificationEmptyText = notifView === 'history'
+    ? 'No notification history found'
+    : 'No alerts right now';
+
+  const handleNotificationViewChange = (view: 'current' | 'history') => {
+    setNotifView(view);
+    if (view === 'current') {
+      void fetchUnread();
+    }
+  };
+
+  const handleNotificationCategoryChange = (category: AlertCategoryFilter) => {
+    setNotifCategory(category);
+  };
+
+  const handleNotificationRefresh = async () => {
+    await scanAlerts();
+    await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
+
+    if (notifView === 'history') {
+      await fetchHistory({ category: notifCategory });
+      return;
+    }
+
+    await Promise.all([fetchUnread(), fetchProcurementUnread()]);
+  };
+
+  const formatAlertTypeLabel = (category: string) => {
+    if (category === 'ALL') return 'All Categories';
+
+    return category
+      .toLowerCase()
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   return (
     <div className="dash-layout">
       {/* Sidebar */}
@@ -559,29 +645,37 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
 
         {/* Nav sections */}
         <nav className="dash-sidebar-nav">
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.label} className="dash-nav-section">
-              {!collapsed && <span className="dash-nav-label">{section.label}</span>}
-              <ul className="dash-nav-list">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <li key={item.name}>
-                      <button
-                        className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
-                        onClick={() => navigate(item.href)}
-                        title={collapsed ? item.name : undefined}
-                      >
-                        <item.icon />
-                        {!collapsed && <span>{item.name}</span>}
-                        {isActive && <div className="dash-nav-indicator" />}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {NAV_SECTIONS.map((section) => {
+            const filteredItems = section.items.filter((item) => {
+              return hasPermission(item.requiredPermission);
+            });
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={section.label} className="dash-nav-section">
+                {!collapsed && <span className="dash-nav-label">{section.label}</span>}
+                <ul className="dash-nav-list">
+                  {filteredItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <li key={item.name}>
+                        <button
+                          className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
+                          onClick={() => navigate(item.href)}
+                          title={collapsed ? item.name : undefined}
+                        >
+                          <item.icon />
+                          {!collapsed && <span>{item.name}</span>}
+                          {isActive && <div className="dash-nav-indicator" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Sidebar footer */}
@@ -661,41 +755,119 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
               {notifOpen && (
                 <div className="dash-notif-panel">
                   <div className="dash-notif-header">
-                    <span className="dash-notif-title">Notifications</span>
-                    {totalUnreadCount > 0 && (
+                    <div>
+                      <span className="dash-notif-title">Notifications</span>
+                      <p className="dash-notif-subtitle">
+                        Updates refresh every {Math.round(ALERT_POLL_INTERVAL_MS / 1000)} seconds.
+                      </p>
+                    </div>
+                    <div className="dash-notif-header-actions">
                       <button
-                        className="dash-notif-mark-all"
-                        onClick={() => {
-                          void markAllAsRead();
-                          void markAllProcurementAsRead();
-                        }}
+                        type="button"
+                        className="dash-notif-refresh"
+                        onClick={() => void handleNotificationRefresh()}
+                        disabled={notificationsLoading}
+                        title="Refresh notifications"
+                        aria-label="Refresh notifications"
                       >
-                        Mark all read
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 12a9 9 0 01-15.32 6.36" />
+                          <path d="M3 12a9 9 0 0115.32-6.36" />
+                          <path d="M18 3v4h-4" />
+                          <path d="M6 21v-4h4" />
+                        </svg>
                       </button>
-                    )}
+
+                      {totalUnreadCount > 0 && (
+                        <button
+                          className="dash-notif-mark-all"
+                          onClick={() => {
+                            void markAllAsRead();
+                            void markAllProcurementAsRead();
+                          }}
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="dash-notif-body">
-                    {notifLoading ? (
+                  <div className="dash-notif-tabs">
+                    <button
+                      type="button"
+                      className={`dash-notif-tab ${notifView === 'current' ? 'dash-notif-tab--active' : ''}`}
+                      onClick={() => handleNotificationViewChange('current')}
+                    >
+                      Current
+                    </button>
+                    <button
+                      type="button"
+                      className={`dash-notif-tab ${notifView === 'history' ? 'dash-notif-tab--active' : ''}`}
+                      onClick={() => handleNotificationViewChange('history')}
+                    >
+                      History
+                    </button>
+                  </div>
+
+                  {notifView === 'history' && (
+                    <div className="dash-notif-filter-row">
+                      <label htmlFor="notification-category-filter">Category</label>
+                      <select
+                        id="notification-category-filter"
+                        value={notifCategory}
+                        onChange={(event) =>
+                          handleNotificationCategoryChange(event.target.value as AlertCategoryFilter)
+                        }
+                      >
+                        {([
+                          'ALL',
+                          'LOW_STOCK',
+                          'OUT_OF_STOCK',
+                          'OVERDUE_EQUIPMENT',
+                          'WARRANTY_EXPIRING',
+                          'REPLACEMENT_NEEDED',
+                          'MAINTENANCE_DUE',
+                        ] as AlertCategoryFilter[]).map((category) => (
+                          <option key={category} value={category}>
+                            {formatAlertTypeLabel(category)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className={`dash-notif-body ${notifView === 'history' ? 'dash-notif-body--history' : ''}`}>
+                    {notificationsLoading ? (
                       <div className="dash-notif-empty">Loading...</div>
-                    ) : mergedAlerts.length === 0 ? (
+                    ) : historyError && notifView === 'history' ? (
+                      <div className="dash-notif-empty">{historyError}</div>
+                    ) : displayedNotifications.length === 0 ? (
                       <div className="dash-notif-empty">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, marginBottom: 8 }}>
                           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
                         </svg>
-                        <span>No alerts right now</span>
+                        <span>{notificationEmptyText}</span>
                       </div>
                     ) : (
-                      mergedAlerts.map((alert) => (
+                      displayedNotifications.map((alert) => (
                         <div
                           key={`${alert.source}-${alert.id}`}
                           className={`dash-notif-item ${!alert.isRead ? 'dash-notif-item--unread' : ''} ${alert.priority === 'CRITICAL' ? 'dash-notif-item--critical' : ''}`}
                           onClick={() => {
                             if (!alert.isRead) {
                               if (alert.source === 'procurement') {
-                                void markProcurementAsRead(alert.id);
+                                void markProcurementAsRead(Number(alert.id));
                               } else {
-                                void markAsRead(alert.id);
+                                void markAsRead(String(alert.id));
                               }
                             }
                           }}
@@ -704,14 +876,20 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
                           <div className="dash-notif-item-body">
                             <span className="dash-notif-item-msg">{alert.message}</span>
                             <span className="dash-notif-item-time">
-                              {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {formatAlertTypeLabel(alert.alertType)} • {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          {alert.priority !== 'NORMAL' && (
-                            <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
-                              {alert.priority}
+                          <div className="dash-notif-tags">
+                            {alert.priority !== 'NORMAL' && (
+                              <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
+                                {alert.priority}
+                              </span>
+                            )}
+                            <span className={`dash-notif-status ${alert.isRead ? 'dash-notif-status--read' : 'dash-notif-status--unread'}`}>
+                              {alert.isRead ? 'Read' : 'Unread'}
                             </span>
-                          )}
+                          </div>
+
                         </div>
                       ))
                     )}
@@ -1096,6 +1274,44 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
           color: var(--text-primary);
         }
 
+        .dash-notif-subtitle {
+          margin: 2px 0 0;
+          font-size: 11px;
+          color: var(--text-tertiary);
+        }
+
+        .dash-notif-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .dash-notif-refresh {
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--surface-border);
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .dash-notif-refresh:hover:not(:disabled) {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-muted);
+        }
+
+        .dash-notif-refresh:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+
         .dash-notif-mark-all {
           background: none;
           border: none;
@@ -1108,9 +1324,75 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
         }
         .dash-notif-mark-all:hover { text-decoration: underline; }
 
+        .dash-notif-tabs {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--surface-border);
+          background: var(--background-tertiary);
+        }
+
+        .dash-notif-tab {
+          border: 1px solid var(--surface-border);
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 7px 10px;
+          transition: all var(--transition-fast);
+        }
+
+        .dash-notif-tab--active,
+        .dash-notif-tab:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-muted);
+        }
+
+        .dash-notif-filter-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--surface-border);
+        }
+
+        .dash-notif-filter-row label {
+          color: var(--text-tertiary);
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .dash-notif-filter-row select {
+          flex: 1;
+          border: 1px solid var(--surface-border);
+          border-radius: 8px;
+          background: var(--surface);
+          color: var(--text-primary);
+          font: inherit;
+          font-size: 12px;
+          padding: 7px 9px;
+        }
+
         .dash-notif-body {
           max-height: 380px;
           overflow-y: auto;
+        }
+
+        .dash-notif-body--history {
+          margin: 12px;
+          max-height: 340px;
+          border: 1px solid var(--surface-border);
+          border-radius: 10px;
+          background: var(--surface);
+          overflow: hidden auto;
         }
 
         .dash-notif-empty {
@@ -1169,8 +1451,15 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
           color: var(--text-tertiary);
         }
 
-        .dash-notif-tag {
+        .dash-notif-tags {
           flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+        }
+
+        .dash-notif-tag {
           font-size: 10px;
           font-weight: 700;
           padding: 2px 6px;
@@ -1185,6 +1474,25 @@ usePolling(fetchUnreadCount, ALERT_POLL_INTERVAL_MS, !!user);
         .dash-notif-tag--critical {
           background: rgba(220,38,38,0.1);
           color: var(--danger, #dc2626);
+        }
+
+        .dash-notif-status {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 999px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .dash-notif-status--read {
+          background: var(--background-tertiary);
+          color: var(--text-tertiary);
+        }
+
+        .dash-notif-status--unread {
+          background: var(--accent-muted);
+          color: var(--accent);
         }
 
         /* ------ Page Content Area ------ */

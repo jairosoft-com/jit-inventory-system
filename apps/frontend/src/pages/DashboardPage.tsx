@@ -276,7 +276,10 @@ export default function DashboardPage() {
     RETIRED: { label: 'Retired', color: '#9ca3af' },
   };
 
+  const isStaff = userRole === 'STAFF';
+
   const statusesToShow = Object.keys(statusConfigs)
+    .filter((statusKey) => !(isStaff && statusKey === 'DAMAGED'))
     .map((statusKey) => {
       const entry = equipmentBreakdown.find((item) => item.status === statusKey);
       const count = entry ? entry.count : 0;
@@ -290,8 +293,6 @@ export default function DashboardPage() {
       };
     })
     .filter((status) => status.count > 0 || totalEquipmentCount === 0);
-
-  const isStaff = userRole === 'STAFF';
 
   const statCards = isStaff
     ? [

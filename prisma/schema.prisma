@@ -1,9 +1,3 @@
-// ============================================
-// JIT Inventory & Equipment Management System
-// Prisma Schema — v4.4
-// Single source of truth for DB schema
-// ============================================
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,9 +7,517 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ────────────────────────────────────────────
-// Enums
-// ────────────────────────────────────────────
+model Role {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique @db.VarChar(50)
+  description     String?
+  isSystem        Boolean          @default(false) @map("is_system")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  rolePermissions RolePermission[]
+  users           User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique @db.VarChar(100)
+  resource        String           @db.VarChar(50)
+  action          String           @db.VarChar(50)
+  description     String?
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                Int                    @id @default(autoincrement())
+  firstName         String                 @map("first_name") @db.VarChar(100)
+  lastName          String                 @map("last_name") @db.VarChar(100)
+  email             String                 @unique @db.VarChar(255)
+  password          String                 @db.VarChar(255)
+  roleId            Int                    @map("role_id")
+  isActive          Boolean                @default(true) @map("is_active")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  deletedAt         DateTime?              @map("deleted_at")
+  borrowApprovals   BorrowRecord[]         @relation("ApprovedByUser")
+  borrowRequests    BorrowRecord[]         @relation("BorrowedByUser")
+  disposalsApproved Disposal[]             @relation("DisposalApprovedBy")
+  equipmentAssigned Equipment[]            @relation("AssignedTo")
+  activityLogs      InventoryLog[]
+  itemsRegistered   Item[]                 @relation("RegisteredBy")
+  maintenanceJobs   MaintenanceLog[]       @relation("PerformedByUser")
+  poHistoryEntries  PurchaseOrderHistory[] @relation("POHistoryChangedBy")
+  purchaseOrders    PurchaseOrder[]        @relation("CreatedByUser")
+  refreshTokens     RefreshToken[]
+  stockAdjustments  StockAdjustment[]      @relation("AdjustedByUser")
+  stockInReceived   StockIn[]              @relation("ReceivedByUser")
+  stockMovements    StockMovement[]        @relation("StockMovementPerformedBy")
+  stockOutReleased  StockOut[]             @relation("ReleasedByUser")
+  role              Role                   @relation(fields: [roleId], references: [id])
+  procurementAlerts ProcurementAlert[]
+
+  @@index([isActive])
+  @@index([roleId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  type        ItemType
+  description String?
+  deletedAt   DateTime? @map("deleted_at")
+  items       Item[]
+
+  @@index([type])
+  @@index([deletedAt])
+  @@map("categories")
+}
+
+model Item {
+  id                 Int                 @id @default(autoincrement())
+  itemName           String              @map("item_name") @db.VarChar(255)
+  description        String?
+  categoryId         Int                 @map("category_id")
+  barcode            String?             @unique @db.VarChar(255)
+  imageUrl           String?             @map("image_url") @db.VarChar(500)
+  registeredBy       Int?                @map("registered_by")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  deletedAt          DateTime?           @map("deleted_at")
+  itemType           ItemType            @map("item_type")
+  consumableProfile  ConsumableProfile?
+  digitalAsset       DigitalAsset?
+  equipment          Equipment?
+  images             ItemImage[]
+  category           Category            @relation(fields: [categoryId], references: [id])
+  registeredByUser   User?               @relation("RegisteredBy", fields: [registeredBy], references: [id])
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([categoryId])
+  @@index([itemType])
+  @@index([deletedAt])
+  @@map("items")
+}
+
+model ItemImage {
+  id         Int       @id @default(autoincrement())
+  itemId     Int       @map("item_id")
+  url        String
+  label      String?   @db.VarChar(100)
+  isPrimary  Boolean   @default(false) @map("is_primary")
+  uploadedAt DateTime  @default(now()) @map("uploaded_at")
+  deletedAt  DateTime? @map("deleted_at")
+  item       Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("item_images")
+}
+
+model ConsumableProfile {
+  id               Int               @id @default(autoincrement())
+  itemId           Int               @unique @map("item_id")
+  unit             String            @db.VarChar(50)
+  quantity         Int               @default(0)
+  reorderPoint     Int               @default(0) @map("reorder_point")
+  status           ItemStatus        @default(IN_STOCK)
+  item             Item              @relation(fields: [itemId], references: [id])
+  alerts           InventoryAlert[]
+  stockAdjustments StockAdjustment[]
+  stockIns         StockIn[]
+  stockMovements   StockMovement[]
+  stockOuts        StockOut[]
+
+  @@index([status])
+  @@map("consumable_profiles")
+}
+
+model Equipment {
+  id                  Int              @id @default(autoincrement())
+  itemId              Int              @unique @map("item_id")
+  assetId             String           @unique @map("asset_id") @db.VarChar(100)
+  serialNumber        String?          @unique @map("serial_number") @db.VarChar(100)
+  brand               String?          @db.VarChar(255)
+  model               String?          @db.VarChar(255)
+  condition           ConditionStatus  @default(NEW)
+  status              EquipmentStatus  @default(AVAILABLE)
+  location            String?          @db.VarChar(255)
+  assignedTo          Int?             @map("assigned_to")
+  acquisitionDate     DateTime?        @map("acquisition_date") @db.Date
+  purchasePrice       Decimal?         @map("purchase_price") @db.Decimal(10, 2)
+  warrantyStart       DateTime?        @map("warranty_start") @db.Date
+  warrantyEnd         DateTime?        @map("warranty_end") @db.Date
+  warrantyProvider    String?          @map("warranty_provider") @db.VarChar(255)
+  warrantyDocUrl      String?          @map("warranty_doc_url") @db.VarChar(500)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  deletedAt           DateTime?        @map("deleted_at")
+  purchaseOrderId     Int?             @map("purchase_order_id")
+  replacementNeeded   Boolean          @default(false) @map("replacement_needed")
+  replacementNeededAt DateTime?        @map("replacement_needed_at")
+  borrowRecords       BorrowRecord[]
+  disposal            Disposal?
+  assignedToUser      User?            @relation("AssignedTo", fields: [assignedTo], references: [id])
+  item                Item             @relation(fields: [itemId], references: [id])
+  purchaseOrder       PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
+  images              EquipmentImage[]
+  maintenanceLogs     MaintenanceLog[]
+  alerts              InventoryAlert[]
+
+  @@index([status])
+  @@index([assignedTo])
+  @@index([deletedAt])
+  @@index([warrantyEnd])
+  @@index([purchaseOrderId])
+  @@index([replacementNeeded])
+  @@map("equipment")
+}
+
+model EquipmentImage {
+  id          Int       @id @default(autoincrement())
+  equipmentId Int       @map("equipment_id")
+  url         String
+  label       String?   @db.VarChar(100)
+  isPrimary   Boolean   @default(false) @map("is_primary")
+  uploadedAt  DateTime  @default(now()) @map("uploaded_at")
+  deletedAt   DateTime? @map("deleted_at")
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([deletedAt])
+  @@map("equipment_images")
+}
+
+model DigitalAsset {
+  id             Int              @id @default(autoincrement())
+  itemId         Int              @unique @map("item_id")
+  assetType      DigitalAssetType @map("asset_type")
+  url            String?          @db.VarChar(500)
+  vendor         String?          @db.VarChar(255)
+  licenseKey     String?          @map("license_key")
+  credentialsRef String?          @map("credentials_ref") @db.VarChar(255)
+  seats          Int?
+  expiryDate     DateTime?        @map("expiry_date") @db.Date
+  cost           Decimal?         @db.Decimal(10, 2)
+  billingCycle   BillingCycle?    @map("billing_cycle")
+  status         DigitalStatus    @default(ACTIVE)
+  notes          String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+  renewalCount   Int              @default(0) @map("renewal_count")
+  item           Item             @relation(fields: [itemId], references: [id])
+
+  @@index([status])
+  @@index([expiryDate])
+  @@index([assetType])
+  @@map("digital_assets")
+}
+
+model Supplier {
+  id             Int             @id @default(autoincrement())
+  supplierName   String          @map("supplier_name") @db.VarChar(255)
+  contactPerson  String?         @map("contact_person") @db.VarChar(255)
+  email          String?         @db.VarChar(255)
+  phone          String?         @db.VarChar(50)
+  address        String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  deletedAt      DateTime?       @map("deleted_at")
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id            Int                       @id @default(autoincrement())
+  supplierId    Int                       @map("supplier_id")
+  invoiceNumber String?                   @unique @map("invoice_number") @db.VarChar(100)
+  status        PurchaseOrderStatus       @default(DRAFT)
+  totalAmount   Decimal                   @map("total_amount") @db.Decimal(10, 2)
+  receiptUrl    String?                   @map("receipt_url") @db.VarChar(500)
+  createdById   Int                       @map("created_by_id")
+  orderDate     DateTime                  @default(now()) @map("order_date")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+  equipment     Equipment[]
+  attachments   PurchaseOrderAttachment[]
+  history           PurchaseOrderHistory[]
+  lineItems         PurchaseOrderItem[]
+  createdBy         User                      @relation("CreatedByUser", fields: [createdById], references: [id])
+  supplier          Supplier                  @relation(fields: [supplierId], references: [id])
+  stockIns          StockIn[]
+  procurementAlerts ProcurementAlert[]
+
+  @@index([status])
+  @@index([supplierId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int           @map("purchase_order_id")
+  itemId          Int           @map("item_id")
+  quantity        Int
+  unitCost        Decimal       @map("unit_cost") @db.Decimal(10, 2)
+  item            Item          @relation(fields: [itemId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseOrderId, itemId])
+  @@map("purchase_order_items")
+}
+
+model PurchaseOrderHistory {
+  id              Int                 @id @default(autoincrement())
+  purchaseOrderId Int                 @map("purchase_order_id")
+  oldStatus       PurchaseOrderStatus @map("old_status")
+  newStatus       PurchaseOrderStatus @map("new_status")
+  changedById     Int                 @map("changed_by_id")
+  notes           String?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  changedBy       User                @relation("POHistoryChangedBy", fields: [changedById], references: [id])
+  purchaseOrder   PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([createdAt])
+  @@map("purchase_order_history")
+}
+
+model PurchaseOrderAttachment {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int           @map("purchase_order_id")
+  fileUrl         String        @map("file_url")
+  fileName        String        @map("file_name") @db.VarChar(255)
+  fileSize        Int?          @map("file_size")
+  uploadedAt      DateTime      @default(now()) @map("uploaded_at")
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_attachments")
+}
+
+model StockIn {
+  id                  Int               @id @default(autoincrement())
+  quantityAdded       Int               @map("quantity_added")
+  purchaseOrderId     Int?              @map("purchase_order_id")
+  receivedById        Int               @map("received_by_id")
+  notes               String?
+  createdAt           DateTime          @default(now()) @map("created_at")
+  consumableProfileId Int               @map("consumable_profile_id")
+  consumableProfile   ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  purchaseOrder       PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy          User              @relation("ReceivedByUser", fields: [receivedById], references: [id])
+
+  @@index([consumableProfileId])
+  @@index([createdAt])
+  @@map("stock_in")
+}
+
+model StockOut {
+  id                  Int               @id @default(autoincrement())
+  quantityRemoved     Int               @map("quantity_removed")
+  purpose             String
+  releasedById        Int               @map("released_by_id")
+  notes               String?
+  createdAt           DateTime          @default(now()) @map("created_at")
+  consumableProfileId Int               @map("consumable_profile_id")
+  consumableProfile   ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  releasedBy          User              @relation("ReleasedByUser", fields: [releasedById], references: [id])
+
+  @@index([consumableProfileId])
+  @@index([createdAt])
+  @@map("stock_out")
+}
+
+model StockAdjustment {
+  id                  Int               @id @default(autoincrement())
+  consumableProfileId Int               @map("consumable_profile_id")
+  quantityBefore      Int               @map("quantity_before")
+  quantityAfter       Int               @map("quantity_after")
+  difference          Int
+  reason              AdjustmentReason
+  notes               String?
+  adjustedById        Int               @map("adjusted_by_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  adjustedBy          User              @relation("AdjustedByUser", fields: [adjustedById], references: [id])
+  consumableProfile   ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+
+  @@index([consumableProfileId])
+  @@map("stock_adjustments")
+}
+
+model StockMovement {
+  id                  Int               @id @default(autoincrement())
+  consumableProfileId Int               @map("consumable_profile_id")
+  movementType        MovementType      @map("movement_type")
+  quantityChange      Int               @map("quantity_change")
+  quantityBefore      Int               @map("quantity_before")
+  quantityAfter       Int               @map("quantity_after")
+  reason              String            @db.VarChar(255)
+  referenceType       String?           @map("reference_type") @db.VarChar(50)
+  referenceId         Int?              @map("reference_id")
+  performedById       Int               @map("performed_by_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  consumableProfile   ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
+  performedBy         User              @relation("StockMovementPerformedBy", fields: [performedById], references: [id])
+
+  @@index([consumableProfileId])
+  @@index([movementType])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+model BorrowRecord {
+  id              Int              @id @default(autoincrement())
+  equipmentId     Int              @map("equipment_id")
+  borrowedById    Int              @map("borrowed_by_id")
+  approvedById    Int?             @map("approved_by_id")
+  borrowDate      DateTime?        @map("borrow_date")
+  expectedReturn  DateTime         @map("expected_return") @db.Date
+  actualReturn    DateTime?        @map("actual_return")
+  returnCondition ConditionStatus? @map("return_condition")
+  status          BorrowStatus     @default(PENDING)
+  notes           String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  approvedBy      User?            @relation("ApprovedByUser", fields: [approvedById], references: [id])
+  borrowedBy      User             @relation("BorrowedByUser", fields: [borrowedById], references: [id])
+  equipment       Equipment        @relation(fields: [equipmentId], references: [id])
+  alerts          InventoryAlert[]
+
+  @@index([equipmentId])
+  @@index([expectedReturn])
+  @@index([status])
+  @@index([createdAt])
+  @@map("borrow_records")
+}
+
+model MaintenanceLog {
+  id                 Int                @id @default(autoincrement())
+  equipmentId        Int                @map("equipment_id")
+  description        String
+  status             MaintenanceStatus  @default(SCHEDULED)
+  scheduledDate      DateTime?          @map("scheduled_date") @db.Date
+  completedDate      DateTime?          @map("completed_date") @db.Date
+  cost               Decimal?           @db.Decimal(10, 2)
+  performedById      Int?               @map("performed_by_id")
+  performedByVendor  String?            @map("performed_by_vendor") @db.VarChar(255)
+  notes              String?
+  // Snapshot fields — captured at completion time so the history record is
+  // self-contained even if the linked Equipment row is later modified or deleted.
+  equipmentName      String?            @map("equipment_name") @db.VarChar(255)
+  equipmentBrand     String?            @map("equipment_brand") @db.VarChar(255)
+  equipmentModel     String?            @map("equipment_model") @db.VarChar(255)
+  equipmentCondition ConditionStatus?   @map("equipment_condition")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  equipment          Equipment          @relation(fields: [equipmentId], references: [id])
+  performedBy        User?              @relation("PerformedByUser", fields: [performedById], references: [id])
+  alerts             MaintenanceAlert[]
+
+  @@index([equipmentId])
+  @@index([status])
+  @@map("maintenance_logs")
+}
+
+model MaintenanceAlert {
+  id               Int            @id @default(autoincrement())
+  maintenanceLogId Int            @map("maintenance_log_id")
+  message          String
+  isRead           Boolean        @default(false) @map("is_read")
+  readAt           DateTime?      @map("read_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  maintenanceLog   MaintenanceLog @relation(fields: [maintenanceLogId], references: [id], onDelete: Cascade)
+
+  @@index([isRead])
+  @@index([maintenanceLogId])
+  @@index([createdAt])
+  @@map("maintenance_alerts")
+}
+
+model Disposal {
+  id             Int                    @id @default(autoincrement())
+  equipmentId    Int                    @unique @map("equipment_id")
+  approvedById   Int                    @map("approved_by_id")
+  disposalDate   DateTime               @default(now()) @map("disposal_date")
+  reason         DisposalReason
+  notes          String?
+  createdAt      DateTime               @default(now()) @map("created_at")
+  method         String                 @db.VarChar(100)
+  approvalStatus DisposalApprovalStatus @default(PENDING) @map("approval_status")
+  approvedBy     User                   @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
+  equipment      Equipment              @relation(fields: [equipmentId], references: [id])
+
+  @@index([approvalStatus])
+  @@index([disposalDate])
+  @@map("disposals")
+}
+
+model InventoryLog {
+  id          Int       @id @default(autoincrement())
+  entityType  String    @map("entity_type") @db.VarChar(50)
+  entityId    Int       @map("entity_id")
+  action      LogAction
+  performedBy Int       @map("performed_by")
+  performedAt DateTime  @default(now()) @map("performed_at")
+  newData     Json?     @map("new_data")
+  oldData     Json?     @map("old_data")
+  user        User      @relation(fields: [performedBy], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([performedBy])
+  @@index([performedAt])
+  @@map("inventory_logs")
+}
+
+model InventoryAlert {
+  id                  Int                @id @default(autoincrement())
+  alertType           AlertType          @map("alert_type")
+  priority            AlertPriority
+  consumableProfileId Int?               @map("consumable_profile_id")
+  equipmentId         Int?               @map("equipment_id") // Add this field
+  message             String
+  isRead              Boolean            @default(false) @map("is_read")
+  readAt              DateTime?          @map("read_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  resolvedAt          DateTime?          @map("resolved_at")
+  borrowRecordId      Int?               @map("borrow_record_id")
+  borrowRecord        BorrowRecord?      @relation(fields: [borrowRecordId], references: [id])
+  consumableProfile   ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
+  equipment           Equipment?         @relation(fields: [equipmentId], references: [id]) // Add relation
+
+  @@index([isRead])
+  @@index([resolvedAt])
+  @@index([consumableProfileId])
+  @@index([equipmentId]) // Keep the index
+  @@index([borrowRecordId])
+  @@map("inventory_alerts")
+}
 
 enum ItemType {
   EQUIPMENT
@@ -37,8 +539,8 @@ enum EquipmentStatus {
   DAMAGED
   LOST
   BORROWED
-  RETIREMENT_PENDING
   RETIRED
+  RETIREMENT_PENDING
 }
 
 enum DigitalStatus {
@@ -140,16 +642,14 @@ enum LogAction {
   MAINTENANCE_STARTED
   MAINTENANCE_COMPLETED
   RENEWED
-  LOGIN
-  LOGOUT
 }
 
 enum AlertType {
   LOW_STOCK
   OUT_OF_STOCK
+  OVERDUE_EQUIPMENT
   WARRANTY_EXPIRING
   REPLACEMENT_NEEDED
-  OVERDUE_EQUIPMENT
 }
 
 enum AlertPriority {
@@ -157,618 +657,26 @@ enum AlertPriority {
   CRITICAL
 }
 
-// ────────────────────────────────────────────
-// 1. Roles
-// ────────────────────────────────────────────
-model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique @db.VarChar(50)
-  description String?  @db.Text
-  isSystem    Boolean  @default(false) @map("is_system")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  users           User[]
-  rolePermissions RolePermission[]
-
-  @@map("roles")
+enum ProcurementAlertType {
+  PENDING_APPROVAL
+  STATUS_UPDATED
 }
 
-// ────────────────────────────────────────────
-// 2. Permissions
-// ────────────────────────────────────────────
-model Permission {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique @db.VarChar(100)
-  resource    String  @db.VarChar(50)
-  action      String  @db.VarChar(50)
-  description String? @db.Text
+model ProcurementAlert {
+  id              Int                  @id @default(autoincrement())
+  purchaseOrderId Int                  @map("purchase_order_id")
+  alertType       ProcurementAlertType @map("alert_type")
+  message         String
+  isRead          Boolean              @default(false) @map("is_read")
+  readAt          DateTime?            @map("read_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  userId          Int                  @map("user_id")
+  purchaseOrder   PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  user            User                 @relation(fields: [userId], references: [id])
 
-  rolePermissions RolePermission[]
-
-  @@map("permissions")
-}
-
-// ────────────────────────────────────────────
-// 3. Role Permissions
-// ────────────────────────────────────────────
-model RolePermission {
-  id           Int @id @default(autoincrement())
-  roleId       Int @map("role_id")
-  permissionId Int @map("permission_id")
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@unique([roleId, permissionId])
-  @@map("role_permissions")
-}
-
-// ────────────────────────────────────────────
-// 4. Users
-// ────────────────────────────────────────────
-model User {
-  id        Int       @id @default(autoincrement())
-  firstName String    @map("first_name") @db.VarChar(100)
-  lastName  String    @map("last_name") @db.VarChar(100)
-  email     String    @unique @db.VarChar(255)
-  password  String    @db.VarChar(255)
-  roleId    Int       @map("role_id")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  role              Role                   @relation(fields: [roleId], references: [id])
-  refreshTokens     RefreshToken[]
-  itemsRegistered   Item[]                 @relation("RegisteredBy")
-  equipmentAssigned Equipment[]            @relation("AssignedTo")
-  purchaseOrders    PurchaseOrder[]        @relation("CreatedByUser")
-  stockInReceived   StockIn[]              @relation("ReceivedByUser")
-  stockOutReleased  StockOut[]             @relation("ReleasedByUser")
-  borrowRequests    BorrowRecord[]         @relation("BorrowedByUser")
-  borrowApprovals   BorrowRecord[]         @relation("ApprovedByUser")
-  maintenanceJobs   MaintenanceLog[]       @relation("PerformedByUser")
-  disposalsApproved Disposal[]             @relation("DisposalApprovedBy")
-  activityLogs      InventoryLog[]
-  stockAdjustments  StockAdjustment[]      @relation("AdjustedByUser")
-  stockMovements    StockMovement[]        @relation("StockMovementPerformedBy")
-  poHistoryEntries  PurchaseOrderHistory[] @relation("POHistoryChangedBy")
-
-  @@index([isActive])
-  @@index([roleId])
-  @@map("users")
-}
-
-// ────────────────────────────────────────────
-// 5. Refresh Tokens
-// ────────────────────────────────────────────
-model RefreshToken {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  @@index([isRead])
+  @@index([purchaseOrderId])
+  @@index([alertType])
   @@index([userId])
-  @@map("refresh_tokens")
-}
-
-// ────────────────────────────────────────────
-// 6. Categories
-// ────────────────────────────────────────────
-model Category {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique @db.VarChar(100)
-  type        ItemType
-  description String?   @db.Text
-  deletedAt   DateTime? @map("deleted_at")
-
-  items Item[]
-
-  @@index([type])
-  @@index([deletedAt])
-  @@map("categories")
-}
-
-// ────────────────────────────────────────────
-// 7. Items
-// ────────────────────────────────────────────
-model Item {
-  id           Int       @id @default(autoincrement())
-  itemName     String    @map("item_name") @db.VarChar(255)
-  description  String?   @db.Text
-  categoryId   Int       @map("category_id")
-  itemType     ItemType  @map("item_type")
-  barcode      String?   @unique @db.VarChar(255)
-  imageUrl     String?   @map("image_url") @db.VarChar(500)
-  registeredBy Int?      @map("registered_by")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
-
-  category           Category            @relation(fields: [categoryId], references: [id])
-  registeredByUser   User?               @relation("RegisteredBy", fields: [registeredBy], references: [id])
-  consumableProfile  ConsumableProfile?
-  equipment          Equipment?
-  digitalAsset       DigitalAsset?
-  purchaseOrderItems PurchaseOrderItem[]
-  images             ItemImage[]
-
-  @@index([categoryId])
-  @@index([itemType])
-  @@index([deletedAt])
-  @@map("items")
-}
-
-// ────────────────────────────────────────────
-// 7b. Item Images
-// ────────────────────────────────────────────
-model ItemImage {
-  id         Int       @id @default(autoincrement())
-  itemId     Int       @map("item_id")
-  url        String    @db.Text
-  label      String?   @db.VarChar(100)
-  isPrimary  Boolean   @default(false) @map("is_primary")
-  uploadedAt DateTime  @default(now()) @map("uploaded_at")
-  deletedAt  DateTime? @map("deleted_at")
-
-  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@index([itemId])
-  @@map("item_images")
-}
-
-// ────────────────────────────────────────────
-// 7a. Consumable Profile
-// ────────────────────────────────────────────
-model ConsumableProfile {
-  id           Int        @id @default(autoincrement())
-  itemId       Int        @unique @map("item_id")
-  unit         String     @db.VarChar(50)
-  quantity     Int        @default(0)
-  reorderPoint Int        @default(0) @map("reorder_point")
-  status       ItemStatus @default(IN_STOCK)
-
-  item             Item              @relation(fields: [itemId], references: [id])
-  stockIns         StockIn[]
-  stockOuts        StockOut[]
-  stockAdjustments StockAdjustment[]
-  stockMovements   StockMovement[]
-  alerts InventoryAlert[]
-
-
-  @@index([status])
-  @@map("consumable_profiles")
-}
-
-// ────────────────────────────────────────────
-// 8. Equipment
-// ────────────────────────────────────────────
-model Equipment {
-  id               Int             @id @default(autoincrement())
-  itemId           Int             @unique @map("item_id")
-  assetId          String          @unique @map("asset_id") @db.VarChar(100)
-  serialNumber     String?         @unique @map("serial_number") @db.VarChar(100)
-  brand            String?         @db.VarChar(255)
-  model            String?         @db.VarChar(255)
-  condition        ConditionStatus @default(NEW)
-  status           EquipmentStatus @default(AVAILABLE)
-  location         String?         @db.VarChar(255)
-  assignedTo       Int?            @map("assigned_to")
-  purchaseOrderId  Int?            @map("purchase_order_id")
-  acquisitionDate  DateTime?       @map("acquisition_date") @db.Date
-  purchasePrice    Decimal?        @map("purchase_price") @db.Decimal(10, 2)
-  warrantyStart    DateTime?       @map("warranty_start") @db.Date
-  warrantyEnd      DateTime?       @map("warranty_end") @db.Date
-  warrantyProvider String?         @map("warranty_provider") @db.VarChar(255)
-  warrantyDocUrl     String?         @map("warranty_doc_url") @db.VarChar(500)
-  replacementNeeded Boolean         @default(false) @map("replacement_needed")
-  replacementNeededAt DateTime?     @map("replacement_needed_at")
-  createdAt          DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
-  deletedAt        DateTime?       @map("deleted_at")
-
-  item            Item             @relation(fields: [itemId], references: [id])
-  assignedToUser  User?            @relation("AssignedTo", fields: [assignedTo], references: [id])
-  purchaseOrder   PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
-  images          EquipmentImage[]
-  borrowRecords   BorrowRecord[]
-  maintenanceLogs MaintenanceLog[]
-  disposal        Disposal?
-  alerts          InventoryAlert[]
-
-  @@index([status])
-  @@index([assignedTo])
-  @@index([deletedAt])
-  @@index([warrantyEnd])
-  @@index([purchaseOrderId])
-  @@index([replacementNeeded])
-  @@map("equipment")
-}
-
-// ────────────────────────────────────────────
-// 8a. Equipment Images
-// ────────────────────────────────────────────
-model EquipmentImage {
-  id          Int       @id @default(autoincrement())
-  equipmentId Int       @map("equipment_id")
-  url         String    @db.Text
-  label       String?   @db.VarChar(100)
-  isPrimary   Boolean   @default(false) @map("is_primary")
-  uploadedAt  DateTime  @default(now()) @map("uploaded_at")
-  deletedAt   DateTime? @map("deleted_at")
-
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-
-  @@index([equipmentId])
-  @@index([deletedAt])
-  @@map("equipment_images")
-}
-
-// ────────────────────────────────────────────
-// 9. Digital Assets
-// ────────────────────────────────────────────
-model DigitalAsset {
-  id             Int              @id @default(autoincrement())
-  itemId         Int              @unique @map("item_id")
-  assetType      DigitalAssetType @map("asset_type")
-  url            String?          @db.VarChar(500)
-  vendor         String?          @db.VarChar(255)
-  licenseKey     String?          @map("license_key") @db.Text
-  credentialsRef String?          @map("credentials_ref") @db.VarChar(255)
-  seats          Int?
-  expiryDate     DateTime?        @map("expiry_date") @db.Date
-  cost           Decimal?         @db.Decimal(10, 2)
-  billingCycle   BillingCycle?    @map("billing_cycle")
-  status         DigitalStatus    @default(ACTIVE)
-  notes          String?          @db.Text
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  deletedAt      DateTime?        @map("deleted_at")
-  renewalCount   Int              @default(0) @map("renewal_count")
-
-  item Item @relation(fields: [itemId], references: [id])
-
-  @@index([status])
-  @@index([expiryDate])
-  @@index([assetType])
-  @@map("digital_assets")
-}
-
-// ────────────────────────────────────────────
-// 10. Suppliers
-// ────────────────────────────────────────────
-model Supplier {
-  id            Int       @id @default(autoincrement())
-  supplierName  String    @map("supplier_name") @db.VarChar(255)
-  contactPerson String?   @map("contact_person") @db.VarChar(255)
-  email         String?   @db.VarChar(255)
-  phone         String?   @db.VarChar(50)
-  address       String?   @db.Text
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  deletedAt     DateTime? @map("deleted_at")
-
-  purchaseOrders PurchaseOrder[]
-
-  @@map("suppliers")
-}
-
-// ────────────────────────────────────────────
-// 11. Purchase Orders
-// ────────────────────────────────────────────
-model PurchaseOrder {
-  id            Int                 @id @default(autoincrement())
-  supplierId    Int                 @map("supplier_id")
-  invoiceNumber String?             @unique @map("invoice_number") @db.VarChar(100)
-  status        PurchaseOrderStatus @default(DRAFT)
-  totalAmount   Decimal             @map("total_amount") @db.Decimal(10, 2)
-  receiptUrl    String?             @map("receipt_url") @db.VarChar(500)
-  createdById   Int                 @map("created_by_id")
-  orderDate     DateTime            @default(now()) @map("order_date")
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
-
-  supplier    Supplier                  @relation(fields: [supplierId], references: [id])
-  createdBy   User                      @relation("CreatedByUser", fields: [createdById], references: [id])
-  lineItems   PurchaseOrderItem[]
-  stockIns    StockIn[]
-  equipment   Equipment[]
-  history     PurchaseOrderHistory[]
-  attachments PurchaseOrderAttachment[]
-
-  @@index([status])
-  @@index([supplierId])
-  @@map("purchase_orders")
-}
-
-// ────────────────────────────────────────────
-// 12. Purchase Order Items
-// ────────────────────────────────────────────
-model PurchaseOrderItem {
-  id              Int     @id @default(autoincrement())
-  purchaseOrderId Int     @map("purchase_order_id")
-  itemId          Int     @map("item_id")
-  quantity        Int
-  unitCost        Decimal @map("unit_cost") @db.Decimal(10, 2)
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  item          Item          @relation(fields: [itemId], references: [id])
-
-  @@unique([purchaseOrderId, itemId])
-  @@map("purchase_order_items")
-}
-
-// ────────────────────────────────────────────
-// 12a. Purchase Order History (Immutable Audit)
-// ────────────────────────────────────────────
-model PurchaseOrderHistory {
-  id              Int                 @id @default(autoincrement())
-  purchaseOrderId Int                 @map("purchase_order_id")
-  oldStatus       PurchaseOrderStatus @map("old_status")
-  newStatus       PurchaseOrderStatus @map("new_status")
-  changedById     Int                 @map("changed_by_id")
-  notes           String?             @db.Text
-  createdAt       DateTime            @default(now()) @map("created_at")
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  changedBy     User          @relation("POHistoryChangedBy", fields: [changedById], references: [id])
-
-  @@index([purchaseOrderId])
-  @@index([createdAt])
-  @@map("purchase_order_history")
-}
-
-// ────────────────────────────────────────────
-// 12b. Purchase Order Attachments
-// ────────────────────────────────────────────
-model PurchaseOrderAttachment {
-  id              Int      @id @default(autoincrement())
-  purchaseOrderId Int      @map("purchase_order_id")
-  fileUrl         String   @map("file_url") @db.Text
-  fileName        String   @map("file_name") @db.VarChar(255)
-  fileSize        Int?     @map("file_size")
-  uploadedAt      DateTime @default(now()) @map("uploaded_at")
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-
-  @@index([purchaseOrderId])
-  @@map("purchase_order_attachments")
-}
-
-// ────────────────────────────────────────────
-// 13. Stock In
-// ────────────────────────────────────────────
-model StockIn {
-  id                  Int      @id @default(autoincrement())
-  consumableProfileId Int      @map("consumable_profile_id")
-  quantityAdded       Int      @map("quantity_added")
-  purchaseOrderId     Int?     @map("purchase_order_id")
-  receivedById        Int      @map("received_by_id")
-  notes               String?  @db.Text
-  createdAt           DateTime @default(now()) @map("created_at")
-
-  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
-  purchaseOrder     PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
-  receivedBy        User              @relation("ReceivedByUser", fields: [receivedById], references: [id])
-
-  @@index([consumableProfileId])
-  @@index([createdAt])
-  @@map("stock_in")
-}
-
-// ────────────────────────────────────────────
-// 14. Stock Out
-// ────────────────────────────────────────────
-model StockOut {
-  id                  Int      @id @default(autoincrement())
-  consumableProfileId Int      @map("consumable_profile_id")
-  quantityRemoved     Int      @map("quantity_removed")
-  purpose             String   @db.Text
-  releasedById        Int      @map("released_by_id")
-  notes               String?  @db.Text
-  createdAt           DateTime @default(now()) @map("created_at")
-
-  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
-  releasedBy        User              @relation("ReleasedByUser", fields: [releasedById], references: [id])
-
-  @@index([consumableProfileId])
-  @@index([createdAt])
-  @@map("stock_out")
-}
-
-// ────────────────────────────────────────────
-// 14a. Stock Adjustments
-// ────────────────────────────────────────────
-model StockAdjustment {
-  id                  Int              @id @default(autoincrement())
-  consumableProfileId Int              @map("consumable_profile_id")
-  quantityBefore      Int              @map("quantity_before")
-  quantityAfter       Int              @map("quantity_after")
-  difference          Int
-  reason              AdjustmentReason
-  notes               String?          @db.Text
-  adjustedById        Int              @map("adjusted_by_id")
-  createdAt           DateTime         @default(now()) @map("created_at")
-
-  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
-  adjustedBy        User              @relation("AdjustedByUser", fields: [adjustedById], references: [id])
-
-  @@index([consumableProfileId])
-  @@map("stock_adjustments")
-}
-
-// ────────────────────────────────────────────
-// 14b. Stock Movements (unified ledger)
-// ────────────────────────────────────────────
-model StockMovement {
-  id                  Int          @id @default(autoincrement())
-  consumableProfileId Int          @map("consumable_profile_id")
-  movementType        MovementType @map("movement_type")
-  quantityChange      Int          @map("quantity_change")
-  quantityBefore      Int          @map("quantity_before")
-  quantityAfter       Int          @map("quantity_after")
-  reason              String       @db.VarChar(255)
-  referenceType       String?      @map("reference_type") @db.VarChar(50)
-  referenceId         Int?         @map("reference_id")
-  performedById       Int          @map("performed_by_id")
-  createdAt           DateTime     @default(now()) @map("created_at")
-
-  consumableProfile ConsumableProfile @relation(fields: [consumableProfileId], references: [id])
-  performedBy       User              @relation("StockMovementPerformedBy", fields: [performedById], references: [id])
-
-  @@index([consumableProfileId])
-  @@index([movementType])
-  @@index([createdAt])
-  @@map("stock_movements")
-}
-
-// ────────────────────────────────────────────
-// 15. Borrow Records
-// ────────────────────────────────────────────
-model BorrowRecord {
-  id              Int              @id @default(autoincrement())
-  equipmentId     Int              @map("equipment_id")
-  borrowedById    Int              @map("borrowed_by_id")
-  approvedById    Int?             @map("approved_by_id")
-  borrowDate      DateTime?        @map("borrow_date")
-  expectedReturn  DateTime         @map("expected_return") @db.Date
-  actualReturn    DateTime?        @map("actual_return")
-  returnCondition ConditionStatus? @map("return_condition")
-  status          BorrowStatus     @default(PENDING)
-  notes           String?          @db.Text
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-
-  equipment  Equipment @relation(fields: [equipmentId], references: [id])
-  borrowedBy User      @relation("BorrowedByUser", fields: [borrowedById], references: [id])
-  approvedBy User?     @relation("ApprovedByUser", fields: [approvedById], references: [id])
-  alerts     InventoryAlert[]
-
-  @@index([equipmentId])
-  @@index([expectedReturn])
-  @@index([status])
-  @@index([createdAt])
-  @@map("borrow_records")
-}
-
-// ────────────────────────────────────────────
-// 16. Maintenance Logs
-// ────────────────────────────────────────────
-model MaintenanceLog {
-  id                Int               @id @default(autoincrement())
-  equipmentId       Int               @map("equipment_id")
-  description       String            @db.Text
-  status            MaintenanceStatus @default(SCHEDULED)
-  scheduledDate     DateTime?         @map("scheduled_date") @db.Date
-  completedDate     DateTime?         @map("completed_date") @db.Date
-  cost              Decimal?          @db.Decimal(10, 2)
-  performedById     Int?              @map("performed_by_id")
-  performedByVendor String?           @map("performed_by_vendor") @db.VarChar(255)
-  notes             String?           @db.Text
-  equipmentName      String?           @map("equipment_name") @db.VarChar(255)
-  equipmentBrand     String?           @map("equipment_brand") @db.VarChar(255)
-  equipmentModel     String?           @map("equipment_model") @db.VarChar(255)
-  equipmentCondition ConditionStatus? @map("equipment_condition")
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
-
-  equipment   Equipment @relation(fields: [equipmentId], references: [id])
-  performedBy User?     @relation("PerformedByUser", fields: [performedById], references: [id])
-  maintenanceAlerts MaintenanceAlert[]
-
-  @@index([equipmentId])
-  @@index([status])
-  @@map("maintenance_logs")
-}
-
-// ────────────────────────────────────────────
-// 17. Disposals
-// ────────────────────────────────────────────
-model Disposal {
-  id           Int            @id @default(autoincrement())
-  equipmentId  Int            @unique @map("equipment_id")
-  approvedById Int            @map("approved_by_id")
-  disposalDate DateTime       @default(now()) @map("disposal_date")
-  reason         DisposalReason
-  approvalStatus DisposalApprovalStatus @default(PENDING) @map("approval_status")
-  method         String         @db.VarChar(100)
-  notes          String?        @db.Text
-  createdAt      DateTime       @default(now()) @map("created_at")
-
-  equipment  Equipment @relation(fields: [equipmentId], references: [id])
-  approvedBy User      @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
-
-  @@index([approvalStatus])
-  @@index([disposalDate])
-  @@map("disposals")
-}
-
-// ────────────────────────────────────────────
-// 18. Inventory Logs
-// ────────────────────────────────────────────
-model InventoryLog {
-  id          Int       @id @default(autoincrement())
-  entityType  String    @map("entity_type") @db.VarChar(50)
-  entityId    Int       @map("entity_id")
-  action      LogAction
-  oldData     Json?     @map("old_data")
-  newData     Json?     @map("new_data")
-  performedBy Int       @map("performed_by")
-  performedAt DateTime  @default(now()) @map("performed_at")
-
-  user User @relation(fields: [performedBy], references: [id])
-
-  @@index([entityType, entityId])
-  @@index([performedBy])
-  @@index([performedAt])
-  @@map("inventory_logs")
-}
-// ────────────────────────────────────────────
-// 19. Inventory Alerts
-// ────────────────────────────────────────────
-model InventoryAlert {
-  id                  Int           @id @default(autoincrement())
-  consumableProfileId Int?          @map("consumable_profile_id")
-  equipmentId         Int?          @map("equipment_id")
-  borrowRecordId      Int?          @map("borrow_record_id")
-  alertType           AlertType     @map("alert_type")
-  priority            AlertPriority
-  message             String        @db.Text
-  isRead              Boolean       @default(false) @map("is_read")
-  readAt              DateTime?     @map("read_at")
-  resolvedAt          DateTime?     @map("resolved_at")
-  createdAt           DateTime      @default(now()) @map("created_at")
-
-  consumableProfile ConsumableProfile? @relation(fields: [consumableProfileId], references: [id], onDelete: SetNull)
-  equipment         Equipment?          @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  borrowRecord      BorrowRecord?       @relation(fields: [borrowRecordId], references: [id], onDelete: SetNull)
-
-  @@index([isRead])
-  @@index([resolvedAt])
-  @@index([consumableProfileId])
-  @@index([equipmentId])
-  @@index([borrowRecordId])
-  @@map("inventory_alerts")
-}
-
-// ────────────────────────────────────────────
-// 20. Maintenance Alerts
-// ────────────────────────────────────────────
-model MaintenanceAlert {
-  id               Int            @id @default(autoincrement())
-  maintenanceLogId Int            @map("maintenance_log_id")
-  alertType        String         @default("MAINTENANCE_DUE") @map("alert_type") @db.VarChar(50)
-  message          String         @db.Text
-  isRead           Boolean        @default(false) @map("is_read")
-  readAt           DateTime?      @map("read_at")
-  createdAt        DateTime       @default(now()) @map("created_at")
-
-  maintenanceLog   MaintenanceLog @relation(fields: [maintenanceLogId], references: [id])
-
-  @@index([maintenanceLogId])
-  @@index([isRead])
-  @@map("maintenance_alerts")
+  @@map("procurement_alerts")
 }

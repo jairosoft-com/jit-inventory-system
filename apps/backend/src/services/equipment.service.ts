@@ -462,6 +462,7 @@ export class EquipmentService {
 
   static async findAll(
     query: Partial<ListEquipmentQuery> & { needsMaintenance?: boolean },
+    userRoleId?: number,
   ) {
     await this.syncCompletedRetirements();
 
@@ -480,6 +481,13 @@ export class EquipmentService {
     const statusFilters: Prisma.EquipmentWhereInput[] = [
       { status: { not: EquipmentStatus.RETIRED } },
     ];
+
+    if (userRoleId) {
+      const role = await prisma.role.findUnique({ where: { id: userRoleId } });
+      if (role?.name === 'STAFF') {
+        statusFilters.push({ status: { not: EquipmentStatus.DAMAGED } });
+      }
+    }
 
     if (status) {
       statusFilters.push({ status });
@@ -673,7 +681,7 @@ export class EquipmentService {
 
   // ── Replacement needed tagging ──────────────────────────────────────────────
 
-static async setReplacementNeeded(
+  static async setReplacementNeeded(
     id: number,
     data: ReplacementNeededInput,
     userId: number,
@@ -699,7 +707,7 @@ static async setReplacementNeeded(
       updated,
     );
 
-   // Notify Admin + Manager when the replacement tag is newly saved
+    // Notify Admin + Manager when the replacement tag is newly saved
     if (data.replacementNeeded) {
       const created = await AlertService.triggerReplacementAlert(id);
       if (created) {
@@ -708,7 +716,11 @@ static async setReplacementNeeded(
     } else {
       // Tag was cleared — resolve any open alert so re-tagging can notify again
       await prisma.inventoryAlert.updateMany({
-        where: { equipmentId: id, alertType: 'REPLACEMENT_NEEDED', resolvedAt: null },
+        where: {
+          equipmentId: id,
+          alertType: 'REPLACEMENT_NEEDED',
+          resolvedAt: null,
+        },
         data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
       });
     }

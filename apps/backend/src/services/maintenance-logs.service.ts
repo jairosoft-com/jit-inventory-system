@@ -48,7 +48,11 @@ export class MaintenanceLogsService {
       where: {
         equipmentId,
         status: {
-          in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+          in: [
+            BorrowStatus.APPROVED,
+            BorrowStatus.BORROWED,
+            BorrowStatus.OVERDUE,
+          ],
         },
         actualReturn: null,
       },
@@ -116,7 +120,13 @@ export class MaintenanceLogsService {
               item: { select: { itemName: true } },
               borrowRecords: {
                 where: {
-                  status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  status: {
+                    in: [
+                      BorrowStatus.APPROVED,
+                      BorrowStatus.BORROWED,
+                      BorrowStatus.OVERDUE,
+                    ],
+                  },
                   actualReturn: null,
                 },
                 select: { expectedReturn: true },
@@ -228,7 +238,13 @@ export class MaintenanceLogsService {
               item: { select: { itemName: true } },
               borrowRecords: {
                 where: {
-                  status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  status: {
+                    in: [
+                      BorrowStatus.APPROVED,
+                      BorrowStatus.BORROWED,
+                      BorrowStatus.OVERDUE,
+                    ],
+                  },
                   actualReturn: null,
                 },
                 select: { expectedReturn: true },
@@ -266,7 +282,13 @@ export class MaintenanceLogsService {
             item: { select: { itemName: true } },
             borrowRecords: {
               where: {
-                status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                status: {
+                  in: [
+                    BorrowStatus.APPROVED,
+                    BorrowStatus.BORROWED,
+                    BorrowStatus.OVERDUE,
+                  ],
+                },
                 actualReturn: null,
               },
               select: { expectedReturn: true },
@@ -323,7 +345,13 @@ export class MaintenanceLogsService {
               item: { select: { itemName: true } },
               borrowRecords: {
                 where: {
-                  status: { in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE] },
+                  status: {
+                    in: [
+                      BorrowStatus.APPROVED,
+                      BorrowStatus.BORROWED,
+                      BorrowStatus.OVERDUE,
+                    ],
+                  },
                   actualReturn: null,
                 },
                 select: { expectedReturn: true },
@@ -377,6 +405,15 @@ export class MaintenanceLogsService {
       };
     }>;
 
+    // Scenario 4: Prevent Duplicate Completion — once a maintenance record is
+    // completed, it is immutable. Any further update (including a repeat
+    // completion request) must be rejected and the existing record left as-is.
+    if (log.status === MaintenanceStatus.COMPLETED) {
+      throw new Error(
+        'Maintenance record has already been completed and cannot be modified',
+      );
+    }
+
     await this.assertNoActiveMaintenance(log.equipmentId, id);
 
     if (data.scheduledDate !== undefined) {
@@ -388,19 +425,26 @@ export class MaintenanceLogsService {
         where: {
           equipmentId: log.equipmentId,
           status: {
-            in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+            in: [
+              BorrowStatus.APPROVED,
+              BorrowStatus.BORROWED,
+              BorrowStatus.OVERDUE,
+            ],
           },
           actualReturn: null,
         },
       });
 
       if (activeBorrow) {
-        const formattedDate = activeBorrow.expectedReturn.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          timeZone: 'UTC',
-        });
+        const formattedDate = activeBorrow.expectedReturn.toLocaleDateString(
+          'en-US',
+          {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'UTC',
+          },
+        );
         throw new Error(
           `Cannot start maintenance: This asset is currently borrowed until ${formattedDate}`,
         );
@@ -423,22 +467,19 @@ export class MaintenanceLogsService {
       log.status !== MaintenanceStatus.IN_PROGRESS
     ) {
       auditAction = LogAction.MAINTENANCE_STARTED;
-    } else if (
-      data.status === MaintenanceStatus.COMPLETED &&
-      log.status !== MaintenanceStatus.COMPLETED
-    ) {
+    } else if (data.status === MaintenanceStatus.COMPLETED) {
+      // log.status can no longer be COMPLETED here — guarded above.
       auditAction = LogAction.MAINTENANCE_COMPLETED;
     }
 
     try {
       const updated = await prisma.$transaction(async (tx) => {
-        // Prepare log update data
-        const logUpdateData: Prisma.MaintenanceLogUpdateInput & {
-          equipmentName?: string | null;
-          equipmentBrand?: string | null;
-          equipmentModel?: string | null;
-          equipmentCondition?: ConditionStatus | null;
-        } = {
+        // Prepare log update data using the correct Prisma UpdateInput type.
+        // The snapshot fields (equipmentName, equipmentBrand, equipmentModel,
+        // equipmentCondition) are now proper scalar fields on MaintenanceLog
+        // as defined in schema.prisma, so they belong directly in the update
+        // payload — no type casting needed.
+        const logUpdateData: Prisma.MaintenanceLogUpdateInput = {
           description: data.description,
           scheduledDate: data.scheduledDate,
           performedBy:
@@ -462,23 +503,40 @@ export class MaintenanceLogsService {
           completedDate: data.completedDate,
         };
 
-        // Snapshot equipment details on completion
+        // Scenario 1 & 5: Snapshot equipment details at completion time so the
+        // history record is self-contained and reflects the state of the equipment
+        // at the moment maintenance was recorded as done.
         if (data.status === MaintenanceStatus.COMPLETED) {
           logUpdateData.equipmentName =
-            log.equipmentName || log.equipment.item?.itemName;
+            log.equipmentName ?? log.equipment.item?.itemName ?? null;
           logUpdateData.equipmentBrand =
-            log.equipmentBrand || log.equipment.brand;
+            log.equipmentBrand ?? log.equipment.brand ?? null;
           logUpdateData.equipmentModel =
-            log.equipmentModel || log.equipment.model;
+            log.equipmentModel ?? log.equipment.model ?? null;
+          // postMaintenanceCondition is required by schema validation when status
+          // is COMPLETED, so this will always have a value at this point.
           logUpdateData.equipmentCondition =
-            data.postMaintenanceCondition ||
-            log.equipmentCondition ||
+            data.postMaintenanceCondition ??
+            log.equipmentCondition ??
             log.equipment.condition;
         }
 
-        const updatedLog = await tx.maintenanceLog.update({
-          where: { id },
+        // Concurrency-safe guard: only apply the update if the record is
+        // still not COMPLETED at the moment of the write. This prevents a
+        // race where two completion requests are submitted at the same time.
+        const guardResult = await tx.maintenanceLog.updateMany({
+          where: { id, status: { not: MaintenanceStatus.COMPLETED } },
           data: logUpdateData,
+        });
+
+        if (guardResult.count === 0) {
+          throw new Error(
+            'Maintenance record has already been completed and cannot be modified',
+          );
+        }
+
+        const updatedLog = await tx.maintenanceLog.findUniqueOrThrow({
+          where: { id },
           include: {
             equipment: {
               include: {
@@ -486,7 +544,11 @@ export class MaintenanceLogsService {
                 borrowRecords: {
                   where: {
                     status: {
-                      in: [BorrowStatus.APPROVED, BorrowStatus.BORROWED, BorrowStatus.OVERDUE],
+                      in: [
+                        BorrowStatus.APPROVED,
+                        BorrowStatus.BORROWED,
+                        BorrowStatus.OVERDUE,
+                      ],
                     },
                     actualReturn: null,
                   },

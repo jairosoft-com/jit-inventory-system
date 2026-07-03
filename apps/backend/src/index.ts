@@ -21,6 +21,7 @@ import { MaintenanceReminderService } from './services/maintenance-reminder.serv
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
+import procurementAlertsRouter from './routes/procurement-alerts.routes.js';
 import { startCronJobs } from './lib/cron.js';
 import auditLogsRouter from './routes/audit-logs.routes.js';
 
@@ -61,6 +62,7 @@ app.use('/api/suppliers', mutativeLimiter); // Bucket 2
 app.use('/api/maintenance-logs', mutativeLimiter); // Bucket 2
 app.use('/api/reports', heavyLimiter); // Bucket 4: report generation is heavy
 app.use('/api/alerts', globalLimiter); // Bucket 1: lightweight polling
+app.use('/api/procurement-alerts', globalLimiter); // Bucket 1: lightweight polling
 app.use('/api/maintenance-alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser
@@ -80,6 +82,7 @@ app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/procurement', procurementRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/procurement-alerts', procurementAlertsRouter);
 app.use('/api/maintenance-alerts', maintenanceAlertsRouter);
 app.use('/api/audit-logs', auditLogsRouter);
 

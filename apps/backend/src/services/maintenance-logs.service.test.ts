@@ -165,6 +165,68 @@ describe('Maintenance Flow Unit Tests', () => {
     expect(activeLogs[0].equipmentCondition).toBe(ConditionStatus.POOR);
   });
 
+  it('should reject a duplicate completion request and leave the existing record unchanged', async () => {
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Equipment Dup Complete',
+        categoryId: testCategoryId,
+        assetId: `VT-DUP-${Date.now()}`,
+        serialNumber: `SN-VT-DUP-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.GOOD,
+        status: EquipmentStatus.AVAILABLE,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    const log = await MaintenanceLogsService.create(
+      { equipmentId: eq.id, description: 'Routine check' },
+      testUserId,
+    );
+
+    await prisma.maintenanceLog.update({
+      where: { id: log.id },
+      data: { scheduledDate: new Date() },
+    });
+
+    const completed = await MaintenanceLogsService.update(
+      log.id,
+      {
+        status: MaintenanceStatus.COMPLETED,
+        completedDate: new Date(),
+        performedByVendor: 'Acme Repairs',
+        notes: 'All good',
+        postMaintenanceCondition: ConditionStatus.GOOD,
+      },
+      testUserId,
+    );
+    expect(completed.status).toBe(MaintenanceStatus.COMPLETED);
+
+    // Second completion attempt must be rejected
+    await expect(
+      MaintenanceLogsService.update(
+        log.id,
+        {
+          status: MaintenanceStatus.COMPLETED,
+          completedDate: new Date(),
+          postMaintenanceCondition: ConditionStatus.DAMAGED,
+        },
+        testUserId,
+      ),
+    ).rejects.toThrow('already been completed');
+
+    // Existing record must remain unchanged
+    const unchanged = await prisma.maintenanceLog.findUnique({
+      where: { id: log.id },
+    });
+    expect(unchanged?.equipmentCondition).toBe(ConditionStatus.GOOD);
+    expect(unchanged?.performedByVendor).toBe('Acme Repairs');
+    expect(unchanged?.notes).toBe('All good');
+  });
+
   it('should filter candidate equipment correctly when needsMaintenance is true', async () => {
     // 1. Create a NEW equipment (should be excluded as it is healthy)
     const eqNew = await EquipmentService.create(
@@ -423,8 +485,10 @@ describe('Maintenance Flow Unit Tests', () => {
           status: MaintenanceStatus.IN_PROGRESS,
         },
         testUserId,
-      )
-    ).rejects.toThrow(/Cannot start maintenance: This asset is currently borrowed until/);
+      ),
+    ).rejects.toThrow(
+      /Cannot start maintenance: This asset is currently borrowed until/,
+    );
   });
 
   it('should not allow starting maintenance (transitioning to IN_PROGRESS) on a currently APPROVED borrowed asset', async () => {
@@ -476,7 +540,9 @@ describe('Maintenance Flow Unit Tests', () => {
           status: MaintenanceStatus.IN_PROGRESS,
         },
         testUserId,
-      )
-    ).rejects.toThrow(/Cannot start maintenance: This asset is currently borrowed until/);
+      ),
+    ).rejects.toThrow(
+      /Cannot start maintenance: This asset is currently borrowed until/,
+    );
   });
 });

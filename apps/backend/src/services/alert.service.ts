@@ -1,4 +1,9 @@
-import { PrismaClient, EquipmentStatus, BorrowStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  EquipmentStatus,
+  BorrowStatus,
+  AlertType,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { sendMail } from '../lib/mailer.js';
 import { BorrowService } from './borrow.service.js';
@@ -8,6 +13,12 @@ const db: PrismaClient = prisma;
 
 // How long to suppress duplicate alerts for the same item (24 hours)
 const ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+type AlertHistoryQuery = {
+  page?: number;
+  pageSize?: number;
+  alertType?: AlertType;
+};
 
 // Per Decision 8 in the DevPlan
 const WARRANTY_ALERT_WINDOW_DAYS = 30;
@@ -366,10 +377,19 @@ export class AlertService {
     });
   }
 
-  static async getAllAlerts(page = 1, pageSize = 30) {
+  /**
+   * Fetch alert history (read + unread), paginated and optionally filtered
+   * by notification category/type.
+   */
+  static async getAllAlerts(query: AlertHistoryQuery = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 30;
     const skip = (page - 1) * pageSize;
+    const where = query.alertType ? { alertType: query.alertType } : {};
+
     const [alerts, total] = await Promise.all([
       db.inventoryAlert.findMany({
+        where,
         skip,
         take: pageSize,
         include: {
@@ -392,7 +412,7 @@ export class AlertService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      db.inventoryAlert.count(),
+      db.inventoryAlert.count({ where }),
     ]);
     return { alerts, total, page, pageSize };
   }

@@ -1,21 +1,19 @@
-import { PrismaClient, ProcurementAlertType, Prisma } from '@prisma/client';
+import { ProcurementAlertType, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-
-const db: PrismaClient = prisma;
 
 type TransactionClient = Prisma.TransactionClient;
 
 export class ProcurementAlertService {
   // ── Create ───────────────────────────────────────────────────────────────────
 
-  static async create(
+  static create(
     purchaseOrderId: number,
     userId: number,
     alertType: ProcurementAlertType,
     message: string,
     tx?: TransactionClient,
   ) {
-    const client = tx ?? db;
+    const client = tx ?? prisma;
     return client.procurementAlert.create({
       data: {
         purchaseOrderId,
@@ -29,7 +27,7 @@ export class ProcurementAlertService {
   // ── Get Unread Alerts ────────────────────────────────────────────────────────
 
   static getUnreadAlerts(userId: number) {
-    return db.procurementAlert.findMany({
+    return prisma.procurementAlert.findMany({
       where: { isRead: false, userId },
       include: {
         purchaseOrder: {
@@ -55,7 +53,7 @@ export class ProcurementAlertService {
   static async getAllAlerts(page = 1, pageSize = 30) {
     const skip = (page - 1) * pageSize;
     const [alerts, total] = await Promise.all([
-      db.procurementAlert.findMany({
+      prisma.procurementAlert.findMany({
         skip,
         take: pageSize,
         include: {
@@ -75,7 +73,7 @@ export class ProcurementAlertService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      db.procurementAlert.count(),
+      prisma.procurementAlert.count(),
     ]);
     return { alerts, total, page, pageSize };
   }
@@ -83,7 +81,7 @@ export class ProcurementAlertService {
   // ── Mark as Read ─────────────────────────────────────────────────────────────
 
   static markAsRead(alertId: number) {
-    return db.procurementAlert.update({
+    return prisma.procurementAlert.update({
       where: { id: alertId },
       data: { isRead: true, readAt: new Date() },
     });
@@ -92,7 +90,7 @@ export class ProcurementAlertService {
   // ── Mark All as Read ─────────────────────────────────────────────────────────
 
   static markAllAsRead(userId: number) {
-    return db.procurementAlert.updateMany({
+    return prisma.procurementAlert.updateMany({
       where: { isRead: false, userId },
       data: { isRead: true, readAt: new Date() },
     });
@@ -101,7 +99,7 @@ export class ProcurementAlertService {
   // ── Get Unread Count ─────────────────────────────────────────────────────────
 
   static getUnreadCount(userId: number) {
-    return db.procurementAlert.count({
+    return prisma.procurementAlert.count({
       where: { isRead: false, userId },
     });
   }

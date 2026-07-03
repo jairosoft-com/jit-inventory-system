@@ -642,6 +642,11 @@ enum LogAction {
   MAINTENANCE_STARTED
   MAINTENANCE_COMPLETED
   RENEWED
+  // Authentication audit events (ticket #204711)
+  LOGIN
+  LOGOUT
+  TOKEN_REFRESH
+  LOGIN_FAILED
 }
 
 enum AlertType {
@@ -680,3 +685,4 @@ model ProcurementAlert {
   @@index([userId])
   @@map("procurement_alerts")
 }
+

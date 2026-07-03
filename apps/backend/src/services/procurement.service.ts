@@ -6,6 +6,7 @@ import {
   ItemType,
   ConditionStatus,
   EquipmentStatus,
+  ProcurementAlertType,
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AuditLogService } from './audit-log.service.js';
@@ -16,7 +17,6 @@ import type {
   AddAttachmentInput,
 } from '../schemas/procurement.schema.js';
 import { ProcurementAlertService } from './procurement-alert.service.js';
-import { ProcurementAlertType } from '@prisma/client';
 
 // ── Allowed status transitions (state machine) ──────────────────────────────
 const ALLOWED_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> =
@@ -863,3 +863,4 @@ export class ProcurementService {
     return updatedEquipment;
   }
 }
+

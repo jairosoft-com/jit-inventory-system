@@ -8,6 +8,16 @@ import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 
+/** Extract the real client IP, respecting common reverse-proxy headers. */
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    return first.split(',')[0].trim();
+  }
+  return req.ip ?? 'unknown';
+}
+
 const getRefreshTokenMaxAge = (): number => {
   const expiry = env.JWT_REFRESH_EXPIRY || '7d';
   const match = expiry.match(/^(\d+)([smhd])$/);
@@ -32,9 +42,16 @@ router.post(
         email: string;
         password: string;
       };
-      const validatedUser = await AuthService.validateUser(email, password);
-      const { accessToken, refreshToken, user } =
-        await AuthService.login(validatedUser);
+      const ipAddress = getClientIp(req);
+      const validatedUser = await AuthService.validateUser(
+        email,
+        password,
+        ipAddress,
+      );
+      const { accessToken, refreshToken, user } = await AuthService.login(
+        validatedUser,
+        ipAddress,
+      );
 
       res.cookie('jit_refresh_token', refreshToken, {
         httpOnly: true,
@@ -71,11 +88,12 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const ipAddress = getClientIp(req);
     const {
       accessToken,
       refreshToken: newRefreshToken,
       user,
-    } = await AuthService.refresh(refreshToken);
+    } = await AuthService.refresh(refreshToken, ipAddress);
 
     res.cookie('jit_refresh_token', newRefreshToken, {
       httpOnly: true,
@@ -106,8 +124,29 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
 router.post('/logout', async (req: Request, res: Response): Promise<void> => {
   try {
     const refreshToken = req.cookies?.jit_refresh_token as string | undefined;
+    const ipAddress = getClientIp(req);
+
+    // Resolve userId from the access token header if present so the audit
+    // log can record who logged out (the refresh cookie alone doesn't carry
+    // this information without another DB round-trip).
+    let userId: number | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const { default: jwt } = await import('jsonwebtoken');
+        const decoded = jwt.decode(authHeader.split(' ')[1]) as {
+          sub?: number | string;
+        } | null;
+        if (decoded?.sub !== undefined) {
+          userId = Number(decoded.sub);
+        }
+      } catch {
+        // If decode fails, proceed without userId — audit still logs via logout()
+      }
+    }
+
     if (refreshToken) {
-      await AuthService.logout(refreshToken);
+      await AuthService.logout(refreshToken, userId, ipAddress);
     }
 
     res.clearCookie('jit_refresh_token', {
@@ -205,3 +244,4 @@ router.get(
 );
 
 export default router;
+

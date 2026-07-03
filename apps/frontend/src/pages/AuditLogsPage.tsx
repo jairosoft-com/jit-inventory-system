@@ -33,18 +33,23 @@ const ACTION_CONFIG: Record<
   AuditAction,
   { label: string; bg: string; dot: string; text: string }
 > = {
-  CREATED:               { label: 'Created',              bg: '#eff6ff', dot: '#3b82f6', text: '#1e40af' },
-  APPROVED:              { label: 'Approved',             bg: '#f0fdf4', dot: '#22c55e', text: '#15803d' },
-  RETURNED:              { label: 'Returned',             bg: '#f0fdf4', dot: '#10b981', text: '#065f46' },
-  REJECTED:              { label: 'Rejected',             bg: '#fff1f2', dot: '#ef4444', text: '#991b1b' },
-  DELETED:               { label: 'Deleted',              bg: '#fff1f2', dot: '#dc2626', text: '#7f1d1d' },
-  UPDATED:               { label: 'Updated',              bg: '#fffbeb', dot: '#f59e0b', text: '#92400e' },
-  BORROWED:              { label: 'Borrowed',             bg: '#f5f3ff', dot: '#8b5cf6', text: '#4c1d95' },
-  DISPOSED:              { label: 'Disposed',             bg: '#fdf2f8', dot: '#ec4899', text: '#831843' },
-  TRANSFERRED:           { label: 'Transferred',          bg: '#ecfeff', dot: '#06b6d4', text: '#164e63' },
-  MAINTENANCE_STARTED:   { label: 'Maint. Started',      bg: '#fefce8', dot: '#eab308', text: '#713f12' },
-  MAINTENANCE_COMPLETED: { label: 'Maint. Completed',    bg: '#f0fdf4', dot: '#84cc16', text: '#365314' },
-  RENEWED:               { label: 'Renewed',              bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
+  CREATED: { label: 'Created', bg: '#eff6ff', dot: '#3b82f6', text: '#1e40af' },
+  APPROVED: { label: 'Approved', bg: '#f0fdf4', dot: '#22c55e', text: '#15803d' },
+  RETURNED: { label: 'Returned', bg: '#f0fdf4', dot: '#10b981', text: '#065f46' },
+  REJECTED: { label: 'Rejected', bg: '#fff1f2', dot: '#ef4444', text: '#991b1b' },
+  DELETED: { label: 'Deleted', bg: '#fff1f2', dot: '#dc2626', text: '#7f1d1d' },
+  UPDATED: { label: 'Updated', bg: '#fffbeb', dot: '#f59e0b', text: '#92400e' },
+  BORROWED: { label: 'Borrowed', bg: '#f5f3ff', dot: '#8b5cf6', text: '#4c1d95' },
+  DISPOSED: { label: 'Disposed', bg: '#fdf2f8', dot: '#ec4899', text: '#831843' },
+  TRANSFERRED: { label: 'Transferred', bg: '#ecfeff', dot: '#06b6d4', text: '#164e63' },
+  MAINTENANCE_STARTED: { label: 'Maint. Started', bg: '#fefce8', dot: '#eab308', text: '#713f12' },
+  MAINTENANCE_COMPLETED: { label: 'Maint. Completed', bg: '#f0fdf4', dot: '#84cc16', text: '#365314' },
+  RENEWED: { label: 'Renewed', bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
+  // Authentication events
+  LOGIN: { label: 'Login', bg: '#f0fdf4', dot: '#16a34a', text: '#14532d' },
+  LOGOUT: { label: 'Logout', bg: '#f8fafc', dot: '#64748b', text: '#334155' },
+  TOKEN_REFRESH: { label: 'Token Refresh', bg: '#eff6ff', dot: '#60a5fa', text: '#1d4ed8' },
+  LOGIN_FAILED: { label: 'Login Failed', bg: '#fff1f2', dot: '#f43f5e', text: '#9f1239' },
 };
 
 function ActionBadge({ action }: { action: AuditAction }) {
@@ -236,6 +241,7 @@ function IconLock() {
 
 const ACTION_OPTIONS: Array<{ value: AuditAction | ''; label: string }> = [
   { value: '', label: 'All actions' },
+  // Inventory actions
   { value: 'CREATED', label: 'Created' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
@@ -246,10 +252,16 @@ const ACTION_OPTIONS: Array<{ value: AuditAction | ''; label: string }> = [
   { value: 'DISPOSED', label: 'Disposed' },
   { value: 'MAINTENANCE_STARTED', label: 'Maint. Started' },
   { value: 'MAINTENANCE_COMPLETED', label: 'Maint. Completed' },
+  // Authentication actions
+  { value: 'LOGIN', label: 'Login' },
+  { value: 'LOGOUT', label: 'Logout' },
+  { value: 'TOKEN_REFRESH', label: 'Token Refresh' },
+  { value: 'LOGIN_FAILED', label: 'Login Failed' },
 ];
 
 const ENTITY_OPTIONS = [
   { value: '', label: 'All entities' },
+  { value: 'AUTH', label: 'Authentication' },
   { value: 'BorrowRecord', label: 'Borrow Record' },
   { value: 'Equipment', label: 'Equipment' },
   { value: 'Item', label: 'Item' },

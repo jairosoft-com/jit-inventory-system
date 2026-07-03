@@ -15,7 +15,12 @@ export type AuditAction =
   | 'TRANSFERRED'
   | 'MAINTENANCE_STARTED'
   | 'MAINTENANCE_COMPLETED'
-  | 'RENEWED';
+  | 'RENEWED'
+  // Authentication audit events
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'TOKEN_REFRESH'
+  | 'LOGIN_FAILED';
 
 export interface AuditLog {
   id: number;
@@ -110,3 +115,4 @@ export const useAuditLogStore = create<AuditLogState>((set, get) => ({
     }
   },
 }));
+

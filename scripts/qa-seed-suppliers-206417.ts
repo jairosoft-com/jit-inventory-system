@@ -1,8 +1,17 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const qaSuppliers = [
+interface SupplierInput {
+  supplierName: string;
+  contactPerson: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  deletedAt: Date | null;
+}
+
+const qaSuppliers: SupplierInput[] = [
   {
     supplierName: 'QA Active Supplier Alpha 206417',
     contactPerson: 'Alpha Contact',
@@ -29,7 +38,7 @@ const qaSuppliers = [
   },
 ];
 
-async function upsertSupplier(supplierData) {
+async function upsertSupplier(supplierData: SupplierInput) {
   const existingSupplier = await prisma.supplier.findFirst({
     where: {
       supplierName: supplierData.supplierName,
@@ -41,7 +50,7 @@ async function upsertSupplier(supplierData) {
       where: {
         id: existingSupplier.id,
       },
-      data: supplierData,
+      data: supplierData as Prisma.SupplierUpdateInput,
     });
 
     console.log(`Updated supplier: ${updatedSupplier.supplierName}`);
@@ -49,7 +58,7 @@ async function upsertSupplier(supplierData) {
   }
 
   const createdSupplier = await prisma.supplier.create({
-    data: supplierData,
+    data: supplierData as Prisma.SupplierCreateInput,
   });
 
   console.log(`Created supplier: ${createdSupplier.supplierName}`);
@@ -75,7 +84,7 @@ main()
   .catch((error) => {
     console.error('Failed to seed QA suppliers.');
     console.error(error);
-    process.exitCode = 1;
+    process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();

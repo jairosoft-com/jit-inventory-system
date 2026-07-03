@@ -86,11 +86,12 @@ Edit `.env` with your actual values:
 # Generate Prisma client
 npm run db:generate
 
-# Run migrations (against the Docker database)
+# Run migrations and seed RBAC data (roles, permissions, default admin user)
 npm run db:migrate
 
-# Seed RBAC data (roles, permissions, default admin user)
-npm run db:seed
+# (Optional) Seed additional test features / suppliers for QA verification
+npx tsx scripts/qa-seed-features.ts
+npx tsx scripts/qa-seed-suppliers-206417.ts
 ```
 
 ### 6. Start Development

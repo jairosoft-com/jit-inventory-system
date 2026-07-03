@@ -199,7 +199,7 @@ export class BorrowService {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
         where: { id },
-        select: { id: true, equipmentId: true },
+        select: { id: true, equipmentId: true, status: true },
       });
       if (!existing) {
         throw new Error('Borrow record not found');
@@ -225,10 +225,22 @@ export class BorrowService {
         throw new Error('Borrow record not found or no longer PENDING');
       }
 
-      return tx.borrowRecord.findUniqueOrThrow({
+      const updated = await tx.borrowRecord.findUniqueOrThrow({
         where: { id },
         include: borrowInclude,
       });
+
+      await AuditLogService.log(
+        'BorrowRecord',
+        id,
+        LogAction.APPROVED,
+        approverId,
+        { status: existing.status },
+        { status: BorrowStatus.APPROVED, approvedById: approverId },
+        tx,
+      );
+
+      return updated;
     });
   }
 
@@ -236,7 +248,7 @@ export class BorrowService {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.borrowRecord.findUnique({
         where: { id },
-        select: { id: true, notes: true },
+        select: { id: true, notes: true, status: true },
       });
       if (!existing) {
         throw new Error('Borrow record not found');
@@ -258,10 +270,26 @@ export class BorrowService {
         throw new Error('Borrow record not found or no longer PENDING');
       }
 
-      return tx.borrowRecord.findUniqueOrThrow({
+      const updated = await tx.borrowRecord.findUniqueOrThrow({
         where: { id },
         include: borrowInclude,
       });
+
+      await AuditLogService.log(
+        'BorrowRecord',
+        id,
+        LogAction.REJECTED,
+        approverId,
+        { status: existing.status },
+        {
+          status: BorrowStatus.REJECTED,
+          approvedById: approverId,
+          reason: data.reason ?? null,
+        },
+        tx,
+      );
+
+      return updated;
     });
   }
 
@@ -310,7 +338,14 @@ export class BorrowService {
       const isLate = todayStr > expectedStr;
 
       const finalStatus = BorrowStatus.RETURNED;
-      const auditAction = isLate ? LogAction.UPDATED : LogAction.RETURNED;
+      // Every completed return — on time or late — must be logged with the
+      // RETURNED action type. Previously late returns were logged as
+      // UPDATED, which hid them from any audit-log query/filter for
+      // action=RETURNED and broke the "log all borrow and return actions"
+      // acceptance criteria for the (fairly common) late-return case.
+      // Lateness is still captured in newData.isLate for anyone inspecting
+      // the entry.
+      const auditAction = LogAction.RETURNED;
 
       const recordUpdate = await tx.borrowRecord.updateMany({
         where: {

@@ -15,7 +15,7 @@ export interface ConsumableProfile {
 export interface Item {
   id: number;
   itemName: string;
-  consumableProfile?: ConsumableProfile;
+  consumableProfile?: ConsumableProfile | null;
 }
 
 interface StockMovement {

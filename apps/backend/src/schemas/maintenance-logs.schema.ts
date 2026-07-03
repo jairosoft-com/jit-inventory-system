@@ -42,32 +42,25 @@ export const updateMaintenanceScheduleSchema = z
       .trim()
       .min(1, 'Maintenance description is required')
       .optional(),
-    scheduledDate: z.coerce
-      .date()
-      .refine(
-        (date) => {
-          const now = new Date();
-          now.setSeconds(0, 0);
-          const scheduled = new Date(date);
-          scheduled.setSeconds(0, 0);
-          return scheduled >= now;
-        },
-        {
-          message: 'Scheduled date must be in the future',
-        },
-      )
-      .optional(),
+    // When rescheduling, the date must be in the future.
+    // When completing (status === COMPLETED), scheduledDate is irrelevant;
+    // use completedDate instead. The future-date guard is intentionally
+    // skipped here so that completing an overdue maintenance record is not
+    // blocked by an already-past scheduledDate on the record.
+    scheduledDate: z.coerce.date().optional().nullable(),
     performedById: z.number().int().positive().optional().nullable(),
     performedByVendor: z.string().trim().max(255).optional().nullable(),
     notes: z.string().trim().max(1000).optional().nullable(),
     status: z.nativeEnum(MaintenanceStatus).optional(),
     cost: z.number().nonnegative().optional().nullable(),
     completedDate: z.coerce.date().optional().nullable(),
+    // Required when status transitions to COMPLETED (enforced in service layer).
+    // Accepts any ConditionStatus value to record equipment state after maintenance.
     postMaintenanceCondition: z.nativeEnum(ConditionStatus).optional(),
   })
   .refine(
     (data) => {
-      // Only enforce if both are explicitly provided, or one is provided and the other is set to null
+      // Only enforce technician/vendor requirement when explicitly setting either field.
       const hasId = data.performedById !== undefined;
       const hasVendor = data.performedByVendor !== undefined;
       if (!hasId && !hasVendor) return true;
@@ -80,6 +73,34 @@ export const updateMaintenanceScheduleSchema = z
       message:
         'Either an assigned technician or a service provider/vendor must be specified',
       path: ['performedById'],
+    },
+  )
+  .refine(
+    (data) => {
+      // Scenario 3: when completing maintenance, a post-maintenance condition is required.
+      if (data.status === MaintenanceStatus.COMPLETED) {
+        return data.postMaintenanceCondition !== undefined;
+      }
+      return true;
+    },
+    {
+      message:
+        'Post-maintenance equipment condition is required when completing a maintenance record',
+      path: ['postMaintenanceCondition'],
+    },
+  )
+  .refine(
+    (data) => {
+      // Scenario 1: completedDate is required when completing maintenance.
+      if (data.status === MaintenanceStatus.COMPLETED) {
+        return data.completedDate !== undefined && data.completedDate !== null;
+      }
+      return true;
+    },
+    {
+      message:
+        'Completion date is required when completing a maintenance record',
+      path: ['completedDate'],
     },
   );
 

@@ -15,6 +15,12 @@ const alertIdSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+const historyQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).optional().default(30),
+  alertType: z.literal('MAINTENANCE_DUE').optional(),
+});
+
 // GET /api/maintenance-alerts - Get all unread maintenance alerts
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -40,6 +46,44 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     res.status(500).json({ message });
   }
 });
+
+// GET /api/maintenance-alerts/history - Get maintenance notification history
+router.get(
+  '/history',
+  validate(historyQuerySchema, 'query'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { page, pageSize } = req.query as unknown as z.infer<
+        typeof historyQuerySchema
+      >;
+      const skip = (page - 1) * pageSize;
+      const [alerts, total] = await Promise.all([
+        prisma.maintenanceAlert.findMany({
+          skip,
+          take: pageSize,
+          include: {
+            maintenanceLog: {
+              include: {
+                equipment: {
+                  include: {
+                    item: { select: { itemName: true } },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.maintenanceAlert.count(),
+      ]);
+      res.status(200).json({ alerts, total, page, pageSize });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ message });
+    }
+  },
+);
 
 // GET /api/maintenance-alerts/count - Get unread count
 router.get('/count', async (_req: Request, res: Response): Promise<void> => {

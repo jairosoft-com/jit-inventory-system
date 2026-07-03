@@ -12,6 +12,8 @@ import type {
   ProcessReturnInput,
   RejectBorrowInput,
 } from '../schemas/borrow.schema.js';
+import { AlertService } from './alert.service.js';
+
 
 // ── Shared include ────────────────────────────────────────────────────────────
 
@@ -393,13 +395,25 @@ export class BorrowService {
         include: borrowInclude,
       });
 
-      await AuditLogService.log(
+await AuditLogService.log(
         'BorrowRecord',
         id,
         auditAction,
         processedById,
         { status: existing.status },
         { status: finalStatus, returnCondition: data.returnCondition, isLate },
+        tx,
+      );
+
+// Resolve any open overdue alerts for this borrow record
+      await AlertService.resolveOverdueAlertsForBorrow(id, tx);
+
+      // Notify borrower that return was recorded
+      await AlertService.createReturnAlert(
+        id,
+        updated.borrowedById,
+        updated.equipment.item.itemName,
+        updated.equipment.assetId,
         tx,
       );
 

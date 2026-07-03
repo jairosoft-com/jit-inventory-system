@@ -67,6 +67,7 @@ model User {
   stockOutReleased  StockOut[]             @relation("ReleasedByUser")
   role              Role                   @relation(fields: [roleId], references: [id])
   procurementAlerts ProcurementAlert[]
+  inventoryAlerts   InventoryAlert[]
 
   @@index([isActive])
   @@index([roleId])
@@ -507,15 +508,18 @@ model InventoryAlert {
   createdAt           DateTime           @default(now()) @map("created_at")
   resolvedAt          DateTime?          @map("resolved_at")
   borrowRecordId      Int?               @map("borrow_record_id")
+  userId              Int?              @map("user_id")
   borrowRecord        BorrowRecord?      @relation(fields: [borrowRecordId], references: [id])
   consumableProfile   ConsumableProfile? @relation(fields: [consumableProfileId], references: [id])
   equipment           Equipment?         @relation(fields: [equipmentId], references: [id]) // Add relation
+  user              User?             @relation(fields: [userId], references: [id])
 
   @@index([isRead])
   @@index([resolvedAt])
   @@index([consumableProfileId])
   @@index([equipmentId]) // Keep the index
   @@index([borrowRecordId])
+  @@index([userId])
   @@map("inventory_alerts")
 }
 
@@ -652,6 +656,7 @@ enum AlertType {
   OVERDUE_EQUIPMENT
   WARRANTY_EXPIRING
   REPLACEMENT_NEEDED
+  BORROW_RETURNED
 }
 
 enum AlertPriority {

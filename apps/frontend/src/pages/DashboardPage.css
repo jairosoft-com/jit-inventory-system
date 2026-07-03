@@ -505,9 +505,26 @@
   text-transform: uppercase;
 }
 
-.dash-activity-time {
+.dash-activity-time-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.dash-activity-absolute-time {
   font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.dash-activity-relative-time {
+  font-size: 11px;
   color: var(--text-tertiary);
+  background: var(--background-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-border);
 }
 
 /* ── Equipment Breakdown ─────────────── */

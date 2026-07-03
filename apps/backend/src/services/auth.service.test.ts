@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma.js';
+import { deleteInventoryLogsForTest } from '../lib/test-audit-log.js';
 import { AuthService } from './auth.service.js';
 import { LogAction } from '@prisma/client';
 
@@ -39,8 +40,9 @@ describe('AuthService activity logging (ticket 206479)', () => {
   });
 
   afterAll(async () => {
-    await prisma.inventoryLog.deleteMany({
-      where: { entityType: 'User', entityId: testUserId },
+    await deleteInventoryLogsForTest({
+      entityType: 'User',
+      entityId: testUserId,
     });
     await prisma.refreshToken.deleteMany({ where: { userId: testUserId } });
     await prisma.user.deleteMany({ where: { id: testUserId } });

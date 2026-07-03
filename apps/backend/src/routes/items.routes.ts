@@ -140,7 +140,11 @@ router.patch(
         return;
       }
 
-      const item = await ItemsService.update(id, req.body as UpdateItemInput);
+      const item = await ItemsService.update(
+        id,
+        req.body as UpdateItemInput,
+        req.user!.id,
+      );
 
       res.status(200).json(item);
     } catch (error) {

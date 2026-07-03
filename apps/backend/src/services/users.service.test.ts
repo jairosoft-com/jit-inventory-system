@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '../lib/prisma.js';
+import { deleteInventoryLogsForTest } from '../lib/test-audit-log.js';
 import { UsersService } from './users.service.js';
 import { LogAction } from '@prisma/client';
 
@@ -48,11 +49,9 @@ describe('UsersService activity logging (task 207940)', () => {
   });
 
   afterAll(async () => {
-    await prisma.inventoryLog.deleteMany({
-      where: {
-        entityType: 'User',
-        entityId: { in: [targetUserId, adminUserId] },
-      },
+    await deleteInventoryLogsForTest({
+      entityType: 'User',
+      entityId: { in: [targetUserId, adminUserId] },
     });
     await prisma.user.deleteMany({
       where: { id: { in: [targetUserId, adminUserId] } },

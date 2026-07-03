@@ -642,6 +642,8 @@ enum LogAction {
   MAINTENANCE_STARTED
   MAINTENANCE_COMPLETED
   RENEWED
+  LOGIN
+  LOGOUT
 }
 
 enum AlertType {

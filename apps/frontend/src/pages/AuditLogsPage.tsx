@@ -29,31 +29,25 @@ function formatRelative(iso: string) {
 
 // ── Action badge config ───────────────────────────────────────────────────────
 
-const ACTION_CONFIG: Record<AuditAction, { label: string; bg: string; dot: string; text: string }> =
-  {
-    CREATED: { label: 'Created', bg: '#eff6ff', dot: '#3b82f6', text: '#1e40af' },
-    APPROVED: { label: 'Approved', bg: '#f0fdf4', dot: '#22c55e', text: '#15803d' },
-    RETURNED: { label: 'Returned', bg: '#f0fdf4', dot: '#10b981', text: '#065f46' },
-    REJECTED: { label: 'Rejected', bg: '#fff1f2', dot: '#ef4444', text: '#991b1b' },
-    DELETED: { label: 'Deleted', bg: '#fff1f2', dot: '#dc2626', text: '#7f1d1d' },
-    UPDATED: { label: 'Updated', bg: '#fffbeb', dot: '#f59e0b', text: '#92400e' },
-    BORROWED: { label: 'Borrowed', bg: '#f5f3ff', dot: '#8b5cf6', text: '#4c1d95' },
-    DISPOSED: { label: 'Disposed', bg: '#fdf2f8', dot: '#ec4899', text: '#831843' },
-    TRANSFERRED: { label: 'Transferred', bg: '#ecfeff', dot: '#06b6d4', text: '#164e63' },
-    MAINTENANCE_STARTED: {
-      label: 'Maint. Started',
-      bg: '#fefce8',
-      dot: '#eab308',
-      text: '#713f12',
-    },
-    MAINTENANCE_COMPLETED: {
-      label: 'Maint. Completed',
-      bg: '#f0fdf4',
-      dot: '#84cc16',
-      text: '#365314',
-    },
-    RENEWED: { label: 'Renewed', bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
-  };
+const ACTION_CONFIG: Record<
+  AuditAction,
+  { label: string; bg: string; dot: string; text: string }
+> = {
+  CREATED:               { label: 'Created',              bg: '#eff6ff', dot: '#3b82f6', text: '#1e40af' },
+  APPROVED:              { label: 'Approved',             bg: '#f0fdf4', dot: '#22c55e', text: '#15803d' },
+  RETURNED:              { label: 'Returned',             bg: '#f0fdf4', dot: '#10b981', text: '#065f46' },
+  REJECTED:              { label: 'Rejected',             bg: '#fff1f2', dot: '#ef4444', text: '#991b1b' },
+  DELETED:               { label: 'Deleted',              bg: '#fff1f2', dot: '#dc2626', text: '#7f1d1d' },
+  UPDATED:               { label: 'Updated',              bg: '#fffbeb', dot: '#f59e0b', text: '#92400e' },
+  BORROWED:              { label: 'Borrowed',             bg: '#f5f3ff', dot: '#8b5cf6', text: '#4c1d95' },
+  DISPOSED:              { label: 'Disposed',             bg: '#fdf2f8', dot: '#ec4899', text: '#831843' },
+  TRANSFERRED:           { label: 'Transferred',          bg: '#ecfeff', dot: '#06b6d4', text: '#164e63' },
+  MAINTENANCE_STARTED:   { label: 'Maint. Started',      bg: '#fefce8', dot: '#eab308', text: '#713f12' },
+  MAINTENANCE_COMPLETED: { label: 'Maint. Completed',    bg: '#f0fdf4', dot: '#84cc16', text: '#365314' },
+  RENEWED:               { label: 'Renewed',              bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
+  LOGIN:                 { label: 'Login',                bg: '#f0f9ff', dot: '#0284c7', text: '#0c4a6e' },
+  LOGOUT:                { label: 'Logout',               bg: '#f9fafb', dot: '#6b7280', text: '#374151' },
+};
 
 function ActionBadge({ action }: { action: AuditAction }) {
   const cfg = ACTION_CONFIG[action] ?? {
@@ -300,6 +294,8 @@ const ACTION_OPTIONS: Array<{ value: AuditAction | ''; label: string }> = [
   { value: 'DISPOSED', label: 'Disposed' },
   { value: 'MAINTENANCE_STARTED', label: 'Maint. Started' },
   { value: 'MAINTENANCE_COMPLETED', label: 'Maint. Completed' },
+  { value: 'LOGIN', label: 'Login' },
+  { value: 'LOGOUT', label: 'Logout' },
 ];
 
 const ENTITY_OPTIONS = [

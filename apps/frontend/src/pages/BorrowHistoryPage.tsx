@@ -29,7 +29,25 @@ function formatDateTime(iso: string) {
 
 // ── Badge components ──────────────────────────────────────────────────────────
 
-function BorrowStatusBadge({ status }: { status: BorrowStatus }) {
+function isTodayUtc(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
+  );
+}
+
+function BorrowStatusBadge({ status, expectedReturn }: { status: BorrowStatus; expectedReturn?: string }) {
+  if (status === 'OVERDUE' && expectedReturn && isTodayUtc(expectedReturn)) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-amber-50 text-amber-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        Due Today
+      </span>
+    );
+  }
   const cfg: Record<BorrowStatus, { color: string; dot: string; label: string }> = {
     PENDING: { color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500', label: 'Pending' },
     APPROVED: { color: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', label: 'Approved' },
@@ -329,7 +347,7 @@ function HistoryPanel() {
                   </p>
                   <p className="text-xs text-[var(--text-secondary)]">{rec.equipment.assetId}</p>
                 </div>
-                <BorrowStatusBadge status={rec.status} />
+                <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
@@ -642,7 +660,7 @@ function AdminPanel() {
                         {formatDate(rec.expectedReturn)}
                       </td>
                       <td className="px-4 py-3">
-                        <BorrowStatusBadge status={rec.status} />
+                        <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
                         {isStale && rowError?.id !== rec.id && (
                           <p className="mt-1 max-w-[200px] text-xs font-medium text-amber-700">
                             Equipment no longer available — another request claimed it

@@ -1,6 +1,7 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, LogAction } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma.js';
+import { AuditLogService } from './audit-log.service.js';
 import {
   CreateUserInput,
   QueryUsersInput,
@@ -72,7 +73,7 @@ export class UsersService {
     };
   }
 
-  static async create(data: CreateUserInput) {
+  static async create(data: CreateUserInput, currentUserId?: number) {
     const normalizedEmail = data.email.trim().toLowerCase();
 
     const existingUser = await prisma.user.findUnique({
@@ -106,7 +107,19 @@ export class UsersService {
       select: userSelect,
     });
 
-    return this.mapUser(user);
+    const mapped = this.mapUser(user);
+
+    // Never persist password/hash data in the audit trail.
+    await AuditLogService.log(
+      'User',
+      user.id,
+      LogAction.CREATED,
+      currentUserId ?? user.id,
+      null,
+      mapped,
+    );
+
+    return mapped;
   }
 
   static async getSummary() {
@@ -321,7 +334,18 @@ export class UsersService {
       select: userSelect,
     });
 
-    return this.mapUser(updatedUser);
+    const mapped = this.mapUser(updatedUser);
+
+    await AuditLogService.log(
+      'User',
+      id,
+      LogAction.UPDATED,
+      currentUserId ?? id,
+      target,
+      mapped,
+    );
+
+    return mapped;
   }
 
   static async update(
@@ -387,6 +411,17 @@ export class UsersService {
       select: userSelect,
     });
 
-    return this.mapUser(updatedUser);
+    const mapped = this.mapUser(updatedUser);
+
+    await AuditLogService.log(
+      'User',
+      id,
+      LogAction.UPDATED,
+      currentUserId ?? id,
+      target,
+      mapped,
+    );
+
+    return mapped;
   }
 }

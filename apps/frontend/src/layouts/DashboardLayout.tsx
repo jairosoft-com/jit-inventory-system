@@ -669,21 +669,9 @@ export default function DashboardLayout() {
       <aside className={`dash-sidebar ${collapsed ? 'dash-sidebar--collapsed' : ''}`}>
         {/* Sidebar header */}
         <div className="dash-sidebar-header">
-          {!collapsed && (
-            <div className="dash-sidebar-brand">
-              <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="10" fill="url(#sb-grad)" />
-                <path d="M12 14h16v2H12zm0 5h12v2H12zm0 5h14v2H12z" fill="white" opacity="0.95" />
-                <defs>
-                  <linearGradient id="sb-grad" x1="0" y1="0" x2="40" y2="40">
-                    <stop stopColor="#2563eb" />
-                    <stop offset="1" stopColor="#3b82f6" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <span className="dash-sidebar-title">JIT IMS</span>
-            </div>
-          )}
+          <div className={`dash-sidebar-brand ${collapsed ? 'dash-sidebar-brand--collapsed' : ''}`}>
+            <img className="dash-sidebar-logo" src="/logowhite.svg" alt="JIT Inventory logo" />
+          </div>
           <button
             className="dash-sidebar-toggle"
             onClick={() => setCollapsed(!collapsed)}
@@ -730,15 +718,15 @@ export default function DashboardLayout() {
 
         {/* Sidebar footer */}
         <div className="dash-sidebar-footer">
-          {!collapsed && (
-            <div className="dash-user-info">
-              <div className="dash-avatar">{getInitials()}</div>
+          <div className={`dash-user-info ${collapsed ? 'dash-user-info--collapsed' : ''}`}>
+            <div className="dash-avatar">{getInitials()}</div>
+            {!collapsed && (
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
                 <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
           <button className="dash-logout-btn" onClick={handleLogout} title="Sign out">
             <IconLogout />
             {!collapsed && <span>Sign Out</span>}
@@ -994,56 +982,66 @@ export default function DashboardLayout() {
           left: 0;
           bottom: 0;
           width: var(--sidebar-width);
-          background: var(--sidebar-bg);
-          border-right: 1px solid var(--sidebar-border);
+          background: linear-gradient(180deg, #0e122f 0%, #101738 100%);
+          border-right: 1px solid rgba(138, 56, 245, 0.16);
           display: flex;
           flex-direction: column;
           z-index: 40;
           transition: width var(--transition-base);
+          box-shadow: 12px 0 40px rgba(6, 10, 28, 0.16);
         }
         .dash-sidebar--collapsed {
-          width: 68px;
+          width: 76px;
         }
 
         .dash-sidebar-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 20px 16px 16px;
-          border-bottom: 1px solid var(--sidebar-border);
+          gap: 12px;
+          padding: 16px 14px 14px;
+          border-bottom: 1px solid rgba(168, 179, 196, 0.16);
         }
 
         .dash-sidebar-brand {
           display: flex;
           align-items: center;
-          gap: 10px;
+          justify-content: center;
+          width: 100%;
           animation: slideInLeft 0.3s ease;
         }
 
-        .dash-sidebar-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--text-primary);
-          letter-spacing: -0.02em;
+        .dash-sidebar-brand--collapsed {
+          justify-content: center;
+        }
+
+        .dash-sidebar-logo {
+          width: 100%;
+          height: 48px;
+          object-fit: contain;
+          flex-shrink: 0;
+          display: block;
+          padding: 0 8px;
+          filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.18));
         }
 
         .dash-sidebar-toggle {
-          background: none;
-          border: 1px solid var(--surface-border);
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(168, 179, 196, 0.18);
           border-radius: var(--radius-sm);
           width: 30px;
           height: 30px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--text-tertiary);
+          color: #f1f3f6;
           cursor: pointer;
           transition: all var(--transition-fast);
         }
         .dash-sidebar-toggle:hover {
-          background: var(--sidebar-hover);
-          color: var(--text-secondary);
-          border-color: var(--surface-border-hover);
+          background: rgba(239, 166, 31, 0.12);
+          color: #fadb00;
+          border-color: rgba(239, 166, 31, 0.28);
         }
 
         /* ------ Navigation ------ */
@@ -1062,7 +1060,7 @@ export default function DashboardLayout() {
           display: block;
           font-size: 10px;
           font-weight: 600;
-          color: var(--text-tertiary);
+          color: #a8b3c4;
           letter-spacing: 0.1em;
           padding: 0 12px;
           margin-bottom: 6px;
@@ -1084,7 +1082,7 @@ export default function DashboardLayout() {
           background: none;
           border: none;
           border-radius: var(--radius-md);
-          color: var(--text-secondary);
+          color: #c8ced9;
           font-size: 13.5px;
           font-weight: 500;
           font-family: inherit;
@@ -1093,13 +1091,14 @@ export default function DashboardLayout() {
           transition: all var(--transition-fast);
         }
         .dash-nav-item:hover {
-          background: var(--sidebar-hover);
-          color: var(--text-primary);
+          background: rgba(255, 255, 255, 0.06);
+          color: #f1f3f6;
         }
         .dash-nav-item--active {
-          background: var(--sidebar-active);
-          color: var(--accent);
+          background: #263180;
+          color: #f1f3f6;
           font-weight: 600;
+          box-shadow: inset 0 0 0 1px rgba(239, 166, 31, 0.08);
         }
 
         .dash-nav-indicator {
@@ -1109,14 +1108,14 @@ export default function DashboardLayout() {
           transform: translateY(-50%);
           width: 3px;
           height: 18px;
-          background: var(--accent);
+          background: #fadb00;
           border-radius: var(--radius-full);
         }
 
         /* ------ Sidebar Footer ------ */
 
         .dash-sidebar-footer {
-          border-top: 1px solid var(--sidebar-border);
+          border-top: 1px solid rgba(168, 179, 196, 0.16);
           padding: 12px;
         }
 
@@ -1127,15 +1126,19 @@ export default function DashboardLayout() {
           padding: 8px;
           margin-bottom: 8px;
           border-radius: var(--radius-md);
-          background: var(--background-tertiary);
+          background: rgba(255, 255, 255, 0.04);
+        }
+
+        .dash-user-info--collapsed {
+          justify-content: center;
         }
 
         .dash-avatar {
           width: 34px;
           height: 34px;
           border-radius: var(--radius-sm);
-          background: linear-gradient(135deg, #2563eb, #3b82f6);
-          color: white;
+          background: linear-gradient(135deg, #263180, #3b4aa0);
+          color: #f1f3f6;
           font-size: 12px;
           font-weight: 700;
           display: flex;
@@ -1153,7 +1156,7 @@ export default function DashboardLayout() {
         .dash-user-name {
           font-size: 13px;
           font-weight: 600;
-          color: var(--text-primary);
+          color: #f8fafc;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1161,7 +1164,7 @@ export default function DashboardLayout() {
 
         .dash-user-role {
           font-size: 11px;
-          color: var(--text-tertiary);
+          color: #a8b3c4;
         }
 
         .dash-logout-btn {
@@ -1171,9 +1174,9 @@ export default function DashboardLayout() {
           width: 100%;
           padding: 10px 12px;
           background: none;
-          border: none;
+          border: 1px solid rgba(168, 179, 196, 0.12);
           border-radius: var(--radius-md);
-          color: var(--text-tertiary);
+          color: #a8b3c4;
           font-size: 13px;
           font-weight: 500;
           font-family: inherit;
@@ -1181,8 +1184,9 @@ export default function DashboardLayout() {
           transition: all var(--transition-fast);
         }
         .dash-logout-btn:hover {
-          background: var(--danger-muted);
-          color: var(--danger);
+          background: rgba(239, 166, 31, 0.12);
+          color: #fadb00;
+          border-color: rgba(239, 166, 31, 0.24);
         }
 
         /* ------ Main Content ------ */
@@ -1195,7 +1199,7 @@ export default function DashboardLayout() {
           transition: margin-left var(--transition-base);
         }
         .dash-sidebar--collapsed ~ .dash-main {
-          margin-left: 68px;
+          margin-left: 76px;
         }
 
         /* ------ Top Bar ------ */

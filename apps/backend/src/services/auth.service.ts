@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../lib/env.js';
+import { LogAction } from '@prisma/client';
+import { AuditLogService } from './audit-log.service.js';
 import type { User } from '@prisma/client';
 
 export type UserWithoutPassword = Omit<User, 'password'> & {
@@ -126,6 +128,8 @@ export class AuthService {
       },
     });
 
+    await AuditLogService.log('User', user.id, LogAction.LOGIN, user.id);
+
     return {
       accessToken,
       refreshToken,
@@ -222,11 +226,19 @@ export class AuthService {
   static async logout(token: string) {
     const tokenHash = this.hashToken(token);
     try {
-      await prisma.refreshToken.delete({
+      const deleted = await prisma.refreshToken.delete({
         where: { tokenHash },
       });
+
+      await AuditLogService.log(
+        'User',
+        deleted.userId,
+        LogAction.LOGOUT,
+        deleted.userId,
+      );
     } catch {
-      // Ignore if token is not found or already deleted
+      // Ignore if token is not found or already deleted.
+      // Nothing to audit if we can't identify which user logged out.
     }
   }
 }

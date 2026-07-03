@@ -101,7 +101,11 @@ router.post(
   validate(createUserSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const newUser = await UsersService.create(req.body as CreateUserInput);
+      const currentUserId = req.user?.id;
+      const newUser = await UsersService.create(
+        req.body as CreateUserInput,
+        currentUserId,
+      );
       res.status(201).json(newUser);
     } catch (error) {
       const message =

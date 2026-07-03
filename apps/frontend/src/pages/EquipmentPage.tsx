@@ -1038,7 +1038,7 @@ export default function EquipmentPage() {
                 onClick={handleOpenDisposalHistory}
                 className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
               >
-                Disposal History
+                Disposal
               </button>
             )}
 
@@ -2046,7 +2046,7 @@ export default function EquipmentPage() {
                   Disposal History
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Review completed and rejected equipment disposal records.
+                  Review equipment disposal records and complete or reject pending requests.
                 </p>
               </div>
               <button
@@ -2076,7 +2076,7 @@ export default function EquipmentPage() {
                 <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
                   <h3 className="font-semibold text-[var(--text-primary)]">No Disposal History</h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Completed and rejected disposal records will appear here.
+                    Disposal requests and completed or rejected records will appear here.
                   </p>
                 </div>
               ) : (
@@ -2090,6 +2090,7 @@ export default function EquipmentPage() {
                         <th className="px-4 py-3 font-semibold">Date</th>
                         <th className="px-4 py-3 font-semibold">Approval Status</th>
                         <th className="px-4 py-3 font-semibold">Notes</th>
+                        <th className="px-4 py-3 font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--surface-border)]">
@@ -2132,6 +2133,41 @@ export default function EquipmentPage() {
                           </td>
                           <td className="px-4 py-3 text-[var(--text-secondary)]">
                             {record.notes || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {record.approvalStatus === 'PENDING' ? (
+                              canUpdate ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void handleUpdateDisposalApproval(record.id, 'COMPLETED')
+                                    }
+                                    disabled={disposalActionId === record.id}
+                                    className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {disposalActionId === record.id ? 'Updating...' : 'Complete'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void handleUpdateDisposalApproval(record.id, 'REJECTED')
+                                    }
+                                    disabled={disposalActionId === record.id}
+                                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {disposalActionId === record.id ? 'Updating...' : 'Reject'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-[var(--text-tertiary)]">
+                                  Pending review
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-xs text-[var(--text-tertiary)]">
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}

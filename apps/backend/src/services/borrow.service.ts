@@ -35,12 +35,6 @@ const borrowInclude = Prisma.validator<Prisma.BorrowRecordInclude>()({
   },
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function startOfDay(date: Date): Date {
-  return new Date(date.toLocaleDateString('sv-SE'));
-}
-
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class BorrowService {

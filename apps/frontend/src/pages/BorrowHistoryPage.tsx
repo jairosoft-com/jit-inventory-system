@@ -1057,7 +1057,6 @@ export default function BorrowRequestPage() {
             {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
           </div>
         </div>
-      </section>
-    </div>
+      </div>
   );
 }

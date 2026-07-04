@@ -8,7 +8,15 @@
 // Safe to re-run: skips existing records
 // ============================================
 
-import { PrismaClient, ItemType, ItemStatus, EquipmentStatus, ConditionStatus, BorrowStatus, PurchaseOrderStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  ItemType,
+  ItemStatus,
+  EquipmentStatus,
+  ConditionStatus,
+  BorrowStatus,
+  PurchaseOrderStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -61,75 +69,96 @@ async function main() {
 
   // ── 2. Suppliers ───────────────────────────────────────────────────────────
 
-  const [supplier1, supplier2, supplier3] = await Promise.all([
-    prisma.supplier.upsert({
-      where: { supplierName: 'TechPro Solutions' } as never,
-      update: {},
-      create: {
+  // Find or create TechPro Solutions
+  let supplier1 = await prisma.supplier.findFirst({ where: { supplierName: 'TechPro Solutions' } });
+  if (!supplier1) {
+    supplier1 = await prisma.supplier.create({
+      data: {
         supplierName: 'TechPro Solutions',
         contactPerson: 'Carlos Reyes',
         email: 'carlos@techpro.ph',
         phone: '09171234567',
         address: '123 Ayala Ave, Makati City',
       },
-    }).catch(() => prisma.supplier.findFirst({ where: { supplierName: 'TechPro Solutions' } })),
+    });
+  }
 
-    prisma.supplier.upsert({
-      where: { supplierName: 'OfficeWorld PH' } as never,
-      update: {},
-      create: {
+  // Find or create OfficeWorld PH
+  let supplier2 = await prisma.supplier.findFirst({ where: { supplierName: 'OfficeWorld PH' } });
+  if (!supplier2) {
+    supplier2 = await prisma.supplier.create({
+      data: {
         supplierName: 'OfficeWorld PH',
         contactPerson: 'Ana Santos',
         email: 'ana@officeworld.ph',
         phone: '09289876543',
         address: '45 Shaw Blvd, Mandaluyong',
       },
-    }).catch(() => prisma.supplier.findFirst({ where: { supplierName: 'OfficeWorld PH' } })),
+    });
+  }
 
-    prisma.supplier.upsert({
-      where: { supplierName: 'DataLink Corp' } as never,
-      update: {},
-      create: {
+  // Find or create DataLink Corp
+  let supplier3 = await prisma.supplier.findFirst({ where: { supplierName: 'DataLink Corp' } });
+  if (!supplier3) {
+    supplier3 = await prisma.supplier.create({
+      data: {
         supplierName: 'DataLink Corp',
         contactPerson: 'Ben Cruz',
         email: 'ben@datalink.ph',
         phone: '09501112233',
         address: '8 Bonifacio St, BGC Taguig',
       },
-    }).catch(() => prisma.supplier.findFirst({ where: { supplierName: 'DataLink Corp' } })),
-  ]);
+    });
+  }
 
   console.log('✓ Suppliers ready');
 
   // ── 3. Categories ──────────────────────────────────────────────────────────
 
-  const [catLaptops, catPeripherals, catOfficeSupplies, catNetworking, catPrinters] = await Promise.all([
-    prisma.category.upsert({
-      where: { name: 'Laptops' },
-      update: {},
-      create: { name: 'Laptops', type: ItemType.EQUIPMENT, description: 'Laptop computers' },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Peripherals' },
-      update: {},
-      create: { name: 'Peripherals', type: ItemType.EQUIPMENT, description: 'Keyboards, mice, monitors' },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Office Supplies' },
-      update: {},
-      create: { name: 'Office Supplies', type: ItemType.CONSUMABLE, description: 'Paper, pens, folders' },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Networking' },
-      update: {},
-      create: { name: 'Networking', type: ItemType.EQUIPMENT, description: 'Routers, switches, cables' },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Printers' },
-      update: {},
-      create: { name: 'Printers', type: ItemType.EQUIPMENT, description: 'Inkjet and laser printers' },
-    }),
-  ]);
+  const [catLaptops, catPeripherals, catOfficeSupplies, catNetworking, catPrinters] =
+    await Promise.all([
+      prisma.category.upsert({
+        where: { name: 'Laptops' },
+        update: {},
+        create: { name: 'Laptops', type: ItemType.EQUIPMENT, description: 'Laptop computers' },
+      }),
+      prisma.category.upsert({
+        where: { name: 'Peripherals' },
+        update: {},
+        create: {
+          name: 'Peripherals',
+          type: ItemType.EQUIPMENT,
+          description: 'Keyboards, mice, monitors',
+        },
+      }),
+      prisma.category.upsert({
+        where: { name: 'Office Supplies' },
+        update: {},
+        create: {
+          name: 'Office Supplies',
+          type: ItemType.CONSUMABLE,
+          description: 'Paper, pens, folders',
+        },
+      }),
+      prisma.category.upsert({
+        where: { name: 'Networking' },
+        update: {},
+        create: {
+          name: 'Networking',
+          type: ItemType.EQUIPMENT,
+          description: 'Routers, switches, cables',
+        },
+      }),
+      prisma.category.upsert({
+        where: { name: 'Printers' },
+        update: {},
+        create: {
+          name: 'Printers',
+          type: ItemType.EQUIPMENT,
+          description: 'Inkjet and laser printers',
+        },
+      }),
+    ]);
 
   console.log('✓ Categories ready');
 
@@ -357,7 +386,7 @@ async function main() {
       data: {
         supplierId: supplier1.id,
         invoiceNumber: 'INV-QA-2024-001',
-        status: PurchaseOrderStatus.RECEIVED,
+        status: PurchaseOrderStatus.COMPLETED,
         totalAmount: 124000,
         createdById: admin.id,
         orderDate: new Date('2024-03-01'),
@@ -402,9 +431,7 @@ async function main() {
         createdById: manager.id,
         orderDate: new Date(),
         lineItems: {
-          create: [
-            { itemId: bondPaperItem.id, quantity: 100, unitCost: 280 },
-          ],
+          create: [{ itemId: bondPaperItem.id, quantity: 100, unitCost: 280 }],
         },
       },
     });
@@ -529,7 +556,8 @@ async function main() {
           consumableProfileId: ballpenProfile.id,
           alertType: 'LOW_STOCK',
           priority: 'WARNING',
-          message: '"Ballpen Black (box of 12)" is running low (3 boxes remaining, reorder point: 5 boxes).',
+          message:
+            '"Ballpen Black (box of 12)" is running low (3 boxes remaining, reorder point: 5 boxes).',
         },
       });
     }
@@ -545,7 +573,8 @@ async function main() {
           consumableProfileId: inkProfile.id,
           alertType: 'OUT_OF_STOCK',
           priority: 'CRITICAL',
-          message: '"Printer Ink Cartridge (Black)" is out of stock (current quantity: 0 pcs). Immediate restocking required.',
+          message:
+            '"Printer Ink Cartridge (Black)" is out of stock (current quantity: 0 pcs). Immediate restocking required.',
         },
       });
     }

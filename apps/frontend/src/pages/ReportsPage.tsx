@@ -47,7 +47,14 @@ function formatColumnHeader(key: string): string {
 
 function IconReport() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
       <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
     </svg>
@@ -56,7 +63,14 @@ function IconReport() {
 
 function IconDownload() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
     </svg>
   );
@@ -80,7 +94,14 @@ function IconSpinner() {
 
 function IconAlert() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -165,12 +186,13 @@ function FilterBar({
         <div className="rp-filter-field">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="rp-filter-date-btn"
-              >
+              <Button variant="outline" className="rp-filter-date-btn">
                 <CalendarIcon size={14} />
-                <span className={dateRange?.from ? 'rp-filter-date-active' : 'rp-filter-date-placeholder'}>
+                <span
+                  className={
+                    dateRange?.from ? 'rp-filter-date-active' : 'rp-filter-date-placeholder'
+                  }
+                >
                   {dateLabel}
                 </span>
               </Button>
@@ -236,13 +258,46 @@ function FilterBar({
 // ── Columns to show in preview table per report type ──────────────────────────
 
 const PREVIEW_COLUMNS: Record<string, string[]> = {
-  inventory: ['itemName', 'itemType', 'category', 'quantity', 'unit', 'stockStatus', 'equipmentStatus', 'condition'],
+  inventory: [
+    'itemName',
+    'itemType',
+    'category',
+    'quantity',
+    'unit',
+    'stockStatus',
+    'equipmentStatus',
+    'condition',
+  ],
   procurement: ['invoiceNumber', 'status', 'totalAmount', 'orderDate', 'supplier', 'itemCount'],
-  borrowing: ['equipmentName', 'assetId', 'borrowedBy', 'status', 'borrowDate', 'expectedReturn', 'actualReturn'],
+  borrowing: [
+    'equipmentName',
+    'assetId',
+    'borrowedBy',
+    'status',
+    'borrowDate',
+    'expectedReturn',
+    'actualReturn',
+  ],
   maintenance: ['equipmentName', 'description', 'status', 'scheduledDate', 'completedDate', 'cost'],
   disposal: ['equipmentName', 'assetId', 'reason', 'method', 'disposalDate', 'approvedBy'],
-  employee_equipment: ['itemName', 'category', 'assetId', 'condition', 'status', 'assignedTo', 'assignedToEmail'],
-  low_stock: ['itemName', 'category', 'currentQuantity', 'reorderPoint', 'unit', 'deficit', 'stockStatus'],
+  employee_equipment: [
+    'itemName',
+    'category',
+    'assetId',
+    'condition',
+    'status',
+    'assignedTo',
+    'assignedToEmail',
+  ],
+  low_stock: [
+    'itemName',
+    'category',
+    'currentQuantity',
+    'reorderPoint',
+    'unit',
+    'deficit',
+    'stockStatus',
+  ],
 };
 
 function DataTable({ data, type }: { data: Record<string, unknown>[]; type: string }) {
@@ -286,7 +341,8 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
       {totalPages > 1 && (
         <div className="rp-pagination">
           <span className="rp-pagination-info">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of {data.length} records
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of{' '}
+            {data.length} records
           </span>
           <div className="rp-pagination-controls">
             <button
@@ -297,7 +353,9 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
             >
               Previous
             </button>
-            <span className="rp-page-indicator">Page {page} of {totalPages}</span>
+            <span className="rp-page-indicator">
+              Page {page} of {totalPages}
+            </span>
             <button
               className="rp-page-btn"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -313,7 +371,7 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   );
 }
 
-  // Parses 'yyyy-MM-dd' into a local Date to avoid UTC timezone shifting
+// Parses 'yyyy-MM-dd' into a local Date to avoid UTC timezone shifting
 function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
@@ -364,13 +422,13 @@ export default function ReportsPage() {
     selectType(type);
   };
 
-const dateRange: DateRange | undefined =
-  filters.startDate || filters.endDate
-    ? {
-        from: filters.startDate ? parseLocalDate(filters.startDate) : undefined,
-        to: filters.endDate ? parseLocalDate(filters.endDate) : undefined,
-      }
-    : undefined;
+  const dateRange: DateRange | undefined =
+    filters.startDate || filters.endDate
+      ? {
+          from: filters.startDate ? parseLocalDate(filters.startDate) : undefined,
+          to: filters.endDate ? parseLocalDate(filters.endDate) : undefined,
+        }
+      : undefined;
 
   const hasActiveFilters = !!(filters.startDate || filters.endDate || filters.categoryId);
 
@@ -390,7 +448,10 @@ const dateRange: DateRange | undefined =
       <div className="rp-access-denied">
         <IconAlert />
         <h2>Access Restricted</h2>
-        <p>You don&apos;t have permission to generate or export reports. This feature is available to Admins and Managers only.</p>
+        <p>
+          You don&apos;t have permission to generate or export reports. This feature is available to
+          Admins and Managers only.
+        </p>
       </div>
     );
   }
@@ -401,7 +462,9 @@ const dateRange: DateRange | undefined =
       <div className="rp-header">
         <div className="rp-header-text">
           <h1 className="rp-title">Reports</h1>
-          <p className="rp-subtitle">Generate and export operational reports for inventory, equipment, and more.</p>
+          <p className="rp-subtitle">
+            Generate and export operational reports for inventory, equipment, and more.
+          </p>
         </div>
       </div>
 
@@ -410,7 +473,9 @@ const dateRange: DateRange | undefined =
         <div className="rp-error-banner">
           <IconAlert />
           <span>{error}</span>
-          <button type="button" className="rp-error-dismiss" onClick={clearError}>✕</button>
+          <button type="button" className="rp-error-dismiss" onClick={clearError}>
+            ✕
+          </button>
         </div>
       )}
 
@@ -442,7 +507,9 @@ const dateRange: DateRange | undefined =
         <section className="rp-main">
           {!selectedType ? (
             <div className="rp-placeholder">
-              <div className="rp-placeholder-icon"><IconReport /></div>
+              <div className="rp-placeholder-icon">
+                <IconReport />
+              </div>
               <h3>Choose a Report Type</h3>
               <p>Select a report from the left panel to generate a preview and export options.</p>
             </div>
@@ -469,7 +536,8 @@ const dateRange: DateRange | undefined =
                   </h2>
                   {preview && (
                     <span className="rp-meta">
-                      {preview.count} record{preview.count !== 1 ? 's' : ''} · Generated {formatDate(preview.generatedAt)} by {preview.generatedBy}
+                      {preview.count} record{preview.count !== 1 ? 's' : ''} · Generated{' '}
+                      {formatDate(preview.generatedAt)} by {preview.generatedBy}
                     </span>
                   )}
                 </div>
@@ -480,7 +548,13 @@ const dateRange: DateRange | undefined =
                     onClick={() => void generatePreview()}
                     disabled={isLoadingPreview}
                   >
-                    {isLoadingPreview ? <><IconSpinner /> Generating…</> : 'Generate Preview'}
+                    {isLoadingPreview ? (
+                      <>
+                        <IconSpinner /> Generating…
+                      </>
+                    ) : (
+                      'Generate Preview'
+                    )}
                   </button>
 
                   {preview && (
@@ -521,7 +595,9 @@ const dateRange: DateRange | undefined =
 
                 {!isLoadingPreview && !preview && (
                   <div className="rp-preview-empty">
-                    <p>Click <strong>Generate Preview</strong> to load data for this report.</p>
+                    <p>
+                      Click <strong>Generate Preview</strong> to load data for this report.
+                    </p>
                   </div>
                 )}
 

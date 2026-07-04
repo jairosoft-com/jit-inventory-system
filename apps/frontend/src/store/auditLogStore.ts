@@ -15,7 +15,9 @@ export type AuditAction =
   | 'TRANSFERRED'
   | 'MAINTENANCE_STARTED'
   | 'MAINTENANCE_COMPLETED'
-  | 'RENEWED';
+  | 'RENEWED'
+  | 'LOGIN'
+  | 'LOGOUT';
 
 export interface AuditLog {
   id: number;
@@ -76,8 +78,7 @@ export const useAuditLogStore = create<AuditLogState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  setFilters: (filters) =>
-    set((state) => ({ filters: { ...state.filters, ...filters } })),
+  setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),
 
   clearFilters: () => set({ filters: {} }),
 
@@ -96,10 +97,9 @@ export const useAuditLogStore = create<AuditLogState>((set, get) => ({
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
 
-      const res = await api.get<{ data: AuditLog[]; meta: PaginationMeta }>(
-        '/audit-logs',
-        { params },
-      );
+      const res = await api.get<{ data: AuditLog[]; meta: PaginationMeta }>('/audit-logs', {
+        params,
+      });
       set({ logs: res.data.data, meta: res.data.meta, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

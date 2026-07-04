@@ -796,8 +796,7 @@ export default function InventoryManagementPage() {
 
                             {item.consumableProfile && (
                               <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                                {item.consumableProfile.quantity}{' '}
-                                {item.consumableProfile.unit}
+                                {item.consumableProfile.quantity} {item.consumableProfile.unit}
                                 {' · '}
                                 (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
                                 {item.consumableProfile.unit})

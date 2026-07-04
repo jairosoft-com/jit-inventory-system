@@ -105,15 +105,9 @@ interface ProcurementState {
   isLoading: boolean;
   error: string | null;
 
-  fetchPurchaseOrders: (
-    status?: POStatus,
-    includeArchived?: boolean,
-  ) => Promise<void>;
+  fetchPurchaseOrders: (status?: POStatus, includeArchived?: boolean) => Promise<void>;
   createPurchaseOrder: (data: CreatePOInput) => Promise<PurchaseOrder>;
-  updatePurchaseOrder: (
-    id: number,
-    data: UpdatePOInput,
-  ) => Promise<PurchaseOrder>;
+  updatePurchaseOrder: (id: number, data: UpdatePOInput) => Promise<PurchaseOrder>;
   updatePurchaseOrderStatus: (
     id: number,
     status: POStatus,
@@ -148,8 +142,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         response?: { data?: { message?: string } };
       };
       set({
-        error:
-          err.response?.data?.message || 'Failed to fetch purchase orders',
+        error: err.response?.data?.message || 'Failed to fetch purchase orders',
         isLoading: false,
       });
     }
@@ -171,9 +164,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         message?: string;
       };
       const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to create purchase order';
+        err.response?.data?.message || err.message || 'Failed to create purchase order';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -182,15 +173,10 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
   updatePurchaseOrder: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.put<PurchaseOrder>(
-        `/procurement/${id}`,
-        data,
-      );
+      const response = await api.put<PurchaseOrder>(`/procurement/${id}`, data);
       const updated = response.data;
       set((state) => ({
-        purchaseOrders: state.purchaseOrders.map((po) =>
-          po.id === id ? updated : po,
-        ),
+        purchaseOrders: state.purchaseOrders.map((po) => (po.id === id ? updated : po)),
         isLoading: false,
       }));
       return updated;
@@ -200,9 +186,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         message?: string;
       };
       const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to update purchase order';
+        err.response?.data?.message || err.message || 'Failed to update purchase order';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -211,15 +195,13 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
   updatePurchaseOrderStatus: async (id, status, notes) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.patch<PurchaseOrder>(
-        `/procurement/${id}/status`,
-        { status, notes },
-      );
+      const response = await api.patch<PurchaseOrder>(`/procurement/${id}/status`, {
+        status,
+        notes,
+      });
       const updated = response.data;
       set((state) => ({
-        purchaseOrders: state.purchaseOrders.map((po) =>
-          po.id === id ? updated : po,
-        ),
+        purchaseOrders: state.purchaseOrders.map((po) => (po.id === id ? updated : po)),
         isLoading: false,
       }));
       return updated;
@@ -228,10 +210,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to update status';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to update status';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -245,9 +224,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
       const response = await api.get<PurchaseOrder>(`/procurement/${id}`);
       const updated = response.data;
       set((state) => ({
-        purchaseOrders: state.purchaseOrders.map((po) =>
-          po.id === id ? updated : po,
-        ),
+        purchaseOrders: state.purchaseOrders.map((po) => (po.id === id ? updated : po)),
         isLoading: false,
       }));
     } catch (error: unknown) {
@@ -255,10 +232,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to add attachment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to add attachment';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }
@@ -272,9 +246,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
       const response = await api.get<PurchaseOrder>(`/procurement/${poId}`);
       const updated = response.data;
       set((state) => ({
-        purchaseOrders: state.purchaseOrders.map((po) =>
-          po.id === poId ? updated : po,
-        ),
+        purchaseOrders: state.purchaseOrders.map((po) => (po.id === poId ? updated : po)),
         isLoading: false,
       }));
     } catch (error: unknown) {
@@ -282,10 +254,7 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         response?: { data?: { message?: string } };
         message?: string;
       };
-      const errMsg =
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to delete attachment';
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete attachment';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }

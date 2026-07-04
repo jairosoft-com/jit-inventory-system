@@ -16,18 +16,18 @@ interface Props {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CONDITION_OPTIONS: Array<{ value: ConditionStatus; label: string; description: string }> = [
-  { value: 'NEW',     label: 'New',     description: 'No signs of use, same as received' },
-  { value: 'GOOD',    label: 'Good',    description: 'Minor wear, fully functional' },
-  { value: 'FAIR',    label: 'Fair',    description: 'Visible wear but working properly' },
-  { value: 'POOR',    label: 'Poor',    description: 'Heavy wear, may need attention' },
+  { value: 'NEW', label: 'New', description: 'No signs of use, same as received' },
+  { value: 'GOOD', label: 'Good', description: 'Minor wear, fully functional' },
+  { value: 'FAIR', label: 'Fair', description: 'Visible wear but working properly' },
+  { value: 'POOR', label: 'Poor', description: 'Heavy wear, may need attention' },
   { value: 'DAMAGED', label: 'Damaged', description: 'Broken or non-functional' },
 ];
 
 const CONDITION_COLORS: Record<ConditionStatus, string> = {
-  NEW:     'border-emerald-500 bg-emerald-50 text-emerald-800',
-  GOOD:    'border-blue-500 bg-blue-50 text-blue-800',
-  FAIR:    'border-amber-500 bg-amber-50 text-amber-800',
-  POOR:    'border-orange-500 bg-orange-50 text-orange-800',
+  NEW: 'border-emerald-500 bg-emerald-50 text-emerald-800',
+  GOOD: 'border-blue-500 bg-blue-50 text-blue-800',
+  FAIR: 'border-amber-500 bg-amber-50 text-amber-800',
+  POOR: 'border-orange-500 bg-orange-50 text-orange-800',
   DAMAGED: 'border-red-500 bg-red-50 text-red-800',
 };
 
@@ -63,9 +63,7 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
 
   const overdue = isOverdue(record.expectedReturn);
   const daysLate = overdue
-    ? Math.floor(
-        (Date.now() - new Date(record.expectedReturn).getTime()) / (1000 * 60 * 60 * 24),
-      )
+    ? Math.floor((Date.now() - new Date(record.expectedReturn).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
   async function handleSubmit() {
@@ -95,7 +93,6 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl">
-
         {/* ── Header ── */}
         <div className="flex items-start justify-between border-b border-[var(--surface-border)] px-6 py-4">
           <div>
@@ -120,21 +117,28 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
         </div>
 
         <div className="px-6 py-5 flex flex-col gap-5">
-
           {/* ── Overdue warning ── */}
           {overdue && (
             <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <svg
+                className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
               </svg>
               <div>
                 <p className="text-sm font-semibold text-amber-800">Late Return</p>
                 <p className="mt-0.5 text-xs text-amber-700">
-                  This equipment was due on {formatDate(record.expectedReturn)},{' '}
-                  {daysLate} day{daysLate !== 1 ? 's' : ''} ago. This return will be
-                  recorded as <span className="font-bold">OVERDUE</span> in the audit
-                  trail.
+                  This equipment was due on {formatDate(record.expectedReturn)}, {daysLate} day
+                  {daysLate !== 1 ? 's' : ''} ago. This return will be recorded as{' '}
+                  <span className="font-bold">OVERDUE</span> in the audit trail.
                 </p>
               </div>
             </div>
@@ -154,7 +158,9 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
               </div>
               <div>
                 <dt className="text-[var(--text-tertiary)]">Expected return</dt>
-                <dd className={`font-medium ${overdue ? 'text-amber-700' : 'text-[var(--text-primary)]'}`}>
+                <dd
+                  className={`font-medium ${overdue ? 'text-amber-700' : 'text-[var(--text-primary)]'}`}
+                >
                   {formatDate(record.expectedReturn)}
                   {overdue && ' ⚠'}
                 </dd>

@@ -63,14 +63,18 @@ router.get('/count', async (req: Request, res: Response): Promise<void> => {
 // ── GET /api/alerts ───────────────────────────────────────────────────────────
 router.get(
   '/',
-  authorize('reports:export'),
   validate(alertHistoryQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const query = req.query as unknown as z.infer<
         typeof alertHistoryQuerySchema
       >;
-      const result = await AlertService.getAllAlerts(query);
+      const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+      const result = await AlertService.getAllAlerts(
+        query,
+        req.user!.id,
+        isAdminOrManager,
+      );
       res.status(200).json(result);
     } catch (error) {
       const message =

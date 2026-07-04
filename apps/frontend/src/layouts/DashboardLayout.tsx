@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
 import {
   useAlertStore,
   ALERT_POLL_INTERVAL_MS,
   type AlertCategoryFilter,
-} from '../store/alertStore';
-import { useProcurementAlertStore } from '../store/procurementAlertStore';
-import { usePolling } from '../lib/usePolling';
+} from "../store/alertStore";
+import { useProcurementAlertStore } from "../store/procurementAlertStore";
+import { usePolling } from "../lib/usePolling";
 
 /* ------ SVG Icon Components (inline for skeleton) ------ */
 
@@ -72,7 +72,14 @@ function IconCategories() {
       strokeWidth="1.5"
     >
       <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
-      <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth="2" strokeLinecap="round" />
+      <line
+        x1="7"
+        y1="7"
+        x2="7.01"
+        y2="7"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -249,8 +256,8 @@ function IconChevron({ collapsed }: { collapsed: boolean }) {
       stroke="currentColor"
       strokeWidth="2"
       style={{
-        transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-        transition: 'transform var(--transition-fast)',
+        transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
+        transition: "transform var(--transition-fast)",
       }}
     >
       <polyline points="9 18 15 12 9 6" />
@@ -268,10 +275,10 @@ function IconChevronSmall({ open }: { open: boolean }) {
       stroke="currentColor"
       strokeWidth="2.5"
       style={{
-        transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-        transition: 'transform var(--transition-fast)',
+        transform: open ? "rotate(90deg)" : "rotate(0deg)",
+        transition: "transform var(--transition-fast)",
         flexShrink: 0,
-        marginLeft: 'auto',
+        marginLeft: "auto",
         opacity: 0.6,
       }}
     >
@@ -284,73 +291,73 @@ function IconChevronSmall({ open }: { open: boolean }) {
 
 const INV_MGMT_ITEMS = [
   {
-    name: 'Items',
-    href: '/dashboard/inventory',
+    name: "Items",
+    href: "/dashboard/inventory",
     icon: IconInventory,
-    requiredPermission: 'inventory:read',
+    requiredPermission: "inventory:read",
   },
   {
-    name: 'Categories',
-    href: '/dashboard/categories',
+    name: "Categories",
+    href: "/dashboard/categories",
     icon: IconCategories,
-    requiredPermission: 'categories:create',
+    requiredPermission: "categories:create",
   },
   {
-    name: 'Equipment',
-    href: '/dashboard/equipment',
+    name: "Equipment",
+    href: "/dashboard/equipment",
     icon: IconEquipment,
-    requiredPermission: 'equipment:read',
+    requiredPermission: "equipment:read",
   },
   {
-    name: 'Borrow Requests',
-    href: '/dashboard/borrow',
+    name: "Borrow Requests",
+    href: "/dashboard/borrow",
     icon: IconBorrow,
-    requiredPermission: 'borrow:read',
+    requiredPermission: "borrow:read",
   },
   {
-    name: 'Purchase Orders',
-    href: '/dashboard/orders',
+    name: "Purchase Orders",
+    href: "/dashboard/orders",
     icon: IconOrders,
-    requiredPermission: 'purchase_orders:read',
+    requiredPermission: "purchase_orders:read",
   },
   {
-    name: 'Suppliers',
-    href: '/dashboard/suppliers',
+    name: "Suppliers",
+    href: "/dashboard/suppliers",
     icon: IconSuppliers,
-    requiredPermission: 'suppliers:create',
+    requiredPermission: "suppliers:create",
   },
   {
-    name: 'Maintenance',
-    href: '/dashboard/maintenance',
+    name: "Maintenance",
+    href: "/dashboard/maintenance",
     icon: IconMaintenance,
-    requiredPermission: 'maintenance:read',
+    requiredPermission: "maintenance:read",
   },
 ];
 
 const ADMIN_ITEMS = [
   {
-    name: 'Users & Roles',
-    href: '/dashboard/users',
+    name: "Users & Roles",
+    href: "/dashboard/users",
     icon: IconUsers,
-    requiredPermission: 'users:read',
+    requiredPermission: "users:read",
   },
   {
-    name: 'Audit Logs',
-    href: '/dashboard/logs',
+    name: "Audit Logs",
+    href: "/dashboard/logs",
     icon: IconLogs,
-    requiredPermission: 'audit_logs:read',
+    requiredPermission: "audit_logs:read",
   },
   {
-    name: 'Reports',
-    href: '/dashboard/reports',
+    name: "Reports",
+    href: "/dashboard/reports",
     icon: IconReports,
-    requiredPermission: 'reports:export',
+    requiredPermission: "reports:export",
   },
 ];
 
 function formatRoleName(roleName?: string | null) {
   if (!roleName) {
-    return 'User';
+    return "User";
   }
 
   return roleName
@@ -358,7 +365,7 @@ function formatRoleName(roleName?: string | null) {
     .split(/[\s_-]+/)
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .join(" ");
 }
 
 function formatCountdown(totalSeconds: number) {
@@ -370,32 +377,43 @@ function formatCountdown(totalSeconds: number) {
     return `${seconds}s`;
   }
 
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } =
-    useAuthStore();
+  const {
+    user,
+    isLoading,
+    checkAuth,
+    logout,
+    authCheckStatus,
+    authRetryAfterSeconds,
+  } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const invMgmtChildActive = INV_MGMT_ITEMS.some((item) => pathname === item.href);
+  const invMgmtChildActive = INV_MGMT_ITEMS.some(
+    (item) => pathname === item.href,
+  );
   const [invMgmtOpen, setInvMgmtOpen] = useState(invMgmtChildActive);
   const [retryCountdown, setRetryCountdown] = useState(0);
-  const [notifView, setNotifView] = useState<'current' | 'history'>('current');
-  const [notifCategory, setNotifCategory] = useState<AlertCategoryFilter>('ALL');
+  const [notifView, setNotifView] = useState<"current" | "history">("current");
+  const [notifCategory, setNotifCategory] =
+    useState<AlertCategoryFilter>("ALL");
   const hasCheckedAuthRef = useRef(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const permissions = useMemo(() => {
     if (!user || !user.permissions) return [];
-    return user.permissions.map((p) => (typeof p === 'string' ? p : p.name || ''));
+    return user.permissions.map((p) =>
+      typeof p === "string" ? p : p.name || "",
+    );
   }, [user]);
 
   const hasPermission = (requiredPermission?: string) => {
     if (!requiredPermission) return true;
-    if (user?.role?.name === 'ADMIN') return true;
+    if (user?.role?.name === "ADMIN") return true;
     return permissions.includes(requiredPermission);
   };
 
@@ -419,8 +437,12 @@ export default function DashboardLayout() {
 
   const {
     alerts: procurementAlerts,
+    historyAlerts: procurementHistoryAlerts,
     unreadCount: procurementUnreadCount,
+    isHistoryLoading: isProcurementHistoryLoading,
+    historyError: procurementHistoryError,
     fetchUnread: fetchProcurementUnread,
+    fetchHistory: fetchProcurementHistory,
     markAsRead: markProcurementAsRead,
     markAllAsRead: markAllProcurementAsRead,
   } = useProcurementAlertStore();
@@ -437,8 +459,8 @@ export default function DashboardLayout() {
         closeNotif();
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen, closeNotif]);
 
   useEffect(() => {
@@ -448,12 +470,21 @@ export default function DashboardLayout() {
   }, [invMgmtChildActive]);
 
   useEffect(() => {
-    if (!notifOpen || notifView !== 'history') {
+    if (!notifOpen || notifView !== "history") {
       return;
     }
 
-    void fetchHistory({ category: notifCategory });
-  }, [fetchHistory, notifCategory, notifOpen, notifView]);
+    void Promise.all([
+      fetchHistory({ category: notifCategory }),
+      fetchProcurementHistory({ category: notifCategory }),
+    ]);
+  }, [
+    fetchHistory,
+    fetchProcurementHistory,
+    notifCategory,
+    notifOpen,
+    notifView,
+  ]);
 
   useEffect(() => {
     if (hasCheckedAuthRef.current) {
@@ -466,7 +497,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     if (!isLoading && !user && authCheckStatus === 401) {
-      navigate('/');
+      navigate("/");
     }
   }, [user, isLoading, authCheckStatus, navigate]);
 
@@ -485,7 +516,9 @@ export default function DashboardLayout() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      setRetryCountdown((currentCountdown) => Math.max(currentCountdown - 1, 0));
+      setRetryCountdown((currentCountdown) =>
+        Math.max(currentCountdown - 1, 0),
+      );
     }, 1000);
 
     return () => window.clearTimeout(timeoutId);
@@ -493,7 +526,7 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate("/");
   };
 
   const handleRetryAuthCheck = () => {
@@ -508,52 +541,74 @@ export default function DashboardLayout() {
   type DisplayedNotification = {
     id: string | number;
     alertType: string;
-    priority: 'INFO' | 'WARNING' | 'CRITICAL' | 'NORMAL';
+    priority: "INFO" | "WARNING" | "CRITICAL" | "NORMAL";
     message: string;
     isRead: boolean;
     readAt: string | null;
     createdAt: string;
-    source: 'inventory' | 'procurement';
+    source: "inventory" | "procurement";
   };
 
   const totalUnreadCount = unreadCount + procurementUnreadCount;
   const currentNotifications: DisplayedNotification[] = [
-    ...alerts.map((alert) => ({ ...alert, source: 'inventory' as const })),
+    ...alerts.map((alert) => ({ ...alert, source: "inventory" as const })),
     ...procurementAlerts.map((alert) => ({
       id: alert.id,
       alertType: alert.alertType as string,
-      priority: (alert.alertType === 'PENDING_APPROVAL' ? 'WARNING' : 'NORMAL') as
-        | 'WARNING'
-        | 'NORMAL',
+      priority: (alert.alertType === "PENDING_APPROVAL"
+        ? "WARNING"
+        : "NORMAL") as "WARNING" | "NORMAL",
       message: alert.message,
       isRead: alert.isRead,
       readAt: alert.readAt,
       createdAt: alert.createdAt,
-      source: 'procurement' as const,
+      source: "procurement" as const,
     })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
-  const historyNotifications: DisplayedNotification[] = historyAlerts.map((alert) => ({
-    ...alert,
-    source: 'inventory' as const,
-  }));
+  const historyNotifications: DisplayedNotification[] = [
+    ...historyAlerts.map((alert) => ({
+      ...alert,
+      source: "inventory" as const,
+    })),
+    ...procurementHistoryAlerts.map((alert) => ({
+      id: alert.id,
+      alertType: alert.alertType as string,
+      priority: (alert.alertType === "PENDING_APPROVAL"
+        ? "WARNING"
+        : "NORMAL") as "WARNING" | "NORMAL",
+      message: alert.message,
+      isRead: alert.isRead,
+      readAt: alert.readAt,
+      createdAt: alert.createdAt,
+      source: "procurement" as const,
+    })),
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
   const displayedNotifications =
-    notifView === 'history' ? historyNotifications : currentNotifications;
+    notifView === "history" ? historyNotifications : currentNotifications;
 
   if (isLoading) {
     return (
       <div
         className="dash-layout"
-        style={{ justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}
+        style={{
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+        }}
       >
         <span
           className="login-spinner"
           style={{
-            width: '40px',
-            height: '40px',
-            borderColor: 'rgba(37,99,235,0.1)',
-            borderTopColor: '#2563eb',
+            width: "40px",
+            height: "40px",
+            borderColor: "rgba(37,99,235,0.1)",
+            borderTopColor: "#2563eb",
           }}
         />
       </div>
@@ -567,28 +622,28 @@ export default function DashboardLayout() {
       <div
         className="dash-layout"
         style={{
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          padding: '24px',
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          padding: "24px",
         }}
       >
         <section
           style={{
-            width: '100%',
-            maxWidth: '480px',
-            border: '1px solid var(--surface-border)',
-            borderRadius: '16px',
-            background: 'var(--surface)',
-            padding: '24px',
-            boxShadow: 'var(--shadow-md)',
+            width: "100%",
+            maxWidth: "480px",
+            border: "1px solid var(--surface-border)",
+            borderRadius: "16px",
+            background: "var(--surface)",
+            padding: "24px",
+            boxShadow: "var(--shadow-md)",
           }}
         >
           <h1
             style={{
-              margin: '0 0 8px',
-              color: 'var(--text-primary)',
-              fontSize: '1.25rem',
+              margin: "0 0 8px",
+              color: "var(--text-primary)",
+              fontSize: "1.25rem",
               fontWeight: 700,
             }}
           >
@@ -597,23 +652,23 @@ export default function DashboardLayout() {
 
           <p
             style={{
-              margin: '0 0 16px',
-              color: 'var(--text-secondary)',
-              fontSize: '0.95rem',
+              margin: "0 0 16px",
+              color: "var(--text-secondary)",
+              fontSize: "0.95rem",
               lineHeight: 1.6,
             }}
           >
             {isRateLimited
-              ? 'Too many session checks were sent. Please wait for the backend cooldown before trying again.'
-              : 'The system could not verify your session right now. Please try again in a moment.'}
+              ? "Too many session checks were sent. Please wait for the backend cooldown before trying again."
+              : "The system could not verify your session right now. Please try again in a moment."}
           </p>
 
           {retryCountdown > 0 && (
             <p
               style={{
-                margin: '0 0 16px',
-                color: 'var(--text-tertiary)',
-                fontSize: '0.9rem',
+                margin: "0 0 16px",
+                color: "var(--text-tertiary)",
+                fontSize: "0.9rem",
                 fontWeight: 600,
               }}
             >
@@ -627,21 +682,22 @@ export default function DashboardLayout() {
             disabled={isLoading || retryCountdown > 0}
             style={{
               border: 0,
-              borderRadius: '10px',
-              background: 'var(--accent)',
-              color: '#ffffff',
-              cursor: isLoading || retryCountdown > 0 ? 'not-allowed' : 'pointer',
-              font: 'inherit',
+              borderRadius: "10px",
+              background: "var(--accent)",
+              color: "#ffffff",
+              cursor:
+                isLoading || retryCountdown > 0 ? "not-allowed" : "pointer",
+              font: "inherit",
               fontWeight: 700,
               opacity: isLoading || retryCountdown > 0 ? 0.65 : 1,
-              padding: '10px 14px',
+              padding: "10px 14px",
             }}
           >
             {isLoading
-              ? 'Checking...'
+              ? "Checking..."
               : retryCountdown > 0
                 ? `Retry in ${formatCountdown(retryCountdown)}`
-                : 'Retry Session Check'}
+                : "Retry Session Check"}
           </button>
         </section>
       </div>
@@ -653,19 +709,25 @@ export default function DashboardLayout() {
   }
 
   const getInitials = () => {
-    if (!user) return '';
-    const f = user.firstName?.[0] || '';
-    const l = user.lastName?.[0] || '';
+    if (!user) return "";
+    const f = user.firstName?.[0] || "";
+    const l = user.lastName?.[0] || "";
     return (f + l).toUpperCase();
   };
 
-  const notificationsLoading = notifView === 'history' ? isHistoryLoading : notifLoading;
+  const notificationsLoading =
+    notifView === "history"
+      ? isHistoryLoading || isProcurementHistoryLoading
+      : notifLoading;
   const notificationEmptyText =
-    notifView === 'history' ? 'No notification history found' : 'No alerts right now';
+    notifView === "history"
+      ? "No notification history found"
+      : "No alerts right now";
+  const notificationHistoryError = historyError || procurementHistoryError;
 
-  const handleNotificationViewChange = (view: 'current' | 'history') => {
+  const handleNotificationViewChange = (view: "current" | "history") => {
     setNotifView(view);
-    if (view === 'current') {
+    if (view === "current") {
       void fetchUnread();
     }
   };
@@ -678,30 +740,70 @@ export default function DashboardLayout() {
     await scanAlerts();
     await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
 
-    if (notifView === 'history') {
-      await fetchHistory({ category: notifCategory });
+    if (notifView === "history") {
+      await Promise.all([
+        fetchHistory({ category: notifCategory }),
+        fetchProcurementHistory({ category: notifCategory }),
+      ]);
       return;
     }
 
     await Promise.all([fetchUnread(), fetchProcurementUnread()]);
   };
 
+  const handleMarkAllNotificationsRead = async () => {
+    await Promise.all([markAllAsRead(), markAllProcurementAsRead()]);
+    await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
+    setNotifView("history");
+    await Promise.all([
+      fetchHistory({ category: notifCategory }),
+      fetchProcurementHistory({ category: notifCategory }),
+    ]);
+  };
+
+  const handleNotificationClick = async (alert: DisplayedNotification) => {
+    const shouldRefreshHistory = notifView !== "history" || !alert.isRead;
+
+    if (!alert.isRead) {
+      if (alert.source === "procurement") {
+        await markProcurementAsRead(Number(alert.id));
+      } else {
+        await markAsRead(String(alert.id));
+      }
+
+      await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
+    }
+
+    setNotifView("history");
+
+    if (shouldRefreshHistory) {
+      await Promise.all([
+        fetchHistory({ category: notifCategory }),
+        fetchProcurementHistory({ category: notifCategory }),
+      ]);
+    }
+  };
+
   const formatAlertTypeLabel = (category: string) => {
-    if (category === 'ALL') return 'All Categories';
+    if (category === "ALL") return "All Categories";
 
     return category
       .toLowerCase()
-      .split('_')
+      .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+      .join(" ");
   };
 
   return (
     <div className="dash-layout">
       {/* Sidebar */}
-      <aside className={`dash-sidebar animate-fade-in ${collapsed ? 'dash-sidebar--collapsed' : ''}`}>
+      <aside
+        className={`dash-sidebar animate-fade-in ${collapsed ? "dash-sidebar--collapsed" : ""}`}
+      >
         {/* Sidebar header */}
-        <div className={`dash-sidebar-header ${collapsed ? 'dash-sidebar-header--collapsed' : ''}`}>
+        <div
+          className={`dash-sidebar-header ${collapsed ? "dash-sidebar-header--collapsed" : ""}`}
+        >
           {collapsed ? (
             /* Collapsed: solo logo acts as the expand button */
             <button
@@ -709,13 +811,21 @@ export default function DashboardLayout() {
               onClick={() => setCollapsed(false)}
               aria-label="Expand sidebar"
             >
-              <img src="/logosolo.svg" alt="JIT Inventory" className="dash-sidebar-solo-logo" />
+              <img
+                src="/logosolo.svg"
+                alt="JIT Inventory"
+                className="dash-sidebar-solo-logo"
+              />
             </button>
           ) : (
             /* Expanded: full logo + collapse toggle */
             <>
               <div className="dash-sidebar-brand">
-                <img className="dash-sidebar-logo" src="/logowhite.svg" alt="JIT Inventory logo" />
+                <img
+                  className="dash-sidebar-logo"
+                  src="/logowhite.svg"
+                  alt="JIT Inventory logo"
+                />
               </div>
               <button
                 className="dash-sidebar-toggle"
@@ -731,13 +841,12 @@ export default function DashboardLayout() {
         {/* Nav sections */}
         <nav className="dash-sidebar-nav">
           <ul className="dash-nav-list">
-
             {/* Dashboard */}
             <li>
               <button
-                className={`dash-nav-item ${pathname === '/dashboard' ? 'dash-nav-item--active' : ''}`}
-                onClick={() => navigate('/dashboard')}
-                title={collapsed ? 'Dashboard' : undefined}
+                className={`dash-nav-item ${pathname === "/dashboard" ? "dash-nav-item--active" : ""}`}
+                onClick={() => navigate("/dashboard")}
+                title={collapsed ? "Dashboard" : undefined}
               >
                 <IconDashboard />
                 {!collapsed && <span>Dashboard</span>}
@@ -747,16 +856,16 @@ export default function DashboardLayout() {
             {/* Inventory Management collapsible group */}
             {(() => {
               const visibleChildren = INV_MGMT_ITEMS.filter((item) =>
-                hasPermission(item.requiredPermission)
+                hasPermission(item.requiredPermission),
               );
               if (visibleChildren.length === 0) return null;
               return (
                 <>
                   <li>
                     <button
-                      className={`dash-nav-item dash-nav-group-trigger ${invMgmtChildActive ? 'dash-nav-item--active' : ''}`}
+                      className={`dash-nav-item dash-nav-group-trigger ${invMgmtChildActive ? "dash-nav-item--active" : ""}`}
                       onClick={() => !collapsed && setInvMgmtOpen((o) => !o)}
-                      title={collapsed ? 'Inventory Management' : undefined}
+                      title={collapsed ? "Inventory Management" : undefined}
                     >
                       <IconInventoryMgmt />
                       {!collapsed && (
@@ -767,31 +876,35 @@ export default function DashboardLayout() {
                       )}
                     </button>
                   </li>
-                  {!collapsed && invMgmtOpen && visibleChildren.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <li key={item.name}>
-                        <button
-                          className={`dash-nav-item dash-nav-child ${isActive ? 'dash-nav-item--active' : ''}`}
-                          onClick={() => navigate(item.href)}
-                        >
-                          <item.icon />
-                          <span>{item.name}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
+                  {!collapsed &&
+                    invMgmtOpen &&
+                    visibleChildren.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <li key={item.name}>
+                          <button
+                            className={`dash-nav-item dash-nav-child ${isActive ? "dash-nav-item--active" : ""}`}
+                            onClick={() => navigate(item.href)}
+                          >
+                            <item.icon />
+                            <span>{item.name}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
                 </>
               );
             })()}
 
             {/* Admin items */}
-            {ADMIN_ITEMS.filter((item) => hasPermission(item.requiredPermission)).map((item) => {
+            {ADMIN_ITEMS.filter((item) =>
+              hasPermission(item.requiredPermission),
+            ).map((item) => {
               const isActive = pathname === item.href;
               return (
                 <li key={item.name}>
                   <button
-                    className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
+                    className={`dash-nav-item ${isActive ? "dash-nav-item--active" : ""}`}
                     onClick={() => navigate(item.href)}
                     title={collapsed ? item.name : undefined}
                   >
@@ -801,22 +914,25 @@ export default function DashboardLayout() {
                 </li>
               );
             })}
-
           </ul>
         </nav>
 
         {/* Sidebar footer */}
         <div className="dash-sidebar-footer">
           <button
-            className={`dash-user-btn ${collapsed ? 'dash-user-btn--collapsed' : ''}`}
+            className={`dash-user-btn ${collapsed ? "dash-user-btn--collapsed" : ""}`}
             onClick={() => setAccountModalOpen(true)}
             title={collapsed ? `${user.firstName} ${user.lastName}` : undefined}
           >
-            <div className="dash-avatar dash-avatar--circle">{getInitials()}</div>
+            <div className="dash-avatar dash-avatar--circle">
+              {getInitials()}
+            </div>
             {!collapsed && (
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
-                <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
+                <span className="dash-user-role">
+                  {formatRoleName(user.role?.name)}
+                </span>
               </div>
             )}
           </button>
@@ -829,7 +945,7 @@ export default function DashboardLayout() {
         <header className="dash-topbar">
           <div className="dash-topbar-right">
             {/* Notification Bell */}
-            <div ref={notifRef} style={{ position: 'relative' }}>
+            <div ref={notifRef} style={{ position: "relative" }}>
               <button
                 className="dash-topbar-btn"
                 title="Notifications"
@@ -848,7 +964,7 @@ export default function DashboardLayout() {
                 </svg>
                 {totalUnreadCount > 0 && (
                   <span className="dash-notif-badge">
-                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </span>
                 )}
               </button>
@@ -860,7 +976,8 @@ export default function DashboardLayout() {
                     <div>
                       <span className="dash-notif-title">Notifications</span>
                       <p className="dash-notif-subtitle">
-                        Updates refresh every {Math.round(ALERT_POLL_INTERVAL_MS / 1000)} seconds.
+                        Updates refresh every{" "}
+                        {Math.round(ALERT_POLL_INTERVAL_MS / 1000)} seconds.
                       </p>
                     </div>
                     <div className="dash-notif-header-actions">
@@ -893,8 +1010,7 @@ export default function DashboardLayout() {
                         <button
                           className="dash-notif-mark-all"
                           onClick={() => {
-                            void markAllAsRead();
-                            void markAllProcurementAsRead();
+                            void handleMarkAllNotificationsRead();
                           }}
                         >
                           Mark all read
@@ -906,23 +1022,25 @@ export default function DashboardLayout() {
                   <div className="dash-notif-tabs">
                     <button
                       type="button"
-                      className={`dash-notif-tab ${notifView === 'current' ? 'dash-notif-tab--active' : ''}`}
-                      onClick={() => handleNotificationViewChange('current')}
+                      className={`dash-notif-tab ${notifView === "current" ? "dash-notif-tab--active" : ""}`}
+                      onClick={() => handleNotificationViewChange("current")}
                     >
                       Current
                     </button>
                     <button
                       type="button"
-                      className={`dash-notif-tab ${notifView === 'history' ? 'dash-notif-tab--active' : ''}`}
-                      onClick={() => handleNotificationViewChange('history')}
+                      className={`dash-notif-tab ${notifView === "history" ? "dash-notif-tab--active" : ""}`}
+                      onClick={() => handleNotificationViewChange("history")}
                     >
                       History
                     </button>
                   </div>
 
-                  {notifView === 'history' && (
+                  {notifView === "history" && (
                     <div className="dash-notif-filter-row">
-                      <label htmlFor="notification-category-filter">Category</label>
+                      <label htmlFor="notification-category-filter">
+                        Category
+                      </label>
                       <select
                         id="notification-category-filter"
                         value={notifCategory}
@@ -934,13 +1052,16 @@ export default function DashboardLayout() {
                       >
                         {(
                           [
-                            'ALL',
-                            'LOW_STOCK',
-                            'OUT_OF_STOCK',
-                            'OVERDUE_EQUIPMENT',
-                            'WARRANTY_EXPIRING',
-                            'REPLACEMENT_NEEDED',
-                            'MAINTENANCE_DUE',
+                            "ALL",
+                            "LOW_STOCK",
+                            "OUT_OF_STOCK",
+                            "OVERDUE_EQUIPMENT",
+                            "WARRANTY_EXPIRING",
+                            "REPLACEMENT_NEEDED",
+                            "MAINTENANCE_DUE",
+                            "BORROW_RETURNED",
+                            "PENDING_APPROVAL",
+                            "STATUS_UPDATED",
                           ] as AlertCategoryFilter[]
                         ).map((category) => (
                           <option key={category} value={category}>
@@ -952,12 +1073,14 @@ export default function DashboardLayout() {
                   )}
 
                   <div
-                    className={`dash-notif-body ${notifView === 'history' ? 'dash-notif-body--history' : ''}`}
+                    className={`dash-notif-body ${notifView === "history" ? "dash-notif-body--history" : ""}`}
                   >
                     {notificationsLoading ? (
                       <div className="dash-notif-empty">Loading...</div>
-                    ) : historyError && notifView === 'history' ? (
-                      <div className="dash-notif-empty">{historyError}</div>
+                    ) : notificationHistoryError && notifView === "history" ? (
+                      <div className="dash-notif-empty">
+                        {notificationHistoryError}
+                      </div>
                     ) : displayedNotifications.length === 0 ? (
                       <div className="dash-notif-empty">
                         <svg
@@ -977,32 +1100,31 @@ export default function DashboardLayout() {
                       displayedNotifications.map((alert) => (
                         <div
                           key={`${alert.source}-${alert.id}`}
-                          className={`dash-notif-item ${!alert.isRead ? 'dash-notif-item--unread' : ''} ${alert.priority === 'CRITICAL' ? 'dash-notif-item--critical' : ''}`}
+                          className={`dash-notif-item ${!alert.isRead ? "dash-notif-item--unread" : ""} ${alert.priority === "CRITICAL" ? "dash-notif-item--critical" : ""}`}
                           onClick={() => {
-                            if (!alert.isRead) {
-                              if (alert.source === 'procurement') {
-                                void markProcurementAsRead(Number(alert.id));
-                              } else {
-                                void markAsRead(String(alert.id));
-                              }
-                            }
+                            void handleNotificationClick(alert);
                           }}
                         >
                           <div className="dash-notif-dot" />
                           <div className="dash-notif-item-body">
-                            <span className="dash-notif-item-msg">{alert.message}</span>
+                            <span className="dash-notif-item-msg">
+                              {alert.message}
+                            </span>
                             <span className="dash-notif-item-time">
-                              {formatAlertTypeLabel(alert.alertType)} •{' '}
-                              {new Date(alert.createdAt).toLocaleString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                              {formatAlertTypeLabel(alert.alertType)} •{" "}
+                              {new Date(alert.createdAt).toLocaleString(
+                                undefined,
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )}
                             </span>
                           </div>
                           <div className="dash-notif-tags">
-                            {alert.priority !== 'NORMAL' && (
+                            {alert.priority !== "NORMAL" && (
                               <span
                                 className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}
                               >
@@ -1010,9 +1132,9 @@ export default function DashboardLayout() {
                               </span>
                             )}
                             <span
-                              className={`dash-notif-status ${alert.isRead ? 'dash-notif-status--read' : 'dash-notif-status--unread'}`}
+                              className={`dash-notif-status ${alert.isRead ? "dash-notif-status--read" : "dash-notif-status--unread"}`}
                             >
-                              {alert.isRead ? 'Read' : 'Unread'}
+                              {alert.isRead ? "Read" : "Unread"}
                             </span>
                           </div>
                         </div>
@@ -1033,11 +1155,16 @@ export default function DashboardLayout() {
 
       {/* Account Modal */}
       {accountModalOpen && (
-        <div className="acct-modal-overlay" onClick={() => setAccountModalOpen(false)}>
+        <div
+          className="acct-modal-overlay"
+          onClick={() => setAccountModalOpen(false)}
+        >
           <div className="acct-modal" onClick={(e) => e.stopPropagation()}>
             <div className="acct-modal-avatar">{getInitials()}</div>
             <div className="acct-modal-name">{`${user.firstName} ${user.lastName}`}</div>
-            <div className="acct-modal-role">{formatRoleName(user.role?.name)}</div>
+            <div className="acct-modal-role">
+              {formatRoleName(user.role?.name)}
+            </div>
             <div className="acct-modal-divider" />
             <button
               className="acct-modal-signout"

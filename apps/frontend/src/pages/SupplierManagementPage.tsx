@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useSupplierStore } from '../store/supplierStore';
-import type {
-  Supplier,
-  SupplierHistory,
-  SupplierStatusFilter,
-} from '../store/supplierStore';
+import type { Supplier, SupplierHistory, SupplierStatusFilter } from '../store/supplierStore';
 
 const PAGE_LIMIT = 20;
 
@@ -38,8 +34,7 @@ export default function SupplierManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<SupplierStatusFilter>('active');
-  const [appliedStatusFilter, setAppliedStatusFilter] =
-    useState<SupplierStatusFilter>('active');
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState<SupplierStatusFilter>('active');
   const [currentPage, setCurrentPage] = useState(1);
 
   // Modal control states
@@ -68,7 +63,6 @@ export default function SupplierManagementPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-
   // Resolve user permissions
   const permissions = useMemo(() => {
     if (!user || !user.permissions) return [];
@@ -90,13 +84,7 @@ export default function SupplierManagementPage() {
       page: currentPage,
       limit: PAGE_LIMIT,
     });
-  }, [
-    appliedSearchTerm,
-    appliedStatusFilter,
-    canRead,
-    currentPage,
-    fetchSuppliers,
-  ]);
+  }, [appliedSearchTerm, appliedStatusFilter, canRead, currentPage, fetchSuppliers]);
 
   useEffect(() => {
     loadSuppliers();
@@ -127,8 +115,7 @@ export default function SupplierManagementPage() {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters =
-    Boolean(appliedSearchTerm) || appliedStatusFilter !== 'active';
+  const hasActiveFilters = Boolean(appliedSearchTerm) || appliedStatusFilter !== 'active';
 
   const showingStart = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
   const showingEnd = Math.min(meta.page * meta.limit, meta.total);
@@ -344,7 +331,9 @@ export default function SupplierManagementPage() {
   const renderLogChanges = (log: SupplierHistory) => {
     if (log.action === 'CREATED') {
       if (log.oldData) {
-        return <p className="text-xs text-[var(--text-secondary)] mt-1">Supplier record restored.</p>;
+        return (
+          <p className="text-xs text-[var(--text-secondary)] mt-1">Supplier record restored.</p>
+        );
       }
       return <p className="text-xs text-[var(--text-secondary)] mt-1">New supplier registered.</p>;
     }
@@ -476,9 +465,7 @@ export default function SupplierManagementPage() {
 
               <select
                 value={statusFilter}
-                onChange={(e) =>
-                  handleStatusFilterChange(e.target.value as SupplierStatusFilter)
-                }
+                onChange={(e) => handleStatusFilterChange(e.target.value as SupplierStatusFilter)}
                 className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
               >
                 {STATUS_FILTER_OPTIONS.map((option) => (
@@ -513,7 +500,8 @@ export default function SupplierManagementPage() {
                 </span>
                 {appliedSearchTerm && (
                   <>
-                    {' '}and search is{' '}
+                    {' '}
+                    and search is{' '}
                     <span className="font-semibold text-[var(--text-primary)]">
                       “{appliedSearchTerm}”
                     </span>
@@ -735,7 +723,9 @@ export default function SupplierManagementPage() {
                     🏢
                   </div>
                   <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    {appliedStatusFilter === 'inactive' ? 'No inactive suppliers found' : 'No suppliers found'}
+                    {appliedStatusFilter === 'inactive'
+                      ? 'No inactive suppliers found'
+                      : 'No suppliers found'}
                   </h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     {appliedSearchTerm
@@ -771,9 +761,7 @@ export default function SupplierManagementPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        setCurrentPage((page) => Math.min(page + 1, meta.totalPages))
-                      }
+                      onClick={() => setCurrentPage((page) => Math.min(page + 1, meta.totalPages))}
                       disabled={meta.page >= meta.totalPages || isLoading}
                       className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -1104,7 +1092,8 @@ export default function SupplierManagementPage() {
                 ?
               </p>
               <p>
-                This will reactivate their profile, moving them back to the Active list and making them available for procurement operations.
+                This will reactivate their profile, moving them back to the Active list and making
+                them available for procurement operations.
               </p>
             </div>
 

@@ -51,16 +51,17 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         today: '[&>button]:bg-[#f1f5f9] [&>button]:text-[#0f172a] [&>button]:font-semibold',
         outside: '[&>button]:text-[#94a3b8] [&>button]:opacity-50',
         disabled: '[&>button]:text-[#94a3b8] [&>button]:opacity-50',
-        range_middle:
-          'aria-selected:bg-[rgba(37,99,235,0.08)] aria-selected:text-[#0f172a]',
+        range_middle: 'aria-selected:bg-[rgba(37,99,235,0.08)] aria-selected:text-[#0f172a]',
         hidden: 'invisible',
         ...classNames,
       }}
       components={{
         Chevron: ({ orientation }) =>
-          orientation === 'left'
-            ? <ChevronLeft className="h-4 w-4" />
-            : <ChevronRight className="h-4 w-4" />,
+          orientation === 'left' ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          ),
       }}
       {...props}
     />

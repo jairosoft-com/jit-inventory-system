@@ -143,6 +143,10 @@ function getRetirementEligibilityError(equipment: {
   replacementNeeded?: boolean | null;
   acquisitionDate?: Date | string | null;
 }) {
+  if (equipment.status === EquipmentStatus.UNDER_MAINTENANCE) {
+    return 'Equipment is currently under maintenance and cannot be retired';
+  }
+
   if (equipment.status === EquipmentStatus.BORROWED) {
     return 'Equipment is currently borrowed and cannot be retired';
   }
@@ -246,6 +250,16 @@ export class EquipmentService {
   private static assertNotRetired(equipment: { status: EquipmentStatus }) {
     if (equipment.status === EquipmentStatus.RETIRED) {
       throw new Error('Retired equipment is archived and cannot be modified');
+    }
+  }
+
+  private static assertNotUnderMaintenance(equipment: {
+    status: EquipmentStatus;
+  }) {
+    if (equipment.status === EquipmentStatus.UNDER_MAINTENANCE) {
+      throw new Error(
+        'Equipment is under active maintenance and cannot be modified',
+      );
     }
   }
 
@@ -568,6 +582,7 @@ export class EquipmentService {
   static async update(id: number, data: UpdateEquipmentInput, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
     this.assertNotRetired(equipment);
+    this.assertNotUnderMaintenance(equipment);
 
     if (data.categoryId) {
       await this.assertCategoryIsEquipment(data.categoryId);
@@ -688,6 +703,7 @@ export class EquipmentService {
   ) {
     const equipment = await this.findActiveOrThrow(id);
     this.assertNotRetired(equipment);
+    this.assertNotUnderMaintenance(equipment);
 
     const updated = await prisma.equipment.update({
       where: { id },
@@ -1102,6 +1118,7 @@ export class EquipmentService {
   static async softDelete(id: number, userId: number) {
     const equipment = await this.findActiveOrThrow(id);
     this.assertNotRetired(equipment);
+    this.assertNotUnderMaintenance(equipment);
 
     const deletedAt = new Date();
 
@@ -1133,6 +1150,7 @@ export class EquipmentService {
   static async addImage(equipmentId: number, data: EquipmentImageInput) {
     const equipment = await this.findActiveOrThrow(equipmentId);
     this.assertNotRetired(equipment);
+    this.assertNotUnderMaintenance(equipment);
 
     if (data.isPrimary) {
       await prisma.equipmentImage.updateMany({
@@ -1162,6 +1180,7 @@ export class EquipmentService {
   ) {
     const equipment = await this.findActiveOrThrow(equipmentId);
     this.assertNotRetired(equipment);
+    this.assertNotUnderMaintenance(equipment);
 
     const image = await prisma.equipmentImage.findFirst({
       where: {
@@ -1195,6 +1214,7 @@ export class EquipmentService {
   static async deleteImage(equipmentId: number, imageId: number) {
     const equipment = await this.findActiveOrThrow(equipmentId);
     this.assertNotRetired(equipment);
+    this.assertNotUnderMaintenance(equipment);
 
     const image = await prisma.equipmentImage.findFirst({
       where: {

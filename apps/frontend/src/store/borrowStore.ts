@@ -90,7 +90,11 @@ interface BorrowState {
   /** Reject a PENDING request (requires borrow:approve) */
   rejectRequest: (id: number, reason?: string) => Promise<BorrowRecord>;
   /** Mark a BORROWED/OVERDUE record as returned (requires borrow:return) */
-  returnEquipment: (id: number, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => Promise<BorrowRecord>;
+  returnEquipment: (
+    id: number,
+    returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED',
+    notes?: string,
+  ) => Promise<BorrowRecord>;
   /** Trigger manual overdue check scan */
   runOverdueCheck: () => Promise<void>;
   clearError: () => void;
@@ -119,10 +123,9 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
       if (query?.page) params.page = String(query.page);
       if (query?.limit) params.limit = String(query.limit);
 
-      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>(
-        '/borrow',
-        { params },
-      );
+      const response = await api.get<{ data: BorrowRecord[]; meta: PaginationMeta }>('/borrow', {
+        params,
+      });
       set({ adminRecords: response.data.data, adminMeta: response.data.meta, isLoading: false });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -227,12 +230,19 @@ export const useBorrowStore = create<BorrowState>((set, get) => ({
     }
   },
 
-  returnEquipment: async (id, returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED', notes?: string) => {
+  returnEquipment: async (
+    id,
+    returnCondition?: 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED',
+    notes?: string,
+  ) => {
     try {
-      const response = await api.patch<{ record: BorrowRecord; isLate: boolean }>(`/borrow/${id}/return`, {
-        returnCondition,
-        notes,
-      });
+      const response = await api.patch<{ record: BorrowRecord; isLate: boolean }>(
+        `/borrow/${id}/return`,
+        {
+          returnCondition,
+          notes,
+        },
+      );
       const { record } = response.data;
       set((state) => ({
         adminRecords: state.adminRecords.map((r) => (r.id === id ? record : r)),

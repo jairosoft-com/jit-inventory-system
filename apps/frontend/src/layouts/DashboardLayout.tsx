@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useAlertStore, ALERT_POLL_INTERVAL_MS, type AlertCategoryFilter } from '../store/alertStore';
+import {
+  useAlertStore,
+  ALERT_POLL_INTERVAL_MS,
+  type AlertCategoryFilter,
+} from '../store/alertStore';
 import { useProcurementAlertStore } from '../store/procurementAlertStore';
 import { usePolling } from '../lib/usePolling';
 
@@ -246,26 +250,76 @@ const NAV_SECTIONS = [
     label: 'MAIN',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: IconDashboard },
-      { name: 'Inventory', href: '/dashboard/inventory', icon: IconInventory, requiredPermission: 'inventory:read' },
-      { name: 'Categories', href: '/dashboard/categories', icon: IconCategories, requiredPermission: 'categories:create' },
-      { name: 'Equipment', href: '/dashboard/equipment', icon: IconEquipment, requiredPermission: 'equipment:read' },
+      {
+        name: 'Inventory',
+        href: '/dashboard/inventory',
+        icon: IconInventory,
+        requiredPermission: 'inventory:read',
+      },
+      {
+        name: 'Categories',
+        href: '/dashboard/categories',
+        icon: IconCategories,
+        requiredPermission: 'categories:create',
+      },
+      {
+        name: 'Equipment',
+        href: '/dashboard/equipment',
+        icon: IconEquipment,
+        requiredPermission: 'equipment:read',
+      },
     ],
   },
   {
     label: 'OPERATIONS',
     items: [
-      { name: 'Borrow Requests', href: '/dashboard/borrow', icon: IconBorrow, requiredPermission: 'borrow:read' },
-      { name: 'Purchase Orders', href: '/dashboard/orders', icon: IconOrders, requiredPermission: 'purchase_orders:read' },
-      { name: 'Suppliers', href: '/dashboard/suppliers', icon: IconSuppliers, requiredPermission: 'suppliers:create' },
-      { name: 'Maintenance', href: '/dashboard/maintenance', icon: IconMaintenance, requiredPermission: 'maintenance:read' },
+      {
+        name: 'Borrow Requests',
+        href: '/dashboard/borrow',
+        icon: IconBorrow,
+        requiredPermission: 'borrow:read',
+      },
+      {
+        name: 'Purchase Orders',
+        href: '/dashboard/orders',
+        icon: IconOrders,
+        requiredPermission: 'purchase_orders:read',
+      },
+      {
+        name: 'Suppliers',
+        href: '/dashboard/suppliers',
+        icon: IconSuppliers,
+        requiredPermission: 'suppliers:create',
+      },
+      {
+        name: 'Maintenance',
+        href: '/dashboard/maintenance',
+        icon: IconMaintenance,
+        requiredPermission: 'maintenance:read',
+      },
     ],
   },
   {
     label: 'ADMIN',
     items: [
-      { name: 'Users & Roles', href: '/dashboard/users', icon: IconUsers, requiredPermission: 'users:read' },
-      { name: 'Audit Logs', href: '/dashboard/logs', icon: IconLogs, requiredPermission: 'audit_logs:read' },
-      { name: 'Reports', href: '/dashboard/reports', icon: IconReports, requiredPermission: 'reports:export' },
+      {
+        name: 'Users & Roles',
+        href: '/dashboard/users',
+        icon: IconUsers,
+        requiredPermission: 'users:read',
+      },
+      {
+        name: 'Audit Logs',
+        href: '/dashboard/logs',
+        icon: IconLogs,
+        requiredPermission: 'audit_logs:read',
+      },
+      {
+        name: 'Reports',
+        href: '/dashboard/reports',
+        icon: IconReports,
+        requiredPermission: 'reports:export',
+      },
     ],
   },
 ];
@@ -298,7 +352,8 @@ function formatCountdown(totalSeconds: number) {
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } = useAuthStore();
+  const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } =
+    useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const [notifView, setNotifView] = useState<'current' | 'history'>('current');
@@ -358,7 +413,6 @@ export default function DashboardLayout() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [notifOpen, closeNotif]);
-
 
   useEffect(() => {
     if (!notifOpen || notifView !== 'history') {
@@ -444,9 +498,7 @@ export default function DashboardLayout() {
       createdAt: alert.createdAt,
       source: 'procurement' as const,
     })),
-  ].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const historyNotifications: DisplayedNotification[] = historyAlerts.map((alert) => ({
     ...alert,
@@ -574,11 +626,9 @@ export default function DashboardLayout() {
     return (f + l).toUpperCase();
   };
 
-
   const notificationsLoading = notifView === 'history' ? isHistoryLoading : notifLoading;
-  const notificationEmptyText = notifView === 'history'
-    ? 'No notification history found'
-    : 'No alerts right now';
+  const notificationEmptyText =
+    notifView === 'history' ? 'No notification history found' : 'No alerts right now';
 
   const handleNotificationViewChange = (view: 'current' | 'history') => {
     setNotifView(view);
@@ -685,9 +735,7 @@ export default function DashboardLayout() {
               <div className="dash-avatar">{getInitials()}</div>
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
-                <span className="dash-user-role">
-                  {formatRoleName(user.role?.name)}
-                </span>
+                <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
               </div>
             </div>
           )}
@@ -825,18 +873,22 @@ export default function DashboardLayout() {
                         id="notification-category-filter"
                         value={notifCategory}
                         onChange={(event) =>
-                          handleNotificationCategoryChange(event.target.value as AlertCategoryFilter)
+                          handleNotificationCategoryChange(
+                            event.target.value as AlertCategoryFilter,
+                          )
                         }
                       >
-                        {([
-                          'ALL',
-                          'LOW_STOCK',
-                          'OUT_OF_STOCK',
-                          'OVERDUE_EQUIPMENT',
-                          'WARRANTY_EXPIRING',
-                          'REPLACEMENT_NEEDED',
-                          'MAINTENANCE_DUE',
-                        ] as AlertCategoryFilter[]).map((category) => (
+                        {(
+                          [
+                            'ALL',
+                            'LOW_STOCK',
+                            'OUT_OF_STOCK',
+                            'OVERDUE_EQUIPMENT',
+                            'WARRANTY_EXPIRING',
+                            'REPLACEMENT_NEEDED',
+                            'MAINTENANCE_DUE',
+                          ] as AlertCategoryFilter[]
+                        ).map((category) => (
                           <option key={category} value={category}>
                             {formatAlertTypeLabel(category)}
                           </option>
@@ -845,14 +897,24 @@ export default function DashboardLayout() {
                     </div>
                   )}
 
-                  <div className={`dash-notif-body ${notifView === 'history' ? 'dash-notif-body--history' : ''}`}>
+                  <div
+                    className={`dash-notif-body ${notifView === 'history' ? 'dash-notif-body--history' : ''}`}
+                  >
                     {notificationsLoading ? (
                       <div className="dash-notif-empty">Loading...</div>
                     ) : historyError && notifView === 'history' ? (
                       <div className="dash-notif-empty">{historyError}</div>
                     ) : displayedNotifications.length === 0 ? (
                       <div className="dash-notif-empty">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.3, marginBottom: 8 }}>
+                        <svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          style={{ opacity: 0.3, marginBottom: 8 }}
+                        >
                           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
                         </svg>
                         <span>{notificationEmptyText}</span>
@@ -876,20 +938,29 @@ export default function DashboardLayout() {
                           <div className="dash-notif-item-body">
                             <span className="dash-notif-item-msg">{alert.message}</span>
                             <span className="dash-notif-item-time">
-                              {formatAlertTypeLabel(alert.alertType)} • {new Date(alert.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {formatAlertTypeLabel(alert.alertType)} •{' '}
+                              {new Date(alert.createdAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </span>
                           </div>
                           <div className="dash-notif-tags">
                             {alert.priority !== 'NORMAL' && (
-                              <span className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}>
+                              <span
+                                className={`dash-notif-tag dash-notif-tag--${alert.priority.toLowerCase()}`}
+                              >
                                 {alert.priority}
                               </span>
                             )}
-                            <span className={`dash-notif-status ${alert.isRead ? 'dash-notif-status--read' : 'dash-notif-status--unread'}`}>
+                            <span
+                              className={`dash-notif-status ${alert.isRead ? 'dash-notif-status--read' : 'dash-notif-status--unread'}`}
+                            >
                               {alert.isRead ? 'Read' : 'Unread'}
                             </span>
                           </div>
-
                         </div>
                       ))
                     )}

@@ -29,7 +29,25 @@ function formatDateTime(iso: string) {
 
 // ── Badge components ──────────────────────────────────────────────────────────
 
-function BorrowStatusBadge({ status }: { status: BorrowStatus }) {
+function isTodayUtc(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
+  );
+}
+
+function BorrowStatusBadge({ status, expectedReturn }: { status: BorrowStatus; expectedReturn?: string }) {
+  if (status === 'OVERDUE' && expectedReturn && isTodayUtc(expectedReturn)) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-amber-50 text-amber-700">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        Due Today
+      </span>
+    );
+  }
   const cfg: Record<BorrowStatus, { color: string; dot: string; label: string }> = {
     PENDING: { color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500', label: 'Pending' },
     APPROVED: { color: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500', label: 'Approved' },
@@ -329,7 +347,7 @@ function HistoryPanel() {
                   </p>
                   <p className="text-xs text-[var(--text-secondary)]">{rec.equipment.assetId}</p>
                 </div>
-                <BorrowStatusBadge status={rec.status} />
+                <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
@@ -463,14 +481,24 @@ function RejectModal({ record, onConfirm, onCancel, isSubmitting }: RejectModalP
 // state with HistoryPanel and won't flicker when switching between tabs.
 
 function AdminPanel() {
-  const { adminRecords, adminMeta, isLoading, error, fetchAdminRecords, approveRequest, rejectRequest, returnEquipment } =
-    useBorrowStore();
+  const {
+    adminRecords,
+    adminMeta,
+    isLoading,
+    error,
+    fetchAdminRecords,
+    approveRequest,
+    rejectRequest,
+    returnEquipment,
+  } = useBorrowStore();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
   const [actioningId, setActioningId] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BorrowRecord | null>(null);
   const [returnTarget, setReturnTarget] = useState<BorrowRecord | null>(null);
-  const [returnCondition, setReturnCondition] = useState<'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | ''>('');
+  const [returnCondition, setReturnCondition] = useState<
+    'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | ''
+  >('');
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
 
   const load = useCallback(
@@ -522,11 +550,7 @@ function AdminPanel() {
     setRowError(null);
     setActioningId(returnTarget.id);
     try {
-      await returnEquipment(
-        returnTarget.id,
-        returnCondition || undefined,
-        undefined,
-      );
+      await returnEquipment(returnTarget.id, returnCondition || undefined, undefined);
       setReturnTarget(null);
       setReturnCondition('');
     } catch (err: unknown) {
@@ -636,7 +660,7 @@ function AdminPanel() {
                         {formatDate(rec.expectedReturn)}
                       </td>
                       <td className="px-4 py-3">
-                        <BorrowStatusBadge status={rec.status} />
+                        <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
                         {isStale && rowError?.id !== rec.id && (
                           <p className="mt-1 max-w-[200px] text-xs font-medium text-amber-700">
                             Equipment no longer available — another request claimed it
@@ -669,10 +693,13 @@ function AdminPanel() {
                               Reject
                             </button>
                           </div>
-                        ) : (rec.status === 'BORROWED' || rec.status === 'OVERDUE') ? (
+                        ) : rec.status === 'BORROWED' || rec.status === 'OVERDUE' ? (
                           <button
                             type="button"
-                            onClick={() => { setReturnTarget(rec); setReturnCondition(''); }}
+                            onClick={() => {
+                              setReturnTarget(rec);
+                              setReturnCondition('');
+                            }}
                             disabled={isActioning}
                             className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -734,7 +761,8 @@ function AdminPanel() {
             </p>
 
             <label className="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-              Return condition <span className="font-normal text-[var(--text-disabled)]">(optional)</span>
+              Return condition{' '}
+              <span className="font-normal text-[var(--text-disabled)]">(optional)</span>
             </label>
             <select
               value={returnCondition}
@@ -752,7 +780,10 @@ function AdminPanel() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => { setReturnTarget(null); setReturnCondition(''); }}
+                onClick={() => {
+                  setReturnTarget(null);
+                  setReturnCondition('');
+                }}
                 disabled={actioningId === returnTarget.id}
                 className="rounded-xl border border-[var(--surface-border)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
               >

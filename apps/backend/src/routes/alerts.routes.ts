@@ -7,12 +7,7 @@ import { AlertService } from '../services/alert.service.js';
 
 const router = Router();
 
-// All alert routes require auth + reports:export permission
-// (Admins and Managers only, same permission gate as reports)
 router.use(authenticate);
-router.use(authorize('reports:export'));
-
-// ── Schemas ───────────────────────────────────────────────────────────────────
 
 const alertHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -24,6 +19,7 @@ const alertHistoryQuerySchema = z.object({
       'WARRANTY_EXPIRING',
       'REPLACEMENT_NEEDED',
       'OVERDUE_EQUIPMENT',
+      'BORROW_RETURNED',
     ])
     .optional(),
 });
@@ -33,10 +29,10 @@ const alertIdSchema = z.object({
 });
 
 // ── GET /api/alerts/unread ────────────────────────────────────────────────────
-// Returns all unread, unresolved alerts (for the dropdown)
-router.get('/unread', async (_req: Request, res: Response): Promise<void> => {
+router.get('/unread', async (req: Request, res: Response): Promise<void> => {
   try {
-    const alerts = await AlertService.getUnreadAlerts();
+    const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+    const alerts = await AlertService.getUnreadAlerts(req.user!.id, isAdminOrManager);
     res.status(200).json({ alerts, count: alerts.length });
   } catch (error) {
     const message =
@@ -46,10 +42,10 @@ router.get('/unread', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // ── GET /api/alerts/count ─────────────────────────────────────────────────────
-// Lightweight endpoint for the bell badge
-router.get('/count', async (_req: Request, res: Response): Promise<void> => {
+router.get('/count', async (req: Request, res: Response): Promise<void> => {
   try {
-    const count = await AlertService.getUnreadCount();
+    const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+    const count = await AlertService.getUnreadCount(req.user!.id, isAdminOrManager);
     res.status(200).json({ count });
   } catch (error) {
     const message =
@@ -59,15 +55,13 @@ router.get('/count', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // ── GET /api/alerts ───────────────────────────────────────────────────────────
-// All alerts paginated
 router.get(
   '/',
+  authorize('reports:export'),
   validate(alertHistoryQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const query = req.query as unknown as z.infer<
-        typeof alertHistoryQuerySchema
-      >;
+      const query = req.query as unknown as z.infer<typeof alertHistoryQuerySchema>;
       const result = await AlertService.getAllAlerts(query);
       res.status(200).json(result);
     } catch (error) {
@@ -79,13 +73,12 @@ router.get(
 );
 
 // ── PATCH /api/alerts/read-all ────────────────────────────────────────────────
-// Mark all unread alerts as read
-// NOTE: must be registered before /:id/read to avoid route conflict
 router.patch(
   '/read-all',
-  async (_req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await AlertService.markAllAsRead();
+      const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+      const result = await AlertService.markAllAsRead(req.user!.id, isAdminOrManager);
       res.status(200).json({ updated: result.count });
     } catch (error) {
       const message =
@@ -96,15 +89,42 @@ router.patch(
 );
 
 // ── PATCH /api/alerts/:id/read ────────────────────────────────────────────────
-// Mark a single alert as read
 router.patch(
   '/:id/read',
   validate(alertIdSchema, 'params'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params as unknown as z.infer<typeof alertIdSchema>;
-      const alert = await AlertService.markAsRead(id);
+      const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+      const alert = await AlertService.markAsRead(id, req.user!.id, isAdminOrManager);
       res.status(200).json({ alert });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Internal server error';
+      if (message.includes('Forbidden')) {
+        res.status(403).json({ message });
+        return;
+      }
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      res.status(500).json({ message });
+    }
+  },
+);
+
+// ── POST /api/alerts/scan ─────────────────────────────────────────────────────
+router.post(
+  '/scan',
+  authorize('reports:export'),
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      await AlertService.purgeOldAlerts();
+      await AlertService.runFullScan();
+      await AlertService.runWarrantyScan();
+      await AlertService.runOverdueScan();
+      res.status(200).json({ message: 'Alert scan completed successfully.' });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Internal server error';
@@ -112,21 +132,5 @@ router.patch(
     }
   },
 );
-
-// ── POST /api/alerts/scan ─────────────────────────────────────────────────────
-// Trigger a full scan: stock, warranty, and overdue equipment alerts
-router.post('/scan', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    await AlertService.purgeOldAlerts();
-    await AlertService.runFullScan();
-    await AlertService.runWarrantyScan();
-    await AlertService.runOverdueScan();
-    res.status(200).json({ message: 'Alert scan completed successfully.' });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ message });
-  }
-});
 
 export default router;

@@ -1166,7 +1166,7 @@ export default function EquipmentPage() {
                   </thead>
                   <tbody className="divide-y divide-[var(--surface-border)]">
                     {equipment
-                      .filter((eq) => !(isStaff && eq.status === 'DAMAGED'))
+                      .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
                       .map((eq) => {
                         const primaryImg = getPrimaryImage(eq);
                         return (
@@ -1357,7 +1357,7 @@ export default function EquipmentPage() {
               {/* Mobile Cards */}
               <div className="mt-6 grid gap-4 md:hidden">
                 {equipment
-                  .filter((eq) => !(isStaff && eq.status === 'DAMAGED'))
+                  .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
                   .map((eq) => {
                     const primaryImg = getPrimaryImage(eq);
                     return (

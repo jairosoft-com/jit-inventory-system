@@ -14,7 +14,6 @@ import type {
 } from '../schemas/borrow.schema.js';
 import { AlertService } from './alert.service.js';
 
-
 // ── Shared include ────────────────────────────────────────────────────────────
 
 const borrowInclude = Prisma.validator<Prisma.BorrowRecordInclude>()({
@@ -395,7 +394,7 @@ export class BorrowService {
         include: borrowInclude,
       });
 
-await AuditLogService.log(
+      await AuditLogService.log(
         'BorrowRecord',
         id,
         auditAction,
@@ -405,7 +404,7 @@ await AuditLogService.log(
         tx,
       );
 
-// Resolve any open overdue alerts for this borrow record
+      // Resolve any open overdue alerts for this borrow record
       await AlertService.resolveOverdueAlertsForBorrow(id, tx);
 
       // Notify borrower that return was recorded

@@ -69,49 +69,47 @@ async function main() {
 
   // ── 2. Suppliers ───────────────────────────────────────────────────────────
 
-  const [supplier1, supplier2, supplier3] = await Promise.all([
-    prisma.supplier
-      .upsert({
-        where: { supplierName: 'TechPro Solutions' } as never,
-        update: {},
-        create: {
-          supplierName: 'TechPro Solutions',
-          contactPerson: 'Carlos Reyes',
-          email: 'carlos@techpro.ph',
-          phone: '09171234567',
-          address: '123 Ayala Ave, Makati City',
-        },
-      })
-      .catch(() => prisma.supplier.findFirst({ where: { supplierName: 'TechPro Solutions' } })),
+  // Find or create TechPro Solutions
+  let supplier1 = await prisma.supplier.findFirst({ where: { supplierName: 'TechPro Solutions' } });
+  if (!supplier1) {
+    supplier1 = await prisma.supplier.create({
+      data: {
+        supplierName: 'TechPro Solutions',
+        contactPerson: 'Carlos Reyes',
+        email: 'carlos@techpro.ph',
+        phone: '09171234567',
+        address: '123 Ayala Ave, Makati City',
+      },
+    });
+  }
 
-    prisma.supplier
-      .upsert({
-        where: { supplierName: 'OfficeWorld PH' } as never,
-        update: {},
-        create: {
-          supplierName: 'OfficeWorld PH',
-          contactPerson: 'Ana Santos',
-          email: 'ana@officeworld.ph',
-          phone: '09289876543',
-          address: '45 Shaw Blvd, Mandaluyong',
-        },
-      })
-      .catch(() => prisma.supplier.findFirst({ where: { supplierName: 'OfficeWorld PH' } })),
+  // Find or create OfficeWorld PH
+  let supplier2 = await prisma.supplier.findFirst({ where: { supplierName: 'OfficeWorld PH' } });
+  if (!supplier2) {
+    supplier2 = await prisma.supplier.create({
+      data: {
+        supplierName: 'OfficeWorld PH',
+        contactPerson: 'Ana Santos',
+        email: 'ana@officeworld.ph',
+        phone: '09289876543',
+        address: '45 Shaw Blvd, Mandaluyong',
+      },
+    });
+  }
 
-    prisma.supplier
-      .upsert({
-        where: { supplierName: 'DataLink Corp' } as never,
-        update: {},
-        create: {
-          supplierName: 'DataLink Corp',
-          contactPerson: 'Ben Cruz',
-          email: 'ben@datalink.ph',
-          phone: '09501112233',
-          address: '8 Bonifacio St, BGC Taguig',
-        },
-      })
-      .catch(() => prisma.supplier.findFirst({ where: { supplierName: 'DataLink Corp' } })),
-  ]);
+  // Find or create DataLink Corp
+  let supplier3 = await prisma.supplier.findFirst({ where: { supplierName: 'DataLink Corp' } });
+  if (!supplier3) {
+    supplier3 = await prisma.supplier.create({
+      data: {
+        supplierName: 'DataLink Corp',
+        contactPerson: 'Ben Cruz',
+        email: 'ben@datalink.ph',
+        phone: '09501112233',
+        address: '8 Bonifacio St, BGC Taguig',
+      },
+    });
+  }
 
   console.log('✓ Suppliers ready');
 
@@ -388,7 +386,7 @@ async function main() {
       data: {
         supplierId: supplier1.id,
         invoiceNumber: 'INV-QA-2024-001',
-        status: PurchaseOrderStatus.RECEIVED,
+        status: PurchaseOrderStatus.COMPLETED,
         totalAmount: 124000,
         createdById: admin.id,
         orderDate: new Date('2024-03-01'),

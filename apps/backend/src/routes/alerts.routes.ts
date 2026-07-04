@@ -32,7 +32,10 @@ const alertIdSchema = z.object({
 router.get('/unread', async (req: Request, res: Response): Promise<void> => {
   try {
     const isAdminOrManager = [1, 2].includes(req.user!.roleId);
-    const alerts = await AlertService.getUnreadAlerts(req.user!.id, isAdminOrManager);
+    const alerts = await AlertService.getUnreadAlerts(
+      req.user!.id,
+      isAdminOrManager,
+    );
     res.status(200).json({ alerts, count: alerts.length });
   } catch (error) {
     const message =
@@ -45,7 +48,10 @@ router.get('/unread', async (req: Request, res: Response): Promise<void> => {
 router.get('/count', async (req: Request, res: Response): Promise<void> => {
   try {
     const isAdminOrManager = [1, 2].includes(req.user!.roleId);
-    const count = await AlertService.getUnreadCount(req.user!.id, isAdminOrManager);
+    const count = await AlertService.getUnreadCount(
+      req.user!.id,
+      isAdminOrManager,
+    );
     res.status(200).json({ count });
   } catch (error) {
     const message =
@@ -61,7 +67,9 @@ router.get(
   validate(alertHistoryQuerySchema, 'query'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const query = req.query as unknown as z.infer<typeof alertHistoryQuerySchema>;
+      const query = req.query as unknown as z.infer<
+        typeof alertHistoryQuerySchema
+      >;
       const result = await AlertService.getAllAlerts(query);
       res.status(200).json(result);
     } catch (error) {
@@ -78,7 +86,10 @@ router.patch(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const isAdminOrManager = [1, 2].includes(req.user!.roleId);
-      const result = await AlertService.markAllAsRead(req.user!.id, isAdminOrManager);
+      const result = await AlertService.markAllAsRead(
+        req.user!.id,
+        isAdminOrManager,
+      );
       res.status(200).json({ updated: result.count });
     } catch (error) {
       const message =
@@ -96,7 +107,11 @@ router.patch(
     try {
       const { id } = req.params as unknown as z.infer<typeof alertIdSchema>;
       const isAdminOrManager = [1, 2].includes(req.user!.roleId);
-      const alert = await AlertService.markAsRead(id, req.user!.id, isAdminOrManager);
+      const alert = await AlertService.markAsRead(
+        id,
+        req.user!.id,
+        isAdminOrManager,
+      );
       res.status(200).json({ alert });
     } catch (error) {
       const message =

@@ -120,4 +120,37 @@ describe('Equipment Damage Visibility Tests', () => {
     expect(staffIds).not.toContain(eqDmg.id);
     expect(staffIds).toContain(eqAvail.id);
   });
+
+  it('should filter out equipment with RETIREMENT_PENDING status if its condition is DAMAGED for staff', async () => {
+    // 1. Create a RETIREMENT_PENDING equipment with DAMAGED condition
+    const eqRetireDmg = await EquipmentService.create(
+      {
+        itemName: 'Test Retire Pending Damaged Equipment',
+        categoryId: testCategoryId,
+        assetId: `VT-RP-DMG-${Date.now()}`,
+        serialNumber: `SN-VT-RP-DMG-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.DAMAGED,
+        status: EquipmentStatus.RETIREMENT_PENDING,
+        images: [],
+      },
+      testAdminUserId,
+    );
+    await prisma.equipment.update({
+      where: { id: eqRetireDmg.id },
+      data: { condition: ConditionStatus.DAMAGED },
+    });
+    createdEquipmentIds.push(eqRetireDmg.id);
+
+    // 2. FindAll with adminRoleId should contain it
+    const adminResult = await EquipmentService.findAll({}, adminRoleId);
+    const adminIds = adminResult.data.map((e) => e.id);
+    expect(adminIds).toContain(eqRetireDmg.id);
+
+    // 3. FindAll with staffRoleId should filter it out
+    const staffResult = await EquipmentService.findAll({}, staffRoleId);
+    const staffIds = staffResult.data.map((e) => e.id);
+    expect(staffIds).not.toContain(eqRetireDmg.id);
+  });
 });

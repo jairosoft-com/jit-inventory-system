@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useEquipmentStore, type Equipment } from '../store/equipmentStore';
 import { useBorrowStore, type BorrowStatus, type BorrowRecord } from '../store/borrowStore';
+import './DashboardPage.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1018,39 +1019,16 @@ export default function BorrowRequestPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <section className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="dash-page animate-fade-in">
         {/* Page header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
+        <div className="dash-page-header">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Operations</p>
-            <h1 className="mt-1 text-2xl font-semibold">Borrow Requests</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Request available equipment for a defined period. All requests require manager or
-              admin approval before the equipment is released.
+            <h1 className="dash-page-title">Borrow History</h1>
+            <p className="dash-page-desc">
+              View historical borrow records and equipment loan logs
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="flex flex-col items-center rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-3 text-center">
-              <svg
-                className="mb-1 h-5 w-5 text-[var(--accent)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
-              <span className="text-xs font-medium text-[var(--text-secondary)]">
-                Tracked & controlled
-              </span>
-            </div>
-          </div>
-        </header>
+        </div>
 
         {/* Tabs + content */}
         <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
@@ -1080,6 +1058,6 @@ export default function BorrowRequestPage() {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

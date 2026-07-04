@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { useEquipmentStore, type Equipment } from '../store/equipmentStore';
 import { useBorrowStore, type BorrowStatus, type BorrowRecord } from '../store/borrowStore';
 import ReturnModal from '../components/ReturnModal';
+import './DashboardPage.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,9 +75,8 @@ function EquipmentStatusDot({ status }: { status: string }) {
   const available = status === 'AVAILABLE';
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        available ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-gray-100 text-gray-500'
-      }`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${available ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-gray-100 text-gray-500'
+        }`}
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${available ? 'bg-[var(--success)]' : 'bg-gray-400'}`}
@@ -125,11 +125,10 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full rounded-xl border ${
-          error
+        className={`w-full rounded-xl border ${error
             ? 'border-red-400 bg-red-50 focus:ring-red-300'
             : 'border-[var(--input-border)] bg-[var(--input-bg)]'
-        } px-4 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
+          } px-4 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
       >
         {selected ? (
           <div className="flex items-center justify-between gap-3">
@@ -203,9 +202,8 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
                   <button
                     type="button"
                     onClick={() => handleSelect(eq)}
-                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-[var(--surface-hover)] ${
-                      selected?.id === eq.id ? 'bg-[var(--accent-muted)]' : ''
-                    }`}
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-[var(--surface-hover)] ${selected?.id === eq.id ? 'bg-[var(--accent-muted)]' : ''
+                      }`}
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-[var(--text-primary)]">
@@ -396,16 +394,16 @@ function HistoryPanel() {
               {(rec.status === 'BORROWED' ||
                 rec.status === 'APPROVED' ||
                 rec.status === 'OVERDUE') && (
-                <div className="mt-3 border-t border-[var(--surface-border)] pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setReturnTarget(rec)}
-                    className="w-full rounded-lg border border-[var(--accent)] px-3 py-2 text-xs font-bold text-[var(--accent)] transition hover:bg-[var(--accent-muted)]"
-                  >
-                    Process Return
-                  </button>
-                </div>
-              )}
+                  <div className="mt-3 border-t border-[var(--surface-border)] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setReturnTarget(rec)}
+                      className="w-full rounded-lg border border-[var(--accent)] px-3 py-2 text-xs font-bold text-[var(--accent)] transition hover:bg-[var(--accent-muted)]"
+                    >
+                      Process Return
+                    </button>
+                  </div>
+                )}
             </li>
           ))}
         </ul>
@@ -437,11 +435,10 @@ function HistoryPanel() {
       {/* Return success banner */}
       {returnSuccess && (
         <div
-          className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-            returnSuccess.isLate
+          className={`rounded-xl border px-4 py-3 text-sm font-medium ${returnSuccess.isLate
               ? 'border-amber-200 bg-amber-50 text-amber-800'
               : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-          }`}
+            }`}
         >
           {returnSuccess.isLate
             ? 'Return recorded. Equipment was returned late and has been marked as OVERDUE in the audit trail.'
@@ -813,11 +810,10 @@ function AdminPanel() {
 
       {returnSuccess && (
         <div
-          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-medium ${
-            returnSuccess.isLate
+          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-medium ${returnSuccess.isLate
               ? 'border-amber-200 bg-amber-50 text-amber-800'
               : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-          }`}
+            }`}
         >
           {returnSuccess.isLate
             ? `Return for "${returnSuccess.name}" recorded. Equipment was returned late and flagged as OVERDUE in the audit trail.`
@@ -945,11 +941,10 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
             setExpectedReturn(e.target.value);
             if (errors.expectedReturn) setErrors((err) => ({ ...err, expectedReturn: undefined }));
           }}
-          className={`w-full rounded-xl border ${
-            errors.expectedReturn
+          className={`w-full rounded-xl border ${errors.expectedReturn
               ? 'border-red-400 bg-red-50'
               : 'border-[var(--input-border)] bg-[var(--input-bg)]'
-          } px-4 py-2.5 text-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]`}
+            } px-4 py-2.5 text-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]`}
         />
         {errors.expectedReturn && (
           <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
@@ -1041,68 +1036,42 @@ export default function BorrowRequestPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <section className="mx-auto flex max-w-5xl flex-col gap-6">
-        {/* Page header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Operations</p>
-            <h1 className="mt-1 text-2xl font-semibold">Borrow Requests</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Request available equipment for a defined period. All requests require manager or
-              admin approval before the equipment is released.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="flex flex-col items-center rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-3 text-center">
-              <svg
-                className="mb-1 h-5 w-5 text-[var(--accent)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
-              <span className="text-xs font-medium text-[var(--text-secondary)]">
-                Tracked & controlled
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {/* Tabs + content */}
-        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
-          {/* Tab bar */}
-          <div className="flex border-b border-[var(--surface-border)] px-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`-mb-px border-b-2 py-3.5 pr-6 text-sm font-medium transition ${
-                  activeTab === tab.id
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="p-6">
-            {activeTab === 'request' && <BorrowForm onSuccess={() => setActiveTab('history')} />}
-            {activeTab === 'history' && <HistoryPanel />}
-            {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
-          </div>
+    <div className="dash-page animate-fade-in">
+      {/* Page header */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Borrow Requests</h1>
+          <p className="dash-page-desc">
+            Process Borrowing, Returning and Tacking Equipment, Item and Digital Assets            </p>
         </div>
-      </section>
-    </main>
+      </div>
+
+      {/* Tabs + content */}
+      <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
+        {/* Tab bar */}
+        <div className="flex border-b border-[var(--surface-border)] px-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px border-b-2 py-3.5 pr-6 text-sm font-medium transition ${activeTab === tab.id
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="p-6">
+          {activeTab === 'request' && <BorrowForm onSuccess={() => setActiveTab('history')} />}
+          {activeTab === 'history' && <HistoryPanel />}
+          {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
+        </div>
+      </div>
+    </div>
   );
 }

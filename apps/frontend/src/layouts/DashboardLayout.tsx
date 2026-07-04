@@ -46,6 +46,21 @@ function IconInventory() {
   );
 }
 
+function IconInventoryMgmt() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
+    </svg>
+  );
+}
+
 function IconCategories() {
   return (
     <svg
@@ -243,84 +258,93 @@ function IconChevron({ collapsed }: { collapsed: boolean }) {
   );
 }
 
+function IconChevronSmall({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      style={{
+        transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+        transition: 'transform var(--transition-fast)',
+        flexShrink: 0,
+        marginLeft: 'auto',
+        opacity: 0.6,
+      }}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 /* ------ Navigation config ------ */
 
-const NAV_SECTIONS = [
+const INV_MGMT_ITEMS = [
   {
-    label: 'MAIN',
-    items: [
-      { name: 'Dashboard', href: '/dashboard', icon: IconDashboard },
-      {
-        name: 'Inventory',
-        href: '/dashboard/inventory',
-        icon: IconInventory,
-        requiredPermission: 'inventory:read',
-      },
-      {
-        name: 'Categories',
-        href: '/dashboard/categories',
-        icon: IconCategories,
-        requiredPermission: 'categories:create',
-      },
-      {
-        name: 'Equipment',
-        href: '/dashboard/equipment',
-        icon: IconEquipment,
-        requiredPermission: 'equipment:read',
-      },
-    ],
+    name: 'Items',
+    href: '/dashboard/inventory',
+    icon: IconInventory,
+    requiredPermission: 'inventory:read',
   },
   {
-    label: 'OPERATIONS',
-    items: [
-      {
-        name: 'Borrow Requests',
-        href: '/dashboard/borrow',
-        icon: IconBorrow,
-        requiredPermission: 'borrow:read',
-      },
-      {
-        name: 'Purchase Orders',
-        href: '/dashboard/orders',
-        icon: IconOrders,
-        requiredPermission: 'purchase_orders:read',
-      },
-      {
-        name: 'Suppliers',
-        href: '/dashboard/suppliers',
-        icon: IconSuppliers,
-        requiredPermission: 'suppliers:create',
-      },
-      {
-        name: 'Maintenance',
-        href: '/dashboard/maintenance',
-        icon: IconMaintenance,
-        requiredPermission: 'maintenance:read',
-      },
-    ],
+    name: 'Categories',
+    href: '/dashboard/categories',
+    icon: IconCategories,
+    requiredPermission: 'categories:create',
   },
   {
-    label: 'ADMIN',
-    items: [
-      {
-        name: 'Users & Roles',
-        href: '/dashboard/users',
-        icon: IconUsers,
-        requiredPermission: 'users:read',
-      },
-      {
-        name: 'Audit Logs',
-        href: '/dashboard/logs',
-        icon: IconLogs,
-        requiredPermission: 'audit_logs:read',
-      },
-      {
-        name: 'Reports',
-        href: '/dashboard/reports',
-        icon: IconReports,
-        requiredPermission: 'reports:export',
-      },
-    ],
+    name: 'Equipment',
+    href: '/dashboard/equipment',
+    icon: IconEquipment,
+    requiredPermission: 'equipment:read',
+  },
+  {
+    name: 'Borrow Requests',
+    href: '/dashboard/borrow',
+    icon: IconBorrow,
+    requiredPermission: 'borrow:read',
+  },
+  {
+    name: 'Purchase Orders',
+    href: '/dashboard/orders',
+    icon: IconOrders,
+    requiredPermission: 'purchase_orders:read',
+  },
+  {
+    name: 'Suppliers',
+    href: '/dashboard/suppliers',
+    icon: IconSuppliers,
+    requiredPermission: 'suppliers:create',
+  },
+  {
+    name: 'Maintenance',
+    href: '/dashboard/maintenance',
+    icon: IconMaintenance,
+    requiredPermission: 'maintenance:read',
+  },
+];
+
+const ADMIN_ITEMS = [
+  {
+    name: 'Users & Roles',
+    href: '/dashboard/users',
+    icon: IconUsers,
+    requiredPermission: 'users:read',
+  },
+  {
+    name: 'Audit Logs',
+    href: '/dashboard/logs',
+    icon: IconLogs,
+    requiredPermission: 'audit_logs:read',
+  },
+  {
+    name: 'Reports',
+    href: '/dashboard/reports',
+    icon: IconReports,
+    requiredPermission: 'reports:export',
   },
 ];
 
@@ -355,6 +379,9 @@ export default function DashboardLayout() {
   const { user, isLoading, checkAuth, logout, authCheckStatus, authRetryAfterSeconds } =
     useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const invMgmtChildActive = INV_MGMT_ITEMS.some((item) => pathname === item.href);
+  const [invMgmtOpen, setInvMgmtOpen] = useState(invMgmtChildActive);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const [notifView, setNotifView] = useState<'current' | 'history'>('current');
   const [notifCategory, setNotifCategory] = useState<AlertCategoryFilter>('ALL');
@@ -413,6 +440,12 @@ export default function DashboardLayout() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [notifOpen, closeNotif]);
+
+  useEffect(() => {
+    if (invMgmtChildActive) {
+      setInvMgmtOpen(true);
+    }
+  }, [invMgmtChildActive]);
 
   useEffect(() => {
     if (!notifOpen || notifView !== 'history') {
@@ -666,70 +699,126 @@ export default function DashboardLayout() {
   return (
     <div className="dash-layout">
       {/* Sidebar */}
-      <aside className={`dash-sidebar ${collapsed ? 'dash-sidebar--collapsed' : ''}`}>
+      <aside className={`dash-sidebar animate-fade-in ${collapsed ? 'dash-sidebar--collapsed' : ''}`}>
         {/* Sidebar header */}
-        <div className="dash-sidebar-header">
-          <div className={`dash-sidebar-brand ${collapsed ? 'dash-sidebar-brand--collapsed' : ''}`}>
-            <img className="dash-sidebar-logo" src="/logowhite.svg" alt="JIT Inventory logo" />
-          </div>
-          <button
-            className="dash-sidebar-toggle"
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <IconChevron collapsed={collapsed} />
-          </button>
+        <div className={`dash-sidebar-header ${collapsed ? 'dash-sidebar-header--collapsed' : ''}`}>
+          {collapsed ? (
+            /* Collapsed: solo logo acts as the expand button */
+            <button
+              className="dash-sidebar-solo-btn"
+              onClick={() => setCollapsed(false)}
+              aria-label="Expand sidebar"
+            >
+              <img src="/logosolo.svg" alt="JIT Inventory" className="dash-sidebar-solo-logo" />
+            </button>
+          ) : (
+            /* Expanded: full logo + collapse toggle */
+            <>
+              <div className="dash-sidebar-brand">
+                <img className="dash-sidebar-logo" src="/logowhite.svg" alt="JIT Inventory logo" />
+              </div>
+              <button
+                className="dash-sidebar-toggle"
+                onClick={() => setCollapsed(true)}
+                aria-label="Collapse sidebar"
+              >
+                <IconChevron collapsed={false} />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Nav sections */}
         <nav className="dash-sidebar-nav">
-          {NAV_SECTIONS.map((section) => {
-            const filteredItems = section.items.filter((item) => {
-              return hasPermission(item.requiredPermission);
-            });
+          <ul className="dash-nav-list">
 
-            if (filteredItems.length === 0) return null;
+            {/* Dashboard */}
+            <li>
+              <button
+                className={`dash-nav-item ${pathname === '/dashboard' ? 'dash-nav-item--active' : ''}`}
+                onClick={() => navigate('/dashboard')}
+                title={collapsed ? 'Dashboard' : undefined}
+              >
+                <IconDashboard />
+                {!collapsed && <span>Dashboard</span>}
+              </button>
+            </li>
 
-            return (
-              <div key={section.label} className="dash-nav-section">
-                {!collapsed && <span className="dash-nav-label">{section.label}</span>}
-                <ul className="dash-nav-list">
-                  {filteredItems.map((item) => {
+            {/* Inventory Management collapsible group */}
+            {(() => {
+              const visibleChildren = INV_MGMT_ITEMS.filter((item) =>
+                hasPermission(item.requiredPermission)
+              );
+              if (visibleChildren.length === 0) return null;
+              return (
+                <>
+                  <li>
+                    <button
+                      className={`dash-nav-item dash-nav-group-trigger ${invMgmtChildActive ? 'dash-nav-item--active' : ''}`}
+                      onClick={() => !collapsed && setInvMgmtOpen((o) => !o)}
+                      title={collapsed ? 'Inventory Management' : undefined}
+                    >
+                      <IconInventoryMgmt />
+                      {!collapsed && (
+                        <>
+                          <span>Inventory Management</span>
+                          <IconChevronSmall open={invMgmtOpen} />
+                        </>
+                      )}
+                    </button>
+                  </li>
+                  {!collapsed && invMgmtOpen && visibleChildren.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                       <li key={item.name}>
                         <button
-                          className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
+                          className={`dash-nav-item dash-nav-child ${isActive ? 'dash-nav-item--active' : ''}`}
                           onClick={() => navigate(item.href)}
-                          title={collapsed ? item.name : undefined}
                         >
                           <item.icon />
-                          {!collapsed && <span>{item.name}</span>}
-                          {isActive && <div className="dash-nav-indicator" />}
+                          <span>{item.name}</span>
                         </button>
                       </li>
                     );
                   })}
-                </ul>
-              </div>
-            );
-          })}
+                </>
+              );
+            })()}
+
+            {/* Admin items */}
+            {ADMIN_ITEMS.filter((item) => hasPermission(item.requiredPermission)).map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <li key={item.name}>
+                  <button
+                    className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
+                    onClick={() => navigate(item.href)}
+                    title={collapsed ? item.name : undefined}
+                  >
+                    <item.icon />
+                    {!collapsed && <span>{item.name}</span>}
+                  </button>
+                </li>
+              );
+            })}
+
+          </ul>
         </nav>
 
         {/* Sidebar footer */}
         <div className="dash-sidebar-footer">
-          <div className={`dash-user-info ${collapsed ? 'dash-user-info--collapsed' : ''}`}>
-            <div className="dash-avatar">{getInitials()}</div>
+          <button
+            className={`dash-user-btn ${collapsed ? 'dash-user-btn--collapsed' : ''}`}
+            onClick={() => setAccountModalOpen(true)}
+            title={collapsed ? `${user.firstName} ${user.lastName}` : undefined}
+          >
+            <div className="dash-avatar dash-avatar--circle">{getInitials()}</div>
             {!collapsed && (
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
                 <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
               </div>
             )}
-          </div>
-          <button className="dash-logout-btn" onClick={handleLogout} title="Sign out">
-            <IconLogout />
-            {!collapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
@@ -738,29 +827,6 @@ export default function DashboardLayout() {
       <main className="dash-main">
         {/* Top bar */}
         <header className="dash-topbar">
-          <div className="dash-topbar-left">
-            <div className="dash-search-wrapper">
-              <svg
-                className="dash-search-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                id="global-search"
-                type="text"
-                placeholder="Search inventory, equipment, orders"
-                className="dash-search-input"
-              />
-              <kbd className="dash-search-kbd"></kbd>
-            </div>
-          </div>
           <div className="dash-topbar-right">
             {/* Notification Bell */}
             <div ref={notifRef} style={{ position: 'relative' }}>
@@ -965,6 +1031,28 @@ export default function DashboardLayout() {
         </div>
       </main>
 
+      {/* Account Modal */}
+      {accountModalOpen && (
+        <div className="acct-modal-overlay" onClick={() => setAccountModalOpen(false)}>
+          <div className="acct-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="acct-modal-avatar">{getInitials()}</div>
+            <div className="acct-modal-name">{`${user.firstName} ${user.lastName}`}</div>
+            <div className="acct-modal-role">{formatRoleName(user.role?.name)}</div>
+            <div className="acct-modal-divider" />
+            <button
+              className="acct-modal-signout"
+              onClick={async () => {
+                setAccountModalOpen(false);
+                await handleLogout();
+              }}
+            >
+              <IconLogout />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`
         /* ------ Dashboard Shell ------ */
 
@@ -1001,6 +1089,12 @@ export default function DashboardLayout() {
           gap: 12px;
           padding: 16px 14px 14px;
           border-bottom: 1px solid rgba(168, 179, 196, 0.16);
+          min-height: 72px;
+        }
+
+        .dash-sidebar-header--collapsed {
+          justify-content: center;
+          padding: 12px 8px;
         }
 
         .dash-sidebar-brand {
@@ -1025,6 +1119,29 @@ export default function DashboardLayout() {
           filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.18));
         }
 
+        .dash-sidebar-solo-btn {
+          background: none;
+          border: none;
+          padding: 4px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--radius-md);
+          transition: background var(--transition-fast);
+        }
+        .dash-sidebar-solo-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .dash-sidebar-solo-logo {
+          width: 36px;
+          height: 36px;
+          object-fit: contain;
+          display: block;
+          filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.18));
+        }
+
         .dash-sidebar-toggle {
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid rgba(168, 179, 196, 0.18);
@@ -1039,9 +1156,9 @@ export default function DashboardLayout() {
           transition: all var(--transition-fast);
         }
         .dash-sidebar-toggle:hover {
-          background: rgba(239, 166, 31, 0.12);
-          color: #fadb00;
-          border-color: rgba(239, 166, 31, 0.28);
+          background: rgba(255, 255, 255, 0.1);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.24);
         }
 
         /* ------ Navigation ------ */
@@ -1049,27 +1166,16 @@ export default function DashboardLayout() {
         .dash-sidebar-nav {
           flex: 1;
           overflow-y: auto;
-          padding: 12px 8px;
-        }
-
-        .dash-nav-section {
-          margin-bottom: 20px;
-        }
-
-        .dash-nav-label {
-          display: block;
-          font-size: 10px;
-          font-weight: 600;
-          color: #a8b3c4;
-          letter-spacing: 0.1em;
-          padding: 0 12px;
-          margin-bottom: 6px;
+          padding: 8px;
         }
 
         .dash-nav-list {
           list-style: none;
           margin: 0;
           padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
         }
 
         .dash-nav-item {
@@ -1095,21 +1201,22 @@ export default function DashboardLayout() {
           color: #f1f3f6;
         }
         .dash-nav-item--active {
-          background: #263180;
-          color: #f1f3f6;
+          background: #2d3a8c;
+          color: #ffffff;
           font-weight: 600;
-          box-shadow: inset 0 0 0 1px rgba(239, 166, 31, 0.08);
         }
 
         .dash-nav-indicator {
-          position: absolute;
-          left: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 3px;
-          height: 18px;
-          background: #fadb00;
-          border-radius: var(--radius-full);
+          display: none;
+        }
+
+        .dash-nav-child {
+          padding-left: 36px;
+          font-size: 13px;
+        }
+
+        .dash-nav-group-trigger {
+          /* inherits dash-nav-item styles */
         }
 
         /* ------ Sidebar Footer ------ */
@@ -1119,26 +1226,35 @@ export default function DashboardLayout() {
           padding: 12px;
         }
 
-        .dash-user-info {
+        .dash-user-btn {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 8px;
-          margin-bottom: 8px;
-          border-radius: var(--radius-md);
+          width: 100%;
+          padding: 8px 10px;
           background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(168, 179, 196, 0.12);
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          text-align: left;
+          font-family: inherit;
         }
-
-        .dash-user-info--collapsed {
+        .dash-user-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.18);
+        }
+        .dash-user-btn--collapsed {
           justify-content: center;
+          padding: 8px;
         }
 
         .dash-avatar {
           width: 34px;
           height: 34px;
-          border-radius: var(--radius-sm);
-          background: linear-gradient(135deg, #263180, #3b4aa0);
-          color: #f1f3f6;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #2d3a8c, #4254c7);
+          color: #ffffff;
           font-size: 12px;
           font-weight: 700;
           display: flex;
@@ -1167,28 +1283,6 @@ export default function DashboardLayout() {
           color: #a8b3c4;
         }
 
-        .dash-logout-btn {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: 100%;
-          padding: 10px 12px;
-          background: none;
-          border: 1px solid rgba(168, 179, 196, 0.12);
-          border-radius: var(--radius-md);
-          color: #a8b3c4;
-          font-size: 13px;
-          font-weight: 500;
-          font-family: inherit;
-          cursor: pointer;
-          transition: all var(--transition-fast);
-        }
-        .dash-logout-btn:hover {
-          background: rgba(239, 166, 31, 0.12);
-          color: #fadb00;
-          border-color: rgba(239, 166, 31, 0.24);
-        }
-
         /* ------ Main Content ------ */
 
         .dash-main {
@@ -1210,65 +1304,12 @@ export default function DashboardLayout() {
           z-index: 30;
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
           height: 60px;
           padding: 0 28px;
           background: rgba(255, 255, 255, 0.8);
           backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--surface-border);
-        }
-
-        .dash-topbar-left {
-          flex: 1;
-          max-width: 480px;
-        }
-
-        .dash-search-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .dash-search-icon {
-          position: absolute;
-          left: 12px;
-          color: var(--text-tertiary);
-          pointer-events: none;
-        }
-
-        .dash-search-input {
-          width: 100%;
-          height: 36px;
-          padding: 0 60px 0 36px;
-          background: var(--background-tertiary);
-          border: 1px solid var(--surface-border);
-          border-radius: var(--radius-md);
-          color: var(--text-primary);
-          font-size: 13px;
-          font-family: inherit;
-          transition: all var(--transition-fast);
-        }
-        .dash-search-input::placeholder {
-          color: var(--text-tertiary);
-        }
-        .dash-search-input:focus {
-          outline: none;
-          background: var(--surface);
-          border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-muted);
-        }
-
-        .dash-search-kbd {
-          position: absolute;
-          right: 10px;
-          padding: 2px 6px;
-          background: var(--surface);
-          border: 1px solid var(--surface-border);
-          border-radius: 4px;
-          font-family: var(--font-mono, monospace);
-          font-size: 10px;
-          color: var(--text-tertiary);
-          pointer-events: none;
         }
 
         .dash-topbar-right {
@@ -1575,6 +1616,99 @@ export default function DashboardLayout() {
         .dash-content {
           flex: 1;
           padding: 28px;
+        }
+
+        /* ------ Account Modal ------ */
+
+        .acct-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 200;
+          background: rgba(0, 0, 0, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: fadeIn 0.15s ease;
+        }
+
+        .acct-modal {
+          background: #ffffff;
+          border-radius: 16px;
+          padding: 32px 28px 24px;
+          width: 100%;
+          max-width: 320px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+          animation: fadeInUp 0.2s ease;
+        }
+
+        .acct-modal-avatar {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #2d3a8c, #4254c7);
+          color: #ffffff;
+          font-size: 24px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 16px;
+          font-family: inherit;
+        }
+
+        .acct-modal-name {
+          font-size: 17px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 4px;
+          text-align: center;
+          font-family: inherit;
+        }
+
+        .acct-modal-role {
+          font-size: 13px;
+          color: #64748b;
+          margin-bottom: 24px;
+          text-align: center;
+          font-family: inherit;
+        }
+
+        .acct-modal-divider {
+          width: 100%;
+          height: 1px;
+          background: #e2e8f0;
+          margin-bottom: 16px;
+        }
+
+        .acct-modal-signout {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 11px 16px;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          color: #475569;
+          font-size: 14px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: all 150ms ease;
+        }
+        .acct-modal-signout:hover {
+          background: #fee2e2;
+          border-color: #fca5a5;
+          color: #dc2626;
+        }
+
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

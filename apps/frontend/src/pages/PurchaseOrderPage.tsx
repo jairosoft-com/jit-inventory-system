@@ -9,6 +9,7 @@ import {
   type POHistoryEntry,
 } from '../store/procurementStore';
 import { useSupplierStore, type Supplier } from '../store/supplierStore';
+import './DashboardPage.css';
 import api from '../lib/api';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ export default function PurchaseOrderPage() {
           );
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -234,8 +235,8 @@ export default function PurchaseOrderPage() {
   // ── Permission gate ──────────────────────────────────────────────────────
   if (!canRead) {
     return (
-      <main className="min-h-screen bg-[var(--background)] px-6 py-12 flex items-center justify-center">
-        <section className="max-w-md w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-8 text-center shadow-[var(--shadow-sm)]">
+      <div className="dash-page animate-fade-in">
+        <section className="max-w-3xl mx-auto rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-8 text-center shadow-[var(--shadow-sm)]">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-3xl">
             🔒
           </div>
@@ -245,7 +246,7 @@ export default function PurchaseOrderPage() {
             your administrator.
           </p>
         </section>
-      </main>
+      </div>
     );
   }
 
@@ -296,14 +297,14 @@ export default function PurchaseOrderPage() {
       prev.map((li, i) =>
         i === index
           ? {
-              ...li,
-              [field]:
-                field === 'selectedType'
-                  ? value
-                  : typeof value === 'string'
-                    ? Number(value) || 0
-                    : value,
-            }
+            ...li,
+            [field]:
+              field === 'selectedType'
+                ? value
+                : typeof value === 'string'
+                  ? Number(value) || 0
+                  : value,
+          }
           : li,
       ),
     );
@@ -570,303 +571,299 @@ export default function PurchaseOrderPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <section className="mx-auto flex max-w-7xl flex-col gap-6">
-        {/* Header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between animate-fade-in">
-          <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Procurement</p>
-            <h1 className="mt-1 text-2xl font-semibold">Purchase Orders</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Create, track, and manage purchase orders. Submit orders for approval, monitor
-              workflow status, and maintain complete audit trails.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
+      {/* Header */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Purchase Orders</h1>
+          <p className="dash-page-desc">
+            Create and track purchase orders and supplier orders
+          </p>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => fetchPurchaseOrders(undefined, true)}
+          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+        >
+          Refresh
+        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+          >
+            + New Purchase Order
+          </button>
+        )}
+      </div>
+
+      {/* Alerts */}
+      {storeError && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-fade-in">
+          <span>{storeError}</span>
+          <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
+            Dismiss
+          </button>
+        </div>
+      )}
+      {successMessage && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
+        <SummaryCard title="Total Active" value={summaries.total} icon="📋" />
+        <SummaryCard title="Drafts" value={summaries.draft} icon="📝" />
+        <SummaryCard title="Pending Approval" value={summaries.pending} icon="⏳" />
+        <SummaryCard title="Approved" value={summaries.approved} icon="✅" />
+      </section>
+
+      {/* Main Table Section */}
+      <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+        {/* Tabs + Filter Row */}
+        <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => fetchPurchaseOrders(undefined, true)}
-              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              onClick={() => {
+                setFilterTab('active');
+                setStatusFilter('');
+              }}
+              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'active'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
             >
-              Refresh
+              Active
             </button>
-            {canCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterTab('archived');
+                setStatusFilter('');
+              }}
+              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'archived'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              Archived
+            </button>
+          </div>
+          <div className="text-xs text-[var(--text-tertiary)] font-medium">
+            Showing {filteredPOs.length} of {purchaseOrders.length} records
+          </div>
+        </div>
+
+        {/* Search + Supplier + Status Filters */}
+        <div
+          className={`grid gap-3 ${filterTab === 'active' ? 'md:grid-cols-[1fr_200px_200px]' : 'md:grid-cols-[1fr_200px]'}`}
+        >
+          <div className="relative flex items-center">
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by PO #, invoice, supplier, or creator..."
+              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
+            />
+            {searchTerm && (
               <button
-                type="button"
-                onClick={handleOpenCreate}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-medium"
               >
-                + New Purchase Order
+                Clear
               </button>
             )}
           </div>
-        </header>
-
-        {/* Alerts */}
-        {storeError && (
-          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-fade-in">
-            <span>{storeError}</span>
-            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
-              Dismiss
-            </button>
-          </div>
-        )}
-        {successMessage && (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Summary Cards */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
-          <SummaryCard title="Total Active" value={summaries.total} icon="📋" />
-          <SummaryCard title="Drafts" value={summaries.draft} icon="📝" />
-          <SummaryCard title="Pending Approval" value={summaries.pending} icon="⏳" />
-          <SummaryCard title="Approved" value={summaries.approved} icon="✅" />
-        </section>
-
-        {/* Main Table Section */}
-        <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          {/* Tabs + Filter Row */}
-          <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterTab('active');
-                  setStatusFilter('');
-                }}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'active'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterTab('archived');
-                  setStatusFilter('');
-                }}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'archived'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                Archived
-              </button>
-            </div>
-            <div className="text-xs text-[var(--text-tertiary)] font-medium">
-              Showing {filteredPOs.length} of {purchaseOrders.length} records
-            </div>
-          </div>
-
-          {/* Search + Supplier + Status Filters */}
-          <div
-            className={`grid gap-3 ${filterTab === 'active' ? 'md:grid-cols-[1fr_200px_200px]' : 'md:grid-cols-[1fr_200px]'}`}
+          <select
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
           >
-            <div className="relative flex items-center">
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by PO #, invoice, supplier, or creator..."
-                className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-medium"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+            <option value="">All Suppliers</option>
+            {activeSuppliers.map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.supplierName}
+              </option>
+            ))}
+          </select>
+          {filterTab === 'active' && (
             <select
-              value={supplierFilter}
-              onChange={(e) => setSupplierFilter(e.target.value)}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
             >
-              <option value="">All Suppliers</option>
-              {activeSuppliers.map((s) => (
-                <option key={s.id} value={String(s.id)}>
-                  {s.supplierName}
+              <option value="">All Statuses</option>
+              {ALL_STATUSES.filter(
+                (s) => s !== 'ARCHIVED' && s !== 'REJECTED' && s !== 'CANCELLED',
+              ).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_CONFIG[s].label}
                 </option>
               ))}
             </select>
-            {filterTab === 'active' && (
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-              >
-                <option value="">All Statuses</option>
-                {ALL_STATUSES.filter(
-                  (s) => s !== 'ARCHIVED' && s !== 'REJECTED' && s !== 'CANCELLED',
-                ).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_CONFIG[s].label}
-                  </option>
-                ))}
-              </select>
-            )}
+          )}
+        </div>
+
+        {/* Table */}
+        {isLoading ? (
+          <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
+            <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <h3 className="mt-3 font-medium text-[var(--text-primary)]">
+              Loading purchase orders...
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Please wait while we fetch the records.
+            </p>
           </div>
-
-          {/* Table */}
-          {isLoading ? (
-            <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
-              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-              <h3 className="mt-3 font-medium text-[var(--text-primary)]">
-                Loading purchase orders...
-              </h3>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Please wait while we fetch the records.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block animate-fade-in">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                    <tr>
-                      <th className="px-5 py-3.5 font-semibold">PO #</th>
-                      <th className="px-5 py-3.5 font-semibold">Supplier</th>
-                      <th className="px-5 py-3.5 font-semibold">Invoice</th>
-                      <th className="px-5 py-3.5 font-semibold">Items</th>
-                      <th className="px-5 py-3.5 font-semibold">Total</th>
-                      <th className="px-5 py-3.5 font-semibold">Status</th>
-                      <th className="px-5 py-3.5 font-semibold">Created</th>
-                      <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--surface-border)]">
-                    {filteredPOs.map((po) => (
-                      <tr
-                        key={po.id}
-                        className="transition hover:bg-[var(--surface-hover)] group cursor-pointer"
-                        onClick={() => handleOpenDetail(po)}
-                      >
-                        <td className="px-5 py-3.5 font-mono font-medium text-[var(--accent)]">
-                          PO-{String(po.id).padStart(5, '0')}
-                        </td>
-                        <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
-                          {po.supplier.supplierName}
-                        </td>
-                        <td className="px-5 py-3.5 text-[var(--text-secondary)]">
-                          {po.invoiceNumber || (
-                            <span className="italic text-[var(--text-disabled)]">N/A</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 font-medium text-[var(--text-secondary)]">
-                          {po.lineItems.length}
-                        </td>
-                        <td className="px-5 py-3.5 font-semibold text-[var(--text-primary)]">
-                          ₱
-                          {parseFloat(po.totalAmount).toLocaleString('en-PH', {
-                            minimumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <StatusBadge status={po.status} />
-                        </td>
-                        <td className="px-5 py-3.5 text-xs text-[var(--text-secondary)]">
-                          <div>{new Date(po.createdAt).toLocaleDateString()}</div>
-                          <div className="text-[var(--text-disabled)]">
-                            by {po.createdBy.firstName} {po.createdBy.lastName}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <div
-                            className="flex items-center justify-end gap-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDetail(po)}
-                              className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                            >
-                              View
-                            </button>
-                            {canUpdate && po.status === 'DRAFT' && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(po)}
-                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                              >
-                                Edit
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="mt-6 grid gap-4 md:hidden">
-                {filteredPOs.map((po) => (
-                  <article
-                    key={po.id}
-                    onClick={() => handleOpenDetail(po)}
-                    className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-semibold text-[var(--accent)]">
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block animate-fade-in">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                  <tr>
+                    <th className="px-5 py-3.5 font-semibold">PO #</th>
+                    <th className="px-5 py-3.5 font-semibold">Supplier</th>
+                    <th className="px-5 py-3.5 font-semibold">Invoice</th>
+                    <th className="px-5 py-3.5 font-semibold">Items</th>
+                    <th className="px-5 py-3.5 font-semibold">Total</th>
+                    <th className="px-5 py-3.5 font-semibold">Status</th>
+                    <th className="px-5 py-3.5 font-semibold">Created</th>
+                    <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--surface-border)]">
+                  {filteredPOs.map((po) => (
+                    <tr
+                      key={po.id}
+                      className="transition hover:bg-[var(--surface-hover)] group cursor-pointer"
+                      onClick={() => handleOpenDetail(po)}
+                    >
+                      <td className="px-5 py-3.5 font-mono font-medium text-[var(--accent)]">
                         PO-{String(po.id).padStart(5, '0')}
-                      </span>
-                      <StatusBadge status={po.status} />
-                    </div>
-                    <h3 className="mt-2 font-semibold text-[var(--text-primary)]">
-                      {po.supplier.supplierName}
-                    </h3>
-                    <div className="mt-1 flex items-center justify-between text-xs text-[var(--text-secondary)]">
-                      <span>
-                        {po.lineItems.length} items · ₱
+                      </td>
+                      <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
+                        {po.supplier.supplierName}
+                      </td>
+                      <td className="px-5 py-3.5 text-[var(--text-secondary)]">
+                        {po.invoiceNumber || (
+                          <span className="italic text-[var(--text-disabled)]">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 font-medium text-[var(--text-secondary)]">
+                        {po.lineItems.length}
+                      </td>
+                      <td className="px-5 py-3.5 font-semibold text-[var(--text-primary)]">
+                        ₱
                         {parseFloat(po.totalAmount).toLocaleString('en-PH', {
                           minimumFractionDigits: 2,
                         })}
-                      </span>
-                      <span>{new Date(po.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <StatusBadge status={po.status} />
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-[var(--text-secondary)]">
+                        <div>{new Date(po.createdAt).toLocaleDateString()}</div>
+                        <div className="text-[var(--text-disabled)]">
+                          by {po.createdBy.firstName} {po.createdBy.lastName}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div
+                          className="flex items-center justify-end gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDetail(po)}
+                            className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                          >
+                            View
+                          </button>
+                          {canUpdate && po.status === 'DRAFT' && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(po)}
+                              className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Empty State */}
-              {filteredPOs.length === 0 && (
-                <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
-                    📋
+            {/* Mobile Cards */}
+            <div className="mt-6 grid gap-4 md:hidden">
+              {filteredPOs.map((po) => (
+                <article
+                  key={po.id}
+                  onClick={() => handleOpenDetail(po)}
+                  className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-semibold text-[var(--accent)]">
+                      PO-{String(po.id).padStart(5, '0')}
+                    </span>
+                    <StatusBadge status={po.status} />
                   </div>
-                  <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    {filterTab === 'archived'
-                      ? 'No archived purchase orders'
-                      : 'No purchase orders found'}
+                  <h3 className="mt-2 font-semibold text-[var(--text-primary)]">
+                    {po.supplier.supplierName}
                   </h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {searchTerm || statusFilter || supplierFilter
-                      ? 'Try adjusting your search or filter criteria.'
-                      : 'Create your first purchase order to get started.'}
-                  </p>
-                  {canCreate && !searchTerm && filterTab === 'active' && (
-                    <button
-                      type="button"
-                      onClick={handleOpenCreate}
-                      className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-                    >
-                      Create First Purchase Order
-                    </button>
-                  )}
+                  <div className="mt-1 flex items-center justify-between text-xs text-[var(--text-secondary)]">
+                    <span>
+                      {po.lineItems.length} items · ₱
+                      {parseFloat(po.totalAmount).toLocaleString('en-PH', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                    <span>{new Date(po.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* Empty State */}
+            {filteredPOs.length === 0 && (
+              <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
+                  📋
                 </div>
-              )}
-            </>
-          )}
-        </section>
+                <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
+                  {filterTab === 'archived'
+                    ? 'No archived purchase orders'
+                    : 'No purchase orders found'}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  {searchTerm || statusFilter || supplierFilter
+                    ? 'Try adjusting your search or filter criteria.'
+                    : 'Create your first purchase order to get started.'}
+                </p>
+                {canCreate && !searchTerm && filterTab === 'active' && (
+                  <button
+                    type="button"
+                    onClick={handleOpenCreate}
+                    className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+                  >
+                    Create First Purchase Order
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* ── Create / Edit Modal ──────────────────────────────────────────── */}
@@ -1177,11 +1174,10 @@ export default function PurchaseOrderPage() {
                   key={tab}
                   type="button"
                   onClick={() => setDetailTab(tab)}
-                  className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition capitalize ${
-                    detailTab === tab
+                  className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition capitalize ${detailTab === tab
                       ? 'border-[var(--accent)] text-[var(--accent)]'
                       : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                    }`}
                 >
                   {tab === 'items'
                     ? `Items (${detailPO.lineItems.length})`
@@ -1327,13 +1323,12 @@ export default function PurchaseOrderPage() {
                                       </td>
                                       <td className="px-4 py-3">
                                         <span
-                                          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                            unit.condition === 'NEW'
+                                          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${unit.condition === 'NEW'
                                               ? 'bg-green-50 text-green-700 border border-green-200'
                                               : unit.condition === 'GOOD'
                                                 ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                                 : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                                          }`}
+                                            }`}
                                         >
                                           {unit.condition}
                                         </span>
@@ -1471,15 +1466,14 @@ export default function PurchaseOrderPage() {
                       key={action.status}
                       type="button"
                       onClick={() => handleOpenStatusDialog(action.status)}
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                        action.variant === 'primary'
+                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${action.variant === 'primary'
                           ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
                           : action.variant === 'success'
                             ? 'bg-green-600 text-white hover:bg-green-700'
                             : action.variant === 'danger'
                               ? 'bg-red-600 text-white hover:bg-red-700'
                               : 'border border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                      }`}
+                        }`}
                     >
                       {action.label}
                     </button>
@@ -1553,11 +1547,10 @@ export default function PurchaseOrderPage() {
                 type="button"
                 onClick={handleConfirmStatusChange}
                 disabled={isSubmitting}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 ${
-                  statusAction === 'REJECTED' || statusAction === 'CANCELLED'
+                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 ${statusAction === 'REJECTED' || statusAction === 'CANCELLED'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
-                }`}
+                  }`}
               >
                 {isSubmitting && (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -1697,7 +1690,7 @@ export default function PurchaseOrderPage() {
           </section>
         </div>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -1803,7 +1796,7 @@ function SearchableItemSelect({
         window.removeEventListener('scroll', handleScroll, { capture: true });
       };
     }
-    return () => {};
+    return () => { };
   }, [isOpen]);
 
   // Reset search when opening/closing
@@ -1895,9 +1888,8 @@ function SearchableItemSelect({
                       onChange(item.id);
                       setIsOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] cursor-pointer ${
-                      item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
-                    }`}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] cursor-pointer ${item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
+                      }`}
                   >
                     <span className="truncate text-[var(--text-primary)]">{item.itemName}</span>
                     {item.barcode && (

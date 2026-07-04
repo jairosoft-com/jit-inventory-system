@@ -16,12 +16,6 @@ export default function LoginPage() {
     checkAuth();
   }, [checkAuth]);
 
-  useEffect(() => {
-    if (user && !storeLoading) {
-      navigate('/dashboard');
-    }
-  }, [user, storeLoading, navigate]);
-
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
@@ -29,14 +23,15 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
+      navigate('/dashboard', { replace: true });
+      return;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Please check your credentials and try again.');
-    } finally {
       setIsLoading(false);
     }
   };
 
-  if (storeLoading) {
+  if (storeLoading || user) {
     return (
       <div className="login-page">
         <span
@@ -62,11 +57,6 @@ export default function LoginPage() {
         <section className="login-panel">
           <div className="login-panel-header">
             <img className="login-panel-logo" src="/logo.svg" alt="JIT Inventory logo" />
-            <div>
-              <p className="login-eyebrow">Welcome back</p>
-              <h2>Sign in to your account</h2>
-              <p className="login-subtext">Use your workspace credentials to continue.</p>
-            </div>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
@@ -159,9 +149,6 @@ export default function LoginPage() {
         .login-cover-overlay {
           position: absolute;
           inset: 0;
-          background:
-            linear-gradient(135deg, rgba(13, 27, 58, 0.18), rgba(13, 27, 58, 0.6)),
-            radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.18), transparent 28%);
         }
 
         .login-panel {
@@ -175,39 +162,17 @@ export default function LoginPage() {
         .login-panel-header {
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
           gap: 14px;
-          margin-bottom: 28px;
+          margin-top: -150px; /* Push the logo higher */
+          margin-bottom: 100px; /* Adjust spacing below the logo */
         }
 
         .login-panel-logo {
-          width: 100px;
-          height: 100px;
+          width: 300px; /* Enlarge the logo */
+          height: 300px;
           object-fit: contain;
           flex-shrink: 0;
-        }
-
-        .login-eyebrow {
-          margin: 0 0 4px;
-          color: var(--accent);
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-        }
-
-        .login-panel-header h2 {
-          margin: 0;
-          color: var(--text-primary);
-          font-size: 30px;
-          letter-spacing: -0.04em;
-          line-height: 1.1;
-        }
-
-        .login-subtext {
-          margin: 10px 0 0;
-          color: var(--text-secondary);
-          font-size: 15px;
         }
 
         .login-form {
@@ -350,13 +315,14 @@ export default function LoginPage() {
             padding: 28px 22px 24px;
           }
 
-          .login-panel-header h2 {
-            font-size: 24px;
+          .login-panel-header {
+            margin-top: -10px;
+            margin-bottom: 24px;
           }
 
           .login-panel-logo {
-            width: 72px;
-            height: 72px;
+            width: 140px;
+            height: 140px;
           }
         }
       `}</style>

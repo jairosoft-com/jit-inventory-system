@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore } from '../store/categoryStore';
 import {
@@ -9,6 +10,7 @@ import {
   type StockStatusFilter,
 } from '../store/itemsStore';
 import StockMovementModal from '../components/StockMovementModal';
+import './DashboardPage.css';
 
 // ── Constants (image upload) ───────────────────────────────────────────────────
 
@@ -386,9 +388,9 @@ export default function InventoryManagementPage() {
       setEditingItem((currentItem) =>
         currentItem
           ? {
-              ...currentItem,
-              images: currentItem.images.filter((image) => image.id !== imageId),
-            }
+            ...currentItem,
+            images: currentItem.images.filter((image) => image.id !== imageId),
+          }
           : currentItem,
       );
     } catch {
@@ -521,451 +523,445 @@ export default function InventoryManagementPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <section className="mx-auto flex max-w-7xl flex-col gap-6">
-        {/* Header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Stock Tracking</p>
-            <h1 className="mt-1 text-2xl font-semibold">Inventory Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Track stock levels, reorder points, and item movements across your organisation.
-            </p>
-          </div>
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
+      {/* Header + Action buttons */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Items</h1>
+          <p className="dash-page-desc">
+            Track, deploy, and manage company assets and their physical conditions.          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void (subTab === 'active' ? loadItems() : loadArchivedItems())}
+            disabled={isLoading}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-60"
+          >
+            {isLoading ? 'Refreshing…' : 'Refresh'}
+          </button>
 
-          <div className="flex flex-wrap gap-3">
+          {canCreate && (
             <button
               type="button"
-              onClick={() => void (subTab === 'active' ? loadItems() : loadArchivedItems())}
-              disabled={isLoading}
-              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-60"
+              onClick={() => void openCreate()}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
             >
-              {isLoading ? 'Refreshing…' : 'Refresh'}
+              + Add Item
             </button>
+          )}
+        </div>
+      </div>
 
-            {canCreate && (
-              <button
-                type="button"
-                onClick={() => void openCreate()}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-              >
-                + Add Item
-              </button>
-            )}
-          </div>
-        </header>
+      {/* Alerts */}
+      {storeError && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{storeError}</span>
+          <button onClick={clearError} className="font-semibold hover:text-red-900">
+            Dismiss
+          </button>
+        </div>
+      )}
 
-        {/* Alerts */}
-        {storeError && (
-          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>{storeError}</span>
-            <button onClick={clearError} className="font-semibold hover:text-red-900">
-              Dismiss
-            </button>
-          </div>
-        )}
+      {successMessage && (
+        <div className="animate-fade-in rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {successMessage}
+        </div>
+      )}
 
-        {successMessage && (
-          <div className="animate-fade-in rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {successMessage}
-          </div>
-        )}
+      {/* Summary */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <SummaryCard title="Total Items" value={summaries.total} icon="📦" />
+        <SummaryCard title="Active" value={summaries.total} icon="🟢" />
+        <SummaryCard title="In Stock" value={summaries.inStock} icon="✅" />
+        <SummaryCard title="Low Stock" value={summaries.lowStock} icon="⚠️" />
+        <SummaryCard title="Out of Stock" value={summaries.outOfStock} icon="🚫" />
+        <SummaryCard title="Archived" value={summaries.archived} icon="🗄️" />
+      </section>
 
-        {/* Summary */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <SummaryCard title="Total Items" value={summaries.total} icon="📦" />
-          <SummaryCard title="Active" value={summaries.total} icon="🟢" />
-          <SummaryCard title="In Stock" value={summaries.inStock} icon="✅" />
-          <SummaryCard title="Low Stock" value={summaries.lowStock} icon="⚠️" />
-          <SummaryCard title="Out of Stock" value={summaries.outOfStock} icon="🚫" />
-          <SummaryCard title="Archived" value={summaries.archived} icon="🗄️" />
-        </section>
-
-        {/* Table section */}
-        <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          {/* Sub-tabs: Active / Archived */}
-          <div className="mb-5 flex items-center gap-1 border-b border-[var(--surface-border)] pb-0">
-            {(['active', 'archived'] as SubTab[]).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setSubTab(tab)}
-                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${
-                  subTab === tab
-                    ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+      {/* Table section */}
+      <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+        {/* Sub-tabs: Active / Archived */}
+        <div className="mb-5 flex items-center gap-1 border-b border-[var(--surface-border)] pb-0">
+          {(['active', 'archived'] as SubTab[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setSubTab(tab)}
+              className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${subTab === tab
+                ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
-              >
-                {tab === 'active' ? 'Active Items' : 'Archived'}
-
-                {tab === 'active' && meta.total > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    {meta.total}
-                  </span>
-                )}
-
-                {tab === 'archived' && archivedMeta.total > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--text-tertiary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    {archivedMeta.total}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Filters */}
-          <div className="mb-5 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5">
-            <form
-              onSubmit={handleFilterSubmit}
-              className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_220px_170px_auto]"
             >
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by item name or category…"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-              />
+              {tab === 'active' ? 'Active Items' : 'Archived'}
 
-              <select
-                value={selectedCategoryId}
-                onChange={(event) => setSelectedCategoryId(event.target.value)}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-              >
-                <option value="all">All Categories</option>
-                {consumableCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              {tab === 'active' && meta.total > 0 && (
+                <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {meta.total}
+                </span>
+              )}
 
-              <select
-                value={selectedStatus}
-                onChange={(event) => setSelectedStatus(event.target.value as StatusFilter)}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-              >
-                {STATUS_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              {tab === 'archived' && archivedMeta.total > 0 && (
+                <span className="ml-1.5 rounded-full bg-[var(--text-tertiary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {archivedMeta.total}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
+        {/* Filters */}
+        <div className="mb-5 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5">
+          <form
+            onSubmit={handleFilterSubmit}
+            className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_220px_170px_auto]"
+          >
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by item name or category…"
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+            />
+
+            <select
+              value={selectedCategoryId}
+              onChange={(event) => setSelectedCategoryId(event.target.value)}
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+            >
+              <option value="all">All Categories</option>
+              {consumableCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedStatus}
+              onChange={(event) => setSelectedStatus(event.target.value as StatusFilter)}
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+            >
+              {STATUS_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="submit"
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+            >
+              Search
+            </button>
+          </form>
+
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between rounded-xl bg-[var(--background-tertiary)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+              <span>Search and filters are active.</span>
               <button
-                type="submit"
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+                type="button"
+                onClick={clearFilters}
+                className="font-semibold text-[var(--accent)] transition hover:text-[var(--accent-hover)]"
               >
-                Search
+                Clear filters
               </button>
-            </form>
-
-            {hasActiveFilters && (
-              <div className="flex items-center justify-between rounded-xl bg-[var(--background-tertiary)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-                <span>Search and filters are active.</span>
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="font-semibold text-[var(--accent)] transition hover:text-[var(--accent-hover)]"
-                >
-                  Clear filters
-                </button>
-              </div>
-            )}
-          </div>
-
-          {isLoading ? (
-            <div className="py-16 text-center">
-              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[var(--accent)]" />
-              <p className="mt-3 text-sm text-[var(--text-secondary)]">Loading items…</p>
             </div>
-          ) : (
-            <>
-              {/* ── Active Items ── */}
-              {subTab === 'active' && (
-                <>
-                  {/* Desktop table */}
-                  <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-                    <table className="w-full border-collapse text-left text-sm">
-                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">Image</th>
-                          <th className="px-4 py-3 font-medium">Item</th>
-                          <th className="px-4 py-3 font-medium">Category</th>
-                          <th className="px-4 py-3 font-medium">Stock</th>
-                          <th className="px-4 py-3 font-medium">Status</th>
-                          <th className="px-4 py-3 font-medium">Added</th>
-                          {(canUpdate || canDelete) && (
-                            <th className="px-4 py-3 font-medium">Actions</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--surface-border)]">
-                        {items.map((item) => (
-                          <tr key={item.id} className="transition hover:bg-[var(--surface-hover)]">
-                            <td className="px-4 py-3">{renderItemImage(item)}</td>
-                            <td className="px-4 py-3">
-                              <p className="font-medium">{item.itemName}</p>
-                              {item.barcode && (
-                                <p className="font-mono text-xs text-[var(--text-tertiary)]">
-                                  {item.barcode}
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {item.category.name}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {item.consumableProfile ? (
-                                <span>
-                                  {item.consumableProfile.quantity} {item.consumableProfile.unit}
-                                  <span className="ml-1 text-xs text-[var(--text-tertiary)]">
-                                    (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
-                                    {item.consumableProfile.unit})
-                                  </span>
-                                </span>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <StatusBadge item={item} />
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {formatDate(item.createdAt)}
-                            </td>
-                            {(canUpdate || canDelete) && (
-                              <td className="px-4 py-3">
-                                <div className="flex flex-wrap gap-1.5">
-                                  {canUpdate && (
-                                    <button
-                                      type="button"
-                                      onClick={() => openEdit(item)}
-                                      className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
-                                    >
-                                      Edit
-                                    </button>
-                                  )}
+          )}
+        </div>
 
-                                  {canUpdate && item.consumableProfile && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setStockItem(item)}
-                                      className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
-                                    >
-                                      Stock
-                                    </button>
-                                  )}
-
-                                  {canDelete && (
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleArchive(item)}
-                                      className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
-                                    >
-                                      Archive
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile cards */}
-                  <div className="grid gap-3 md:hidden">
-                    {items.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-xl border border-[var(--surface-border)] p-4"
-                      >
-                        <div className="flex items-start gap-3">
-                          {renderItemImage(item)}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-semibold">{item.itemName}</p>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                  {item.category.name}
-                                </p>
-                              </div>
-                              <StatusBadge item={item} />
-                            </div>
-
-                            {item.consumableProfile && (
-                              <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                                {item.consumableProfile.quantity} {item.consumableProfile.unit}
-                                {' · '}
-                                (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
-                                {item.consumableProfile.unit})
+        {isLoading ? (
+          <div className="py-16 text-center">
+            <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[var(--accent)]" />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">Loading items…</p>
+          </div>
+        ) : (
+          <>
+            {/* ── Active Items ── */}
+            {subTab === 'active' && (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Image</th>
+                        <th className="px-4 py-3 font-medium">Item</th>
+                        <th className="px-4 py-3 font-medium">Category</th>
+                        <th className="px-4 py-3 font-medium">Stock</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                        <th className="px-4 py-3 font-medium">Added</th>
+                        {(canUpdate || canDelete) && (
+                          <th className="px-4 py-3 font-medium">Actions</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--surface-border)]">
+                      {items.map((item) => (
+                        <tr key={item.id} className="transition hover:bg-[var(--surface-hover)]">
+                          <td className="px-4 py-3">{renderItemImage(item)}</td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium">{item.itemName}</p>
+                            {item.barcode && (
+                              <p className="font-mono text-xs text-[var(--text-tertiary)]">
+                                {item.barcode}
                               </p>
                             )}
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {canUpdate && (
-                            <button
-                              type="button"
-                              onClick={() => openEdit(item)}
-                              className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
-                            >
-                              Edit
-                            </button>
-                          )}
-
-                          {canUpdate && item.consumableProfile && (
-                            <button
-                              type="button"
-                              onClick={() => setStockItem(item)}
-                              className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                            >
-                              Stock
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => void handleArchive(item)}
-                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                            >
-                              Archive
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-
-                  {items.length === 0 && (
-                    <div className="py-16 text-center">
-                      <p className="text-3xl">📭</p>
-                      <h3 className="mt-3 font-semibold">No items found</h3>
-                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                        {getNoResultsMessage(hasActiveFilters, subTab)}
-                      </p>
-                    </div>
-                  )}
-
-                  {meta.total > 0 && (
-                    <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                      Showing {items.length} of {meta.total} items
-                    </p>
-                  )}
-                </>
-              )}
-
-              {/* ── Archived Items ── */}
-              {subTab === 'archived' && (
-                <>
-                  {/* Desktop table */}
-                  <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-                    <table className="w-full border-collapse text-left text-sm">
-                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">Item</th>
-                          <th className="px-4 py-3 font-medium">Category</th>
-                          <th className="px-4 py-3 font-medium">Last Stock</th>
-                          <th className="px-4 py-3 font-medium">Added</th>
-                          <th className="px-4 py-3 font-medium">Archived</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--surface-border)]">
-                        {archivedItems.map((item) => (
-                          <tr
-                            key={item.id}
-                            className="opacity-70 transition hover:bg-[var(--surface-hover)] hover:opacity-100"
-                          >
-                            <td className="px-4 py-3">
-                              <p className="font-medium">{item.itemName}</p>
-                              {item.barcode && (
-                                <p className="font-mono text-xs text-[var(--text-tertiary)]">
-                                  {item.barcode}
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {item.category.name}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {item.consumableProfile ? (
-                                <span>
-                                  {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {item.category.name}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {item.consumableProfile ? (
+                              <span>
+                                {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                                <span className="ml-1 text-xs text-[var(--text-tertiary)]">
+                                  (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
+                                  {item.consumableProfile.unit})
                                 </span>
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {formatDate(item.createdAt)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                                Archived
                               </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge item={item} />
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {formatDate(item.createdAt)}
+                          </td>
+                          {(canUpdate || canDelete) && (
+                            <td className="px-4 py-3">
+                              <div className="flex flex-wrap gap-1.5">
+                                {canUpdate && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openEdit(item)}
+                                    className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--surface-hover)]"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+
+                                {canUpdate && item.consumableProfile && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStockItem(item)}
+                                    className="rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
+                                  >
+                                    Stock
+                                  </button>
+                                )}
+
+                                {canDelete && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleArchive(item)}
+                                    className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                                  >
+                                    Archive
+                                  </button>
+                                )}
+                              </div>
                             </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                  {/* Mobile cards */}
-                  <div className="grid gap-3 md:hidden">
-                    {archivedItems.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-xl border border-[var(--surface-border)] p-4 opacity-70"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{item.itemName}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {item.category.name}
-                            </p>
+                {/* Mobile cards */}
+                <div className="grid gap-3 md:hidden">
+                  {items.map((item) => (
+                    <article
+                      key={item.id}
+                      className="rounded-xl border border-[var(--surface-border)] p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        {renderItemImage(item)}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold">{item.itemName}</p>
+                              <p className="text-xs text-[var(--text-secondary)]">
+                                {item.category.name}
+                              </p>
+                            </div>
+                            <StatusBadge item={item} />
                           </div>
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                            Archived
-                          </span>
+
+                          {item.consumableProfile && (
+                            <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                              {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                              {' · '}
+                              (Reorder Level: {item.consumableProfile.reorderPoint}{' '}
+                              {item.consumableProfile.unit})
+                            </p>
+                          )}
                         </div>
+                      </div>
 
-                        {item.consumableProfile && (
-                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                            Last stock: {item.consumableProfile.quantity}{' '}
-                            {item.consumableProfile.unit}
-                          </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-hover)]"
+                          >
+                            Edit
+                          </button>
                         )}
-                      </article>
-                    ))}
-                  </div>
 
-                  {archivedItems.length === 0 && (
-                    <div className="py-16 text-center">
-                      <p className="text-3xl">🗄️</p>
-                      <h3 className="mt-3 font-semibold">No archived items</h3>
-                      <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                        {getNoResultsMessage(hasActiveFilters, subTab)}
-                      </p>
-                    </div>
-                  )}
+                        {canUpdate && item.consumableProfile && (
+                          <button
+                            type="button"
+                            onClick={() => setStockItem(item)}
+                            className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                          >
+                            Stock
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => void handleArchive(item)}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Archive
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
 
-                  {archivedMeta.total > 0 && (
-                    <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                      Showing {archivedItems.length} of {archivedMeta.total} archived items
+                {items.length === 0 && (
+                  <div className="py-16 text-center">
+                    <p className="text-3xl">📭</p>
+                    <h3 className="mt-3 font-semibold">No items found</h3>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                      {getNoResultsMessage(hasActiveFilters, subTab)}
                     </p>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </section>
+                  </div>
+                )}
+
+                {meta.total > 0 && (
+                  <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                    Showing {items.length} of {meta.total} items
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* ── Archived Items ── */}
+            {subTab === 'archived' && (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Item</th>
+                        <th className="px-4 py-3 font-medium">Category</th>
+                        <th className="px-4 py-3 font-medium">Last Stock</th>
+                        <th className="px-4 py-3 font-medium">Added</th>
+                        <th className="px-4 py-3 font-medium">Archived</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--surface-border)]">
+                      {archivedItems.map((item) => (
+                        <tr
+                          key={item.id}
+                          className="opacity-70 transition hover:bg-[var(--surface-hover)] hover:opacity-100"
+                        >
+                          <td className="px-4 py-3">
+                            <p className="font-medium">{item.itemName}</p>
+                            {item.barcode && (
+                              <p className="font-mono text-xs text-[var(--text-tertiary)]">
+                                {item.barcode}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {item.category.name}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {item.consumableProfile ? (
+                              <span>
+                                {item.consumableProfile.quantity} {item.consumableProfile.unit}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-secondary)]">
+                            {formatDate(item.createdAt)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                              Archived
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="grid gap-3 md:hidden">
+                  {archivedItems.map((item) => (
+                    <article
+                      key={item.id}
+                      className="rounded-xl border border-[var(--surface-border)] p-4 opacity-70"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{item.itemName}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {item.category.name}
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                          Archived
+                        </span>
+                      </div>
+
+                      {item.consumableProfile && (
+                        <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                          Last stock: {item.consumableProfile.quantity}{' '}
+                          {item.consumableProfile.unit}
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+
+                {archivedItems.length === 0 && (
+                  <div className="py-16 text-center">
+                    <p className="text-3xl">🗄️</p>
+                    <h3 className="mt-3 font-semibold">No archived items</h3>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                      {getNoResultsMessage(hasActiveFilters, subTab)}
+                    </p>
+                  </div>
+                )}
+
+                {archivedMeta.total > 0 && (
+                  <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                    Showing {archivedItems.length} of {archivedMeta.total} archived items
+                  </p>
+                )}
+              </>
+            )}
+          </>
+        )}
       </section>
 
       {/* ── Add / Edit Modal ──────────────────────────────────────────────────── */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1237,7 +1233,8 @@ export default function InventoryManagementPage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Stock Movement Modal ───────────────────────────────────────────────── */}
@@ -1253,7 +1250,7 @@ export default function InventoryManagementPage() {
       )}
 
       {/* ── Lightbox ──────────────────────────────────────────────────────────── */}
-      {previewImageUrl && (
+      {previewImageUrl && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
           onClick={() => setPreviewImageUrl(null)}
@@ -1281,8 +1278,9 @@ export default function InventoryManagementPage() {
               onClick={(event) => event.stopPropagation()}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </main>
+    </div>
   );
 }

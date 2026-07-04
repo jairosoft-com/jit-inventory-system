@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import type { FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import {
   useEquipmentStore,
@@ -12,6 +13,7 @@ import {
   type DisposalApprovalStatus,
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
+import './DashboardPage.css';
 import { Pagination } from '../components/Pagination';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -1016,526 +1018,518 @@ export default function EquipmentPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <section className="mx-auto flex max-w-7xl flex-col gap-6">
-        {/* ── Header ──────────────────────────────────────────────────── */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Asset Management</p>
-            <h1 className="mt-1 text-2xl font-semibold">Equipment Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Register, track, and manage physical equipment assets. View status, condition,
-              warranty information, and assigned users.
-            </p>
-          </div>
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
+      {/* ── Header + Action buttons ───────────────────────────────────────── */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Equipment</h1>
+          <p className="dash-page-desc">
+            Manage and track all physical equipment and hardware assets.          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => loadEquipment()}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+          >
+            Refresh
+          </button>
 
-          <div className="flex flex-wrap gap-3">
+          {canRead && (
             <button
               type="button"
-              onClick={() => loadEquipment()}
+              onClick={handleOpenDisposalHistory}
               className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             >
-              Refresh
+              Disposal
             </button>
+          )}
 
-            {canRead && (
-              <button
-                type="button"
-                onClick={handleOpenDisposalHistory}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-              >
-                Disposal
-              </button>
-            )}
-
-            {canRead && (
-              <button
-                type="button"
-                onClick={handleOpenRetiredArchive}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-              >
-                Retired Archive
-              </button>
-            )}
-
-            {canCreate && (
-              <button
-                type="button"
-                onClick={handleOpenCreate}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-              >
-                + Add Equipment
-              </button>
-            )}
-          </div>
-        </header>
-
-        {/* ── Alerts ──────────────────────────────────────────────────── */}
-        {storeError && !isFormOpen && (
-          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>{storeError}</span>
-            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
-            {successMessage}
-          </div>
-        )}
-
-        {/* ── Main Card ───────────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          {/* Filters Row */}
-          <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
-            <div className="text-xs text-[var(--text-tertiary)] font-medium">
-              Showing {equipment.length} of {meta.total} equipment records
-              {meta.totalPages > 1 && ` · Page ${meta.page} of ${meta.totalPages}`}
-            </div>
-            {(searchInput || statusFilter) && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-[1fr_200px_auto]">
-            <div className="relative flex items-center">
-              <input
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search by name, asset ID, serial number, brand, model..."
-                className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => handleStatusFilterChange(e.target.value)}
-              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-            >
-              <option value="">All Statuses</option>
-              {EQUIPMENT_STATUSES.filter((s) => !(isStaff && s === 'DAMAGED')).map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-
+          {canRead && (
             <button
               type="button"
-              onClick={handleSearch}
-              className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
+              onClick={handleOpenRetiredArchive}
+              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             >
-              Search
+              Retired Archive
             </button>
+          )}
+
+          {canCreate && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              + Add Equipment
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Alerts ──────────────────────────────────────────────────── */}
+      {storeError && !isFormOpen && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{storeError}</span>
+          <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
+          {successMessage}
+        </div>
+      )}
+
+      {/* ── Main Card ───────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+        {/* Filters Row */}
+        <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
+          <div className="text-xs text-[var(--text-tertiary)] font-medium">
+            Showing {equipment.length} of {meta.total} equipment records
+            {meta.totalPages > 1 && ` · Page ${meta.page} of ${meta.totalPages}`}
+          </div>
+          {(searchInput || statusFilter) && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[1fr_200px_auto]">
+          <div className="relative flex items-center">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search by name, asset ID, serial number, brand, model..."
+              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
+            />
           </div>
 
-          {/* ── Table ─────────────────────────────────────────────────── */}
-          {isLoading ? (
-            <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
-              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-              <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading equipment...</h3>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Fetching data from the server.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                    <tr>
-                      <th className="px-4 py-3.5 font-semibold w-14"></th>
-                      <th className="px-4 py-3.5 font-semibold">Equipment</th>
-                      <th className="px-4 py-3.5 font-semibold">Serial &amp; Model</th>
-                      <th className="px-4 py-3.5 font-semibold">Status</th>
-                      <th className="px-4 py-3.5 font-semibold">Monitoring Info</th>
-                      {(canUpdate || canDelete) && (
-                        <th className="px-4 py-3.5 font-semibold text-right">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--surface-border)]">
-                    {equipment
-                      .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
-                      .map((eq) => {
-                        const primaryImg = getPrimaryImage(eq);
-                        return (
-                          <tr
-                            key={eq.id}
-                            className="transition hover:bg-[var(--surface-hover)] group"
-                          >
-                            {/* Image */}
-                            <td className="px-4 py-4">
-                              {primaryImg ? (
-                                <div
-                                  className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
-                                  onClick={() => setPreviewImageUrl(primaryImg.url)}
-                                >
-                                  <img
-                                    src={primaryImg.url}
-                                    alt={eq.item.itemName}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
-                                  —
+          <select
+            value={statusFilter}
+            onChange={(e) => handleStatusFilterChange(e.target.value)}
+            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+          >
+            <option value="">All Statuses</option>
+            {EQUIPMENT_STATUSES.filter((s) => !(isStaff && s === 'DAMAGED')).map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={handleSearch}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
+          >
+            Search
+          </button>
+        </div>
+
+        {/* ── Table ─────────────────────────────────────────────────── */}
+        {isLoading ? (
+          <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
+            <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading equipment...</h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Fetching data from the server.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                  <tr>
+                    <th className="px-4 py-3.5 font-semibold w-14"></th>
+                    <th className="px-4 py-3.5 font-semibold">Equipment</th>
+                    <th className="px-4 py-3.5 font-semibold">Serial &amp; Model</th>
+                    <th className="px-4 py-3.5 font-semibold">Status</th>
+                    <th className="px-4 py-3.5 font-semibold">Monitoring Info</th>
+                    {(canUpdate || canDelete) && (
+                      <th className="px-4 py-3.5 font-semibold text-right">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--surface-border)]">
+                  {equipment
+                    .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
+                    .map((eq) => {
+                      const primaryImg = getPrimaryImage(eq);
+                      return (
+                        <tr
+                          key={eq.id}
+                          className="transition hover:bg-[var(--surface-hover)] group"
+                        >
+                          {/* Image */}
+                          <td className="px-4 py-4">
+                            {primaryImg ? (
+                              <div
+                                className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer shadow-sm hover:scale-110 transition-transform duration-200"
+                                onClick={() => setPreviewImageUrl(primaryImg.url)}
+                              >
+                                <img
+                                  src={primaryImg.url}
+                                  alt={eq.item.itemName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border border-[var(--surface-border)]">
+                                —
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Equipment Info */}
+                          <td className="px-4 py-4">
+                            <div className="font-medium text-[var(--text-primary)]">
+                              {eq.item.itemName}
+                            </div>
+                            <div className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5">
+                              {eq.assetId}
+                            </div>
+                            <div className="text-[var(--text-disabled)] text-xs mt-0.5">
+                              {eq.item.category.name}
+                            </div>
+                          </td>
+
+                          {/* Serial & Model */}
+                          <td className="px-4 py-4 text-[var(--text-secondary)]">
+                            <div>
+                              {eq.brand && <span className="font-medium">{eq.brand} </span>}
+                              {eq.model || '—'}
+                            </div>
+                            {eq.serialNumber && (
+                              <div className="font-mono text-xs text-[var(--text-tertiary)] mt-0.5">
+                                S/N: {eq.serialNumber}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-4 py-4">
+                            <StatusBadge status={eq.status} />
+                          </td>
+
+                          {/* Monitoring Info — Condition + Warranty merged */}
+                          <td className="px-4 py-4 text-xs text-[var(--text-secondary)]">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[var(--text-tertiary)]">Condition:</span>
+                                <EquipmentConditionBadge equipment={eq} />
+                              </div>
+                              {eq.replacementNeeded && (
+                                <div>
+                                  <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                                    Replacement Needed
+                                  </span>
                                 </div>
                               )}
-                            </td>
-
-                            {/* Equipment Info */}
-                            <td className="px-4 py-4">
-                              <div className="font-medium text-[var(--text-primary)]">
-                                {eq.item.itemName}
-                              </div>
-                              <div className="text-[var(--text-tertiary)] font-mono text-xs mt-0.5">
-                                {eq.assetId}
-                              </div>
-                              <div className="text-[var(--text-disabled)] text-xs mt-0.5">
-                                {eq.item.category.name}
-                              </div>
-                            </td>
-
-                            {/* Serial & Model */}
-                            <td className="px-4 py-4 text-[var(--text-secondary)]">
-                              <div>
-                                {eq.brand && <span className="font-medium">{eq.brand} </span>}
-                                {eq.model || '—'}
-                              </div>
-                              {eq.serialNumber && (
-                                <div className="font-mono text-xs text-[var(--text-tertiary)] mt-0.5">
-                                  S/N: {eq.serialNumber}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Status */}
-                            <td className="px-4 py-4">
-                              <StatusBadge status={eq.status} />
-                            </td>
-
-                            {/* Monitoring Info — Condition + Warranty merged */}
-                            <td className="px-4 py-4 text-xs text-[var(--text-secondary)]">
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[var(--text-tertiary)]">Condition:</span>
-                                  <EquipmentConditionBadge equipment={eq} />
-                                </div>
-                                {eq.replacementNeeded && (
-                                  <div>
-                                    <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
-                                      Replacement Needed
+                              {eq.warrantyEnd ? (
+                                <>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[var(--text-tertiary)]">
+                                      Warranty:{' '}
                                     </span>
+                                    {new Date(eq.warrantyEnd).toLocaleDateString()}
+                                    <WarrantyBadge warrantyEnd={eq.warrantyEnd} />
                                   </div>
-                                )}
-                                {eq.warrantyEnd ? (
-                                  <>
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[var(--text-tertiary)]">
-                                        Warranty:{' '}
-                                      </span>
-                                      {new Date(eq.warrantyEnd).toLocaleDateString()}
-                                      <WarrantyBadge warrantyEnd={eq.warrantyEnd} />
+                                  {eq.warrantyProvider && (
+                                    <div className="text-[var(--text-disabled)]">
+                                      {eq.warrantyProvider}
                                     </div>
-                                    {eq.warrantyProvider && (
-                                      <div className="text-[var(--text-disabled)]">
-                                        {eq.warrantyProvider}
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <div className="text-[var(--text-disabled)] italic">
-                                    No warranty
-                                  </div>
-                                )}
-                              </div>
-                            </td>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-[var(--text-disabled)] italic">
+                                  No warranty
+                                </div>
+                              )}
+                            </div>
+                          </td>
 
-                            {/* Actions */}
-                            {(canUpdate || canDelete) && (
-                              <td className="px-4 py-4 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  {canUpdate && (
-                                    <>
-                                      {canManageReplacementNeededTag(eq) &&
-                                        (eq.status === 'UNDER_MAINTENANCE' ? (
-                                          <button
-                                            type="button"
-                                            disabled
-                                            title="Equipment is under maintenance and cannot be modified"
-                                            className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
-                                          >
-                                            {eq.replacementNeeded
-                                              ? 'Clear Planning Tag'
-                                              : 'Mark Replacement'}
-                                          </button>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleOpenReplacementNeeded(eq)}
-                                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                                              eq.replacementNeeded
-                                                ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                                : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                                            }`}
-                                          >
-                                            {eq.replacementNeeded
-                                              ? 'Clear Planning Tag'
-                                              : 'Mark Replacement'}
-                                          </button>
-                                        ))}
-                                      {eq.status === 'UNDER_MAINTENANCE' ? (
+                          {/* Actions */}
+                          {(canUpdate || canDelete) && (
+                            <td className="px-4 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {canUpdate && (
+                                  <>
+                                    {canManageReplacementNeededTag(eq) &&
+                                      (eq.status === 'UNDER_MAINTENANCE' ? (
                                         <button
                                           type="button"
                                           disabled
-                                          title="Equipment is under maintenance and cannot be retired"
+                                          title="Equipment is under maintenance and cannot be modified"
                                           className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                        >
+                                          {eq.replacementNeeded
+                                            ? 'Clear Planning Tag'
+                                            : 'Mark Replacement'}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenReplacementNeeded(eq)}
+                                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${eq.replacementNeeded
+                                            ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                            : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                            }`}
+                                        >
+                                          {eq.replacementNeeded
+                                            ? 'Clear Planning Tag'
+                                            : 'Mark Replacement'}
+                                        </button>
+                                      ))}
+                                    {eq.status === 'UNDER_MAINTENANCE' ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        title="Equipment is under maintenance and cannot be retired"
+                                        className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                      >
+                                        Request Retirement
+                                      </button>
+                                    ) : (
+                                      canRequestRetirement(eq) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenRetirementRequest(eq)}
+                                          className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
                                         >
                                           Request Retirement
                                         </button>
-                                      ) : (
-                                        canRequestRetirement(eq) && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleOpenRetirementRequest(eq)}
-                                            className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
-                                          >
-                                            Request Retirement
-                                          </button>
-                                        )
-                                      )}
-                                      {eq.status === 'UNDER_MAINTENANCE' ? (
-                                        <button
-                                          type="button"
-                                          disabled
-                                          title="Equipment is under maintenance and cannot be edited"
-                                          className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
-                                        >
-                                          Edit
-                                        </button>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleOpenEdit(eq)}
-                                          className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                                        >
-                                          Edit
-                                        </button>
-                                      )}
-                                    </>
-                                  )}
-                                  {canDelete && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDelete(eq)}
-                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
-                                    >
-                                      Delete
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="mt-6 grid gap-4 md:hidden">
-                {equipment
-                  .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
-                  .map((eq) => {
-                    const primaryImg = getPrimaryImage(eq);
-                    return (
-                      <article
-                        key={eq.id}
-                        className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
-                      >
-                        <div className="flex items-start gap-3">
-                          {primaryImg ? (
-                            <img
-                              src={primaryImg.url}
-                              alt={eq.item.itemName}
-                              className="h-12 w-12 rounded-lg object-cover cursor-pointer flex-shrink-0"
-                              onClick={() => setPreviewImageUrl(primaryImg.url)}
-                            />
-                          ) : (
-                            <div className="h-12 w-12 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
-                              —
-                            </div>
+                                      )
+                                    )}
+                                    {eq.status === 'UNDER_MAINTENANCE' ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        title="Equipment is under maintenance and cannot be edited"
+                                        className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                      >
+                                        Edit
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEdit(eq)}
+                                        className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(eq)}
+                                    className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-[var(--text-primary)] truncate">
-                              {eq.item.itemName}
-                            </h3>
-                            <p className="text-xs text-[var(--text-tertiary)] font-mono">
-                              {eq.assetId}
-                            </p>
-                            <p className="text-xs text-[var(--text-disabled)]">
-                              {eq.item.category.name}
-                            </p>
-                          </div>
-                          <StatusBadge status={eq.status} />
-                        </div>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
 
-                        <div className="mt-3 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
-                          <div className="flex flex-col gap-1 text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[var(--text-tertiary)]">Condition:</span>
-                              <EquipmentConditionBadge equipment={eq} />
-                            </div>
-                            {eq.replacementNeeded && (
-                              <span className="inline-flex w-fit rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
-                                Replacement Needed
-                              </span>
-                            )}
+            {/* Mobile Cards */}
+            <div className="mt-6 grid gap-4 md:hidden">
+              {equipment
+                .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
+                .map((eq) => {
+                  const primaryImg = getPrimaryImage(eq);
+                  return (
+                    <article
+                      key={eq.id}
+                      className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
+                    >
+                      <div className="flex items-start gap-3">
+                        {primaryImg ? (
+                          <img
+                            src={primaryImg.url}
+                            alt={eq.item.itemName}
+                            className="h-12 w-12 rounded-lg object-cover cursor-pointer flex-shrink-0"
+                            onClick={() => setPreviewImageUrl(primaryImg.url)}
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-lg bg-[var(--background-tertiary)] flex items-center justify-center text-[var(--text-disabled)] text-xs border flex-shrink-0">
+                            —
                           </div>
-                          <div className="flex items-center gap-2">
-                            {canUpdate && (
-                              <>
-                                {canManageReplacementNeededTag(eq) &&
-                                  (eq.status === 'UNDER_MAINTENANCE' ? (
-                                    <button
-                                      type="button"
-                                      disabled
-                                      title="Equipment is under maintenance and cannot be modified"
-                                      className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
-                                    >
-                                      {eq.replacementNeeded
-                                        ? 'Clear Planning Tag'
-                                        : 'Mark Replacement'}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenReplacementNeeded(eq)}
-                                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                                        eq.replacementNeeded
-                                          ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                          : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                                      }`}
-                                    >
-                                      {eq.replacementNeeded
-                                        ? 'Clear Planning Tag'
-                                        : 'Mark Replacement'}
-                                    </button>
-                                  ))}
-                                {eq.status === 'UNDER_MAINTENANCE' ? (
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-[var(--text-primary)] truncate">
+                            {eq.item.itemName}
+                          </h3>
+                          <p className="text-xs text-[var(--text-tertiary)] font-mono">
+                            {eq.assetId}
+                          </p>
+                          <p className="text-xs text-[var(--text-disabled)]">
+                            {eq.item.category.name}
+                          </p>
+                        </div>
+                        <StatusBadge status={eq.status} />
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
+                        <div className="flex flex-col gap-1 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[var(--text-tertiary)]">Condition:</span>
+                            <EquipmentConditionBadge equipment={eq} />
+                          </div>
+                          {eq.replacementNeeded && (
+                            <span className="inline-flex w-fit rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700">
+                              Replacement Needed
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {canUpdate && (
+                            <>
+                              {canManageReplacementNeededTag(eq) &&
+                                (eq.status === 'UNDER_MAINTENANCE' ? (
                                   <button
                                     type="button"
                                     disabled
-                                    title="Equipment is under maintenance and cannot be retired"
+                                    title="Equipment is under maintenance and cannot be modified"
                                     className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                  >
+                                    {eq.replacementNeeded
+                                      ? 'Clear Planning Tag'
+                                      : 'Mark Replacement'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenReplacementNeeded(eq)}
+                                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${eq.replacementNeeded
+                                      ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                      : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                      }`}
+                                  >
+                                    {eq.replacementNeeded
+                                      ? 'Clear Planning Tag'
+                                      : 'Mark Replacement'}
+                                  </button>
+                                ))}
+                              {eq.status === 'UNDER_MAINTENANCE' ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="Equipment is under maintenance and cannot be retired"
+                                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                >
+                                  Request Retirement
+                                </button>
+                              ) : (
+                                canRequestRetirement(eq) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenRetirementRequest(eq)}
+                                    className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
                                   >
                                     Request Retirement
                                   </button>
-                                ) : (
-                                  canRequestRetirement(eq) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenRetirementRequest(eq)}
-                                      className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100"
-                                    >
-                                      Request Retirement
-                                    </button>
-                                  )
-                                )}
-                                {eq.status === 'UNDER_MAINTENANCE' ? (
-                                  <button
-                                    type="button"
-                                    disabled
-                                    title="Equipment is under maintenance and cannot be edited"
-                                    className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
-                                  >
-                                    Edit
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(eq)}
-                                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
-                                  >
-                                    Edit
-                                  </button>
-                                )}
-                              </>
-                            )}
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(eq)}
-                                className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
+                                )
+                              )}
+                              {eq.status === 'UNDER_MAINTENANCE' ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="Equipment is under maintenance and cannot be edited"
+                                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400 cursor-not-allowed"
+                                >
+                                  Edit
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(eq)}
+                                  className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </>
+                          )}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(eq)}
+                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
-                      </article>
-                    );
-                  })}
+                      </div>
+                    </article>
+                  );
+                })}
+            </div>
+
+            {/* Empty State */}
+            {equipment.length === 0 && !isLoading && (
+              <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
+                  🛠️
+                </div>
+                <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
+                  No equipment found
+                </h3>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  {searchInput || statusFilter
+                    ? 'Try adjusting your search or filter criteria.'
+                    : 'Register your first equipment asset to get started.'}
+                </p>
+                {canCreate && !searchInput && !statusFilter && (
+                  <button
+                    type="button"
+                    onClick={handleOpenCreate}
+                    className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+                  >
+                    Register First Equipment
+                  </button>
+                )}
               </div>
+            )}
 
-              {/* Empty State */}
-              {equipment.length === 0 && !isLoading && (
-                <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
-                    🛠️
-                  </div>
-                  <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    No equipment found
-                  </h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {searchInput || statusFilter
-                      ? 'Try adjusting your search or filter criteria.'
-                      : 'Register your first equipment asset to get started.'}
-                  </p>
-                  {canCreate && !searchInput && !statusFilter && (
-                    <button
-                      type="button"
-                      onClick={handleOpenCreate}
-                      className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-                    >
-                      Register First Equipment
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Pagination */}
-              {meta.totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <p className="text-xs text-[var(--text-tertiary)]">
-                    Page {meta.page} of {meta.totalPages} · {meta.total} total records
-                  </p>
-                  <Pagination
-                    page={meta.page}
-                    totalPages={meta.totalPages}
-                    onPageChange={handlePageChange}
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </section>
+            {/* Pagination */}
+            {meta.totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Page {meta.page} of {meta.totalPages} · {meta.total} total records
+                </p>
+                <Pagination
+                  page={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* ── Modal Form ──────────────────────────────────────────────────── */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up max-h-[95vh] flex flex-col overflow-hidden">
             {/* Modal Header — sticky, never scrolls */}
@@ -1691,11 +1685,10 @@ export default function EquipmentPage() {
                         onChange={handleInputChange}
                         readOnly={!!editingEquipment && !isAdmin}
                         placeholder="e.g. EQ-001"
-                        className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono outline-none transition ${
-                          editingEquipment && !isAdmin
-                            ? 'cursor-not-allowed border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)]'
-                            : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
-                        }`}
+                        className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono outline-none transition ${editingEquipment && !isAdmin
+                          ? 'cursor-not-allowed border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)]'
+                          : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
+                          }`}
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -1989,11 +1982,12 @@ export default function EquipmentPage() {
             </div>
             {/* end scrollable body */}
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Replacement Needed Confirmation Modal ─────────────────────── */}
-      {replacementEquipment && (
+      {replacementEquipment && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
@@ -2025,11 +2019,10 @@ export default function EquipmentPage() {
               )}
 
               <div
-                className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
-                  replacementEquipment.replacementNeeded
-                    ? 'border-slate-200 bg-slate-50 text-slate-700'
-                    : 'border-purple-200 bg-purple-50 text-purple-800'
-                }`}
+                className={`mb-4 rounded-xl border px-4 py-3 text-sm ${replacementEquipment.replacementNeeded
+                  ? 'border-slate-200 bg-slate-50 text-slate-700'
+                  : 'border-purple-200 bg-purple-50 text-purple-800'
+                  }`}
               >
                 {replacementEquipment.replacementNeeded ? (
                   <>
@@ -2087,11 +2080,10 @@ export default function EquipmentPage() {
                   type="button"
                   onClick={() => void handleConfirmReplacementNeeded()}
                   disabled={isMarkingReplacement}
-                  className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2 ${
-                    replacementEquipment.replacementNeeded
-                      ? 'bg-slate-700 hover:bg-slate-800'
-                      : 'bg-purple-600 hover:bg-purple-700'
-                  }`}
+                  className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2 ${replacementEquipment.replacementNeeded
+                    ? 'bg-slate-700 hover:bg-slate-800'
+                    : 'bg-purple-600 hover:bg-purple-700'
+                    }`}
                 >
                   {isMarkingReplacement && (
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -2101,11 +2093,12 @@ export default function EquipmentPage() {
               </div>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Disposal History Modal ──────────────────────────────────────── */}
-      {isDisposalHistoryOpen && (
+      {isDisposalHistoryOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-5xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
@@ -2188,13 +2181,12 @@ export default function EquipmentPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                record.approvalStatus === 'COMPLETED'
-                                  ? 'border border-green-200 bg-green-50 text-green-700'
-                                  : record.approvalStatus === 'PENDING'
-                                    ? 'border border-yellow-200 bg-yellow-50 text-yellow-700'
-                                    : 'border border-red-200 bg-red-50 text-red-700'
-                              }`}
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${record.approvalStatus === 'COMPLETED'
+                                ? 'border border-green-200 bg-green-50 text-green-700'
+                                : record.approvalStatus === 'PENDING'
+                                  ? 'border border-yellow-200 bg-yellow-50 text-yellow-700'
+                                  : 'border border-red-200 bg-red-50 text-red-700'
+                                }`}
                             >
                               {DISPOSAL_APPROVAL_STATUS_LABELS[record.approvalStatus]}
                             </span>
@@ -2244,11 +2236,12 @@ export default function EquipmentPage() {
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Retired Equipment Archive Modal ───────────────────────────── */}
-      {isRetiredArchiveOpen && (
+      {isRetiredArchiveOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-6xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
@@ -2292,14 +2285,14 @@ export default function EquipmentPage() {
                     retiredArchiveReasonFilter ||
                     retiredArchiveDateFrom ||
                     retiredArchiveDateTo) && (
-                    <button
-                      type="button"
-                      onClick={() => void handleClearRetiredArchiveFilters()}
-                      className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
-                    >
-                      Clear Filters
-                    </button>
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => void handleClearRetiredArchiveFilters()}
+                        className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
                 </div>
 
                 <div className="grid gap-3 lg:grid-cols-[1.2fr_180px_180px_150px_150px_auto]">
@@ -2480,11 +2473,12 @@ export default function EquipmentPage() {
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Retirement Request Modal ────────────────────────────────────── */}
-      {retiringEquipment && (
+      {retiringEquipment && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
@@ -2592,11 +2586,12 @@ export default function EquipmentPage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Lightbox ────────────────────────────────────────────────────── */}
-      {previewImageUrl && (
+      {previewImageUrl && createPortal(
         <div
           className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
           onClick={() => setPreviewImageUrl(null)}
@@ -2624,9 +2619,10 @@ export default function EquipmentPage() {
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </main>
+    </div>
   );
 }
 
@@ -2687,21 +2683,20 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          status === 'AVAILABLE'
-            ? 'bg-[var(--success)]'
-            : status === 'IN_USE'
-              ? 'bg-[var(--info)]'
-              : status === 'UNDER_MAINTENANCE'
-                ? 'bg-[var(--warning)]'
-                : status === 'DAMAGED' || status === 'LOST'
-                  ? 'bg-red-600'
-                  : status === 'BORROWED'
-                    ? 'bg-purple-600'
-                    : status === 'RETIREMENT_PENDING'
-                      ? 'bg-orange-600'
-                      : 'bg-gray-400'
-        }`}
+        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
+          ? 'bg-[var(--success)]'
+          : status === 'IN_USE'
+            ? 'bg-[var(--info)]'
+            : status === 'UNDER_MAINTENANCE'
+              ? 'bg-[var(--warning)]'
+              : status === 'DAMAGED' || status === 'LOST'
+                ? 'bg-red-600'
+                : status === 'BORROWED'
+                  ? 'bg-purple-600'
+                  : status === 'RETIREMENT_PENDING'
+                    ? 'bg-orange-600'
+                    : 'bg-gray-400'
+          }`}
       />
       {status.replace(/_/g, ' ')}
     </span>
@@ -2739,7 +2734,7 @@ const WARRANTY_EXPIRING_SOON_DAYS = 30;
 function WarrantyBadge({ warrantyEnd }: { warrantyEnd: string }) {
   const daysRemaining = Math.ceil(
     (new Date(warrantyEnd).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) /
-      (24 * 60 * 60 * 1000),
+    (24 * 60 * 60 * 1000),
   );
 
   if (daysRemaining < 0) {

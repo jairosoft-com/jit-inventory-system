@@ -6,6 +6,7 @@ import { useEquipmentStore } from '../store/equipmentStore';
 import type { MaintenanceLog, MaintenanceStatus } from '../store/maintenanceStore';
 import api from '../lib/api';
 import './MaintenancePage.css';
+import './DashboardPage.css';
 
 interface User {
   id: number;
@@ -447,366 +448,360 @@ export default function MaintenancePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        {/* Header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between animate-fade-in">
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
+      {/* Header */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Maintenance</h1>
+          <p className="dash-page-desc">
+            Schedule and track equipment maintenance and repairs
+          </p>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={loadData}
+          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+        >
+          Refresh
+        </button>
+
+        {canWrite && (
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+          >
+            + Log Maintenance
+          </button>
+        )}
+      </div>
+
+      {/* Errors & Alerts */}
+      {storeError && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-fade-in">
+          <span>{storeError}</span>
+          <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Summary Stats */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 stagger-children">
+        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Operations</p>
-            <h1 className="mt-1 text-2xl font-semibold">Equipment Maintenance</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Schedule, track, and complete preventive and corrective maintenance logs for
-              registered hardware assets.
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              Total Records
             </p>
+            <h3 className="text-2xl font-bold mt-1">{stats.total}</h3>
           </div>
+          <div className="text-3xl">🛠️</div>
+        </div>
+        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              Unscheduled
+            </p>
+            <h3 className="text-2xl font-bold mt-1 text-slate-500">{stats.unscheduled}</h3>
+          </div>
+          <div className="text-3xl">⏳</div>
+        </div>
+        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              Scheduled
+            </p>
+            <h3 className="text-2xl font-bold mt-1 text-blue-500">{stats.scheduled}</h3>
+          </div>
+          <div className="text-3xl">📅</div>
+        </div>
+        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              In Progress
+            </p>
+            <h3 className="text-2xl font-bold mt-1 text-amber-500">{stats.inProgress}</h3>
+          </div>
+          <div className="text-3xl">⚙️</div>
+        </div>
+        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              Completed
+            </p>
+            <h3 className="text-2xl font-bold mt-1 text-green-500">{stats.completed}</h3>
+          </div>
+          <div className="text-3xl">✅</div>
+        </div>
+      </section>
 
-          <div className="flex flex-wrap gap-3">
+      {/* Workspace Maintenance Logs Section */}
+      <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+        {/* Horizontal Tabs */}
+        <div className="flex border-b border-[var(--surface-border)] mb-6 overflow-x-auto whitespace-nowrap">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('upcoming');
+              setCurrentPage(1);
+            }}
+            className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'upcoming'
+              ? 'border-[var(--accent)] text-[var(--accent)]'
+              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+          >
+            Upcoming Maintenance
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('history');
+              setCurrentPage(1);
+            }}
+            className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'history'
+              ? 'border-[var(--accent)] text-[var(--accent)]'
+              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+          >
+            Maintenance History
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('all');
+              setCurrentPage(1);
+            }}
+            className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'all'
+              ? 'border-[var(--accent)] text-[var(--accent)]'
+              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+          >
+            All Records
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-6 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5 lg:flex-row lg:items-center lg:justify-between">
+          <form onSubmit={handleSearchSubmit} className="flex flex-1 max-w-lg gap-2">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by equipment, asset ID or description..."
+              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none focus:border-[var(--input-border-focus)]"
+            />
             <button
-              type="button"
-              onClick={loadData}
-              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              type="submit"
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
             >
-              Refresh
+              Search
             </button>
+          </form>
 
-            {canWrite && (
+          <div className="flex flex-wrap items-center gap-3">
+            {activeTab === 'all' && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-[var(--text-secondary)]">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => handleStatusFilterChange(e.target.value)}
+                  className="rounded-xl border border-[var(--surface-border)] bg-[var(--background)] px-3 py-2 text-sm font-medium outline-none"
+                >
+                  <option value="all">All Logs</option>
+                  <option value="unscheduled">Unscheduled</option>
+                  <option value="scheduled_only">Scheduled Only</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+            )}
+
+            {(searchTerm || (activeTab === 'all' && statusFilter !== 'all')) && (
               <button
                 type="button"
-                onClick={handleOpenCreate}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+                onClick={handleClearFilters}
+                className="rounded-xl border border-dashed border-red-300 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
               >
-                Log Maintenance
+                Clear Filters
               </button>
             )}
           </div>
-        </header>
+        </div>
 
-        {/* Errors & Alerts */}
-        {storeError && (
-          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 animate-fade-in">
-            <span>{storeError}</span>
-            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Summary Stats */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 stagger-children">
-          <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                Total Records
+        {/* Table list */}
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="py-12 text-center">
+              <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--accent)]" />
+              <p className="mt-2 text-sm text-[var(--text-secondary)] animate-pulse">
+                Loading maintenance logs...
               </p>
-              <h3 className="text-2xl font-bold mt-1">{stats.total}</h3>
             </div>
-            <div className="text-3xl">🛠️</div>
-          </div>
-          <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                Unscheduled
+          ) : filteredLogs.length === 0 ? (
+            <div className="py-12 text-center text-[var(--text-secondary)]">
+              <p className="text-lg font-semibold">No maintenance logs found</p>
+              <p className="text-sm mt-1">
+                Try expanding your search query or registering new equipment.
               </p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-500">{stats.unscheduled}</h3>
             </div>
-            <div className="text-3xl">⏳</div>
-          </div>
-          <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                Scheduled
-              </p>
-              <h3 className="text-2xl font-bold mt-1 text-blue-500">{stats.scheduled}</h3>
-            </div>
-            <div className="text-3xl">📅</div>
-          </div>
-          <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                In Progress
-              </p>
-              <h3 className="text-2xl font-bold mt-1 text-amber-500">{stats.inProgress}</h3>
-            </div>
-            <div className="text-3xl">⚙️</div>
-          </div>
-          <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                Completed
-              </p>
-              <h3 className="text-2xl font-bold mt-1 text-green-500">{stats.completed}</h3>
-            </div>
-            <div className="text-3xl">✅</div>
-          </div>
-        </section>
-
-        {/* Workspace Maintenance Logs Section */}
-        <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          {/* Horizontal Tabs */}
-          <div className="flex border-b border-[var(--surface-border)] mb-6 overflow-x-auto whitespace-nowrap">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('upcoming');
-                setCurrentPage(1);
-              }}
-              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
-                activeTab === 'upcoming'
-                  ? 'border-[var(--accent)] text-[var(--accent)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              Upcoming Maintenance
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('history');
-                setCurrentPage(1);
-              }}
-              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
-                activeTab === 'history'
-                  ? 'border-[var(--accent)] text-[var(--accent)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              Maintenance History
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('all');
-                setCurrentPage(1);
-              }}
-              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
-                activeTab === 'all'
-                  ? 'border-[var(--accent)] text-[var(--accent)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              All Records
-            </button>
-          </div>
-
-          {/* Filters */}
-          <div className="mb-6 flex flex-col gap-4 border-b border-[var(--surface-border)] pb-5 lg:flex-row lg:items-center lg:justify-between">
-            <form onSubmit={handleSearchSubmit} className="flex flex-1 max-w-lg gap-2">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by equipment, asset ID or description..."
-                className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              />
-              <button
-                type="submit"
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
-              >
-                Search
-              </button>
-            </form>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {activeTab === 'all' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[var(--text-secondary)]">Status:</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => handleStatusFilterChange(e.target.value)}
-                    className="rounded-xl border border-[var(--surface-border)] bg-[var(--background)] px-3 py-2 text-sm font-medium outline-none"
-                  >
-                    <option value="all">All Logs</option>
-                    <option value="unscheduled">Unscheduled</option>
-                    <option value="scheduled_only">Scheduled Only</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-              )}
-
-              {(searchTerm || (activeTab === 'all' && statusFilter !== 'all')) && (
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="rounded-xl border border-dashed border-red-300 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Table list */}
-          <div className="overflow-x-auto">
-            {isLoading ? (
-              <div className="py-12 text-center">
-                <span className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--accent)]" />
-                <p className="mt-2 text-sm text-[var(--text-secondary)] animate-pulse">
-                  Loading maintenance logs...
-                </p>
-              </div>
-            ) : filteredLogs.length === 0 ? (
-              <div className="py-12 text-center text-[var(--text-secondary)]">
-                <p className="text-lg font-semibold">No maintenance logs found</p>
-                <p className="text-sm mt-1">
-                  Try expanding your search query or registering new equipment.
-                </p>
-              </div>
-            ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[var(--surface-border)] text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] bg-[var(--background-secondary)]">
-                    <th className="px-4 py-3.5">Asset ID</th>
-                    <th className="px-4 py-3.5">Equipment Name</th>
-                    <th className="px-4 py-3.5">Condition</th>
-                    <th className="px-4 py-3.5">Maintenance Description</th>
-                    <th className="px-4 py-3.5">Status</th>
-                    <th className="px-4 py-3.5">Scheduled Date</th>
-                    <th className="px-4 py-3.5">Completion Date</th>
-                    <th className="px-4 py-3.5">Technician / Vendor</th>
-                    <th className="px-4 py-3.5">Cost</th>
-                    <th className="px-4 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--surface-border)] text-sm">
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[var(--surface-hover)] transition">
-                      <td className="px-4 py-4 font-mono font-medium text-[var(--text-primary)]">
-                        {log.equipment.assetId}
-                      </td>
-                      <td className="px-4 py-4 font-medium text-[var(--text-primary)]">
-                        {log.equipmentName || log.equipment.item.itemName}
-                      </td>
-                      <td className="px-4 py-4">
-                        {renderConditionBadge(log.equipmentCondition || log.equipment.condition)}
-                      </td>
-                      <td className="px-4 py-4 text-[var(--text-secondary)] max-w-xs truncate">
-                        {log.description}
-                      </td>
-                      <td className="px-4 py-4">{renderStatusBadge(log)}</td>
-                      <td className="px-4 py-4 text-[var(--text-secondary)]">
-                        {log.scheduledDate
-                          ? new Date(log.scheduledDate).toLocaleDateString(undefined, {
-                              timeZone: 'UTC',
-                            })
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[var(--surface-border)] text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] bg-[var(--background-secondary)]">
+                  <th className="px-4 py-3.5">Asset ID</th>
+                  <th className="px-4 py-3.5">Equipment Name</th>
+                  <th className="px-4 py-3.5">Condition</th>
+                  <th className="px-4 py-3.5">Maintenance Description</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Scheduled Date</th>
+                  <th className="px-4 py-3.5">Completion Date</th>
+                  <th className="px-4 py-3.5">Technician / Vendor</th>
+                  <th className="px-4 py-3.5">Cost</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--surface-border)] text-sm">
+                {filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-[var(--surface-hover)] transition">
+                    <td className="px-4 py-4 font-mono font-medium text-[var(--text-primary)]">
+                      {log.equipment.assetId}
+                    </td>
+                    <td className="px-4 py-4 font-medium text-[var(--text-primary)]">
+                      {log.equipmentName || log.equipment.item.itemName}
+                    </td>
+                    <td className="px-4 py-4">
+                      {renderConditionBadge(log.equipmentCondition || log.equipment.condition)}
+                    </td>
+                    <td className="px-4 py-4 text-[var(--text-secondary)] max-w-xs truncate">
+                      {log.description}
+                    </td>
+                    <td className="px-4 py-4">{renderStatusBadge(log)}</td>
+                    <td className="px-4 py-4 text-[var(--text-secondary)]">
+                      {log.scheduledDate
+                        ? new Date(log.scheduledDate).toLocaleDateString(undefined, {
+                          timeZone: 'UTC',
+                        })
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-4 text-[var(--text-secondary)]">
+                      {log.completedDate
+                        ? new Date(log.completedDate).toLocaleDateString(undefined, {
+                          timeZone: 'UTC',
+                        })
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-4 text-[var(--text-secondary)]">
+                      {log.performedBy
+                        ? `${log.performedBy.firstName} ${log.performedBy.lastName}`
+                        : log.performedByVendor
+                          ? `${log.performedByVendor} (Vendor)`
                           : '—'}
-                      </td>
-                      <td className="px-4 py-4 text-[var(--text-secondary)]">
-                        {log.completedDate
-                          ? new Date(log.completedDate).toLocaleDateString(undefined, {
-                              timeZone: 'UTC',
-                            })
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-4 text-[var(--text-secondary)]">
-                        {log.performedBy
-                          ? `${log.performedBy.firstName} ${log.performedBy.lastName}`
-                          : log.performedByVendor
-                            ? `${log.performedByVendor} (Vendor)`
-                            : '—'}
-                      </td>
-                      <td className="px-4 py-4 text-[var(--text-primary)] font-semibold">
-                        {log.cost !== null ? `$${Number(log.cost).toFixed(2)}` : '—'}
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex justify-end items-center gap-2">
-                          {canWrite && log.scheduledDate === null && (
+                    </td>
+                    <td className="px-4 py-4 text-[var(--text-primary)] font-semibold">
+                      {log.cost !== null ? `$${Number(log.cost).toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex justify-end items-center gap-2">
+                        {canWrite && log.scheduledDate === null && (
+                          <button
+                            onClick={() => handleOpenSchedule(log)}
+                            className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
+                          >
+                            Schedule
+                          </button>
+                        )}
+                        {canWrite && log.scheduledDate !== null && log.status === 'SCHEDULED' && (
+                          <>
                             <button
                               onClick={() => handleOpenSchedule(log)}
-                              className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
+                              className="rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition"
                             >
-                              Schedule
+                              Reschedule
                             </button>
-                          )}
-                          {canWrite && log.scheduledDate !== null && log.status === 'SCHEDULED' && (
-                            <>
-                              <button
-                                onClick={() => handleOpenSchedule(log)}
-                                className="rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition"
-                              >
-                                Reschedule
-                              </button>
-                              <button
-                                disabled={!!log.equipment.borrowRecords?.[0]}
-                                onClick={() => handleTransitionStatus(log, 'IN_PROGRESS')}
-                                className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                title={
-                                  log.equipment.borrowRecords?.[0]
-                                    ? `Cannot start maintenance: This asset is currently borrowed.`
-                                    : undefined
-                                }
-                              >
-                                Start
-                              </button>
-                            </>
-                          )}
-                          {canWrite && log.status === 'IN_PROGRESS' && (
-                            <>
-                              <button
-                                onClick={() => handleOpenComplete(log)}
-                                className="rounded-lg bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition"
-                              >
-                                Complete
-                              </button>
-                              <button
-                                onClick={() => handleTransitionStatus(log, 'CANCELLED')}
-                                className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          )}
-                          {log.notes && (
-                            <span
-                              title={log.notes}
-                              className="cursor-help rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200 transition"
+                            <button
+                              disabled={!!log.equipment.borrowRecords?.[0]}
+                              onClick={() => handleTransitionStatus(log, 'IN_PROGRESS')}
+                              className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                              title={
+                                log.equipment.borrowRecords?.[0]
+                                  ? `Cannot start maintenance: This asset is currently borrowed.`
+                                  : undefined
+                              }
                             >
-                              ℹ️
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {!isLoading && filteredLogs.length > 0 && (
-            <div className="mt-6 flex items-center justify-between border-t border-[var(--surface-border)] pt-4">
-              <span className="text-xs text-[var(--text-secondary)]">
-                Showing page <span className="font-semibold">{meta.page}</span> of{' '}
-                <span className="font-semibold">{meta.totalPages}</span> ({meta.total} total logs)
-              </span>
-              <div className="flex gap-2">
-                <button
-                  disabled={meta.page <= 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <button
-                  disabled={meta.page >= meta.totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+                              Start
+                            </button>
+                          </>
+                        )}
+                        {canWrite && log.status === 'IN_PROGRESS' && (
+                          <>
+                            <button
+                              onClick={() => handleOpenComplete(log)}
+                              className="rounded-lg bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition"
+                            >
+                              Complete
+                            </button>
+                            <button
+                              onClick={() => handleTransitionStatus(log, 'CANCELLED')}
+                              className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {log.notes && (
+                          <span
+                            title={log.notes}
+                            className="cursor-help rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200 transition"
+                          >
+                            ℹ️
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-        </section>
-      </div>
+        </div>
+
+        {/* Pagination */}
+        {!isLoading && filteredLogs.length > 0 && (
+          <div className="mt-6 flex items-center justify-between border-t border-[var(--surface-border)] pt-4">
+            <span className="text-xs text-[var(--text-secondary)]">
+              Showing page <span className="font-semibold">{meta.page}</span> of{' '}
+              <span className="font-semibold">{meta.totalPages}</span> ({meta.total} total logs)
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={meta.page <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                disabled={meta.page >= meta.totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Schedule Maintenance Modal */}
       {isScheduleModalOpen && selectedLog && (
@@ -1222,6 +1217,6 @@ export default function MaintenancePage() {
           </section>
         </div>
       )}
-    </main>
+    </div>
   );
 }

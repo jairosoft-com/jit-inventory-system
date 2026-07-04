@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import '../index.css';
+import './DashboardPage.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -459,11 +460,11 @@ export default function ReportsPage() {
   return (
     <div className="rp-page">
       {/* Page Header */}
-      <div className="rp-header">
-        <div className="rp-header-text">
-          <h1 className="rp-title">Reports</h1>
-          <p className="rp-subtitle">
-            Generate and export operational reports for inventory, equipment, and more.
+      <div className="dash-page-header" style={{ padding: '0 32px', marginBottom: '28px' }}>
+        <div>
+          <h1 className="dash-page-title">Reports</h1>
+          <p className="dash-page-desc">
+            Generate and export system reports
           </p>
         </div>
       </div>

@@ -137,6 +137,10 @@ describe('Equipment Damage Visibility Tests', () => {
       },
       testAdminUserId,
     );
+    await prisma.equipment.update({
+      where: { id: eqRetireDmg.id },
+      data: { condition: ConditionStatus.DAMAGED },
+    });
     createdEquipmentIds.push(eqRetireDmg.id);
 
     // 2. FindAll with adminRoleId should contain it

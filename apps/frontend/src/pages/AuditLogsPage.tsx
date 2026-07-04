@@ -308,6 +308,7 @@ const ENTITY_OPTIONS = [
   { value: 'StockOut', label: 'Stock Out' },
   { value: 'Disposal', label: 'Disposal' },
   { value: 'MaintenanceLog', label: 'Maintenance Log' },
+  { value: 'User', label: 'User' },
 ];
 
 export default function AuditLogsPage() {

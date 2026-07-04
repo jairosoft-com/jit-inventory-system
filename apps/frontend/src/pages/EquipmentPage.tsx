@@ -14,6 +14,7 @@ import {
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 import './DashboardPage.css';
+import { Pagination } from '../components/Pagination';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -1162,7 +1163,7 @@ export default function EquipmentPage() {
                 </thead>
                 <tbody className="divide-y divide-[var(--surface-border)]">
                   {equipment
-                    .filter((eq) => !(isStaff && eq.status === 'DAMAGED'))
+                    .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
                     .map((eq) => {
                       const primaryImg = getPrimaryImage(eq);
                       return (
@@ -1352,7 +1353,7 @@ export default function EquipmentPage() {
             {/* Mobile Cards */}
             <div className="mt-6 grid gap-4 md:hidden">
               {equipment
-                .filter((eq) => !(isStaff && eq.status === 'DAMAGED'))
+                .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
                 .map((eq) => {
                   const primaryImg = getPrimaryImage(eq);
                   return (
@@ -1516,24 +1517,11 @@ export default function EquipmentPage() {
                 <p className="text-xs text-[var(--text-tertiary)]">
                   Page {meta.page} of {meta.totalPages} · {meta.total} total records
                 </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={meta.page <= 1}
-                    onClick={() => handlePageChange(meta.page - 1)}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ← Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={meta.page >= meta.totalPages}
-                    onClick={() => handlePageChange(meta.page + 1)}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next →
-                  </button>
-                </div>
+                <Pagination
+                  page={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={handlePageChange}
+                />
               </div>
             )}
           </>

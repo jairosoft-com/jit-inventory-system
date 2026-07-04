@@ -377,7 +377,14 @@ export default function MaintenancePage() {
       await createMaintenanceLog(Number(equipmentId), description.trim());
       setSuccessMessage('Maintenance slot initialized successfully');
       setIsCreateModalOpen(false);
-      loadData();
+      
+      // Redirect to 'All Records' tab with all filters cleared/reset
+      setActiveTab('all');
+      setStatusFilter('all');
+      setSearchTerm('');
+      setAppliedSearchTerm('');
+      setCurrentPage(1);
+      
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       setFormError(err.message || 'An error occurred');

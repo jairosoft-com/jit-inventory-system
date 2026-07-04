@@ -500,6 +500,7 @@ export class EquipmentService {
       const role = await prisma.role.findUnique({ where: { id: userRoleId } });
       if (role?.name === 'STAFF') {
         statusFilters.push({ status: { not: EquipmentStatus.DAMAGED } });
+        statusFilters.push({ condition: { not: ConditionStatus.DAMAGED } });
       }
     }
 

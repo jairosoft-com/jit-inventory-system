@@ -81,3 +81,8 @@ prisma/*.db-journal
 # ========================
 docker-data/
 
+Development_Tickets.md 
+pull_request_template.md
+implementation_plan.md
+walkthrough.md
+Pull_Request.md

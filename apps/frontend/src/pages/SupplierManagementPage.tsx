@@ -1,11 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import { useSupplierStore } from '../store/supplierStore';
 import type { Supplier, SupplierHistory, SupplierStatusFilter } from '../store/supplierStore';
 import './DashboardPage.css';
 
-const PAGE_LIMIT = 20;
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
+
+function RowsPerPageSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (size: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+      Rows per page
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
+      >
+        {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 const STATUS_FILTER_OPTIONS: { value: SupplierStatusFilter; label: string }[] = [
   { value: 'active', label: 'Active Suppliers' },
@@ -37,6 +63,7 @@ export default function SupplierManagementPage() {
   const [statusFilter, setStatusFilter] = useState<SupplierStatusFilter>('active');
   const [appliedStatusFilter, setAppliedStatusFilter] = useState<SupplierStatusFilter>('active');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   // Modal control states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -83,9 +110,9 @@ export default function SupplierManagementPage() {
       search: appliedSearchTerm,
       status: appliedStatusFilter,
       page: currentPage,
-      limit: PAGE_LIMIT,
+      limit: pageSize,
     });
-  }, [appliedSearchTerm, appliedStatusFilter, canRead, currentPage, fetchSuppliers]);
+  }, [appliedSearchTerm, appliedStatusFilter, canRead, currentPage, pageSize, fetchSuppliers]);
 
   useEffect(() => {
     loadSuppliers();
@@ -113,6 +140,11 @@ export default function SupplierManagementPage() {
     setAppliedSearchTerm('');
     setStatusFilter('active');
     setAppliedStatusFilter('active');
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
     setCurrentPage(1);
   };
 
@@ -743,30 +775,36 @@ export default function SupplierManagementPage() {
               </div>
             )}
 
-            {meta.totalPages > 1 && (
+            {meta.total > 0 && (
               <div className="mt-6 flex flex-col gap-3 border-t border-[var(--surface-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-medium text-[var(--text-tertiary)]">
-                  Page {meta.page} of {meta.totalPages}
-                </p>
+                <RowsPerPageSelect value={pageSize} onChange={handlePageSizeChange} />
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                    disabled={meta.page <= 1 || isLoading}
-                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((page) => Math.min(page + 1, meta.totalPages))}
-                    disabled={meta.page >= meta.totalPages || isLoading}
-                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
+                {meta.totalPages > 1 && (
+                  <>
+                    <p className="text-xs font-medium text-[var(--text-tertiary)]">
+                      Page {meta.page} of {meta.totalPages}
+                    </p>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                        disabled={meta.page <= 1 || isLoading}
+                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.min(page + 1, meta.totalPages))}
+                        disabled={meta.page >= meta.totalPages || isLoading}
+                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </>
@@ -774,7 +812,7 @@ export default function SupplierManagementPage() {
       </section>
 
       {/* Creation & Editing Modal */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -917,11 +955,12 @@ export default function SupplierManagementPage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Profile History Timeline Modal */}
-      {isHistoryOpen && historySupplier && (
+      {isHistoryOpen && historySupplier && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl flex flex-col max-h-[85vh] animate-fade-in-up">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -999,11 +1038,12 @@ export default function SupplierManagementPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Archive Confirmation Dialog */}
-      {isArchiveConfirmOpen && archiveTargetSupplier && (
+      {isArchiveConfirmOpen && archiveTargetSupplier && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 text-center">
@@ -1065,11 +1105,12 @@ export default function SupplierManagementPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Restore Confirmation Dialog */}
-      {isRestoreConfirmOpen && restoreTargetSupplier && (
+      {isRestoreConfirmOpen && restoreTargetSupplier && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 text-center">
@@ -1115,7 +1156,8 @@ export default function SupplierManagementPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

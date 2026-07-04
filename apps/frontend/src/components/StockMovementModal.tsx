@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
+import { createPortal } from 'react-dom';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -185,7 +186,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
     matchesFilter(mov.movementType, historyFilter),
   );
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200">
         {/* Header */}
@@ -450,6 +451,7 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

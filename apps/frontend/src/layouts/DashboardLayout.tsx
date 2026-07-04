@@ -437,8 +437,12 @@ export default function DashboardLayout() {
 
   const {
     alerts: procurementAlerts,
+    historyAlerts: procurementHistoryAlerts,
     unreadCount: procurementUnreadCount,
+    isHistoryLoading: isProcurementHistoryLoading,
+    historyError: procurementHistoryError,
     fetchUnread: fetchProcurementUnread,
+    fetchHistory: fetchProcurementHistory,
     markAsRead: markProcurementAsRead,
     markAllAsRead: markAllProcurementAsRead,
   } = useProcurementAlertStore();
@@ -470,8 +474,17 @@ export default function DashboardLayout() {
       return;
     }
 
-    void fetchHistory({ category: notifCategory });
-  }, [fetchHistory, notifCategory, notifOpen, notifView]);
+    void Promise.all([
+      fetchHistory({ category: notifCategory }),
+      fetchProcurementHistory({ category: notifCategory }),
+    ]);
+  }, [
+    fetchHistory,
+    fetchProcurementHistory,
+    notifCategory,
+    notifOpen,
+    notifView,
+  ]);
 
   useEffect(() => {
     if (hasCheckedAuthRef.current) {
@@ -555,11 +568,25 @@ export default function DashboardLayout() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
-  const historyNotifications: DisplayedNotification[] = historyAlerts.map(
-    (alert) => ({
+  const historyNotifications: DisplayedNotification[] = [
+    ...historyAlerts.map((alert) => ({
       ...alert,
       source: "inventory" as const,
-    }),
+    })),
+    ...procurementHistoryAlerts.map((alert) => ({
+      id: alert.id,
+      alertType: alert.alertType as string,
+      priority: (alert.alertType === "PENDING_APPROVAL"
+        ? "WARNING"
+        : "NORMAL") as "WARNING" | "NORMAL",
+      message: alert.message,
+      isRead: alert.isRead,
+      readAt: alert.readAt,
+      createdAt: alert.createdAt,
+      source: "procurement" as const,
+    })),
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   const displayedNotifications =
@@ -689,11 +716,14 @@ export default function DashboardLayout() {
   };
 
   const notificationsLoading =
-    notifView === "history" ? isHistoryLoading : notifLoading;
+    notifView === "history"
+      ? isHistoryLoading || isProcurementHistoryLoading
+      : notifLoading;
   const notificationEmptyText =
     notifView === "history"
       ? "No notification history found"
       : "No alerts right now";
+  const notificationHistoryError = historyError || procurementHistoryError;
 
   const handleNotificationViewChange = (view: "current" | "history") => {
     setNotifView(view);
@@ -711,7 +741,10 @@ export default function DashboardLayout() {
     await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
 
     if (notifView === "history") {
-      await fetchHistory({ category: notifCategory });
+      await Promise.all([
+        fetchHistory({ category: notifCategory }),
+        fetchProcurementHistory({ category: notifCategory }),
+      ]);
       return;
     }
 
@@ -722,10 +755,15 @@ export default function DashboardLayout() {
     await Promise.all([markAllAsRead(), markAllProcurementAsRead()]);
     await Promise.all([fetchUnreadCount(), fetchProcurementUnread()]);
     setNotifView("history");
-    await fetchHistory({ category: notifCategory });
+    await Promise.all([
+      fetchHistory({ category: notifCategory }),
+      fetchProcurementHistory({ category: notifCategory }),
+    ]);
   };
 
   const handleNotificationClick = async (alert: DisplayedNotification) => {
+    const shouldRefreshHistory = notifView !== "history" || !alert.isRead;
+
     if (!alert.isRead) {
       if (alert.source === "procurement") {
         await markProcurementAsRead(Number(alert.id));
@@ -737,7 +775,13 @@ export default function DashboardLayout() {
     }
 
     setNotifView("history");
-    await fetchHistory({ category: notifCategory });
+
+    if (shouldRefreshHistory) {
+      await Promise.all([
+        fetchHistory({ category: notifCategory }),
+        fetchProcurementHistory({ category: notifCategory }),
+      ]);
+    }
   };
 
   const formatAlertTypeLabel = (category: string) => {
@@ -1015,6 +1059,9 @@ export default function DashboardLayout() {
                             "WARRANTY_EXPIRING",
                             "REPLACEMENT_NEEDED",
                             "MAINTENANCE_DUE",
+                            "BORROW_RETURNED",
+                            "PENDING_APPROVAL",
+                            "STATUS_UPDATED",
                           ] as AlertCategoryFilter[]
                         ).map((category) => (
                           <option key={category} value={category}>
@@ -1030,8 +1077,10 @@ export default function DashboardLayout() {
                   >
                     {notificationsLoading ? (
                       <div className="dash-notif-empty">Loading...</div>
-                    ) : historyError && notifView === "history" ? (
-                      <div className="dash-notif-empty">{historyError}</div>
+                    ) : notificationHistoryError && notifView === "history" ? (
+                      <div className="dash-notif-empty">
+                        {notificationHistoryError}
+                      </div>
                     ) : displayedNotifications.length === 0 ? (
                       <div className="dash-notif-empty">
                         <svg

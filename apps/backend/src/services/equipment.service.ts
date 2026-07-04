@@ -417,7 +417,7 @@ export class EquipmentService {
           eq.condition !== ConditionStatus.NEW &&
           eq.condition !== ConditionStatus.GOOD
         ) {
-          await tx.maintenanceLog.create({
+          const maintenanceLog = await tx.maintenanceLog.create({
             data: {
               equipmentId: eq.id,
               description:
@@ -430,6 +430,19 @@ export class EquipmentService {
               equipmentCondition: eq.condition,
             },
           });
+
+          // Alert manager/admin if registered in FAIR or POOR condition
+          if (
+            eq.condition === ConditionStatus.FAIR ||
+            eq.condition === ConditionStatus.POOR
+          ) {
+            await tx.maintenanceAlert.create({
+              data: {
+                maintenanceLogId: maintenanceLog.id,
+                message: `New equipment "${eq.item?.itemName ?? data.itemName}" (${eq.assetId}) registered in ${eq.condition.toLowerCase()} condition. A new maintenance record was automatically logged.`,
+              },
+            });
+          }
         }
 
         await AuditLogService.log(
@@ -520,6 +533,7 @@ export class EquipmentService {
       ...(needsMaintenance && {
         condition: {
           in: [
+            ConditionStatus.GOOD,
             ConditionStatus.FAIR,
             ConditionStatus.POOR,
             ConditionStatus.DAMAGED,

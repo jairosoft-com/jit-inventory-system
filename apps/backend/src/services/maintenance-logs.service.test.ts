@@ -111,6 +111,37 @@ describe('Maintenance Flow Unit Tests', () => {
     expect(logs[0].equipmentCondition).toBe(ConditionStatus.DAMAGED);
   });
 
+  it('should spawn an initial log and create a MaintenanceAlert if equipment is registered as FAIR', async () => {
+    const eq = await EquipmentService.create(
+      {
+        itemName: 'Test Equipment Fair Alert',
+        categoryId: testCategoryId,
+        assetId: `VT-FAIR-${Date.now()}`,
+        serialNumber: `SN-VT-FAIR-${Date.now()}`,
+        brand: 'TestBrand',
+        model: 'TestModel',
+        condition: ConditionStatus.FAIR,
+        status: EquipmentStatus.AVAILABLE,
+        images: [],
+      },
+      testUserId,
+    );
+    createdEquipmentIds.push(eq.id);
+
+    const logs = await prisma.maintenanceLog.findMany({
+      where: { equipmentId: eq.id },
+    });
+    expect(logs.length).toBe(1);
+    expect(logs[0].equipmentName).toBe('Test Equipment Fair Alert');
+    expect(logs[0].equipmentCondition).toBe(ConditionStatus.FAIR);
+
+    const alerts = await prisma.maintenanceAlert.findMany({
+      where: { maintenanceLogId: logs[0].id },
+    });
+    expect(alerts.length).toBe(1);
+    expect(alerts[0].message).toContain('registered in fair condition');
+  });
+
   it('should spawn a new unscheduled follow-up log slot if completed in poor condition', async () => {
     const eq = await EquipmentService.create(
       {
@@ -244,7 +275,7 @@ describe('Maintenance Flow Unit Tests', () => {
     );
     createdEquipmentIds.push(eqNew.id);
 
-    // 2. Create a GOOD equipment (should be excluded as it is healthy)
+    // 2. Create a GOOD equipment (should be included as GOOD condition is now eligible)
     const eqGood = await EquipmentService.create(
       {
         itemName: 'Test Eq GOOD',
@@ -305,12 +336,12 @@ describe('Maintenance Flow Unit Tests', () => {
 
     const returnedIds = result.data.map((eq) => eq.id);
 
-    // Assert eqNew, eqGood, eqFairActive are excluded
+    // Assert eqNew, eqFairActive are excluded
     expect(returnedIds).not.toContain(eqNew.id);
-    expect(returnedIds).not.toContain(eqGood.id);
     expect(returnedIds).not.toContain(eqFairActive.id);
 
-    // Assert eqDamagedClean is included
+    // Assert eqGood, eqDamagedClean are included
+    expect(returnedIds).toContain(eqGood.id);
     expect(returnedIds).toContain(eqDamagedClean.id);
   });
 

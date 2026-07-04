@@ -107,7 +107,7 @@ const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = 
   REJECTED: 'Rejected',
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 // ── Form State ───────────────────────────────────────────────────────────────
 

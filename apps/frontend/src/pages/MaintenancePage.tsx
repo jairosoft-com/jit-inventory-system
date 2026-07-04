@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import { useMaintenanceStore } from '../store/maintenanceStore';
 import { useEquipmentStore } from '../store/equipmentStore';
@@ -766,14 +767,6 @@ export default function MaintenancePage() {
                             </button>
                           </>
                         )}
-                        {log.notes && (
-                          <span
-                            title={log.notes}
-                            className="cursor-help rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200 transition"
-                          >
-                            ℹ️
-                          </span>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -811,7 +804,7 @@ export default function MaintenancePage() {
       </section>
 
       {/* Schedule Maintenance Modal */}
-      {isScheduleModalOpen && selectedLog && (
+      {isScheduleModalOpen && selectedLog && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1010,11 +1003,12 @@ export default function MaintenancePage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Complete Maintenance Modal */}
-      {isCompleteModalOpen && selectedLog && (
+      {isCompleteModalOpen && selectedLog && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1140,11 +1134,12 @@ export default function MaintenancePage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Log Maintenance (Create) Modal */}
-      {isCreateModalOpen && (
+      {isCreateModalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1222,7 +1217,8 @@ export default function MaintenancePage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

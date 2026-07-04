@@ -18,6 +18,33 @@ function formatDate(iso: string) {
   }).format(new Date(iso));
 }
 
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
+
+function RowsPerPageSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (size: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+      Rows per page
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
+      >
+        {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -253,13 +280,14 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
 function HistoryPanel() {
   const { myRecords, myMeta, isLoading, fetchMyRecords } = useBorrowStore();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
 
   const load = useCallback(
-    (p: number, s: BorrowStatus | '') => {
-      void fetchMyRecords({ page: p, limit: 10, ...(s && { status: s }) });
+    (p: number, s: BorrowStatus | '', limit?: number) => {
+      void fetchMyRecords({ page: p, limit: limit ?? pageSize, ...(s && { status: s }) });
     },
-    [fetchMyRecords],
+    [fetchMyRecords, pageSize],
   );
 
   useEffect(() => {
@@ -269,6 +297,12 @@ function HistoryPanel() {
   function handlePageChange(next: number) {
     setPage(next);
     load(next, statusFilter);
+  }
+
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+    load(1, statusFilter, size);
   }
 
   function handleStatusChange(s: BorrowStatus | '') {
@@ -394,25 +428,30 @@ function HistoryPanel() {
       )}
 
       {/* Pagination */}
-      {myMeta.totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2 text-sm">
-          <button
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page <= 1}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            ← Previous
-          </button>
-          <span className="text-xs text-[var(--text-secondary)]">
-            Page {page} of {myMeta.totalPages}
-          </span>
-          <button
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= myMeta.totalPages}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
+      {myMeta.total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-sm">
+          <RowsPerPageSelect value={pageSize} onChange={handlePageSizeChange} />
+          {myMeta.totalPages > 1 && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1}
+                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+              <span className="text-xs text-[var(--text-secondary)]">
+                Page {page} of {myMeta.totalPages}
+              </span>
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= myMeta.totalPages}
+                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -493,6 +532,7 @@ function AdminPanel() {
     returnEquipment,
   } = useBorrowStore();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [statusFilter, setStatusFilter] = useState<BorrowStatus | ''>('');
   const [actioningId, setActioningId] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BorrowRecord | null>(null);
@@ -503,10 +543,10 @@ function AdminPanel() {
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
 
   const load = useCallback(
-    (p: number, s: BorrowStatus | '') => {
-      void fetchAdminRecords({ page: p, limit: 20, ...(s && { status: s }) });
+    (p: number, s: BorrowStatus | '', limit?: number) => {
+      void fetchAdminRecords({ page: p, limit: limit ?? pageSize, ...(s && { status: s }) });
     },
-    [fetchAdminRecords],
+    [fetchAdminRecords, pageSize],
   );
 
   useEffect(() => {
@@ -516,6 +556,12 @@ function AdminPanel() {
   function handlePageChange(next: number) {
     setPage(next);
     load(next, statusFilter);
+  }
+
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setPage(1);
+    load(1, statusFilter, size);
   }
 
   async function handleApprove(id: number) {
@@ -717,25 +763,30 @@ function AdminPanel() {
             </table>
           </div>
 
-          {adminMeta.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm">
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page <= 1}
-                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ← Previous
-              </button>
-              <span className="text-xs text-[var(--text-secondary)]">
-                Page {page} of {adminMeta.totalPages}
-              </span>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page >= adminMeta.totalPages}
-                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next →
-              </button>
+          {adminMeta.total > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <RowsPerPageSelect value={pageSize} onChange={handlePageSizeChange} />
+              {adminMeta.totalPages > 1 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page <= 1}
+                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Previous
+                  </button>
+                  <span className="text-xs text-[var(--text-secondary)]">
+                    Page {page} of {adminMeta.totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page >= adminMeta.totalPages}
+                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1057,6 +1108,11 @@ export default function BorrowRequestPage() {
             {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
           </div>
         </div>
+<<<<<<< HEAD
+
+    </div>
+=======
       </div>
+>>>>>>> 29fc3859e525cccaaf329579880c245ff181cc35
   );
 }

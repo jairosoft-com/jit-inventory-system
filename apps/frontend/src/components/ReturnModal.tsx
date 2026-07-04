@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useBorrowStore, type BorrowRecord } from '../store/borrowStore';
 
 // ── Local type (mirrors backend ConditionStatus enum) ──────────────────────────
@@ -90,7 +91,7 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl">
         {/* ── Header ── */}
@@ -259,6 +260,7 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

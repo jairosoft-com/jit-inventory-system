@@ -10,6 +10,7 @@ interface DashboardAccess {
   canReadEquipment: boolean;
   canViewLowStockDetails: boolean;
   permissions: string[];
+  roleName: string;
 }
 
 class DashboardRouteError extends Error {
@@ -54,6 +55,7 @@ async function getDashboardAccess(req: Request): Promise<DashboardAccess> {
       permissions,
     ),
     permissions,
+    roleName,
   };
 }
 
@@ -102,7 +104,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
         : Promise.resolve([]),
 
       access.canReadEquipment
-        ? DashboardService.getWarrantyAlerts()
+        ? DashboardService.getWarrantyAlerts(access.roleName)
         : Promise.resolve([]),
 
       access.canReadEquipment
@@ -114,7 +116,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
         : Promise.resolve([]),
 
       access.canReadEquipment
-        ? DashboardService.getEquipmentStatusBreakdown()
+        ? DashboardService.getEquipmentStatusBreakdown(access.roleName)
         : Promise.resolve([]),
 
       DashboardService.getProcurementSummary(),
@@ -128,7 +130,7 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
       DashboardService.getMostBorrowedItems(5, borrowUserId),
 
       access.canReadEquipment
-        ? DashboardService.getReplacementNeededItems()
+        ? DashboardService.getReplacementNeededItems(access.roleName)
         : Promise.resolve([]),
     ]);
 

@@ -3,6 +3,7 @@ import {
   EquipmentStatus,
   BorrowStatus,
   ItemType,
+  Prisma,
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
@@ -15,6 +16,7 @@ interface DashboardAccess {
   canReadInventory: boolean;
   canReadEquipment: boolean;
   canViewLowStockDetails: boolean;
+  roleName?: string;
 }
 
 function startOfDay(date: Date): Date {
@@ -337,28 +339,33 @@ export class DashboardService {
     }));
   }
 
-  static async getWarrantyAlerts() {
+  static async getWarrantyAlerts(roleName?: string) {
     const today = startOfDay(new Date());
     const warrantyWindowEnd = new Date(today);
 
     warrantyWindowEnd.setDate(today.getDate() + WARRANTY_EXPIRY_WINDOW_DAYS);
 
-    const warrantyExpiring = await prisma.equipment.findMany({
-      where: {
-        warrantyEnd: {
-          not: null,
-          // No lower bound: already-expired warranties must keep showing
-          // here, not just ones expiring in the next 30 days. Previously
-          // `gte: today` silently dropped expired items off the dashboard
-          // the moment they crossed into the past.
-          lte: warrantyWindowEnd,
-        },
-        deletedAt: null,
-        status: { not: EquipmentStatus.RETIRED },
-        item: {
-          deletedAt: null,
-        },
+    const where: Prisma.EquipmentWhereInput = {
+      warrantyEnd: {
+        not: null,
+        lte: warrantyWindowEnd,
       },
+      deletedAt: null,
+      status: { not: EquipmentStatus.RETIRED },
+      item: {
+        deletedAt: null,
+      },
+    };
+
+    if (roleName === 'STAFF') {
+      where.status = {
+        notIn: [EquipmentStatus.RETIRED, EquipmentStatus.DAMAGED],
+      };
+      where.condition = { not: ConditionStatus.DAMAGED };
+    }
+
+    const warrantyExpiring = await prisma.equipment.findMany({
+      where,
       include: {
         item: true,
       },
@@ -436,39 +443,48 @@ export class DashboardService {
     }));
   }
 
-  static async getReplacementNeededItems() {
+  static async getReplacementNeededItems(roleName?: string) {
     const today = startOfDay(new Date());
     const lifecycleCutoffDate = addCalendarYears(
       today,
       -EQUIPMENT_LIFECYCLE_YEARS,
     );
 
-    const replacementNeeded = await prisma.equipment.findMany({
-      where: {
+    const where: Prisma.EquipmentWhereInput = {
+      deletedAt: null,
+      item: {
         deletedAt: null,
-        item: {
-          deletedAt: null,
-        },
-        OR: [
-          {
-            replacementNeeded: true,
-          },
-          {
-            condition: ConditionStatus.DAMAGED,
-          },
-          {
-            status: {
-              in: [EquipmentStatus.DAMAGED, EquipmentStatus.RETIRED],
-            },
-          },
-          {
-            acquisitionDate: {
-              not: null,
-              lte: lifecycleCutoffDate,
-            },
-          },
-        ],
       },
+      OR: [
+        {
+          replacementNeeded: true,
+        },
+        {
+          condition: ConditionStatus.DAMAGED,
+        },
+        {
+          status: {
+            in: [EquipmentStatus.DAMAGED, EquipmentStatus.RETIRED],
+          },
+        },
+        {
+          acquisitionDate: {
+            not: null,
+            lte: lifecycleCutoffDate,
+          },
+        },
+      ],
+    };
+
+    if (roleName === 'STAFF') {
+      where.AND = [
+        { status: { not: EquipmentStatus.DAMAGED } },
+        { condition: { not: ConditionStatus.DAMAGED } },
+      ];
+    }
+
+    const replacementNeeded = await prisma.equipment.findMany({
+      where,
       include: {
         item: {
           select: {
@@ -542,7 +558,7 @@ export class DashboardService {
       orderBy: {
         performedAt: 'desc',
       },
-      take: limit,
+      take: access.roleName === 'STAFF' ? limit * 2 : limit,
       include: {
         user: {
           select: {
@@ -553,9 +569,11 @@ export class DashboardService {
       },
     });
 
-    return Promise.all(
+    const mappedLogs = await Promise.all(
       logs.map(async (log) => {
         let itemName = `${log.entityType} #${log.entityId}`;
+        let isDamaged = false;
+
         try {
           if (log.entityType === 'ConsumableProfile') {
             const profile = await prisma.consumableProfile.findUnique({
@@ -581,6 +599,14 @@ export class DashboardService {
             if (equipment?.item) {
               itemName = equipment.item.itemName;
             }
+            if (
+              access.roleName === 'STAFF' &&
+              equipment &&
+              (equipment.status === EquipmentStatus.DAMAGED ||
+                equipment.condition === ConditionStatus.DAMAGED)
+            ) {
+              isDamaged = true;
+            }
           } else if (log.entityType === 'BorrowRecord') {
             const record = await prisma.borrowRecord.findUnique({
               where: { id: log.entityId },
@@ -593,9 +619,21 @@ export class DashboardService {
             if (record?.equipment?.item) {
               itemName = record.equipment.item.itemName;
             }
+            if (
+              access.roleName === 'STAFF' &&
+              record?.equipment &&
+              (record.equipment.status === EquipmentStatus.DAMAGED ||
+                record.equipment.condition === ConditionStatus.DAMAGED)
+            ) {
+              isDamaged = true;
+            }
           }
         } catch {
           // ignore database errors, fall back to default
+        }
+
+        if (isDamaged) {
+          return null;
         }
 
         return {
@@ -612,14 +650,25 @@ export class DashboardService {
         };
       }),
     );
+
+    return mappedLogs
+      .filter((log): log is NonNullable<typeof log> => log !== null)
+      .slice(0, limit);
   }
 
-  static async getEquipmentStatusBreakdown() {
+  static async getEquipmentStatusBreakdown(roleName?: string) {
+    const where: Prisma.EquipmentWhereInput = {
+      deletedAt: null,
+    };
+
+    if (roleName === 'STAFF') {
+      where.status = { not: EquipmentStatus.DAMAGED };
+      where.condition = { not: ConditionStatus.DAMAGED };
+    }
+
     const breakdown = await prisma.equipment.groupBy({
       by: ['status'],
-      where: {
-        deletedAt: null,
-      },
+      where,
       _count: {
         status: true,
       },

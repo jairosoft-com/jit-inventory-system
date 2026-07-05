@@ -194,7 +194,10 @@ router.get(
         const role = await prisma.role.findUnique({
           where: { id: req.user.roleId },
         });
-        if (role?.name === 'STAFF' && equipment.status === 'DAMAGED') {
+        if (
+          role?.name === 'STAFF' &&
+          (equipment.status === 'DAMAGED' || equipment.condition === 'DAMAGED')
+        ) {
           res.status(404).json({ message: 'Equipment not found' });
           return;
         }

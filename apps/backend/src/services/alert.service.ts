@@ -396,8 +396,14 @@ export class AlertService {
     return { alerts, total, page, pageSize };
   }
 
-  static async markAsRead(alertId: number, userId?: number, isAdminOrManager = false) {
-    const alert = await db.inventoryAlert.findUnique({ where: { id: alertId } });
+  static async markAsRead(
+    alertId: number,
+    userId?: number,
+    isAdminOrManager = false,
+  ) {
+    const alert = await db.inventoryAlert.findUnique({
+      where: { id: alertId },
+    });
     if (!alert) throw new Error('Alert not found');
 
     const isOwnAlert = alert.userId !== null && alert.userId === userId;
@@ -537,35 +543,35 @@ export class AlertService {
 
   // ── Borrow return alert ──────────────────────────────────────────────────────
 
-static async createReturnAlert(
-  borrowRecordId: number,
-  borrowedById: number,
-  equipmentName: string,
-  assetId: string,
-  tx: Prisma.TransactionClient | PrismaClient = db,
-): Promise<void> {
-  await tx.inventoryAlert.create({
-    data: {
-      borrowRecordId,
-      userId: borrowedById,
-      alertType: 'BORROW_RETURNED',
-      priority: 'WARNING',
-      message: `Your borrowed equipment "${equipmentName}" (${assetId}) has been successfully returned. Thank you!`,
-    },
-  });
-}
+  static async createReturnAlert(
+    borrowRecordId: number,
+    borrowedById: number,
+    equipmentName: string,
+    assetId: string,
+    tx: Prisma.TransactionClient | PrismaClient = db,
+  ): Promise<void> {
+    await tx.inventoryAlert.create({
+      data: {
+        borrowRecordId,
+        userId: borrowedById,
+        alertType: 'BORROW_RETURNED',
+        priority: 'WARNING',
+        message: `Your borrowed equipment "${equipmentName}" (${assetId}) has been successfully returned. Thank you!`,
+      },
+    });
+  }
 
-static async resolveOverdueAlertsForBorrow(
-  borrowRecordId: number,
-  tx: Prisma.TransactionClient | PrismaClient = db,
-): Promise<void> {
-  await tx.inventoryAlert.updateMany({
-    where: {
-      borrowRecordId,
-      alertType: 'OVERDUE_EQUIPMENT',
-      resolvedAt: null,
-    },
-    data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
-  });
-}
+  static async resolveOverdueAlertsForBorrow(
+    borrowRecordId: number,
+    tx: Prisma.TransactionClient | PrismaClient = db,
+  ): Promise<void> {
+    await tx.inventoryAlert.updateMany({
+      where: {
+        borrowRecordId,
+        alertType: 'OVERDUE_EQUIPMENT',
+        resolvedAt: null,
+      },
+      data: { resolvedAt: new Date(), isRead: true, readAt: new Date() },
+    });
+  }
 }

@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import type { FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCategoryStore, Category, CreateCategoryInput } from '../store/categoryStore';
 import api from '../lib/api';
 import { Item } from '../store/itemsStore';
+import './DashboardPage.css';
 
 export default function CategoryManagementPage() {
   const { user } = useAuthStore();
@@ -186,372 +188,364 @@ export default function CategoryManagementPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-6 py-8 text-[var(--text-primary)]">
-      <section className="mx-auto flex max-w-7xl flex-col gap-6">
-        {/* Header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)] lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-[var(--accent)]">Inventory Settings</p>
-            <h1 className="mt-1 text-2xl font-semibold">Category Management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-              Organize and classify items within the system. Define types to enforce schema rules
-              for equipment, consumables, and digital assets.
-            </p>
-          </div>
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
+      {/* Header + Action buttons */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Categories</h1>
+          <p className="dash-page-desc">
+            Manage and organize system categories for users, devices, and access control.          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => fetchCategories(true)}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+          >
+            Refresh
+          </button>
 
-          <div className="flex flex-wrap gap-3">
+          {canCreate && (
             <button
               type="button"
-              onClick={() => fetchCategories(true)}
-              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
             >
-              Refresh
+              + Add Category
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Global/Store Error or Success Message */}
+      {storeError && (
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{storeError}</span>
+          <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Summaries */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 stagger-children">
+        <SummaryCard title="Total Categories" value={summaries.total} icon="📊" />
+        <SummaryCard title="Equipment Categories" value={summaries.equipment} icon="🛠️" />
+        <SummaryCard title="Consumables Categories" value={summaries.consumable} icon="📦" />
+        <SummaryCard title="Digital Asset Categories" value={summaries.digital} icon="💻" />
+        <SummaryCard title="Archived Categories" value={summaries.archived} icon="📁" />
+      </section>
+
+      {/* Main Card with filters & table */}
+      <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+        <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
+          {/* Filter Tabs */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setFilterTab('active')}
+              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'active'
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              Active
             </button>
 
-            {canCreate && (
+            <button
+              type="button"
+              onClick={() => setFilterTab('archived')}
+              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'archived'
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              Archived
+            </button>
+          </div>
+
+          <div className="text-xs text-[var(--text-tertiary)] font-medium">
+            Showing {filteredCategories.length} of {categories.length} records
+          </div>
+        </div>
+
+        {/* Search and Dropdown Filter */}
+        <div className="grid gap-3 md:grid-cols-[1fr_200px]">
+          <div className="relative flex items-center">
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search categories by name or description..."
+              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
+            />
+            {searchTerm && (
               <button
-                type="button"
-                onClick={handleOpenCreate}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-medium"
               >
-                Add Category
+                Clear
               </button>
             )}
           </div>
-        </header>
 
-        {/* Global/Store Error or Success Message */}
-        {storeError && (
-          <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>{storeError}</span>
-            <button onClick={clearError} className="font-semibold text-red-800 hover:text-red-950">
-              Dismiss
-            </button>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+          >
+            <option value="all">All Types</option>
+            <option value="EQUIPMENT">Equipment</option>
+            <option value="CONSUMABLE">Consumable</option>
+            <option value="DIGITAL">Digital Asset</option>
+          </select>
+        </div>
+
+        {/* Table Area */}
+        {isLoading ? (
+          <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
+            <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading categories...</h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Please wait while we fetch inventory settings.
+            </p>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                  <tr>
+                    <th className="px-5 py-3.5 font-semibold">Name</th>
+                    <th className="px-5 py-3.5 font-semibold">Type</th>
+                    <th className="px-5 py-3.5 font-semibold">Description</th>
+                    <th className="px-5 py-3.5 font-semibold">Linked Items</th>
+                    <th className="px-5 py-3.5 font-semibold">Status</th>
+                    {(canUpdate || canDelete) && (
+                      <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
+                    )}
+                  </tr>
+                </thead>
 
-        {successMessage && (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Summaries */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 stagger-children">
-          <SummaryCard title="Total Categories" value={summaries.total} icon="📊" />
-          <SummaryCard title="Equipment Categories" value={summaries.equipment} icon="🛠️" />
-          <SummaryCard title="Consumables Categories" value={summaries.consumable} icon="📦" />
-          <SummaryCard title="Digital Asset Categories" value={summaries.digital} icon="💻" />
-          <SummaryCard title="Archived Categories" value={summaries.archived} icon="📁" />
-        </section>
-
-        {/* Main Card with filters & table */}
-        <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-4 sm:flex-row sm:items-center">
-            {/* Filter Tabs */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setFilterTab('active')}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'active'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                Active
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFilterTab('archived')}
-                className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
-                  filterTab === 'archived'
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                Archived
-              </button>
-            </div>
-
-            <div className="text-xs text-[var(--text-tertiary)] font-medium">
-              Showing {filteredCategories.length} of {categories.length} records
-            </div>
-          </div>
-
-          {/* Search and Dropdown Filter */}
-          <div className="grid gap-3 md:grid-cols-[1fr_200px]">
-            <div className="relative flex items-center">
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search categories by name or description..."
-                className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition placeholder:text-[var(--input-placeholder)] focus:border-[var(--input-border-focus)]"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-medium"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-            >
-              <option value="all">All Types</option>
-              <option value="EQUIPMENT">Equipment</option>
-              <option value="CONSUMABLE">Consumable</option>
-              <option value="DIGITAL">Digital Asset</option>
-            </select>
-          </div>
-
-          {/* Table Area */}
-          {isLoading ? (
-            <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center animate-pulse">
-              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-              <h3 className="mt-3 font-medium text-[var(--text-primary)]">Loading categories...</h3>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Please wait while we fetch inventory settings.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="mt-6 hidden overflow-x-auto rounded-xl border border-[var(--surface-border)] md:block">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                    <tr>
-                      <th className="px-5 py-3.5 font-semibold">Name</th>
-                      <th className="px-5 py-3.5 font-semibold">Type</th>
-                      <th className="px-5 py-3.5 font-semibold">Description</th>
-                      <th className="px-5 py-3.5 font-semibold">Linked Items</th>
-                      <th className="px-5 py-3.5 font-semibold">Status</th>
-                      {(canUpdate || canDelete) && (
-                        <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-[var(--surface-border)]">
-                    {filteredCategories.map((cat) => (
-                      <tr key={cat.id} className="transition hover:bg-[var(--surface-hover)] group">
-                        <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
-                          {cat.name}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <TypeBadge type={cat.type} />
-                        </td>
-                        <td
-                          className="max-w-md px-5 py-3.5 text-[var(--text-secondary)] truncate"
-                          title={cat.description || ''}
-                        >
-                          {cat.description || (
-                            <span className="italic text-[var(--text-disabled)]">
-                              No description
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 font-medium">
-                          {(cat._count?.items ?? 0) > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => fetchLinkedItems(cat)}
-                              className="text-[var(--accent)] hover:underline font-semibold cursor-pointer"
-                            >
-                              {cat._count?.items}
-                            </button>
-                          ) : (
-                            <span className="text-[var(--text-secondary)]">0</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {cat.deletedAt ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-                              Archived
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--success-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--success)]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
-                              Active
-                            </span>
-                          )}
-                        </td>
-                        {(canUpdate || canDelete) && (
-                          <td className="px-5 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {canUpdate && !cat.deletedAt && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEdit(cat)}
-                                  className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                                >
-                                  Edit
-                                </button>
-                              )}
-                              {canDelete &&
-                                !cat.deletedAt &&
-                                (() => {
-                                  const hasLinkedItems = (cat._count?.items ?? 0) > 0;
-                                  return hasLinkedItems ? (
-                                    <button
-                                      type="button"
-                                      disabled
-                                      title="this category is currently linked to items in your inventory, unlink to archive"
-                                      className="rounded-lg border border-[var(--surface-border)] bg-[var(--background-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--text-disabled)] cursor-not-allowed opacity-55"
-                                    >
-                                      Archive
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleArchive(cat.id, cat.name)}
-                                      className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
-                                    >
-                                      Archive
-                                    </button>
-                                  );
-                                })()}
-                            </div>
-                          </td>
+                <tbody className="divide-y divide-[var(--surface-border)]">
+                  {filteredCategories.map((cat) => (
+                    <tr key={cat.id} className="transition hover:bg-[var(--surface-hover)] group">
+                      <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
+                        {cat.name}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <TypeBadge type={cat.type} />
+                      </td>
+                      <td
+                        className="max-w-md px-5 py-3.5 text-[var(--text-secondary)] truncate"
+                        title={cat.description || ''}
+                      >
+                        {cat.description || (
+                          <span className="italic text-[var(--text-disabled)]">
+                            No description
+                          </span>
                         )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Card Grid */}
-              <div className="mt-6 grid gap-4 md:hidden">
-                {filteredCategories.map((cat) => (
-                  <article
-                    key={cat.id}
-                    className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold text-[var(--text-primary)]">{cat.name}</h3>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                          {cat.description || (
-                            <span className="italic text-[var(--text-disabled)]">
-                              No description
-                            </span>
-                          )}
-                        </p>
-                        <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
-                          Linked Items:{' '}
-                          {(cat._count?.items ?? 0) > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => fetchLinkedItems(cat)}
-                              className="font-semibold text-[var(--accent)] hover:underline cursor-pointer"
-                            >
-                              {cat._count?.items}
-                            </button>
-                          ) : (
-                            <span className="font-semibold text-[var(--text-primary)]">0</span>
-                          )}
-                        </p>
-                      </div>
-                      <TypeBadge type={cat.type} />
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
-                      {cat.deletedAt ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
-                          <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-                          Archived
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--success-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--success)]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
-                          Active
-                        </span>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        {canUpdate && !cat.deletedAt && (
+                      </td>
+                      <td className="px-5 py-3.5 font-medium">
+                        {(cat._count?.items ?? 0) > 0 ? (
                           <button
                             type="button"
-                            onClick={() => handleOpenEdit(cat)}
-                            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                            onClick={() => fetchLinkedItems(cat)}
+                            className="text-[var(--accent)] hover:underline font-semibold cursor-pointer"
                           >
-                            Edit
+                            {cat._count?.items}
                           </button>
+                        ) : (
+                          <span className="text-[var(--text-secondary)]">0</span>
                         )}
-                        {canDelete &&
-                          !cat.deletedAt &&
-                          (() => {
-                            const hasLinkedItems = (cat._count?.items ?? 0) > 0;
-                            return hasLinkedItems ? (
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {cat.deletedAt ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+                            Archived
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--success-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--success)]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      {(canUpdate || canDelete) && (
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {canUpdate && !cat.deletedAt && (
                               <button
                                 type="button"
-                                disabled
-                                title="this category is currently linked to items in your inventory, unlink to archive"
-                                className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                                onClick={() => handleOpenEdit(cat)}
+                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
                               >
-                                Archive
+                                Edit
                               </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleArchive(cat.id, cat.name)}
-                                className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
-                              >
-                                Archive
-                              </button>
-                            );
-                          })()}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                            )}
+                            {canDelete &&
+                              !cat.deletedAt &&
+                              (() => {
+                                const hasLinkedItems = (cat._count?.items ?? 0) > 0;
+                                return hasLinkedItems ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="this category is currently linked to items in your inventory, unlink to archive"
+                                    className="rounded-lg border border-[var(--surface-border)] bg-[var(--background-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                                  >
+                                    Archive
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleArchive(cat.id, cat.name)}
+                                    className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
+                                  >
+                                    Archive
+                                  </button>
+                                );
+                              })()}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Empty State */}
-              {filteredCategories.length === 0 && (
-                <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
-                    📁
+            {/* Mobile Card Grid */}
+            <div className="mt-6 grid gap-4 md:hidden">
+              {filteredCategories.map((cat) => (
+                <article
+                  key={cat.id}
+                  className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-[var(--text-primary)]">{cat.name}</h3>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                        {cat.description || (
+                          <span className="italic text-[var(--text-disabled)]">
+                            No description
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
+                        Linked Items:{' '}
+                        {(cat._count?.items ?? 0) > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => fetchLinkedItems(cat)}
+                            className="font-semibold text-[var(--accent)] hover:underline cursor-pointer"
+                          >
+                            {cat._count?.items}
+                          </button>
+                        ) : (
+                          <span className="font-semibold text-[var(--text-primary)]">0</span>
+                        )}
+                      </p>
+                    </div>
+                    <TypeBadge type={cat.type} />
                   </div>
-                  <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
-                    {filterTab === 'archived'
-                      ? 'No archived categories found'
-                      : 'No active categories found'}
-                  </h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {filterTab === 'archived'
-                      ? searchTerm || selectedType !== 'all'
-                        ? 'No archived categories match your search criteria.'
-                        : 'There are no archived categories in the system.'
-                      : searchTerm || selectedType !== 'all'
-                        ? 'Try refining your search query or selected type filter.'
-                        : 'No inventory categories have been created yet.'}
-                  </p>
-                  {canCreate && !searchTerm && selectedType === 'all' && filterTab === 'active' && (
-                    <button
-                      type="button"
-                      onClick={handleOpenCreate}
-                      className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
-                    >
-                      Create First Category
-                    </button>
-                  )}
+
+                  <div className="mt-4 flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
+                    {cat.deletedAt ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+                        Archived
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--success-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--success)]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+                        Active
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      {canUpdate && !cat.deletedAt && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(cat)}
+                          className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)]"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canDelete &&
+                        !cat.deletedAt &&
+                        (() => {
+                          const hasLinkedItems = (cat._count?.items ?? 0) > 0;
+                          return hasLinkedItems ? (
+                            <button
+                              type="button"
+                              disabled
+                              title="this category is currently linked to items in your inventory, unlink to archive"
+                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed opacity-55"
+                            >
+                              Archive
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleArchive(cat.id, cat.name)}
+                              className="rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50"
+                            >
+                              Archive
+                            </button>
+                          );
+                        })()}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* Empty State */}
+            {filteredCategories.length === 0 && (
+              <div className="mt-6 rounded-xl border border-dashed border-[var(--surface-border)] p-12 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--background-tertiary)] text-xl">
+                  📁
                 </div>
-              )}
-            </>
-          )}
-        </section>
+                <h3 className="mt-4 font-semibold text-[var(--text-primary)]">
+                  {filterTab === 'archived'
+                    ? 'No archived categories found'
+                    : 'No active categories found'}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  {filterTab === 'archived'
+                    ? searchTerm || selectedType !== 'all'
+                      ? 'No archived categories match your search criteria.'
+                      : 'There are no archived categories in the system.'
+                    : searchTerm || selectedType !== 'all'
+                      ? 'Try refining your search query or selected type filter.'
+                      : 'No inventory categories have been created yet.'}
+                </p>
+                {canCreate && !searchTerm && selectedType === 'all' && filterTab === 'active' && (
+                  <button
+                    type="button"
+                    onClick={handleOpenCreate}
+                    className="mt-4 inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+                  >
+                    Create First Category
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* Modal Dialog Form (Add / Edit) */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -616,11 +610,10 @@ export default function CategoryManagementPage() {
                       type: e.target.value as 'EQUIPMENT' | 'CONSUMABLE' | 'DIGITAL',
                     })
                   }
-                  className={`rounded-xl border px-4 py-2.5 text-sm outline-none transition ${
-                    editingCategory !== null && (editingCategory._count?.items ?? 0) > 0
-                      ? 'bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed border-[var(--surface-border)]'
-                      : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
-                  }`}
+                  className={`rounded-xl border px-4 py-2.5 text-sm outline-none transition ${editingCategory !== null && (editingCategory._count?.items ?? 0) > 0
+                    ? 'bg-[var(--background-secondary)] text-[var(--text-disabled)] cursor-not-allowed border-[var(--surface-border)]'
+                    : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
+                    }`}
                 >
                   <option value="EQUIPMENT">
                     Equipment (Trackable individual assets with serial numbers)
@@ -678,11 +671,12 @@ export default function CategoryManagementPage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Linked Items Modal */}
-      {selectedCategoryForItems && (
+      {selectedCategoryForItems && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-4xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up flex flex-col max-h-[85vh]">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -772,13 +766,12 @@ export default function CategoryManagementPage() {
                                   {item.consumableProfile.reorderPoint}
                                 </p>
                                 <span
-                                  className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
-                                    item.consumableProfile.status === 'IN_STOCK'
-                                      ? 'bg-[var(--success-muted)] text-[var(--success)]'
-                                      : item.consumableProfile.status === 'LOW_STOCK'
-                                        ? 'bg-[var(--warning-muted)] text-[var(--warning)]'
-                                        : 'bg-red-50 text-red-700'
-                                  }`}
+                                  className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${item.consumableProfile.status === 'IN_STOCK'
+                                    ? 'bg-[var(--success-muted)] text-[var(--success)]'
+                                    : item.consumableProfile.status === 'LOW_STOCK'
+                                      ? 'bg-[var(--warning-muted)] text-[var(--warning)]'
+                                      : 'bg-red-50 text-red-700'
+                                    }`}
                                 >
                                   {item.consumableProfile.status.replace(/_/g, ' ')}
                                 </span>
@@ -839,11 +832,10 @@ export default function CategoryManagementPage() {
                                   </p>
                                 )}
                                 <span
-                                  className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${
-                                    item.digitalAsset.status === 'ACTIVE'
-                                      ? 'bg-[var(--success-muted)] text-[var(--success)]'
-                                      : 'bg-red-50 text-red-700'
-                                  }`}
+                                  className={`inline-flex w-fit rounded-full px-1.5 py-0.5 text-[9px] font-bold mt-1 ${item.digitalAsset.status === 'ACTIVE'
+                                    ? 'bg-[var(--success-muted)] text-[var(--success)]'
+                                    : 'bg-red-50 text-red-700'
+                                    }`}
                                 >
                                   {item.digitalAsset.status}
                                 </span>
@@ -877,9 +869,10 @@ export default function CategoryManagementPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
-    </main>
+    </div>
   );
 }
 

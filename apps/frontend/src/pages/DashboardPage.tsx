@@ -518,7 +518,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="dash-page-title">Dashboard</h1>
           <p className="dash-page-desc">
-            Welcome back — here is your real-time inventory and equipment oversight.
+            Manage and Track Company Assets and Equipments
           </p>
         </div>
       </div>

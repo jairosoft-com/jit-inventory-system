@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useAuditLogStore, type AuditLog, type AuditAction } from '../store/auditLogStore';
+import './DashboardPage.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -459,7 +460,7 @@ export default function AuditLogsPage() {
                 Audit Logs
               </h1>
               <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Complete chronological record of all borrow and return actions.
+                View system activity and audit trail
               </p>
             </div>
           </div>

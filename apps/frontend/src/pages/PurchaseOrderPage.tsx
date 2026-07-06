@@ -85,8 +85,8 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
   },
 };
 
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
 
@@ -556,13 +556,13 @@ export default function PurchaseOrderPage() {
 
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(`Invalid file type "${ext}". Only JPG, JPEG, and PNG files are allowed.`);
+      alert(`Invalid file type "${ext}". Only Images (JPG, JPEG, PNG), PDF, and Word (DOC, DOCX) files are allowed.`);
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      alert(`File is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller file.`);
+      alert(`File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`);
       return;
     }
 
@@ -613,40 +613,49 @@ export default function PurchaseOrderPage() {
         break;
       case 'PENDING':
         if (isManagerOrAdmin) {
-          actions.push({
-            status: 'APPROVED',
-            label: 'Approve',
-            variant: 'success',
-          });
-          actions.push({
-            status: 'REJECTED',
-            label: 'Reject',
-            variant: 'danger',
-          });
+          const isOwnPo = roleName === 'MANAGER' && po.createdById === user?.id;
+          if (!isOwnPo) {
+            actions.push({
+              status: 'APPROVED',
+              label: 'Approve',
+              variant: 'success',
+            });
+            actions.push({
+              status: 'REJECTED',
+              label: 'Reject',
+              variant: 'danger',
+            });
+          }
         }
         break;
       case 'APPROVED':
         if (isManagerOrAdmin) {
-          actions.push({
-            status: 'COMPLETED',
-            label: 'Mark as Completed',
-            variant: 'success',
-          });
-          actions.push({
-            status: 'CANCELLED',
-            label: 'Cancel Order',
-            variant: 'danger',
-          });
+          const isOwnPo = roleName === 'MANAGER' && po.createdById === user?.id;
+          if (!isOwnPo) {
+            actions.push({
+              status: 'COMPLETED',
+              label: 'Mark as Completed',
+              variant: 'success',
+            });
+            actions.push({
+              status: 'CANCELLED',
+              label: 'Cancel Order',
+              variant: 'danger',
+            });
+          }
         }
         break;
       case 'COMPLETED':
       case 'CANCELLED':
         if (isManagerOrAdmin) {
-          actions.push({
-            status: 'ARCHIVED',
-            label: 'Archive',
-            variant: 'secondary',
-          });
+          const isOwnPo = roleName === 'MANAGER' && po.createdById === user?.id;
+          if (!isOwnPo) {
+            actions.push({
+              status: 'ARCHIVED',
+              label: 'Archive',
+              variant: 'secondary',
+            });
+          }
         }
         break;
     }
@@ -665,26 +674,26 @@ export default function PurchaseOrderPage() {
             Create and track purchase orders and supplier orders
           </p>
         </div>
-      </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => fetchPurchaseOrders(undefined, true)}
-          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-        >
-          Refresh
-        </button>
-        {canCreate && (
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={handleOpenCreate}
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            onClick={() => fetchPurchaseOrders(undefined, true)}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           >
-            + New Purchase Order
+            Refresh
           </button>
-        )}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              + New Purchase Order
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Alerts */}
@@ -1489,10 +1498,10 @@ export default function PurchaseOrderPage() {
                   {canUpdate && (
                     <div className="flex items-center gap-3">
                       <label className="rounded-xl border border-dashed border-[var(--surface-border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition cursor-pointer flex items-center gap-2">
-                        <span>📎</span> Upload File (JPG, JPEG, PNG — Max 5MB)
+                        <span>📎</span> Upload File (Images, PDF, Word — Max 10MB)
                         <input
                           type="file"
-                          accept=".jpg,.jpeg,.png"
+                          accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
                           className="hidden"
                           onChange={handleFileUpload}
                         />
@@ -1524,16 +1533,15 @@ export default function PurchaseOrderPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {att.fileUrl.startsWith('data:image') && (
-                              <a
-                                href={att.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                              >
-                                Preview
-                              </a>
-                            )}
+                            <a
+                              href={att.fileUrl}
+                              download={att.fileName}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                            >
+                              View / Download
+                            </a>
                             {canUpdate && (
                               <button
                                 type="button"

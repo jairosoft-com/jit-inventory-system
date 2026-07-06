@@ -465,27 +465,27 @@ export default function MaintenancePage() {
             Schedule and track equipment maintenance and repairs
           </p>
         </div>
-      </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={loadData}
-          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-        >
-          Refresh
-        </button>
-
-        {canWrite && (
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={handleOpenCreate}
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            onClick={loadData}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           >
-            + Log Maintenance
+            Refresh
           </button>
-        )}
+
+          {canWrite && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              + Log Maintenance
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Errors & Alerts */}

@@ -399,6 +399,14 @@ export class ProcurementService {
                 'Only Managers or Admins can perform this status change',
               );
             }
+
+            if (role.name === 'MANAGER' && existing.createdById === userId) {
+              if (existing.status !== 'DRAFT') {
+                throw new Error(
+                  'Managers cannot perform actions on their own purchase orders once submitted for approval',
+                );
+              }
+            }
           }
 
           const hasEquipment = existing.lineItems.some(

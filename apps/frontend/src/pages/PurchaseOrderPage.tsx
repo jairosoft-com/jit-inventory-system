@@ -239,6 +239,7 @@ export default function PurchaseOrderPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusAction, setStatusAction] = useState<POStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Equipment Integration States
   const [poEquipment, setPoEquipment] = useState<any[]>([]);
@@ -1524,14 +1525,21 @@ export default function PurchaseOrderPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {att.fileUrl.startsWith('data:image') && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImageUrl(att.fileUrl)}
+                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                              >
+                                Preview
+                              </button>
+                            )}
                             <a
                               href={att.fileUrl}
                               download={att.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
                               className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                             >
-                              View / Download
+                              Download
                             </a>
                             {canUpdate && (
                               <button
@@ -1585,6 +1593,37 @@ export default function PurchaseOrderPage() {
               </button>
             </div>
           </section>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Image Preview Modal ────────────────────────────────────────────── */}
+      {previewImageUrl && createPortal(
+        <div 
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in cursor-pointer"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col items-center justify-center animate-fade-in-up cursor-default" 
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+              aria-label="Close Preview"
+            >
+              ✕
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="Attachment Preview" 
+              className="max-w-full max-h-[80vh] object-contain rounded-xl"
+            />
+            <div className="mt-2 text-xs text-[var(--text-secondary)] py-1 font-semibold">
+              Click outside or press ✕ to close
+            </div>
+          </div>
         </div>,
         document.body
       )}

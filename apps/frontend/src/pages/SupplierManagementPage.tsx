@@ -418,27 +418,27 @@ export default function SupplierManagementPage() {
             Manage supplier information and contact details
           </p>
         </div>
-      </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={loadSuppliers}
-          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-        >
-          Refresh
-        </button>
-
-        {canCreate && (
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={handleOpenCreate}
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            onClick={loadSuppliers}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           >
-            + Add Supplier
+            Refresh
           </button>
-        )}
+
+          {canCreate && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              + Add Supplier
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Global Store Error & Success Notifications */}

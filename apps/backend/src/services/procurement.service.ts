@@ -394,10 +394,8 @@ export class ProcurementService {
               where: { id: userRoleId },
             });
 
-            if (!role || !['ADMIN', 'MANAGER'].includes(role.name)) {
-              throw new Error(
-                'Only Managers or Admins can perform this status change',
-              );
+            if (!role || role.name !== 'ADMIN') {
+              throw new Error('Only Admins can perform this status change');
             }
           }
 

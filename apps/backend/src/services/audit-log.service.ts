@@ -55,7 +55,9 @@ export class AuditLogService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.InventoryLogWhereInput = {
-      ...(entityType && { entityType: { equals: entityType, mode: 'insensitive' } }),
+      ...(entityType && {
+        entityType: { equals: entityType, mode: 'insensitive' },
+      }),
       ...(entityId !== undefined && { entityId }),
       ...(action && { action }),
       ...(performedBy !== undefined && { performedBy }),

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import { useMaintenanceStore } from '../store/maintenanceStore';
 import { useEquipmentStore } from '../store/equipmentStore';
@@ -464,27 +465,27 @@ export default function MaintenancePage() {
             Schedule and track equipment maintenance and repairs
           </p>
         </div>
-      </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={loadData}
-          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-        >
-          Refresh
-        </button>
-
-        {canWrite && (
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={handleOpenCreate}
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            onClick={loadData}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           >
-            + Log Maintenance
+            Refresh
           </button>
-        )}
+
+          {canWrite && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              + Log Maintenance
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Errors & Alerts */}
@@ -766,14 +767,6 @@ export default function MaintenancePage() {
                             </button>
                           </>
                         )}
-                        {log.notes && (
-                          <span
-                            title={log.notes}
-                            className="cursor-help rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200 transition"
-                          >
-                            ℹ️
-                          </span>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -811,7 +804,7 @@ export default function MaintenancePage() {
       </section>
 
       {/* Schedule Maintenance Modal */}
-      {isScheduleModalOpen && selectedLog && (
+      {isScheduleModalOpen && selectedLog && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1010,11 +1003,12 @@ export default function MaintenancePage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Complete Maintenance Modal */}
-      {isCompleteModalOpen && selectedLog && (
+      {isCompleteModalOpen && selectedLog && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1140,11 +1134,12 @@ export default function MaintenancePage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Log Maintenance (Create) Modal */}
-      {isCreateModalOpen && (
+      {isCreateModalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -1222,7 +1217,8 @@ export default function MaintenancePage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

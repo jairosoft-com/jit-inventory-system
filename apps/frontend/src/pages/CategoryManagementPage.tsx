@@ -7,6 +7,78 @@ import api from '../lib/api';
 import { Item } from '../store/itemsStore';
 import './DashboardPage.css';
 
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
+
+function RowsPerPageSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (size: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+      Rows per page
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
+      >
+        {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  totalCount,
+}: {
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  totalCount: number;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <RowsPerPageSelect value={pageSize} onChange={onPageSizeChange} />
+      {totalCount > 0 && (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Page {page} of {totalPages}
+          </p>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.max(page - 1, 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(page + 1, totalPages))}
+            disabled={page >= totalPages}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CategoryManagementPage() {
   const { user } = useAuthStore();
   const {
@@ -22,6 +94,8 @@ export default function CategoryManagementPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
 
   // Linked items modal state
   const [selectedCategoryForItems, setSelectedCategoryForItems] = useState<Category | null>(null);
@@ -93,6 +167,17 @@ export default function CategoryManagementPage() {
       return matchesSearch && matchesType && matchesTab;
     });
   }, [categories, searchTerm, selectedType, filterTab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCategories.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedCategories = useMemo(
+    () => filteredCategories.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredCategories, safePage, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedType, filterTab, pageSize]);
 
   // Summaries
   const summaries = useMemo(() => {
@@ -334,7 +419,7 @@ export default function CategoryManagementPage() {
                 </thead>
 
                 <tbody className="divide-y divide-[var(--surface-border)]">
-                  {filteredCategories.map((cat) => (
+                  {paginatedCategories.map((cat) => (
                     <tr key={cat.id} className="transition hover:bg-[var(--surface-hover)] group">
                       <td className="px-5 py-3.5 font-medium text-[var(--text-primary)]">
                         {cat.name}
@@ -424,7 +509,7 @@ export default function CategoryManagementPage() {
 
             {/* Mobile Card Grid */}
             <div className="mt-6 grid gap-4 md:hidden">
-              {filteredCategories.map((cat) => (
+              {paginatedCategories.map((cat) => (
                 <article
                   key={cat.id}
                   className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
@@ -540,6 +625,15 @@ export default function CategoryManagementPage() {
                 )}
               </div>
             )}
+
+            <PaginationBar
+              page={safePage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              totalCount={filteredCategories.length}
+            />
           </>
         )}
       </section>

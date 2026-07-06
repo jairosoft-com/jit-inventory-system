@@ -231,25 +231,38 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       const shouldFetchStock = category === 'ALL' || Boolean(stockAlertType);
       const shouldFetchMaintenance = category === 'ALL' || category === 'MAINTENANCE_DUE';
 
-      const [stockRes, maintRes] = await Promise.all([
-        shouldFetchStock
-          ? api.get<{ alerts: StockAlertResponse[] }>('/alerts', {
-              params: {
-                page: 1,
-                pageSize: 50,
-                ...(stockAlertType && { alertType: stockAlertType }),
-              },
-            })
-          : Promise.resolve({ data: { alerts: [] as StockAlertResponse[] } }),
-        shouldFetchMaintenance
-          ? api.get<{ alerts: MaintenanceAlertResponse[] }>('/maintenance-alerts/history', {
-              params: { page: 1, pageSize: 50, alertType: 'MAINTENANCE_DUE' },
-            })
-          : Promise.resolve({ data: { alerts: [] as MaintenanceAlertResponse[] } }),
-      ]);
+      let stockAlertList: StockAlertResponse[] = [];
+      let maintenanceAlertList: MaintenanceAlertResponse[] = [];
 
-      const stockAlerts = stockRes.data.alerts.map(mapStockAlert);
-      const maintAlerts = maintRes.data.alerts.map(mapMaintenanceAlert);
+      if (shouldFetchStock) {
+        const stockRes = await api.get<{ alerts: StockAlertResponse[] }>('/alerts', {
+          params: {
+            page: 1,
+            pageSize: 50,
+            ...(stockAlertType && { alertType: stockAlertType }),
+          },
+        });
+        stockAlertList = stockRes.data.alerts;
+      }
+
+      if (shouldFetchMaintenance) {
+        try {
+          const maintRes = await api.get<{ alerts: MaintenanceAlertResponse[] }>(
+            '/maintenance-alerts/history',
+            {
+              params: { page: 1, pageSize: 50, alertType: 'MAINTENANCE_DUE' },
+            },
+          );
+          maintenanceAlertList = maintRes.data.alerts;
+        } catch {
+          // Some roles may not have access to maintenance history. Keep the
+          // remaining notification history available instead of failing the
+          // entire "All Categories" view.
+        }
+      }
+
+      const stockAlerts = stockAlertList.map(mapStockAlert);
+      const maintAlerts = maintenanceAlertList.map(mapMaintenanceAlert);
 
       set({
         historyAlerts: sortAlertsNewestFirst([...stockAlerts, ...maintAlerts]),
@@ -259,6 +272,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       set({ historyError: 'Failed to load notification history.', isHistoryLoading: false });
     }
   },
+
 
   scanAlerts: async () => {
     try {

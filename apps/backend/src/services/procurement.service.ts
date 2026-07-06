@@ -394,18 +394,8 @@ export class ProcurementService {
               where: { id: userRoleId },
             });
 
-            if (!role || !['ADMIN', 'MANAGER'].includes(role.name)) {
-              throw new Error(
-                'Only Managers or Admins can perform this status change',
-              );
-            }
-
-            if (role.name === 'MANAGER' && existing.createdById === userId) {
-              if (existing.status !== 'DRAFT') {
-                throw new Error(
-                  'Managers cannot perform actions on their own purchase orders once submitted for approval',
-                );
-              }
+            if (!role || role.name !== 'ADMIN') {
+              throw new Error('Only Admins can perform this status change');
             }
           }
 

@@ -612,50 +612,41 @@ export default function PurchaseOrderPage() {
         });
         break;
       case 'PENDING':
-        if (isManagerOrAdmin) {
-          const isOwnPo = roleName === 'MANAGER' && po.createdById === user?.id;
-          if (!isOwnPo) {
-            actions.push({
-              status: 'APPROVED',
-              label: 'Approve',
-              variant: 'success',
-            });
-            actions.push({
-              status: 'REJECTED',
-              label: 'Reject',
-              variant: 'danger',
-            });
-          }
+        if (roleName === 'ADMIN') {
+          actions.push({
+            status: 'APPROVED',
+            label: 'Approve',
+            variant: 'success',
+          });
+          actions.push({
+            status: 'REJECTED',
+            label: 'Reject',
+            variant: 'danger',
+          });
         }
         break;
       case 'APPROVED':
-        if (isManagerOrAdmin) {
-          const isOwnPo = roleName === 'MANAGER' && po.createdById === user?.id;
-          if (!isOwnPo) {
-            actions.push({
-              status: 'COMPLETED',
-              label: 'Mark as Completed',
-              variant: 'success',
-            });
-            actions.push({
-              status: 'CANCELLED',
-              label: 'Cancel Order',
-              variant: 'danger',
-            });
-          }
+        if (roleName === 'ADMIN') {
+          actions.push({
+            status: 'COMPLETED',
+            label: 'Mark as Completed',
+            variant: 'success',
+          });
+          actions.push({
+            status: 'CANCELLED',
+            label: 'Cancel Order',
+            variant: 'danger',
+          });
         }
         break;
       case 'COMPLETED':
       case 'CANCELLED':
-        if (isManagerOrAdmin) {
-          const isOwnPo = roleName === 'MANAGER' && po.createdById === user?.id;
-          if (!isOwnPo) {
-            actions.push({
-              status: 'ARCHIVED',
-              label: 'Archive',
-              variant: 'secondary',
-            });
-          }
+        if (roleName === 'ADMIN') {
+          actions.push({
+            status: 'ARCHIVED',
+            label: 'Archive',
+            variant: 'secondary',
+          });
         }
         break;
     }

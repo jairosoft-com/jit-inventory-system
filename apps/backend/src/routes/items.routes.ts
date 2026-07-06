@@ -186,7 +186,7 @@ router.delete(
         return;
       }
 
-      const result = await ItemsService.archive(id);
+      const result = await ItemsService.archive(id, req.user!.id);
 
       res.status(200).json(result);
     } catch (error) {

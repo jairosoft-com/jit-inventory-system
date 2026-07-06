@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAuditLogStore, type AuditLog, type AuditAction } from '../store/auditLogStore';
 import './DashboardPage.css';
@@ -26,6 +27,26 @@ function formatRelative(iso: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function formatEntityType(entityType: string) {
+  const normalized = entityType.trim().toUpperCase();
+  const labels: Record<string, string> = {
+    ITEM: 'Item',
+    EQUIPMENT: 'Equipment',
+    USER: 'User',
+    BORROW_RECORD: 'Borrow Record',
+    BORROWRECORD: 'Borrow Record',
+    STOCK_IN: 'Stock In',
+    STOCKIN: 'Stock In',
+    STOCK_OUT: 'Stock Out',
+    STOCKOUT: 'Stock Out',
+    DISPOSAL: 'Disposal',
+    MAINTENANCE_LOG: 'Maintenance Log',
+    MAINTENANCELOG: 'Maintenance Log',
+  };
+
+  return labels[normalized] ?? entityType;
 }
 
 // ── Action badge config ───────────────────────────────────────────────────────
@@ -131,7 +152,7 @@ function JsonBlock({ data, label }: { data: unknown; label: string }) {
 // ── Detail modal ──────────────────────────────────────────────────────────────
 
 function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -184,7 +205,7 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
                 color: 'var(--text-primary)',
               }}
             >
-              {log.entityType} · ID {log.entityId}
+              {formatEntityType(log.entityType)} · ID {log.entityId}
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
               {formatDateTime(log.performedAt)} · by {log.user.firstName} {log.user.lastName} (
@@ -218,7 +239,8 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
           <JsonBlock data={log.newData} label="After" />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -308,6 +330,7 @@ const ENTITY_OPTIONS = [
   { value: 'StockOut', label: 'Stock Out' },
   { value: 'Disposal', label: 'Disposal' },
   { value: 'MaintenanceLog', label: 'Maintenance Log' },
+  { value: 'User', label: 'User' },
 ];
 
 export default function AuditLogsPage() {
@@ -316,6 +339,7 @@ export default function AuditLogsPage() {
     useAuditLogStore();
 
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5); // State for your dropdown
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   // Access gate — only ADMIN / MANAGER
@@ -329,27 +353,27 @@ export default function AuditLogsPage() {
     );
 
   const load = useCallback(
-    (p: number) => {
-      void fetchLogs(p, 25);
+    (p: number, currentLimit: number) => {
+      void fetchLogs(p, currentLimit); // Uses the dropdown limit instead of 25
     },
     [fetchLogs],
   );
 
   useEffect(() => {
-    if (canView) load(1);
-  }, [load, canView]);
+    if (canView) load(1, limit);
+  }, [load, canView, limit]);
 
-  // Re-fetch when filters change
+  // Re-fetch when filters or limit change
   useEffect(() => {
     if (!canView) return;
     setPage(1);
-    load(1);
+    load(1, limit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, limit]); // Added limit to dependency array so changing it triggers a reload
 
   function handlePageChange(next: number) {
     setPage(next);
-    load(next);
+    load(next, limit);
   }
 
   function handleFilterChange(key: string, value: string) {
@@ -409,595 +433,213 @@ export default function AuditLogsPage() {
     filters.entityId
   );
 
-  return (
-    <div
-      id="audit-logs-page"
-      style={{ padding: '0', display: 'flex', flexDirection: 'column', gap: '0' }}
-    >
+return (
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
+      
       {/* ── Page header ─────────────────────────────────────────────────── */}
-      <div
-        style={{
-          padding: '28px 32px 0',
-          background: 'var(--surface)',
-          borderBottom: '1px solid var(--surface-border)',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: '16px',
-            marginBottom: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                flexShrink: 0,
-              }}
-            >
-              <IconAudit />
-            </div>
-            <div>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: '1.4rem',
-                  fontWeight: 800,
-                  color: 'var(--text-primary)',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Audit Logs
-              </h1>
-              <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                View system activity and audit trail
-              </p>
-            </div>
-          </div>
-
-          {/* Immutability badge */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '7px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-              color: '#94a3b8',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              flexShrink: 0,
-              border: '1px solid #334155',
-            }}
-          >
-            <IconLock />
-            Read-only · Tamper-proof
-          </div>
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Audit Logs</h1>
+          <p className="dash-page-desc">
+Verify Employee actions,  asset write-off justifications, and system configuration logs.          </p>
         </div>
-
-        {/* Immutability info banner */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '10px 16px',
-            marginBottom: '20px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #1e3a5f22 0%, #1e3a5f11 100%)',
-            border: '1px solid #3b82f622',
-            fontSize: '12.5px',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <span style={{ color: '#3b82f6', flexShrink: 0 }}>
-            <IconShield />
-          </span>
-          <span>
-            Audit logs are{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>
-              permanently stored and immutable
-            </strong>
-            . No user or administrator can modify or delete entries — every action is preserved
-            exactly as it occurred.
-          </span>
-        </div>
-
-        {/* Filter bar */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '10px',
-            alignItems: 'center',
-            paddingBottom: '20px',
-          }}
-        >
-          {/* Action filter */}
-          <select
-            id="audit-filter-action"
-            value={filters.action ?? ''}
-            onChange={(e) => handleFilterChange('action', e.target.value)}
-            style={{
-              padding: '7px 12px',
-              borderRadius: '9px',
-              border: '1px solid var(--input-border)',
-              background: 'var(--input-bg)',
-              color: 'var(--text-primary)',
-              fontSize: '13px',
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            {ACTION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Entity type filter */}
-          <select
-            id="audit-filter-entity"
-            value={filters.entityType ?? ''}
-            onChange={(e) => handleFilterChange('entityType', e.target.value)}
-            style={{
-              padding: '7px 12px',
-              borderRadius: '9px',
-              border: '1px solid var(--input-border)',
-              background: 'var(--input-bg)',
-              color: 'var(--text-primary)',
-              fontSize: '13px',
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            {ENTITY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Date start */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label
-              style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
-            >
-              From
-            </label>
-            <input
-              id="audit-filter-start-date"
-              type="date"
-              value={filters.startDate ?? ''}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '9px',
-                border: '1px solid var(--input-border)',
-                background: 'var(--input-bg)',
-                color: 'var(--text-primary)',
-                fontSize: '13px',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          {/* Date end */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label
-              style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
-            >
-              To
-            </label>
-            <input
-              id="audit-filter-end-date"
-              type="date"
-              value={filters.endDate ?? ''}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '9px',
-                border: '1px solid var(--input-border)',
-                background: 'var(--input-bg)',
-                color: 'var(--text-primary)',
-                fontSize: '13px',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          {/* Clear filters */}
-          {hasFilters && (
-            <button
-              id="audit-clear-filters"
-              onClick={handleClearFilters}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '7px 12px',
-                borderRadius: '9px',
-                border: '1px solid var(--surface-border)',
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                fontSize: '12.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-hover)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-              }}
-            >
-              ✕ Clear filters
-            </button>
-          )}
-
-          {/* Record count */}
-          <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-            {meta.total > 0 && `${meta.total.toLocaleString()} log${meta.total !== 1 ? 's' : ''}`}
-          </span>
+        
+        {/* Immutability badge */}
+        <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-400">
+          <IconLock />
+          Read-only · Tamper-proof
         </div>
       </div>
 
       {/* ── Error banner ────────────────────────────────────────────────── */}
       {error && (
-        <div
-          style={{
-            margin: '16px 32px 0',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            background: '#fff1f2',
-            border: '1px solid #fecdd3',
-            color: '#991b1b',
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span>{error}</span>
-          <button
-            onClick={clearError}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#991b1b',
-              fontSize: '16px',
-            }}
-          >
+          <button onClick={clearError} className="font-semibold hover:text-red-900">
             ✕
           </button>
         </div>
       )}
 
-      {/* ── Table ───────────────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 32px 32px' }}>
-        {isLoading ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '80px 0',
-              gap: '12px',
-              color: 'var(--text-secondary)',
-            }}
+      {/* ── Main Section Frame ──────────────────────────────────────────── */}
+      <section className="flex flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+        
+        {/* Immutability info banner */}
+        <div className="flex items-center gap-3 rounded-xl border border-blue-200/60 bg-blue-50/50 px-4 py-3 text-[13px] text-[var(--text-secondary)]">
+          <span className="shrink-0 text-blue-500">
+            <IconShield />
+          </span>
+          <span>
+            Audit logs are <strong className="text-[var(--text-primary)]">permanently stored and immutable</strong>. No user or administrator can modify or delete entries — every action is preserved exactly as it occurred.
+          </span>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--surface-border)] pb-5">
+          <select
+            value={filters.action ?? ''}
+            onChange={(e) => handleFilterChange('action', e.target.value)}
+            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
           >
-            <span
-              style={{
-                width: '20px',
-                height: '20px',
-                borderRadius: '50%',
-                border: '2px solid var(--surface-border)',
-                borderTopColor: 'var(--accent)',
-                animation: 'spin 0.7s linear infinite',
-                display: 'inline-block',
-              }}
+            {ACTION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+
+          <select
+            value={filters.entityType ?? ''}
+            onChange={(e) => handleFilterChange('entityType', e.target.value)}
+            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+          >
+            {ENTITY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">From</label>
+            <input
+              type="date"
+              value={filters.startDate ?? ''}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">To</label>
+            <input
+              type="date"
+              value={filters.endDate ?? ''}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+            />
+          </div>
+
+          {hasFilters && (
+            <button
+              onClick={handleClearFilters}
+              className="flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+            >
+              ✕ Clear filters
+            </button>
+          )}
+
+          <span className="ml-auto text-xs font-medium text-[var(--text-tertiary)]">
+            {meta.total > 0 && `${meta.total.toLocaleString()} log${meta.total !== 1 ? 's' : ''}`}
+          </span>
+        </div>
+
+        {/* Table Area */}
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-3 py-20 text-[var(--text-secondary)]">
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[var(--surface-border)] border-t-[var(--accent)]" />
             Loading audit logs…
           </div>
         ) : logs.length === 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '80px 0',
-              gap: '10px',
-              color: 'var(--text-disabled)',
-              textAlign: 'center',
-            }}
-          >
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              style={{ opacity: 0.4 }}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
+          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="opacity-40">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>No audit logs found</p>
-            <p style={{ margin: 0, fontSize: '12px' }}>
-              {hasFilters
-                ? 'Try adjusting or clearing your filters.'
-                : 'Actions will appear here as they occur.'}
+            <p className="m-0 text-sm font-semibold">No audit logs found</p>
+            <p className="m-0 text-xs">
+              {hasFilters ? 'Try adjusting or clearing your filters.' : 'Actions will appear here as they occur.'}
             </p>
           </div>
         ) : (
-          <div
-            style={{
-              borderRadius: '14px',
-              border: '1px solid var(--surface-border)',
-              overflow: 'hidden',
-              background: 'var(--surface)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            {/* Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '13px',
-                }}
-              >
-                <thead>
-                  <tr
-                    style={{
-                      background: 'var(--background-tertiary)',
-                      borderBottom: '1px solid var(--surface-border)',
-                    }}
-                  >
-                    {['#', 'Action', 'Entity', 'Entity ID', 'Performed By', 'Timestamp', ''].map(
-                      (col) => (
-                        <th
-                          key={col}
-                          style={{
-                            padding: '11px 16px',
-                            textAlign: 'left',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            letterSpacing: '0.05em',
-                            color: 'var(--text-tertiary)',
-                            textTransform: 'uppercase',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {col}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log, idx) => (
-                    <tr
-                      key={log.id}
-                      id={`audit-log-row-${log.id}`}
-                      style={{
-                        borderBottom:
-                          idx < logs.length - 1 ? '1px solid var(--surface-border)' : 'none',
-                        cursor: 'pointer',
-                        transition: 'background 0.12s',
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.background =
-                          'var(--surface-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.background = 'transparent';
-                      }}
-                      onClick={() => setSelectedLog(log)}
-                    >
-                      {/* Log ID */}
-                      <td
-                        style={{
-                          padding: '13px 16px',
-                          color: 'var(--text-disabled)',
-                          fontSize: '11.5px',
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        #{log.id}
-                      </td>
-
-                      {/* Action badge */}
-                      <td style={{ padding: '13px 16px' }}>
-                        <ActionBadge action={log.action} />
-                      </td>
-
-                      {/* Entity type */}
-                      <td
-                        style={{
-                          padding: '13px 16px',
-                          color: 'var(--text-primary)',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {log.entityType}
-                      </td>
-
-                      {/* Entity ID */}
-                      <td
-                        style={{
-                          padding: '13px 16px',
-                          color: 'var(--text-secondary)',
-                          fontFamily: 'monospace',
-                          fontSize: '12px',
-                        }}
-                      >
-                        {log.entityId}
-                      </td>
-
-                      {/* Performed by */}
-                      <td style={{ padding: '13px 16px' }}>
-                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {log.user.firstName} {log.user.lastName}
-                        </p>
-                        <p
-                          style={{
-                            margin: '1px 0 0',
-                            fontSize: '11.5px',
-                            color: 'var(--text-secondary)',
-                          }}
-                        >
-                          {log.user.email}
-                        </p>
-                      </td>
-
-                      {/* Timestamp */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--text-primary)' }}>
-                          {formatDateTime(log.performedAt)}
-                        </p>
-                        <p
-                          style={{
-                            margin: '1px 0 0',
-                            fontSize: '11px',
-                            color: 'var(--text-tertiary)',
-                          }}
-                        >
-                          {formatRelative(log.performedAt)}
-                        </p>
-                      </td>
-
-                      {/* View detail */}
-                      <td style={{ padding: '13px 16px' }}>
-                        <button
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: '7px',
-                            border: '1px solid var(--surface-border)',
-                            background: 'transparent',
-                            color: 'var(--text-secondary)',
-                            fontSize: '11.5px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.12s',
-                          }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background =
-                              'var(--accent)';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-                            (e.currentTarget as HTMLButtonElement).style.borderColor =
-                              'var(--accent)';
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                            (e.currentTarget as HTMLButtonElement).style.color =
-                              'var(--text-secondary)';
-                            (e.currentTarget as HTMLButtonElement).style.borderColor =
-                              'var(--surface-border)';
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedLog(log);
-                          }}
-                        >
-                          Details
-                        </button>
-                      </td>
-                    </tr>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-[var(--surface-border)] bg-[var(--background-tertiary)]">
+                  {['#', 'Action', 'Entity', 'Entity ID', 'Performed By', 'Timestamp', ''].map((col) => (
+                    <th key={col} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] whitespace-nowrap">
+                      {col}
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {meta.totalPages > 1 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 20px',
-                  borderTop: '1px solid var(--surface-border)',
-                  background: 'var(--background-tertiary)',
-                }}
-              >
-                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                  Page {page} of {meta.totalPages} · {meta.total.toLocaleString()} total
-                </span>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handlePageChange(page - 1)}
-                    disabled={page <= 1}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--surface-border)',
-                      background: 'var(--surface)',
-                      color: 'var(--text-secondary)',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                      opacity: page <= 1 ? 0.45 : 1,
-                      transition: 'all 0.12s',
-                    }}
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log, idx) => (
+                  <tr
+                    key={log.id}
+                    onClick={() => setSelectedLog(log)}
+                    className={`cursor-pointer transition hover:bg-[var(--surface-hover)] ${
+                      idx < logs.length - 1 ? 'border-b border-[var(--surface-border)]' : ''
+                    }`}
                   >
-                    ← Previous
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page >= meta.totalPages}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--surface-border)',
-                      background: 'var(--surface)',
-                      color: 'var(--text-secondary)',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      cursor: page >= meta.totalPages ? 'not-allowed' : 'pointer',
-                      opacity: page >= meta.totalPages ? 0.45 : 1,
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
+                    <td className="px-4 py-3 font-mono text-[11.5px] text-[var(--text-disabled)]">#{log.id}</td>
+                    <td className="px-4 py-3"><ActionBadge action={log.action} /></td>
+                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">{formatEntityType(log.entityType)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">{log.entityId}</td>
+                    <td className="px-4 py-3">
+                      <p className="m-0 font-semibold text-[var(--text-primary)]">{log.user.firstName} {log.user.lastName}</p>
+                      <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-secondary)]">{log.user.email}</p>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <p className="m-0 text-[12.5px] text-[var(--text-primary)]">{formatDateTime(log.performedAt)}</p>
+                      <p className="m-0 mt-0.5 text-[11px] text-[var(--text-tertiary)]">{formatRelative(log.performedAt)}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedLog(log);
+                        }}
+                        className="rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-1.5 text-[11.5px] font-semibold text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                      >
+                        Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
 
+{/* Pagination */}
+        {meta.totalPages > 1 && !isLoading && (
+          <div className="-mb-5 -mx-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5">
+            
+            {/* Rows Selector & Page Text */}
+            <div className="flex items-center gap-4">
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="cursor-pointer rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+              >
+                <option value={5}>5 rows</option>
+                <option value={10}>10 rows</option>
+                <option value={15}>15 rows</option>
+              </select>
+              
+              <span className="text-xs text-[var(--text-tertiary)]">
+                Page {page} of {meta.totalPages} · {meta.total.toLocaleString()} total
+              </span>
+            </div>
+            
+            {/* Next / Prev Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1}
+                className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-secondary)] transition disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-[var(--surface-hover)]"
+              >
+                ← Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= meta.totalPages}
+                className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-secondary)] transition disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-[var(--surface-hover)]"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
       {/* ── Detail modal ─────────────────────────────────────────────────── */}
       {selectedLog && <DetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
-
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

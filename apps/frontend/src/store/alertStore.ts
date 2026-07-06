@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import api from '../lib/api';
 
 export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE' | 'OVERDUE_EQUIPMENT' | 'BORROW_RETURNED';
+export type ProcurementAlertCategory = 'PENDING_APPROVAL' | 'STATUS_UPDATED';
 export type AlertPriority = 'WARNING' | 'CRITICAL';
-export type AlertCategoryFilter = 'ALL' | AlertType;
+export type AlertCategoryFilter = 'ALL' | AlertType | ProcurementAlertCategory;
 
 export interface UnifiedAlert {
   id: string; // Combined format: 'stock-1' or 'm-1' to avoid key collisions
@@ -150,10 +151,23 @@ function sortAlertsNewestFirst(alerts: UnifiedAlert[]): UnifiedAlert[] {
   );
 }
 
+const STOCK_ALERT_TYPES: Exclude<AlertType, 'MAINTENANCE_DUE'>[] = [
+  'LOW_STOCK',
+  'OUT_OF_STOCK',
+  'WARRANTY_EXPIRING',
+  'REPLACEMENT_NEEDED',
+  'OVERDUE_EQUIPMENT',
+  'BORROW_RETURNED',
+];
+
 function getStockAlertType(
   category: AlertCategoryFilter,
 ): Exclude<AlertType, 'MAINTENANCE_DUE'> | undefined {
-  return category !== 'ALL' && category !== 'MAINTENANCE_DUE' ? category : undefined;
+  return STOCK_ALERT_TYPES.includes(
+    category as Exclude<AlertType, 'MAINTENANCE_DUE'>,
+  )
+    ? (category as Exclude<AlertType, 'MAINTENANCE_DUE'>)
+    : undefined;
 }
 
 // Poll interval for the badge count (every 60 seconds)
@@ -213,29 +227,42 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     set({ isHistoryLoading: true, historyError: null, historyCategory: category });
 
     try {
-      const shouldFetchStock = category === 'ALL' || category !== 'MAINTENANCE_DUE';
-      const shouldFetchMaintenance = category === 'ALL' || category === 'MAINTENANCE_DUE';
       const stockAlertType = getStockAlertType(category);
+      const shouldFetchStock = category === 'ALL' || Boolean(stockAlertType);
+      const shouldFetchMaintenance = category === 'ALL' || category === 'MAINTENANCE_DUE';
 
-      const [stockRes, maintRes] = await Promise.all([
-        shouldFetchStock
-          ? api.get<{ alerts: StockAlertResponse[] }>('/alerts', {
-              params: {
-                page: 1,
-                pageSize: 50,
-                ...(stockAlertType && { alertType: stockAlertType }),
-              },
-            })
-          : Promise.resolve({ data: { alerts: [] as StockAlertResponse[] } }),
-        shouldFetchMaintenance
-          ? api.get<{ alerts: MaintenanceAlertResponse[] }>('/maintenance-alerts/history', {
+      let stockAlertList: StockAlertResponse[] = [];
+      let maintenanceAlertList: MaintenanceAlertResponse[] = [];
+
+      if (shouldFetchStock) {
+        const stockRes = await api.get<{ alerts: StockAlertResponse[] }>('/alerts', {
+          params: {
+            page: 1,
+            pageSize: 50,
+            ...(stockAlertType && { alertType: stockAlertType }),
+          },
+        });
+        stockAlertList = stockRes.data.alerts;
+      }
+
+      if (shouldFetchMaintenance) {
+        try {
+          const maintRes = await api.get<{ alerts: MaintenanceAlertResponse[] }>(
+            '/maintenance-alerts/history',
+            {
               params: { page: 1, pageSize: 50, alertType: 'MAINTENANCE_DUE' },
-            })
-          : Promise.resolve({ data: { alerts: [] as MaintenanceAlertResponse[] } }),
-      ]);
+            },
+          );
+          maintenanceAlertList = maintRes.data.alerts;
+        } catch {
+          // Some roles may not have access to maintenance history. Keep the
+          // remaining notification history available instead of failing the
+          // entire "All Categories" view.
+        }
+      }
 
-      const stockAlerts = stockRes.data.alerts.map(mapStockAlert);
-      const maintAlerts = maintRes.data.alerts.map(mapMaintenanceAlert);
+      const stockAlerts = stockAlertList.map(mapStockAlert);
+      const maintAlerts = maintenanceAlertList.map(mapMaintenanceAlert);
 
       set({
         historyAlerts: sortAlertsNewestFirst([...stockAlerts, ...maintAlerts]),
@@ -245,6 +272,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       set({ historyError: 'Failed to load notification history.', isHistoryLoading: false });
     }
   },
+
 
   scanAlerts: async () => {
     try {

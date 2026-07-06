@@ -48,14 +48,7 @@ function formatColumnHeader(key: string): string {
 
 function IconReport() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
       <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
     </svg>
@@ -64,14 +57,7 @@ function IconReport() {
 
 function IconDownload() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
     </svg>
   );
@@ -79,30 +65,13 @@ function IconDownload() {
 
 function IconSpinner() {
   return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: '16px',
-        height: '16px',
-        border: '2px solid rgba(255,255,255,0.3)',
-        borderTop: '2px solid #fff',
-        borderRadius: '50%',
-        animation: 'rp-spin 0.7s linear infinite',
-      }}
-    />
+    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--surface-border)] border-t-[var(--accent)]" />
   );
 }
 
 function IconAlert() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -125,16 +94,18 @@ function ReportTypeCard({
 }) {
   return (
     <button
-      className={`rp-type-card ${isSelected ? 'rp-type-card--selected' : ''}`}
+      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+        isSelected
+          ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] shadow-sm'
+          : 'border-[var(--surface-border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--input-border-focus)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'
+      }`}
       onClick={onSelect}
       type="button"
     >
-      <div className="rp-type-card-icon">
+      <div className="shrink-0">
         <IconReport />
       </div>
-      <div className="rp-type-card-body">
-        <span className="rp-type-card-label">{label}</span>
-      </div>
+      <span className="text-sm font-semibold">{label}</span>
     </button>
   );
 }
@@ -179,77 +150,75 @@ function FilterBar({
         : 'Pick date range';
 
   return (
-    <div className="rp-filter-bar">
-      <span className="rp-filter-label">FILTERS</span>
+    <div className="flex flex-wrap items-center gap-3 border-b border-[var(--surface-border)] pb-5">
+      <span className="text-xs font-bold tracking-wider text-[var(--text-tertiary)]">FILTERS</span>
 
-      {/* Date Range Picker — hidden for Low Stock since dates are irrelevant */}
+      {/* Date Range Picker */}
       {showDateFilter && (
-        <div className="rp-filter-field">
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="rp-filter-date-btn">
-                <CalendarIcon size={14} />
-                <span
-                  className={
-                    dateRange?.from ? 'rp-filter-date-active' : 'rp-filter-date-placeholder'
-                  }
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="flex h-9 items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-normal text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+            >
+              <CalendarIcon size={14} className="text-[var(--text-tertiary)]" />
+              <span className={!dateRange?.from ? 'text-[var(--text-tertiary)]' : ''}>
+                {dateLabel}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={(range) => {
+                onDateRangeChange(range);
+                if (range?.from && range?.to) setCalendarOpen(false);
+              }}
+              numberOfMonths={2}
+              disabled={{ after: new Date() }}
+            />
+            {dateRange?.from && (
+              <div className="border-t border-[var(--surface-border)] p-2">
+                <button
+                  type="button"
+                  className="w-full rounded-md px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                  onClick={() => {
+                    onDateRangeChange(undefined);
+                    setCalendarOpen(false);
+                  }}
                 >
-                  {dateLabel}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="rp-filter-calendar-popover" align="start">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={(range) => {
-                  onDateRangeChange(range);
-                  if (range?.from && range?.to) setCalendarOpen(false);
-                }}
-                numberOfMonths={2}
-                disabled={{ after: new Date() }}
-              />
-              {dateRange?.from && (
-                <div className="rp-filter-calendar-footer">
-                  <button
-                    type="button"
-                    className="rp-filter-clear-date"
-                    onClick={() => {
-                      onDateRangeChange(undefined);
-                      setCalendarOpen(false);
-                    }}
-                  >
-                    Clear dates
-                  </button>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
+                  Clear dates
+                </button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       )}
 
       {/* Category Select */}
-      <div className="rp-filter-field">
-        <Select value={categoryId} onValueChange={onCategoryChange} disabled={isLoadingCategories}>
-          <SelectTrigger className="rp-filter-select">
-            <SelectValue placeholder={isLoadingCategories ? 'Loading…' : 'All categories'} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={String(cat.id)}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Select value={categoryId} onValueChange={onCategoryChange} disabled={isLoadingCategories}>
+        <SelectTrigger className="h-9 w-[200px] rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm focus:border-[var(--input-border-focus)] focus:ring-0">
+          <SelectValue placeholder={isLoadingCategories ? 'Loading…' : 'All categories'} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All categories</SelectItem>
+          {categories.map((cat) => (
+            <SelectItem key={cat.id} value={String(cat.id)}>
+              {cat.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Clear all */}
       {hasActiveFilters && (
-        <button type="button" className="rp-filter-clear-all" onClick={onClearFilters}>
-          <X size={13} />
-          Clear filters
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+          onClick={onClearFilters}
+        >
+          <X size={13} /> Clear filters
         </button>
       )}
     </div>
@@ -259,46 +228,13 @@ function FilterBar({
 // ── Columns to show in preview table per report type ──────────────────────────
 
 const PREVIEW_COLUMNS: Record<string, string[]> = {
-  inventory: [
-    'itemName',
-    'itemType',
-    'category',
-    'quantity',
-    'unit',
-    'stockStatus',
-    'equipmentStatus',
-    'condition',
-  ],
+  inventory: ['itemName', 'itemType', 'category', 'quantity', 'unit', 'stockStatus', 'equipmentStatus', 'condition'],
   procurement: ['invoiceNumber', 'status', 'totalAmount', 'orderDate', 'supplier', 'itemCount'],
-  borrowing: [
-    'equipmentName',
-    'assetId',
-    'borrowedBy',
-    'status',
-    'borrowDate',
-    'expectedReturn',
-    'actualReturn',
-  ],
+  borrowing: ['equipmentName', 'assetId', 'borrowedBy', 'status', 'borrowDate', 'expectedReturn', 'actualReturn'],
   maintenance: ['equipmentName', 'description', 'status', 'scheduledDate', 'completedDate', 'cost'],
   disposal: ['equipmentName', 'assetId', 'reason', 'method', 'disposalDate', 'approvedBy'],
-  employee_equipment: [
-    'itemName',
-    'category',
-    'assetId',
-    'condition',
-    'status',
-    'assignedTo',
-    'assignedToEmail',
-  ],
-  low_stock: [
-    'itemName',
-    'category',
-    'currentQuantity',
-    'reorderPoint',
-    'unit',
-    'deficit',
-    'stockStatus',
-  ],
+  employee_equipment: ['itemName', 'category', 'assetId', 'condition', 'status', 'assignedTo', 'assignedToEmail'],
+  low_stock: ['itemName', 'category', 'currentQuantity', 'reorderPoint', 'unit', 'deficit', 'stockStatus'],
 };
 
 function DataTable({ data, type }: { data: Record<string, unknown>[]; type: string }) {
@@ -306,7 +242,13 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   const pageSize = 20;
 
   if (data.length === 0) {
-    return <p className="rp-empty">No data available for this report.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
+        <IconReport />
+        <p className="m-0 text-sm font-semibold">No data available</p>
+        <p className="m-0 text-xs">There are no records matching your current report filters.</p>
+      </div>
+    );
   }
 
   const allColumns = Object.keys(data[0]).filter((k) => !Array.isArray(data[0][k]));
@@ -317,21 +259,33 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   const pageData = data.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-    <div className="rp-table-wrapper">
-      <div className="rp-table-scroll">
-        <table className="rp-table">
+    <div className="flex flex-col">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-[13px]">
           <thead>
-            <tr>
+            <tr className="border-b border-[var(--surface-border)] bg-[var(--background-tertiary)]">
               {columns.map((col) => (
-                <th key={col}>{formatColumnHeader(col)}</th>
+                <th
+                  key={col}
+                  className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"
+                >
+                  {formatColumnHeader(col)}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {pageData.map((row, i) => (
-              <tr key={i}>
+              <tr
+                key={i}
+                className={`transition hover:bg-[var(--surface-hover)] ${
+                  i < pageData.length - 1 ? 'border-b border-[var(--surface-border)]' : ''
+                }`}
+              >
                 {columns.map((col) => (
-                  <td key={col}>{formatCellValue(row[col])}</td>
+                  <td key={col} className="whitespace-nowrap px-4 py-3 text-[12.5px] text-[var(--text-primary)]">
+                    {formatCellValue(row[col])}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -340,30 +294,27 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
       </div>
 
       {totalPages > 1 && (
-        <div className="rp-pagination">
-          <span className="rp-pagination-info">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of{' '}
-            {data.length} records
+        <div className="-mx-5 -mb-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5 mt-5">
+          <span className="text-xs text-[var(--text-tertiary)]">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of {data.length} records
           </span>
-          <div className="rp-pagination-controls">
+          <div className="flex gap-2">
             <button
-              className="rp-page-btn"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              type="button"
+              className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-secondary)] transition disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-[var(--surface-hover)]"
             >
-              Previous
+              ← Previous
             </button>
-            <span className="rp-page-indicator">
+            <span className="flex items-center px-2 text-xs font-semibold text-[var(--text-secondary)]">
               Page {page} of {totalPages}
             </span>
             <button
-              className="rp-page-btn"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              type="button"
+              className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-secondary)] transition disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-[var(--surface-hover)]"
             >
-              Next
+              Next →
             </button>
           </div>
         </div>
@@ -372,7 +323,6 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   );
 }
 
-// Parses 'yyyy-MM-dd' into a local Date to avoid UTC timezone shifting
 function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
@@ -446,51 +396,53 @@ export default function ReportsPage() {
 
   if (!canExport) {
     return (
-      <div className="rp-access-denied">
-        <IconAlert />
-        <h2>Access Restricted</h2>
-        <p>
-          You don&apos;t have permission to generate or export reports. This feature is available to
-          Admins and Managers only.
+      <div className="dash-page animate-fade-in flex flex-col items-center justify-center py-20">
+        <div className="text-[var(--text-disabled)] mb-4 scale-150">
+          <IconAlert />
+        </div>
+        <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Access Restricted</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          You don&apos;t have permission to generate or export reports.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="rp-page">
+    <div className="dash-page animate-fade-in flex flex-col gap-6">
       {/* Page Header */}
-      <div className="dash-page-header" style={{ padding: '0 32px', marginBottom: '28px' }}>
+      <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Reports</h1>
-          <p className="dash-page-desc">
-            Generate and export system reports
-          </p>
+          <p className="dash-page-desc">Generate and export system reports</p>
         </div>
       </div>
 
       {/* Error Banner */}
       {error && (
-        <div className="rp-error-banner">
-          <IconAlert />
-          <span>{error}</span>
-          <button type="button" className="rp-error-dismiss" onClick={clearError}>
+        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="flex items-center gap-2">
+            <IconAlert />
+            <span>{error}</span>
+          </div>
+          <button onClick={clearError} className="font-semibold hover:text-red-900">
             ✕
           </button>
         </div>
       )}
 
-      <div className="rp-body">
+      {/* Main Layout Grid */}
+      <div className="flex flex-col gap-6 md:flex-row items-start">
+        
         {/* Left panel: report type selector */}
-        <aside className="rp-sidebar">
-          <p className="rp-sidebar-label">SELECT REPORT TYPE</p>
+        <aside className="flex w-full shrink-0 flex-col gap-3 md:w-64">
+          <p className="text-xs font-bold tracking-wider text-[var(--text-tertiary)]">SELECT REPORT TYPE</p>
           {isLoadingTypes ? (
-            <div className="rp-loading-types">
-              <IconSpinner />
-              <span>Loading…</span>
+            <div className="flex items-center gap-2 py-4 text-sm text-[var(--text-secondary)]">
+              <IconSpinner /> Loading…
             </div>
           ) : (
-            <div className="rp-type-list">
+            <div className="flex flex-col gap-2">
               {availableTypes.map((t) => (
                 <ReportTypeCard
                   key={t.value}
@@ -504,15 +456,15 @@ export default function ReportsPage() {
           )}
         </aside>
 
-        {/* Right panel: filters + generate + preview */}
-        <section className="rp-main">
+        {/* Right panel: Main frame */}
+        <section className="flex w-full flex-1 flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
           {!selectedType ? (
-            <div className="rp-placeholder">
-              <div className="rp-placeholder-icon">
-                <IconReport />
-              </div>
-              <h3>Choose a Report Type</h3>
-              <p>Select a report from the left panel to generate a preview and export options.</p>
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
+              <div className="scale-150 opacity-50 mb-2"><IconReport /></div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Choose a Report Type</h3>
+              <p className="text-xs text-[var(--text-secondary)] max-w-xs">
+                Select a report from the left panel to generate a preview and export options.
+              </p>
             </div>
           ) : (
             <>
@@ -530,29 +482,28 @@ export default function ReportsPage() {
               />
 
               {/* Report actions bar */}
-              <div className="rp-actions-bar">
-                <div className="rp-actions-info">
-                  <h2 className="rp-report-title">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--surface-border)] pb-5">
+                <div>
+                  <h2 className="text-lg font-bold text-[var(--text-primary)]">
                     {availableTypes.find((t) => t.value === selectedType)?.label}
                   </h2>
                   {preview && (
-                    <span className="rp-meta">
+                    <span className="text-xs text-[var(--text-tertiary)]">
                       {preview.count} record{preview.count !== 1 ? 's' : ''} · Generated{' '}
                       {formatDate(preview.generatedAt)} by {preview.generatedBy}
                     </span>
                   )}
                 </div>
-                <div className="rp-actions-btns">
+                
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="rp-btn rp-btn--primary"
+                    className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
                     onClick={() => void generatePreview()}
                     disabled={isLoadingPreview}
                   >
                     {isLoadingPreview ? (
-                      <>
-                        <IconSpinner /> Generating…
-                      </>
+                      <><IconSpinner /> Generating…</>
                     ) : (
                       'Generate Preview'
                     )}
@@ -562,7 +513,7 @@ export default function ReportsPage() {
                     <>
                       <button
                         type="button"
-                        className="rp-btn rp-btn--secondary"
+                        className="flex items-center gap-2 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
                         onClick={() => void exportExcel()}
                         disabled={isExporting}
                         title="Export as Excel (.xlsx)"
@@ -572,7 +523,7 @@ export default function ReportsPage() {
                       </button>
                       <button
                         type="button"
-                        className="rp-btn rp-btn--secondary"
+                        className="flex items-center gap-2 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
                         onClick={() => void exportPdf()}
                         disabled={isExporting}
                         title="Export as PDF"
@@ -586,18 +537,18 @@ export default function ReportsPage() {
               </div>
 
               {/* Preview area */}
-              <div className="rp-preview">
+              <div className="min-h-[300px]">
                 {isLoadingPreview && (
-                  <div className="rp-loading-preview">
+                  <div className="flex items-center justify-center gap-3 py-20 text-sm text-[var(--text-secondary)]">
                     <IconSpinner />
                     <span>Generating report…</span>
                   </div>
                 )}
 
                 {!isLoadingPreview && !preview && (
-                  <div className="rp-preview-empty">
-                    <p>
-                      Click <strong>Generate Preview</strong> to load data for this report.
+                  <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
+                    <p className="m-0 text-sm">
+                      Click <strong className="text-[var(--text-primary)]">Generate Preview</strong> to load data for this report.
                     </p>
                   </div>
                 )}

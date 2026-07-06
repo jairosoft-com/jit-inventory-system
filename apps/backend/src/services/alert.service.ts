@@ -360,11 +360,20 @@ export class AlertService {
    * Fetch alert history (read + unread), paginated and optionally filtered
    * by notification category/type.
    */
-  static async getAllAlerts(query: AlertHistoryQuery = {}) {
+  static async getAllAlerts(
+    query: AlertHistoryQuery = {},
+    userId?: number,
+    isAdminOrManager = false,
+  ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 30;
     const skip = (page - 1) * pageSize;
-    const where = query.alertType ? { alertType: query.alertType } : {};
+    const where: Prisma.InventoryAlertWhereInput = {
+      ...(query.alertType && { alertType: query.alertType }),
+      OR: isAdminOrManager
+        ? [{ userId: userId ?? undefined }, { userId: null }]
+        : [{ userId: userId ?? undefined }],
+    };
 
     const [alerts, total] = await Promise.all([
       db.inventoryAlert.findMany({

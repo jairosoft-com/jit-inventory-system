@@ -29,6 +29,26 @@ function formatRelative(iso: string) {
   return `${days}d ago`;
 }
 
+function formatEntityType(entityType: string) {
+  const normalized = entityType.trim().toUpperCase();
+  const labels: Record<string, string> = {
+    ITEM: 'Item',
+    EQUIPMENT: 'Equipment',
+    USER: 'User',
+    BORROW_RECORD: 'Borrow Record',
+    BORROWRECORD: 'Borrow Record',
+    STOCK_IN: 'Stock In',
+    STOCKIN: 'Stock In',
+    STOCK_OUT: 'Stock Out',
+    STOCKOUT: 'Stock Out',
+    DISPOSAL: 'Disposal',
+    MAINTENANCE_LOG: 'Maintenance Log',
+    MAINTENANCELOG: 'Maintenance Log',
+  };
+
+  return labels[normalized] ?? entityType;
+}
+
 // ── Action badge config ───────────────────────────────────────────────────────
 
 const ACTION_CONFIG: Record<
@@ -185,7 +205,7 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
                 color: 'var(--text-primary)',
               }}
             >
-              {log.entityType} · ID {log.entityId}
+              {formatEntityType(log.entityType)} · ID {log.entityId}
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
               {formatDateTime(log.performedAt)} · by {log.user.firstName} {log.user.lastName} (
@@ -549,7 +569,7 @@ Verify Employee actions,  asset write-off justifications, and system configurati
                   >
                     <td className="px-4 py-3 font-mono text-[11.5px] text-[var(--text-disabled)]">#{log.id}</td>
                     <td className="px-4 py-3"><ActionBadge action={log.action} /></td>
-                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">{log.entityType}</td>
+                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">{formatEntityType(log.entityType)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">{log.entityId}</td>
                     <td className="px-4 py-3">
                       <p className="m-0 font-semibold text-[var(--text-primary)]">{log.user.firstName} {log.user.lastName}</p>

@@ -120,8 +120,8 @@ export class InventoryService {
       });
 
       await AuditLogService.log(
-        'ConsumableProfile',
-        consumableProfileId,
+        'Item',
+        profile.item.id,
         LogAction.UPDATED,
         userId,
         { quantity: quantityBefore, status: profile.status },
@@ -198,8 +198,8 @@ export class InventoryService {
       });
 
       await AuditLogService.log(
-        'ConsumableProfile',
-        consumableProfileId,
+        'Item',
+        profile.item.id,
         LogAction.UPDATED,
         userId,
         { quantity: quantityBefore, status: profile.status },
@@ -291,8 +291,8 @@ export class InventoryService {
       });
 
       await AuditLogService.log(
-        'ConsumableProfile',
-        consumableProfileId,
+        'Item',
+        profile.item.id,
         LogAction.UPDATED,
         userId,
         { quantity: quantityBefore, status: profile.status },

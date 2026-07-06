@@ -14,7 +14,6 @@ import {
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 import './DashboardPage.css';
-import { Pagination } from '../components/Pagination';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -130,7 +129,52 @@ function RowsPerPageSelect({
           </option>
         ))}
       </select>
-    </label>
+</label>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  totalCount,
+}: {
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  totalCount: number;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <RowsPerPageSelect value={pageSize} onChange={onPageSizeChange} />
+      {totalCount > 0 && (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Page {page} of {totalPages}
+          </p>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.max(page - 1, 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(page + 1, totalPages))}
+            disabled={page >= totalPages}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -420,7 +464,7 @@ export default function EquipmentPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
 
   // ── Data Loading ─────────────────────────────────────────────────────────
   const loadEquipment = useCallback(
@@ -1560,31 +1604,14 @@ export default function EquipmentPage() {
             )}
 
             {/* Pagination */}
-            {meta.totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Page {meta.page} of {meta.totalPages} · {meta.total} total records
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={meta.page <= 1}
-                    onClick={() => handlePageChange(meta.page - 1)}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ← Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={meta.page >= meta.totalPages}
-                    onClick={() => handlePageChange(meta.page + 1)}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
+            <PaginationBar
+              page={meta.page}
+              totalPages={meta.totalPages}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              totalCount={meta.total}
+            />
           </>
         )}
       </section>

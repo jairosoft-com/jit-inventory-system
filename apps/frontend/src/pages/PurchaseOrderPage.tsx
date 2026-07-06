@@ -85,8 +85,8 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
   },
 };
 
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
 
@@ -239,6 +239,7 @@ export default function PurchaseOrderPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusAction, setStatusAction] = useState<POStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Equipment Integration States
   const [poEquipment, setPoEquipment] = useState<any[]>([]);
@@ -556,13 +557,13 @@ export default function PurchaseOrderPage() {
 
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(`Invalid file type "${ext}". Only JPG, JPEG, and PNG files are allowed.`);
+      alert(`Invalid file type "${ext}". Only Images (JPG, JPEG, PNG), PDF, and Word (DOC, DOCX) files are allowed.`);
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      alert(`File is ${sizeMB} MB — exceeds the 5 MB limit. Please choose a smaller file.`);
+      alert(`File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`);
       return;
     }
 
@@ -612,7 +613,7 @@ export default function PurchaseOrderPage() {
         });
         break;
       case 'PENDING':
-        if (isManagerOrAdmin) {
+        if (roleName === 'ADMIN') {
           actions.push({
             status: 'APPROVED',
             label: 'Approve',
@@ -626,7 +627,7 @@ export default function PurchaseOrderPage() {
         }
         break;
       case 'APPROVED':
-        if (isManagerOrAdmin) {
+        if (roleName === 'ADMIN') {
           actions.push({
             status: 'COMPLETED',
             label: 'Mark as Completed',
@@ -641,7 +642,7 @@ export default function PurchaseOrderPage() {
         break;
       case 'COMPLETED':
       case 'CANCELLED':
-        if (isManagerOrAdmin) {
+        if (roleName === 'ADMIN') {
           actions.push({
             status: 'ARCHIVED',
             label: 'Archive',
@@ -665,26 +666,26 @@ export default function PurchaseOrderPage() {
             Create and track purchase orders and supplier orders
           </p>
         </div>
-      </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => fetchPurchaseOrders(undefined, true)}
-          className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
-        >
-          Refresh
-        </button>
-        {canCreate && (
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={handleOpenCreate}
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            onClick={() => fetchPurchaseOrders(undefined, true)}
+            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           >
-            + New Purchase Order
+            Refresh
           </button>
-        )}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
+            >
+              + New Purchase Order
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Alerts */}
@@ -1489,10 +1490,10 @@ export default function PurchaseOrderPage() {
                   {canUpdate && (
                     <div className="flex items-center gap-3">
                       <label className="rounded-xl border border-dashed border-[var(--surface-border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition cursor-pointer flex items-center gap-2">
-                        <span>📎</span> Upload File (JPG, JPEG, PNG — Max 5MB)
+                        <span>📎</span> Upload File (Images, PDF, Word — Max 10MB)
                         <input
                           type="file"
-                          accept=".jpg,.jpeg,.png"
+                          accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
                           className="hidden"
                           onChange={handleFileUpload}
                         />
@@ -1525,15 +1526,21 @@ export default function PurchaseOrderPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             {att.fileUrl.startsWith('data:image') && (
-                              <a
-                                href={att.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImageUrl(att.fileUrl)}
                                 className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                               >
                                 Preview
-                              </a>
+                              </button>
                             )}
+                            <a
+                              href={att.fileUrl}
+                              download={att.fileName}
+                              className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                            >
+                              Download
+                            </a>
                             {canUpdate && (
                               <button
                                 type="button"
@@ -1586,6 +1593,37 @@ export default function PurchaseOrderPage() {
               </button>
             </div>
           </section>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Image Preview Modal ────────────────────────────────────────────── */}
+      {previewImageUrl && createPortal(
+        <div 
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in cursor-pointer"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col items-center justify-center animate-fade-in-up cursor-default" 
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+              aria-label="Close Preview"
+            >
+              ✕
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="Attachment Preview" 
+              className="max-w-full max-h-[80vh] object-contain rounded-xl"
+            />
+            <div className="mt-2 text-xs text-[var(--text-secondary)] py-1 font-semibold">
+              Click outside or press ✕ to close
+            </div>
+          </div>
         </div>,
         document.body
       )}

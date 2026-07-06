@@ -90,15 +90,18 @@ export const addAttachmentSchema = z.object({
           'data:image/jpeg',
           'data:image/jpg',
           'data:image/png',
+          'data:application/pdf',
+          'data:application/msword',
+          'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         ];
         return (
           allowedTypes.some((type) => val.startsWith(type)) ||
-          /\.(jpg|jpeg|png)$/i.test(val)
+          /\.(jpg|jpeg|png|pdf|doc|docx)$/i.test(val)
         );
       },
       {
         message:
-          'Unsupported file type. Only JPG, JPEG, and PNG files are allowed.',
+          'Unsupported file type. Only JPG, JPEG, PNG, PDF, DOC, and DOCX files are allowed.',
       },
     )
     .refine(
@@ -107,11 +110,11 @@ export const addAttachmentSchema = z.object({
           const base64Data = val.split(',')[1];
           if (!base64Data) return false;
           const size = Math.round((base64Data.length * 3) / 4);
-          return size <= 5 * 1024 * 1024;
+          return size <= 10 * 1024 * 1024;
         }
         return true;
       },
-      { message: 'Your image exceeds the 5MB limit.' },
+      { message: 'Your file exceeds the 10MB limit.' },
     ),
   fileName: z.string().trim().min(1, 'File name is required').max(255),
   fileSize: z
@@ -119,8 +122,8 @@ export const addAttachmentSchema = z.object({
     .int()
     .positive()
     .optional()
-    .refine((val) => !val || val <= 5 * 1024 * 1024, {
-      message: 'Your image exceeds the 5MB limit.',
+    .refine((val) => !val || val <= 10 * 1024 * 1024, {
+      message: 'Your file exceeds the 10MB limit.',
     }),
 });
 

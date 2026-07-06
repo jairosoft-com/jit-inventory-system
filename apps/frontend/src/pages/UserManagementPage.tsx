@@ -772,7 +772,7 @@ export default function UserManagementPage() {
         document.body
       )}
 
-      {editingUser && canManageUserAccess && (
+      {editingUser && canManageUserAccess && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
@@ -861,7 +861,8 @@ export default function UserManagementPage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

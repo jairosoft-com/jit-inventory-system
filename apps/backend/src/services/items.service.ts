@@ -255,63 +255,65 @@ export class ItemsService {
       await this.assertUniqueBarcode(data.barcode);
     }
 
-    // CONSUMABLE
-    if (data.itemType === ItemType.CONSUMABLE) {
-      return prisma.item.create({
+    return prisma.$transaction(async (tx) => {
+      const createdItem = await tx.item.create({
         data: {
           itemName,
           description: data.description ?? null,
           categoryId: data.categoryId,
-          itemType: ItemType.CONSUMABLE,
+          itemType: data.itemType,
           barcode: data.barcode ?? null,
           imageUrl: data.imageUrl ?? null,
           registeredBy,
-          consumableProfile: {
-            create: {
-              unit: data.consumableProfile.unit,
-              quantity: data.consumableProfile.quantity,
-              reorderPoint: data.consumableProfile.reorderPoint,
-              status: calculateStockStatus(
-                data.consumableProfile.quantity,
-                data.consumableProfile.reorderPoint,
-              ),
+          ...(data.itemType === ItemType.CONSUMABLE && {
+            consumableProfile: {
+              create: {
+                unit: data.consumableProfile.unit,
+                quantity: data.consumableProfile.quantity,
+                reorderPoint: data.consumableProfile.reorderPoint,
+                status: calculateStockStatus(
+                  data.consumableProfile.quantity,
+                  data.consumableProfile.reorderPoint,
+                ),
+              },
             },
-          },
+          }),
+          ...(data.itemType === ItemType.DIGITAL && {
+            digitalAsset: {
+              create: {
+                assetType: data.digitalAsset.assetType,
+                url: data.digitalAsset.url ?? null,
+                vendor: data.digitalAsset.vendor ?? null,
+                licenseKey: data.digitalAsset.licenseKey ?? null,
+                credentialsRef: data.digitalAsset.credentialsRef ?? null,
+                seats: data.digitalAsset.seats ?? null,
+                expiryDate: data.digitalAsset.expiryDate ?? null,
+                cost:
+                  data.digitalAsset.cost != null
+                    ? new Prisma.Decimal(data.digitalAsset.cost)
+                    : null,
+                billingCycle: data.digitalAsset.billingCycle ?? null,
+                status: data.digitalAsset.status,
+                notes: data.digitalAsset.notes ?? null,
+              },
+            },
+          }),
         },
         include: itemInclude,
       });
-    }
 
-    // DIGITAL
-    return prisma.item.create({
-      data: {
-        itemName,
-        description: data.description ?? null,
-        categoryId: data.categoryId,
-        itemType: ItemType.DIGITAL,
-        barcode: data.barcode ?? null,
-        imageUrl: data.imageUrl ?? null,
-        registeredBy,
-        digitalAsset: {
-          create: {
-            assetType: data.digitalAsset.assetType,
-            url: data.digitalAsset.url ?? null,
-            vendor: data.digitalAsset.vendor ?? null,
-            licenseKey: data.digitalAsset.licenseKey ?? null,
-            credentialsRef: data.digitalAsset.credentialsRef ?? null,
-            seats: data.digitalAsset.seats ?? null,
-            expiryDate: data.digitalAsset.expiryDate ?? null,
-            cost:
-              data.digitalAsset.cost != null
-                ? new Prisma.Decimal(data.digitalAsset.cost)
-                : null,
-            billingCycle: data.digitalAsset.billingCycle ?? null,
-            status: data.digitalAsset.status,
-            notes: data.digitalAsset.notes ?? null,
-          },
+      await tx.inventoryLog.create({
+        data: {
+          entityType: 'ITEM',
+          entityId: createdItem.id,
+          action: LogAction.CREATED,
+          performedBy: registeredBy,
+          oldData: Prisma.JsonNull,
+          newData: buildInventoryLogSnapshot(createdItem),
         },
-      },
-      include: itemInclude,
+      });
+
+      return createdItem;
     });
   }
 
@@ -538,7 +540,7 @@ export class ItemsService {
     });
   }
 
-  static async archive(id: number) {
+  static async archive(id: number, performedBy: number) {
     const item = await this.findActiveOrThrow(id);
 
     // Block archiving if item is EQUIPMENT — use DELETE /equipment/:id instead
@@ -546,9 +548,29 @@ export class ItemsService {
       throw new Error('Equipment items must be archived via the equipment API');
     }
 
-    return prisma.item.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    return prisma.$transaction(async (tx) => {
+      const archivedAt = new Date();
+      const archivedItem = await tx.item.update({
+        where: { id },
+        data: { deletedAt: archivedAt },
+        include: itemInclude,
+      });
+
+      await tx.inventoryLog.create({
+        data: {
+          entityType: 'ITEM',
+          entityId: id,
+          action: LogAction.DELETED,
+          performedBy,
+          oldData: buildInventoryLogSnapshot(item),
+          newData: {
+            ...buildInventoryLogSnapshot(archivedItem),
+            deletedAt: serializeForInventoryLog(archivedAt),
+          },
+        },
+      });
+
+      return archivedItem;
     });
   }
 

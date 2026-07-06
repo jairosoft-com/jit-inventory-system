@@ -17,6 +17,78 @@ import './DashboardPage.css';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
 
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
+
+function RowsPerPageSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (size: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+      Rows per page
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
+      >
+        {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  totalCount,
+}: {
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  totalCount: number;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <RowsPerPageSelect value={pageSize} onChange={onPageSizeChange} />
+      {totalCount > 0 && (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Page {page} of {totalPages}
+          </p>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.max(page - 1, 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(page + 1, totalPages))}
+            disabled={page >= totalPages}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All Statuses' },
   { value: 'IN_STOCK', label: 'In Stock' },
@@ -154,6 +226,12 @@ export default function InventoryManagementPage() {
   const [appliedCategoryId, setAppliedCategoryId] = useState('all');
   const [appliedStatus, setAppliedStatus] = useState<StatusFilter>('all');
 
+  // pagination (client-side, per table)
+  const [activePageSize, setActivePageSize] = useState(5);
+  const [activePage, setActivePage] = useState(1);
+  const [archivedPageSize, setArchivedPageSize] = useState(5);
+  const [archivedPage, setArchivedPage] = useState(1);
+
   // form modal
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -241,6 +319,32 @@ export default function InventoryManagementPage() {
     () => categories.filter((category) => !category.deletedAt && category.type === 'CONSUMABLE'),
     [categories],
   );
+
+  const activeTotalPages = Math.max(1, Math.ceil(items.length / activePageSize));
+  const safeActivePage = Math.min(activePage, activeTotalPages);
+  const paginatedItems = useMemo(
+    () => items.slice((safeActivePage - 1) * activePageSize, safeActivePage * activePageSize),
+    [items, safeActivePage, activePageSize],
+  );
+
+  const archivedTotalPages = Math.max(1, Math.ceil(archivedItems.length / archivedPageSize));
+  const safeArchivedPage = Math.min(archivedPage, archivedTotalPages);
+  const paginatedArchivedItems = useMemo(
+    () =>
+      archivedItems.slice(
+        (safeArchivedPage - 1) * archivedPageSize,
+        safeArchivedPage * archivedPageSize,
+      ),
+    [archivedItems, safeArchivedPage, archivedPageSize],
+  );
+
+  useEffect(() => {
+    setActivePage(1);
+  }, [appliedSearchTerm, appliedCategoryId, appliedStatus, activePageSize]);
+
+  useEffect(() => {
+    setArchivedPage(1);
+  }, [appliedSearchTerm, appliedCategoryId, appliedStatus, archivedPageSize]);
 
   const hasActiveFilters =
     Boolean(appliedSearchTerm.trim()) || appliedCategoryId !== 'all' || appliedStatus !== 'all';
@@ -697,7 +801,7 @@ export default function InventoryManagementPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--surface-border)]">
-                      {items.map((item) => (
+                      {paginatedItems.map((item) => (
                         <tr key={item.id} className="transition hover:bg-[var(--surface-hover)]">
                           <td className="px-4 py-3">{renderItemImage(item)}</td>
                           <td className="px-4 py-3">
@@ -773,7 +877,7 @@ export default function InventoryManagementPage() {
 
                 {/* Mobile cards */}
                 <div className="grid gap-3 md:hidden">
-                  {items.map((item) => (
+                  {paginatedItems.map((item) => (
                     <article
                       key={item.id}
                       className="rounded-xl border border-[var(--surface-border)] p-4"
@@ -851,6 +955,15 @@ export default function InventoryManagementPage() {
                     Showing {items.length} of {meta.total} items
                   </p>
                 )}
+
+                <PaginationBar
+                  page={safeActivePage}
+                  totalPages={activeTotalPages}
+                  pageSize={activePageSize}
+                  onPageChange={setActivePage}
+                  onPageSizeChange={setActivePageSize}
+                  totalCount={items.length}
+                />
               </>
             )}
 
@@ -870,7 +983,7 @@ export default function InventoryManagementPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--surface-border)]">
-                      {archivedItems.map((item) => (
+                      {paginatedArchivedItems.map((item) => (
                         <tr
                           key={item.id}
                           className="opacity-70 transition hover:bg-[var(--surface-hover)] hover:opacity-100"
@@ -912,7 +1025,7 @@ export default function InventoryManagementPage() {
 
                 {/* Mobile cards */}
                 <div className="grid gap-3 md:hidden">
-                  {archivedItems.map((item) => (
+                  {paginatedArchivedItems.map((item) => (
                     <article
                       key={item.id}
                       className="rounded-xl border border-[var(--surface-border)] p-4 opacity-70"
@@ -954,6 +1067,15 @@ export default function InventoryManagementPage() {
                     Showing {archivedItems.length} of {archivedMeta.total} archived items
                   </p>
                 )}
+
+                <PaginationBar
+                  page={safeArchivedPage}
+                  totalPages={archivedTotalPages}
+                  pageSize={archivedPageSize}
+                  onPageChange={setArchivedPage}
+                  onPageSizeChange={setArchivedPageSize}
+                  totalCount={archivedItems.length}
+                />
               </>
             )}
           </>

@@ -5,6 +5,12 @@ const db: PrismaClient = prisma;
 
 type TransactionClient = Prisma.TransactionClient;
 
+type ProcurementAlertHistoryQuery = {
+  page?: number;
+  pageSize?: number;
+  alertType?: ProcurementAlertType;
+};
+
 export class ProcurementAlertService {
   // ── Create ───────────────────────────────────────────────────────────────────
 
@@ -80,12 +86,71 @@ export class ProcurementAlertService {
     return { alerts, total, page, pageSize };
   }
 
+  // ── Get Alert History ───────────────────────────────────────────────────────
+
+  static async getHistory(
+    userId: number,
+    isAdminOrManager: boolean,
+    query: ProcurementAlertHistoryQuery = {},
+  ) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 50;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ProcurementAlertWhereInput = {
+      ...(isAdminOrManager ? {} : { userId }),
+      ...(query.alertType ? { alertType: query.alertType } : {}),
+    };
+
+    const [alerts, total] = await Promise.all([
+      db.procurementAlert.findMany({
+        where,
+        skip,
+        take: pageSize,
+        include: {
+          purchaseOrder: {
+            select: {
+              id: true,
+              status: true,
+              totalAmount: true,
+              supplier: {
+                select: { id: true, supplierName: true },
+              },
+              createdBy: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      db.procurementAlert.count({ where }),
+    ]);
+
+    return { alerts, total, page, pageSize };
+  }
+
   // ── Mark as Read ─────────────────────────────────────────────────────────────
 
-  static markAsRead(alertId: number) {
-    return db.procurementAlert.update({
-      where: { id: alertId },
+  static async markAsRead(
+    alertId: number,
+    userId: number,
+    isAdminOrManager: boolean,
+  ) {
+    const result = await db.procurementAlert.updateMany({
+      where: {
+        id: alertId,
+        ...(isAdminOrManager ? {} : { userId }),
+      },
       data: { isRead: true, readAt: new Date() },
+    });
+
+    if (result.count === 0) {
+      throw new Error('Procurement alert not found');
+    }
+
+    return db.procurementAlert.findUniqueOrThrow({
+      where: { id: alertId },
     });
   }
 

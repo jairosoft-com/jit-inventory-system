@@ -42,6 +42,34 @@ router.get(
   },
 );
 
+// ── GET /procurement-alerts/history ───────────────────────────────────────────
+// Returns notification history for the authenticated user.
+// Admin/Manager can review global procurement alert history.
+
+router.get('/history', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const pageSize = parseInt(req.query.pageSize as string, 10) || 50;
+    const alertType = req.query.alertType as
+      | 'PENDING_APPROVAL'
+      | 'STATUS_UPDATED'
+      | undefined;
+    const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+
+    const result = await ProcurementAlertService.getHistory(
+      req.user!.id,
+      isAdminOrManager,
+      { page, pageSize, alertType },
+    );
+
+    res.status(200).json(result);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ message });
+  }
+});
+
 // ── GET /procurement-alerts/count ─────────────────────────────────────────────
 // Returns unread count only — lightweight endpoint for badge polling.
 // Accessible by any authenticated user.
@@ -69,7 +97,12 @@ router.patch(
         res.status(400).json({ message: 'Invalid alert ID' });
         return;
       }
-      const alert = await ProcurementAlertService.markAsRead(id);
+      const isAdminOrManager = [1, 2].includes(req.user!.roleId);
+      const alert = await ProcurementAlertService.markAsRead(
+        id,
+        req.user!.id,
+        isAdminOrManager,
+      );
       res.status(200).json(alert);
     } catch (error) {
       const message =

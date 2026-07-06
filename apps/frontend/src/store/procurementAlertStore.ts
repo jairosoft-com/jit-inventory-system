@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../lib/api';
+import type { AlertCategoryFilter } from './alertStore';
 
 export type ProcurementAlertType = 'PENDING_APPROVAL' | 'STATUS_UPDATED';
 
@@ -20,24 +21,48 @@ export interface ProcurementAlert {
   };
 }
 
+interface ProcurementAlertHistoryParams {
+  category?: AlertCategoryFilter;
+}
+
 interface ProcurementAlertState {
   alerts: ProcurementAlert[];
+  historyAlerts: ProcurementAlert[];
   unreadCount: number;
   isLoading: boolean;
+  isHistoryLoading: boolean;
   error: string | null;
+  historyError: string | null;
 
   fetchUnread: () => Promise<void>;
   fetchUnreadCount: () => Promise<void>;
+  fetchHistory: (params?: ProcurementAlertHistoryParams) => Promise<void>;
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   reset: () => void;
 }
 
+const PROCUREMENT_ALERT_TYPES: ProcurementAlertType[] = [
+  'PENDING_APPROVAL',
+  'STATUS_UPDATED',
+];
+
+function getProcurementAlertType(
+  category?: AlertCategoryFilter,
+): ProcurementAlertType | undefined {
+  return PROCUREMENT_ALERT_TYPES.includes(category as ProcurementAlertType)
+    ? (category as ProcurementAlertType)
+    : undefined;
+}
+
 export const useProcurementAlertStore = create<ProcurementAlertState>((set, get) => ({
   alerts: [],
+  historyAlerts: [],
   unreadCount: 0,
   isLoading: false,
+  isHistoryLoading: false,
   error: null,
+  historyError: null,
 
   fetchUnread: async () => {
     set({ isLoading: true, error: null });
@@ -59,12 +84,45 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
     }
   },
 
+  fetchHistory: async (params) => {
+    const category = params?.category ?? 'ALL';
+    const alertType = getProcurementAlertType(category);
+
+    if (category !== 'ALL' && !alertType) {
+      set({ historyAlerts: [], isHistoryLoading: false, historyError: null });
+      return;
+    }
+
+    set({ isHistoryLoading: true, historyError: null });
+    try {
+      const res = await api.get<{ alerts: ProcurementAlert[] }>('/procurement-alerts/history', {
+        params: {
+          page: 1,
+          pageSize: 50,
+          ...(alertType && { alertType }),
+        },
+      });
+
+      set({ historyAlerts: res.data.alerts, isHistoryLoading: false });
+    } catch {
+      set({
+        historyError: 'Failed to load procurement notification history.',
+        isHistoryLoading: false,
+      });
+    }
+  },
+
   markAsRead: async (id: number) => {
     try {
       await api.patch(`/procurement-alerts/${id}/read`);
-      // Remove from panel immediately instead of just flipping the flag
+      const readAt = new Date().toISOString();
       set((state) => ({
-        alerts: state.alerts.filter((a) => a.id !== id),
+        alerts: state.alerts.map((alert) =>
+          alert.id === id ? { ...alert, isRead: true, readAt } : alert,
+        ),
+        historyAlerts: state.historyAlerts.map((alert) =>
+          alert.id === id ? { ...alert, isRead: true, readAt } : alert,
+        ),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch {
@@ -75,8 +133,16 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
   markAllAsRead: async () => {
     try {
       await api.patch('/procurement-alerts/read-all');
-      // Clear all alerts from panel immediately
-      set({ alerts: [], unreadCount: 0 });
+      const readAt = new Date().toISOString();
+      set((state) => ({
+        alerts: state.alerts.map((alert) => ({ ...alert, isRead: true, readAt })),
+        historyAlerts: state.historyAlerts.map((alert) => ({
+          ...alert,
+          isRead: true,
+          readAt,
+        })),
+        unreadCount: 0,
+      }));
     } catch {
       // ignore
     }
@@ -85,8 +151,11 @@ export const useProcurementAlertStore = create<ProcurementAlertState>((set, get)
   reset: () =>
     set({
       alerts: [],
+      historyAlerts: [],
       unreadCount: 0,
       isLoading: false,
+      isHistoryLoading: false,
       error: null,
+      historyError: null,
     }),
 }));

@@ -88,6 +88,78 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
+
+function RowsPerPageSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (size: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+      Rows per page
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
+      >
+        {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  totalCount,
+}: {
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  totalCount: number;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <RowsPerPageSelect value={pageSize} onChange={onPageSizeChange} />
+      {totalCount > 0 && (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Page {page} of {totalPages}
+          </p>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.max(page - 1, 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(page + 1, totalPages))}
+            disabled={page >= totalPages}
+            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function PurchaseOrderPage() {
@@ -154,6 +226,8 @@ export default function PurchaseOrderPage() {
   const [filterTab, setFilterTab] = useState<'active' | 'archived'>('active');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [supplierFilter, setSupplierFilter] = useState<string>('');
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modals
@@ -218,6 +292,17 @@ export default function PurchaseOrderPage() {
       return matchesTab && matchesSearch;
     });
   }, [purchaseOrders, searchTerm, filterTab, statusFilter, supplierFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPOs.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedPOs = useMemo(
+    () => filteredPOs.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredPOs, safePage, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, filterTab, statusFilter, supplierFilter, pageSize]);
 
   // ── Summaries ────────────────────────────────────────────────────────────
   const summaries = useMemo(() => {
@@ -741,7 +826,7 @@ export default function PurchaseOrderPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--surface-border)]">
-                  {filteredPOs.map((po) => (
+                  {paginatedPOs.map((po) => (
                     <tr
                       key={po.id}
                       className="transition hover:bg-[var(--surface-hover)] group cursor-pointer"
@@ -807,7 +892,7 @@ export default function PurchaseOrderPage() {
 
             {/* Mobile Cards */}
             <div className="mt-6 grid gap-4 md:hidden">
-              {filteredPOs.map((po) => (
+              {paginatedPOs.map((po) => (
                 <article
                   key={po.id}
                   onClick={() => handleOpenDetail(po)}
@@ -862,12 +947,21 @@ export default function PurchaseOrderPage() {
                 )}
               </div>
             )}
+
+            <PaginationBar
+              page={safePage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              totalCount={filteredPOs.length}
+            />
           </>
         )}
       </section>
 
       {/* ── Create / Edit Modal ──────────────────────────────────────────── */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] p-6 pb-4">
@@ -1085,11 +1179,12 @@ export default function PurchaseOrderPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Detail Modal ─────────────────────────────────────────────────── */}
-      {isDetailOpen && detailPO && (
+      {isDetailOpen && detailPO && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up flex flex-col max-h-[90vh]">
             {/* Header */}
@@ -1491,11 +1586,12 @@ export default function PurchaseOrderPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Status Change Confirmation Dialog ─────────────────────────────── */}
-      {isStatusDialogOpen && statusAction && detailPO && (
+      {isStatusDialogOpen && statusAction && detailPO && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <div className="mb-4 text-center">
@@ -1559,11 +1655,12 @@ export default function PurchaseOrderPage() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Equipment Unit Registration Modal ─────────────────────────────── */}
-      {registeringUnit && (
+      {registeringUnit && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
           <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
             <h2 className="text-lg font-bold text-[var(--text-primary)] mb-1">
@@ -1688,7 +1785,8 @@ export default function PurchaseOrderPage() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1906,4 +2004,4 @@ function SearchableItemSelect({
         )}
     </div>
   );
-}
+} 

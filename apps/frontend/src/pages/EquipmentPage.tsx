@@ -107,7 +107,32 @@ const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = 
   REJECTED: 'Rejected',
 };
 
-const PAGE_SIZE = 20;
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
+
+function RowsPerPageSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (size: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+      Rows per page
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
+      >
+        {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 // ── Form State ───────────────────────────────────────────────────────────────
 
@@ -385,6 +410,7 @@ export default function EquipmentPage() {
   const [retiredArchiveDateFrom, setRetiredArchiveDateFrom] = useState('');
   const [retiredArchiveDateTo, setRetiredArchiveDateTo] = useState('');
   const [retiredArchivePage, setRetiredArchivePage] = useState(1);
+  const [retiredArchivePageSize, setRetiredArchivePageSize] = useState(5);
 
   const [replacementEquipment, setReplacementEquipment] = useState<Equipment | null>(null);
   const [replacementError, setReplacementError] = useState<string | null>(null);
@@ -394,13 +420,14 @@ export default function EquipmentPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   // ── Data Loading ─────────────────────────────────────────────────────────
   const loadEquipment = useCallback(
-    (page?: number, search?: string, status?: string) => {
+    (page?: number, search?: string, status?: string, limit?: number) => {
       const query: ListEquipmentQuery = {
         page: page ?? currentPage,
-        limit: PAGE_SIZE,
+        limit: limit ?? pageSize,
       };
       const s = search ?? searchInput.trim();
       const st = status ?? statusFilter;
@@ -408,7 +435,7 @@ export default function EquipmentPage() {
       if (st) query.status = st as EquipmentStatus;
       return fetchEquipment(query);
     },
-    [currentPage, searchInput, statusFilter, fetchEquipment],
+    [currentPage, pageSize, searchInput, statusFilter, fetchEquipment],
   );
 
   type RetiredArchiveFilterOverrides = {
@@ -420,10 +447,10 @@ export default function EquipmentPage() {
   };
 
   const loadRetiredArchive = useCallback(
-    (page?: number, overrides: RetiredArchiveFilterOverrides = {}) => {
+    (page?: number, overrides: RetiredArchiveFilterOverrides = {}, limit?: number) => {
       const query: ListRetiredArchiveQuery = {
         page: page ?? retiredArchivePage,
-        limit: PAGE_SIZE,
+        limit: limit ?? retiredArchivePageSize,
       };
 
       const search = overrides.search ?? retiredArchiveAppliedSearch;
@@ -449,6 +476,7 @@ export default function EquipmentPage() {
       retiredArchiveDateFrom,
       retiredArchiveDateTo,
       retiredArchivePage,
+      retiredArchivePageSize,
       retiredArchiveReasonFilter,
     ],
   );
@@ -879,6 +907,12 @@ export default function EquipmentPage() {
     loadEquipment(page, searchInput.trim(), statusFilter);
   };
 
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+    loadEquipment(1, searchInput.trim(), statusFilter, size);
+  };
+
   const handleOpenDisposalHistory = async () => {
     setIsDisposalHistoryOpen(true);
     setDisposalHistoryError(null);
@@ -971,6 +1005,20 @@ export default function EquipmentPage() {
     }
   };
 
+  const handleRetiredArchivePageSizeChange = async (size: number) => {
+    setRetiredArchivePageSize(size);
+    setRetiredArchivePage(1);
+    setRetiredArchiveError(null);
+
+    try {
+      await loadRetiredArchive(1, {}, size);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
+      setRetiredArchiveError(message);
+    }
+  };
+
   const handleClearRetiredArchiveFilters = async () => {
     setRetiredArchiveSearchInput('');
     setRetiredArchiveAppliedSearch('');
@@ -982,7 +1030,7 @@ export default function EquipmentPage() {
     setRetiredArchiveError(null);
 
     try {
-      await fetchRetiredArchive({ page: 1, limit: PAGE_SIZE });
+      await fetchRetiredArchive({ page: 1, limit: retiredArchivePageSize });
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : 'Failed to fetch retired equipment archive';
@@ -1517,11 +1565,24 @@ export default function EquipmentPage() {
                 <p className="text-xs text-[var(--text-tertiary)]">
                   Page {meta.page} of {meta.totalPages} · {meta.total} total records
                 </p>
-                <Pagination
-                  page={meta.page}
-                  totalPages={meta.totalPages}
-                  onPageChange={handlePageChange}
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={meta.page <= 1}
+                    onClick={() => handlePageChange(meta.page - 1)}
+                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={meta.page >= meta.totalPages}
+                    onClick={() => handlePageChange(meta.page + 1)}
+                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -2440,35 +2501,44 @@ export default function EquipmentPage() {
                     </table>
                   </div>
 
-                  {retiredArchiveMeta.totalPages > 1 && (
-                    <div className="mt-4 flex items-center justify-between border-t border-[var(--surface-border)] pt-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void handleRetiredArchivePageChange(Math.max(1, retiredArchivePage - 1))
-                        }
-                        disabled={retiredArchivePage <= 1}
-                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-xs text-[var(--text-tertiary)]">
-                        Page {retiredArchiveMeta.page} of {retiredArchiveMeta.totalPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void handleRetiredArchivePageChange(
-                            Math.min(retiredArchiveMeta.totalPages, retiredArchivePage + 1),
-                          )
-                        }
-                        disabled={retiredArchivePage >= retiredArchiveMeta.totalPages}
-                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
+                  {retiredArchiveMeta.total > 0 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-border)] pt-4">
+                      <RowsPerPageSelect
+                        value={retiredArchivePageSize}
+                        onChange={(size) => void handleRetiredArchivePageSizeChange(size)}
+                      />
+                      {retiredArchiveMeta.totalPages > 1 && (
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleRetiredArchivePageChange(
+                                Math.max(1, retiredArchivePage - 1),
+                              )
+                            }
+                            disabled={retiredArchivePage <= 1}
+                            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-xs text-[var(--text-tertiary)]">
+                            Page {retiredArchiveMeta.page} of {retiredArchiveMeta.totalPages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleRetiredArchivePageChange(
+                                Math.min(retiredArchiveMeta.totalPages, retiredArchivePage + 1),
+                              )
+                            }
+                            disabled={retiredArchivePage >= retiredArchiveMeta.totalPages}
+                            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      )}
+                    </div>                  )}
                 </>
               )}
             </div>

@@ -14,6 +14,7 @@ import {
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 import './DashboardPage.css';
+import { PaginationBar, RowsPerPageSelect } from '../components/PaginationBar';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -105,78 +106,6 @@ const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = 
   COMPLETED: 'Completed',
   REJECTED: 'Rejected',
 };
-
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
-
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (size: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-      Rows per page
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
-      >
-        {ROWS_PER_PAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-</label>
-  );
-}
-
-function PaginationBar({
-  page,
-  totalPages,
-  pageSize,
-  onPageChange,
-  onPageSizeChange,
-  totalCount,
-}: {
-  page: number;
-  totalPages: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  totalCount: number;
-}) {
-  return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <RowsPerPageSelect value={pageSize} onChange={onPageSizeChange} />
-      {totalCount > 0 && (
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-[var(--text-tertiary)]">
-            Page {page} of {totalPages}
-          </p>
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.max(page - 1, 1))}
-            disabled={page <= 1}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.min(page + 1, totalPages))}
-            disabled={page >= totalPages}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Form State ───────────────────────────────────────────────────────────────
 
@@ -464,7 +393,7 @@ export default function EquipmentPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
 
   // ── Data Loading ─────────────────────────────────────────────────────────
   const loadEquipment = useCallback(

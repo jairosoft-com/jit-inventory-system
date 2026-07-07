@@ -374,7 +374,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
       const response = await api.post<Equipment>('/equipment', data);
       const created = response.data;
 
-      await get().fetchEquipment({ page: 1 });
+      await get().fetchEquipment({ page: 1, limit: get().meta.limit });
 
       return created;
     } catch (error: unknown) {
@@ -478,7 +478,7 @@ export const useEquipmentStore = create<EquipmentState>((set, get) => ({
         isDisposalHistoryLoading: false,
       }));
 
-      await get().fetchEquipment({ page: 1 });
+      await get().fetchEquipment({ page: 1, limit: get().meta.limit });
 
       return updated;
     } catch (error: unknown) {

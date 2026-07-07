@@ -4,6 +4,7 @@ import { useEquipmentStore, type Equipment } from '../store/equipmentStore';
 import { useBorrowStore, type BorrowStatus, type BorrowRecord } from '../store/borrowStore';
 import ReturnModal from '../components/ReturnModal';
 import './DashboardPage.css';
+import { PaginationBar } from '../components/PaginationBar';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -19,32 +20,7 @@ function formatDate(iso: string) {
   }).format(new Date(iso));
 }
 
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
-
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (size: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-      Rows per page
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
-      >
-        {ROWS_PER_PAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -444,32 +420,14 @@ function HistoryPanel() {
       )}
 
       {/* Pagination */}
-      {myMeta.total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-sm">
-          <RowsPerPageSelect value={pageSize} onChange={handlePageSizeChange} />
-          {myMeta.totalPages > 1 && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page <= 1}
-                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ← Previous
-              </button>
-              <span className="text-xs text-[var(--text-secondary)]">
-                Page {page} of {myMeta.totalPages}
-              </span>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page >= myMeta.totalPages}
-                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      <PaginationBar
+        page={page}
+        totalPages={myMeta.totalPages}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        totalCount={myMeta.total}
+      />
 
     </div>
   );
@@ -779,32 +737,14 @@ function AdminPanel() {
             </table>
           </div>
 
-          {adminMeta.total > 0 && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
-              <RowsPerPageSelect value={pageSize} onChange={handlePageSizeChange} />
-              {adminMeta.totalPages > 1 && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handlePageChange(page - 1)}
-                    disabled={page <= 1}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ← Previous
-                  </button>
-                  <span className="text-xs text-[var(--text-secondary)]">
-                    Page {page} of {adminMeta.totalPages}
-                  </span>
-                  <button
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page >= adminMeta.totalPages}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-medium transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          <PaginationBar
+            page={page}
+            totalPages={adminMeta.totalPages}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            totalCount={adminMeta.total}
+          />
         </>
       )}
 

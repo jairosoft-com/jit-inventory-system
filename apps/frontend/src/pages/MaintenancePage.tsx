@@ -8,6 +8,7 @@ import type { MaintenanceLog, MaintenanceStatus } from '../store/maintenanceStor
 import api from '../lib/api';
 import './MaintenancePage.css';
 import './DashboardPage.css';
+import { PaginationBar } from '../components/PaginationBar';
 
 interface User {
   id: number;
@@ -41,6 +42,7 @@ export default function MaintenancePage() {
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history' | 'all'>('upcoming');
 
   // Modal control states
@@ -98,9 +100,9 @@ export default function MaintenancePage() {
       status: statusQuery,
       tab: activeTab,
       page: currentPage,
-      limit: PAGE_LIMIT,
+      limit: pageSize,
     });
-  }, [activeTab, appliedSearchTerm, statusFilter, currentPage, fetchMaintenanceLogs]);
+  }, [activeTab, appliedSearchTerm, statusFilter, currentPage, pageSize, fetchMaintenanceLogs]);
 
   // Fetch users for technician list and equipment
   useEffect(() => {
@@ -556,46 +558,51 @@ export default function MaintenancePage() {
       {/* Workspace Maintenance Logs Section */}
       <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
         {/* Horizontal Tabs */}
-        <div className="flex border-b border-[var(--surface-border)] mb-6 overflow-x-auto whitespace-nowrap">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('upcoming');
-              setCurrentPage(1);
-            }}
-            className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'upcoming'
-              ? 'border-[var(--accent)] text-[var(--accent)]'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-          >
-            Upcoming Maintenance
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('history');
-              setCurrentPage(1);
-            }}
-            className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'history'
-              ? 'border-[var(--accent)] text-[var(--accent)]'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-          >
-            Maintenance History
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('all');
-              setCurrentPage(1);
-            }}
-            className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'all'
-              ? 'border-[var(--accent)] text-[var(--accent)]'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-          >
-            All Records
-          </button>
+        <div className="flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] mb-6 sm:flex-row sm:items-center">
+          <div className="flex overflow-x-auto overflow-y-hidden whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('upcoming');
+                setCurrentPage(1);
+              }}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'upcoming'
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              Upcoming Maintenance
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('history');
+                setCurrentPage(1);
+              }}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'history'
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              Maintenance History
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('all');
+                setCurrentPage(1);
+              }}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'all'
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+            >
+              All Records
+            </button>
+          </div>
+          <div className="text-xs text-[var(--text-tertiary)] font-medium pb-2.5 sm:pb-0">
+            Showing {filteredLogs.length} of {meta.total} records
+          </div>
         </div>
 
         {/* Filters */}
@@ -777,30 +784,17 @@ export default function MaintenancePage() {
         </div>
 
         {/* Pagination */}
-        {!isLoading && filteredLogs.length > 0 && (
-          <div className="mt-6 flex items-center justify-between border-t border-[var(--surface-border)] pt-4">
-            <span className="text-xs text-[var(--text-secondary)]">
-              Showing page <span className="font-semibold">{meta.page}</span> of{' '}
-              <span className="font-semibold">{meta.totalPages}</span> ({meta.total} total logs)
-            </span>
-            <div className="flex gap-2">
-              <button
-                disabled={meta.page <= 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
-                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                disabled={meta.page >= meta.totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <PaginationBar
+          page={currentPage}
+          totalPages={meta.totalPages}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+          totalCount={filteredLogs.length}
+        />
       </section>
 
       {/* Schedule Maintenance Modal */}

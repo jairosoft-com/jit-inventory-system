@@ -5,33 +5,9 @@ import { useAuthStore } from '../store/authStore';
 import { useSupplierStore } from '../store/supplierStore';
 import type { Supplier, SupplierHistory, SupplierStatusFilter } from '../store/supplierStore';
 import './DashboardPage.css';
+import { PaginationBar } from '../components/PaginationBar';
 
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
 
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (size: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-      Rows per page
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
-      >
-        {ROWS_PER_PAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 const STATUS_FILTER_OPTIONS: { value: SupplierStatusFilter; label: string }[] = [
   { value: 'active', label: 'Active Suppliers' },
@@ -775,38 +751,14 @@ export default function SupplierManagementPage() {
               </div>
             )}
 
-            {meta.total > 0 && (
-              <div className="mt-6 flex flex-col gap-3 border-t border-[var(--surface-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <RowsPerPageSelect value={pageSize} onChange={handlePageSizeChange} />
-
-                {meta.totalPages > 1 && (
-                  <>
-                    <p className="text-xs font-medium text-[var(--text-tertiary)]">
-                      Page {meta.page} of {meta.totalPages}
-                    </p>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                        disabled={meta.page <= 1 || isLoading}
-                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage((page) => Math.min(page + 1, meta.totalPages))}
-                        disabled={meta.page >= meta.totalPages || isLoading}
-                        className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            <PaginationBar
+              page={meta.page}
+              totalPages={meta.totalPages}
+              pageSize={pageSize}
+              onPageChange={(p) => setCurrentPage(p)}
+              onPageSizeChange={handlePageSizeChange}
+              totalCount={meta.total}
+            />
           </>
         )}
       </section>

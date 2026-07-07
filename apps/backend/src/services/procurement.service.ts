@@ -205,6 +205,8 @@ export class ProcurementService {
   static async findAll(
     statusFilter?: PurchaseOrderStatus,
     includeArchived: boolean | string = false,
+    userId?: number,
+    roleName?: string,
   ) {
     const shouldInclude =
       includeArchived === true || includeArchived === 'true';
@@ -217,6 +219,10 @@ export class ProcurementService {
       where.status = { notIn: ['ARCHIVED', 'REJECTED', 'CANCELLED'] };
     }
 
+    if (roleName === 'STAFF' && userId) {
+      where.createdById = userId;
+    }
+
     return prisma.purchaseOrder.findMany({
       where,
       include: PO_INCLUDE,
@@ -225,13 +231,17 @@ export class ProcurementService {
   }
 
   // ── Find One ─────────────────────────────────────────────────────────────
-  static async findOne(id: number) {
+  static async findOne(id: number, userId?: number, roleName?: string) {
     const po = await prisma.purchaseOrder.findUnique({
       where: { id },
       include: PO_INCLUDE,
     });
 
     if (!po) {
+      throw new Error('Purchase order not found');
+    }
+
+    if (roleName === 'STAFF' && userId && po.createdById !== userId) {
       throw new Error('Purchase order not found');
     }
 
@@ -243,11 +253,16 @@ export class ProcurementService {
     id: number,
     data: UpdatePurchaseOrderInput,
     userId: number,
+    roleName?: string,
   ) {
-    const existing = await this.findOne(id);
+    const existing = await this.findOne(id, userId, roleName);
 
     if (existing.status !== 'DRAFT') {
       throw new Error('Only purchase orders in DRAFT status can be edited');
+    }
+
+    if (roleName === 'MANAGER' && existing.createdById !== userId) {
+      throw new Error('Managers can only edit their own purchase orders');
     }
 
     // If changing supplier, validate it
@@ -375,6 +390,18 @@ export class ProcurementService {
 
           if (!existing) {
             throw new Error('Purchase order not found');
+          }
+
+          const userRole = await tx.role.findUnique({
+            where: { id: userRoleId },
+          });
+
+          if (userRole?.name === 'STAFF' && existing.createdById !== userId) {
+            throw new Error('Purchase order not found');
+          }
+
+          if (userRole?.name === 'MANAGER' && existing.createdById !== userId) {
+            throw new Error('Managers can only submit for approval their own purchase orders');
           }
 
           const currentStatus = existing.status;
@@ -669,8 +696,8 @@ export class ProcurementService {
   }
 
   // ── History ──────────────────────────────────────────────────────────────
-  static async getHistory(id: number) {
-    await this.findOne(id);
+  static async getHistory(id: number, userId?: number, roleName?: string) {
+    await this.findOne(id, userId, roleName);
 
     return prisma.purchaseOrderHistory.findMany({
       where: { purchaseOrderId: id },
@@ -688,8 +715,13 @@ export class ProcurementService {
   }
 
   // ── Attachments ──────────────────────────────────────────────────────────
-  static async addAttachment(id: number, data: AddAttachmentInput) {
-    await this.findOne(id);
+  static async addAttachment(
+    id: number,
+    data: AddAttachmentInput,
+    userId?: number,
+    roleName?: string,
+  ) {
+    await this.findOne(id, userId, roleName);
 
     return prisma.purchaseOrderAttachment.create({
       data: {
@@ -701,7 +733,14 @@ export class ProcurementService {
     });
   }
 
-  static async deleteAttachment(poId: number, attachmentId: number) {
+  static async deleteAttachment(
+    poId: number,
+    attachmentId: number,
+    userId?: number,
+    roleName?: string,
+  ) {
+    await this.findOne(poId, userId, roleName);
+
     const attachment = await prisma.purchaseOrderAttachment.findFirst({
       where: { id: attachmentId, purchaseOrderId: poId },
     });
@@ -718,7 +757,13 @@ export class ProcurementService {
   }
 
   // ── Equipment Integration ──────────────────────────────────────────────────
-  static async getEquipmentByPO(purchaseOrderId: number) {
+  static async getEquipmentByPO(
+    purchaseOrderId: number,
+    userId?: number,
+    roleName?: string,
+  ) {
+    await this.findOne(purchaseOrderId, userId, roleName);
+
     return prisma.equipment.findMany({
       where: {
         purchaseOrderId,
@@ -752,7 +797,10 @@ export class ProcurementService {
       warrantyEnd?: string | null;
     },
     userId: number,
+    roleName?: string,
   ) {
+    await this.findOne(purchaseOrderId, userId, roleName);
+
     const equipment = await prisma.equipment.findFirst({
       where: {
         id: equipmentId,

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ConditionStatus } from '@prisma/client';
+import { prisma } from '../lib/prisma.js';
 import { ProcurementService } from '../services/procurement.service.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
@@ -57,9 +58,14 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const query = req.query as unknown as ListPurchaseOrdersQuery;
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
       const purchaseOrders = await ProcurementService.findAll(
         query.status,
         query.includeArchived,
+        req.user!.id,
+        role?.name,
       );
       res.status(200).json(purchaseOrders);
     } catch (error) {
@@ -81,7 +87,10 @@ router.get(
         res.status(400).json({ message: 'Invalid purchase order ID' });
         return;
       }
-      const po = await ProcurementService.findOne(id);
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
+      const po = await ProcurementService.findOne(id, req.user!.id, role?.name);
       res.status(200).json(po);
     } catch (error) {
       const message =
@@ -107,10 +116,14 @@ router.put(
         res.status(400).json({ message: 'Invalid purchase order ID' });
         return;
       }
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
       const po = await ProcurementService.update(
         id,
         req.body as UpdatePurchaseOrderInput,
         req.user!.id,
+        role?.name,
       );
       res.status(200).json(po);
     } catch (error) {
@@ -181,7 +194,14 @@ router.get(
         res.status(400).json({ message: 'Invalid purchase order ID' });
         return;
       }
-      const history = await ProcurementService.getHistory(id);
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
+      const history = await ProcurementService.getHistory(
+        id,
+        req.user!.id,
+        role?.name,
+      );
       res.status(200).json(history);
     } catch (error) {
       const message =
@@ -207,9 +227,14 @@ router.post(
         res.status(400).json({ message: 'Invalid purchase order ID' });
         return;
       }
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
       const attachment = await ProcurementService.addAttachment(
         id,
         req.body as AddAttachmentInput,
+        req.user!.id,
+        role?.name,
       );
       res.status(201).json(attachment);
     } catch (error) {
@@ -237,9 +262,14 @@ router.delete(
           .json({ message: 'Invalid purchase order or attachment ID' });
         return;
       }
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
       const result = await ProcurementService.deleteAttachment(
         id,
         attachmentId,
+        req.user!.id,
+        role?.name,
       );
       res.status(200).json(result);
     } catch (error) {
@@ -265,7 +295,14 @@ router.get(
         res.status(400).json({ message: 'Invalid purchase order ID' });
         return;
       }
-      const result = await ProcurementService.getEquipmentByPO(id);
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
+      const result = await ProcurementService.getEquipmentByPO(
+        id,
+        req.user!.id,
+        role?.name,
+      );
       res.status(200).json(result);
     } catch (error) {
       const message =
@@ -289,6 +326,9 @@ router.put(
           .json({ message: 'Invalid purchase order or equipment ID' });
         return;
       }
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
       const result = await ProcurementService.updateEquipmentDetails(
         id,
         equipmentId,
@@ -301,6 +341,7 @@ router.put(
           warrantyEnd?: string | null;
         },
         req.user!.id,
+        role?.name,
       );
       res.status(200).json(result);
     } catch (error) {

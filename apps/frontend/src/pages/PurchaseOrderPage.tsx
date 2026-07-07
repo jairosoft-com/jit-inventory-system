@@ -606,11 +606,13 @@ export default function PurchaseOrderPage() {
 
     switch (po.status) {
       case 'DRAFT':
-        actions.push({
-          status: 'PENDING',
-          label: 'Submit for Approval',
-          variant: 'primary',
-        });
+        if (roleName === 'ADMIN' || po.createdById === user?.id) {
+          actions.push({
+            status: 'PENDING',
+            label: 'Submit for Approval',
+            variant: 'primary',
+          });
+        }
         break;
       case 'PENDING':
         if (roleName === 'ADMIN') {
@@ -874,7 +876,7 @@ export default function PurchaseOrderPage() {
                           >
                             View
                           </button>
-                          {canUpdate && po.status === 'DRAFT' && (
+                          {canUpdate && po.status === 'DRAFT' && (roleName === 'ADMIN' || po.createdById === user?.id) && (
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(po)}

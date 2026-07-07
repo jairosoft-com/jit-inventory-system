@@ -261,6 +261,10 @@ export class ProcurementService {
       throw new Error('Only purchase orders in DRAFT status can be edited');
     }
 
+    if (roleName === 'MANAGER' && existing.createdById !== userId) {
+      throw new Error('Managers can only edit their own purchase orders');
+    }
+
     // If changing supplier, validate it
     if (data.supplierId !== undefined) {
       const supplier = await prisma.supplier.findUnique({
@@ -394,6 +398,10 @@ export class ProcurementService {
 
           if (userRole?.name === 'STAFF' && existing.createdById !== userId) {
             throw new Error('Purchase order not found');
+          }
+
+          if (userRole?.name === 'MANAGER' && existing.createdById !== userId) {
+            throw new Error('Managers can only submit for approval their own purchase orders');
           }
 
           const currentStatus = existing.status;

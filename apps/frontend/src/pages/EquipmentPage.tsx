@@ -14,7 +14,7 @@ import {
 } from '../store/equipmentStore';
 import { useCategoryStore } from '../store/categoryStore';
 import './DashboardPage.css';
-import { Pagination } from '../components/Pagination';
+import { PaginationBar, RowsPerPageSelect } from '../components/PaginationBar';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -106,33 +106,6 @@ const DISPOSAL_APPROVAL_STATUS_LABELS: Record<DisposalApprovalStatus, string> = 
   COMPLETED: 'Completed',
   REJECTED: 'Rejected',
 };
-
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
-
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (size: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-      Rows per page
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
-      >
-        {ROWS_PER_PAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 // ── Form State ───────────────────────────────────────────────────────────────
 
@@ -1560,31 +1533,14 @@ export default function EquipmentPage() {
             )}
 
             {/* Pagination */}
-            {meta.totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Page {meta.page} of {meta.totalPages} · {meta.total} total records
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={meta.page <= 1}
-                    onClick={() => handlePageChange(meta.page - 1)}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ← Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={meta.page >= meta.totalPages}
-                    onClick={() => handlePageChange(meta.page + 1)}
-                    className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
+            <PaginationBar
+              page={meta.page}
+              totalPages={meta.totalPages}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              totalCount={meta.total}
+            />
           </>
         )}
       </section>

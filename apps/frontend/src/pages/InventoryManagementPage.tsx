@@ -11,83 +11,14 @@ import {
 } from '../store/itemsStore';
 import StockMovementModal from '../components/StockMovementModal';
 import './DashboardPage.css';
+import { PaginationBar } from '../components/PaginationBar';
 
 // ── Constants (image upload) ───────────────────────────────────────────────────
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 15];
 
-function RowsPerPageSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (size: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-      Rows per page
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-[var(--surface-border)] bg-[var(--input-bg)] px-2 py-1 text-xs outline-none transition focus:border-[var(--input-border-focus)]"
-      >
-        {ROWS_PER_PAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function PaginationBar({
-  page,
-  totalPages,
-  pageSize,
-  onPageChange,
-  onPageSizeChange,
-  totalCount,
-}: {
-  page: number;
-  totalPages: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  totalCount: number;
-}) {
-  return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <RowsPerPageSelect value={pageSize} onChange={onPageSizeChange} />
-      {totalCount > 0 && (
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-[var(--text-tertiary)]">
-            Page {page} of {totalPages}
-          </p>
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.max(page - 1, 1))}
-            disabled={page <= 1}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.min(page + 1, totalPages))}
-            disabled={page >= totalPages}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-xs font-semibold transition hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All Statuses' },
@@ -686,32 +617,37 @@ export default function InventoryManagementPage() {
       {/* Table section */}
       <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
         {/* Sub-tabs: Active / Archived */}
-        <div className="mb-5 flex items-center gap-1 border-b border-[var(--surface-border)] pb-0">
-          {(['active', 'archived'] as SubTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setSubTab(tab)}
-              className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${subTab === tab
-                ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-            >
-              {tab === 'active' ? 'Active Items' : 'Archived'}
+        <div className="mb-5 flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] pb-0 sm:flex-row sm:items-center">
+          <div className="flex gap-1">
+            {(['active', 'archived'] as SubTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setSubTab(tab)}
+                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${subTab === tab
+                  ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+              >
+                {tab === 'active' ? 'Active Items' : 'Archived'}
 
-              {tab === 'active' && meta.total > 0 && (
-                <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {meta.total}
-                </span>
-              )}
+                {tab === 'active' && meta.total > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {meta.total}
+                  </span>
+                )}
 
-              {tab === 'archived' && archivedMeta.total > 0 && (
-                <span className="ml-1.5 rounded-full bg-[var(--text-tertiary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {archivedMeta.total}
-                </span>
-              )}
-            </button>
-          ))}
+                {tab === 'archived' && archivedMeta.total > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--text-tertiary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {archivedMeta.total}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-[var(--text-tertiary)] font-medium pb-2 sm:pb-0">
+            Showing {subTab === 'active' ? items.length : archivedItems.length} of {subTab === 'active' ? meta.total : archivedMeta.total} records
+          </div>
         </div>
 
         {/* Filters */}
@@ -950,11 +886,7 @@ export default function InventoryManagementPage() {
                   </div>
                 )}
 
-                {meta.total > 0 && (
-                  <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                    Showing {items.length} of {meta.total} items
-                  </p>
-                )}
+
 
                 <PaginationBar
                   page={safeActivePage}
@@ -1062,11 +994,7 @@ export default function InventoryManagementPage() {
                   </div>
                 )}
 
-                {archivedMeta.total > 0 && (
-                  <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                    Showing {archivedItems.length} of {archivedMeta.total} archived items
-                  </p>
-                )}
+
 
                 <PaginationBar
                   page={safeArchivedPage}

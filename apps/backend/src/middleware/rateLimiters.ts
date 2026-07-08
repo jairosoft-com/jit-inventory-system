@@ -3,6 +3,7 @@ import { RedisStore } from 'rate-limit-redis';
 import { redis, redisReady } from '../lib/redis.js';
 import { env } from '../lib/env.js';
 import jwt from 'jsonwebtoken';
+import { Request } from 'express';
 
 const windowMs = 15 * 60 * 1000; // 15 minutes
 
@@ -11,12 +12,14 @@ const windowMs = 15 * 60 * 1000; // 15 minutes
  * Uses the authenticated user's ID from the JWT token if present;
  * falls back to the client IP address.
  */
-function getRateLimitKey(req: any): string {
+function getRateLimitKey(req: Request): string {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
-      const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as { sub?: string | number };
+      const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as {
+        sub?: string | number;
+      };
       if (decoded?.sub) {
         return `user:${decoded.sub}`;
       }
@@ -24,7 +27,7 @@ function getRateLimitKey(req: any): string {
       // Expired or malformed token: fall back to IP rate limiting
     }
   }
-  return req.ip;
+  return req.ip || '';
 }
 
 /**

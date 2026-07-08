@@ -88,6 +88,28 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   store: createStore('auth'),
 });
+// Bucket 3b: Login — real brute-force protection. Only mounted on
+// POST /auth/login. Keyed by IP + email together (falling back to IP alone
+// when no email is present) so that one person mistyping their password
+// repeatedly can't lock every other user on the same network/NAT out of
+// logging in — a real problem on shared office/school connections where
+// many users share one public IP.
+export const authLoginLimiter = rateLimit({
+  windowMs,
+  max: env.RATE_LIMIT_AUTH_LOGIN,
+  message: { message: 'Too many login attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createStore('auth-login'),
+  keyGenerator: (req) => {
+    const email =
+      typeof req.body?.email === 'string'
+        ? req.body.email.trim().toLowerCase()
+        : '';
+    const ipKey = req.ip ?? 'unknown';
+    return email ? `${ipKey}:${email}` : ipKey;
+  },
+});
 
 // Bucket 4: Heavy Aggregation / Reports — expensive DB queries
 export const heavyLimiter = rateLimit({

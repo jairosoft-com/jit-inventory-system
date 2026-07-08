@@ -25,6 +25,7 @@ import {
   AlertPriority,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -416,14 +417,29 @@ async function main() {
     throw new Error('Roles must be seeded first');
   }
 
-  const superAdminPasswordHash = await bcrypt.hash('admin123', 12);
+  // Superadmin credentials come from the environment so a fixed,
+  // publicly-known password never ends up on a shared network.
+  // If SEED_ADMIN_PASSWORD isn't set, generate a random one and print it
+  // once — capture it now, it won't be shown again.
+  const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'sam@jitims.com';
+  const seedAdminPassword =
+    process.env.SEED_ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
+
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.log('\n⚠️  SEED_ADMIN_PASSWORD not set — generated a random superadmin password:');
+    console.log(`   Email:    ${seedAdminEmail}`);
+    console.log(`   Password: ${seedAdminPassword}`);
+    console.log('   Save this now — it will not be shown again.\n');
+  }
+
+  const superAdminPasswordHash = await bcrypt.hash(seedAdminPassword, 12);
   const commonPasswordHash = await bcrypt.hash('password123', 12);
 
   const superAdmin = await prisma.user.create({
     data: {
-      firstName: 'Sam',
-      lastName: 'SuperAdmin',
-      email: 'sam@jitims.com',
+      firstName: 'Armelita',
+      lastName: 'Pulido',
+      email: seedAdminEmail,
       password: superAdminPasswordHash,
       roleId: adminRole.id,
       isActive: true,

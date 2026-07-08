@@ -27,6 +27,11 @@ import auditLogsRouter from './routes/audit-logs.routes.js';
 
 const app = express();
 
+// Trust the first hop proxy (nginx, in our docker-compose setup) so that
+// express-rate-limit and req.ip see the real client IP via X-Forwarded-For
+// instead of grouping every user under nginx's internal container IP.
+app.set('trust proxy', 1);
+
 // Security Headers
 app.use(helmet());
 

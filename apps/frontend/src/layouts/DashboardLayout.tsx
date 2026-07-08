@@ -392,6 +392,7 @@ export default function DashboardLayout() {
     authRetryAfterSeconds,
   } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const invMgmtChildActive = INV_MGMT_ITEMS.some(
     (item) => pathname === item.href,
@@ -468,6 +469,12 @@ export default function DashboardLayout() {
       setInvMgmtOpen(true);
     }
   }, [invMgmtChildActive]);
+
+  // Close the mobile off-canvas sidebar whenever the route changes, so
+  // tapping a nav item on a phone navigates and dismisses the drawer.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!notifOpen || notifView !== "history") {
@@ -796,9 +803,18 @@ export default function DashboardLayout() {
 
   return (
     <div className="dash-layout">
+      {/* Mobile off-canvas backdrop */}
+      {mobileNavOpen && (
+        <div
+          className="dash-mobile-backdrop"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`dash-sidebar animate-fade-in ${collapsed ? "dash-sidebar--collapsed" : ""}`}
+        className={`dash-sidebar animate-fade-in ${collapsed ? "dash-sidebar--collapsed" : ""} ${mobileNavOpen ? "dash-sidebar--mobile-open" : ""}`}
       >
         {/* Sidebar header */}
         <div
@@ -943,6 +959,27 @@ export default function DashboardLayout() {
       <main className="dash-main">
         {/* Top bar */}
         <header className="dash-topbar">
+          <button
+            type="button"
+            className="dash-mobile-menu-btn"
+            onClick={() => setMobileNavOpen((open) => !open)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
           <div className="dash-topbar-right">
             {/* Notification Bell */}
             <div ref={notifRef} style={{ position: "relative" }}>
@@ -1202,7 +1239,7 @@ export default function DashboardLayout() {
           display: flex;
           flex-direction: column;
           z-index: 40;
-          transition: width var(--transition-base);
+          transition: width var(--transition-base), transform var(--transition-base);
           box-shadow: 12px 0 40px rgba(6, 10, 28, 0.16);
         }
         .dash-sidebar--collapsed {
@@ -1437,6 +1474,29 @@ export default function DashboardLayout() {
           background: rgba(255, 255, 255, 0.8);
           backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--surface-border);
+        }
+
+        .dash-mobile-menu-btn {
+          display: none;
+          width: 36px;
+          height: 36px;
+          align-items: center;
+          justify-content: center;
+          background: none;
+          border: 1px solid var(--surface-border);
+          border-radius: var(--radius-md);
+          color: var(--text-secondary);
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: all var(--transition-fast);
+        }
+        .dash-mobile-menu-btn:hover {
+          background: var(--sidebar-hover);
+          color: var(--text-primary);
+        }
+
+        .dash-mobile-backdrop {
+          display: none;
         }
 
         .dash-topbar-right {
@@ -1836,6 +1896,87 @@ export default function DashboardLayout() {
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ------ Responsive: tablet & below ------ */
+        @media (max-width: 1024px) {
+          .dash-content {
+            padding: 20px;
+          }
+        }
+
+        /* ------ Responsive: mobile ------ */
+        @media (max-width: 900px) {
+          /* Sidebar becomes an off-canvas drawer instead of pushing content */
+          .dash-sidebar,
+          .dash-sidebar--collapsed {
+            width: min(280px, 84vw);
+            transform: translateX(-100%);
+            box-shadow: none;
+          }
+          .dash-sidebar--mobile-open {
+            transform: translateX(0);
+            box-shadow: 12px 0 40px rgba(6, 10, 28, 0.28);
+          }
+
+          .dash-main,
+          .dash-sidebar--collapsed ~ .dash-main {
+            margin-left: 0;
+          }
+
+          .dash-mobile-menu-btn {
+            display: flex;
+          }
+
+          .dash-mobile-backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(6, 10, 28, 0.45);
+            z-index: 39; /* just under the sidebar's z-index of 40 */
+            animation: fadeIn 0.15s ease;
+          }
+
+          .dash-topbar {
+            justify-content: space-between;
+            padding: 0 16px;
+          }
+
+          .dash-content {
+            padding: 16px;
+          }
+
+          .dash-notif-panel {
+            position: fixed;
+            top: 64px;
+            right: 8px;
+            left: 8px;
+            width: auto;
+            max-height: calc(100vh - 80px);
+          }
+
+          .dash-notif-body {
+            max-height: calc(100vh - 260px);
+          }
+        }
+
+        @media (max-width: 480px) {
+          .dash-sidebar-header {
+            padding: 12px;
+          }
+
+          .dash-content {
+            padding: 12px;
+          }
+
+          .dash-notif-tabs {
+            padding: 8px;
+          }
+
+          .acct-modal {
+            max-width: calc(100vw - 32px);
+            padding: 24px 20px 20px;
+          }
         }
       `}</style>
     </div>

@@ -45,11 +45,17 @@ export const env = {
   RATE_LIMIT_GLOBAL: parseInt(process.env.RATE_LIMIT_GLOBAL || '600', 10),
   RATE_LIMIT_MUTATIVE: parseInt(process.env.RATE_LIMIT_MUTATIVE || '120', 10),
   RATE_LIMIT_AUTH: parseInt(process.env.RATE_LIMIT_AUTH || '300', 10),
-  RATE_LIMIT_AUTH_LOGIN: parseInt(process.env.RATE_LIMIT_AUTH_LOGIN || '20', 10),
+  RATE_LIMIT_AUTH_LOGIN: parseInt(
+    process.env.RATE_LIMIT_AUTH_LOGIN || '20',
+    10,
+  ),
   RATE_LIMIT_HEAVY: parseInt(process.env.RATE_LIMIT_HEAVY || '200', 10),
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   SMTP_HOST: process.env.SMTP_HOST || 'localhost',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '1025', 10),
   SMTP_FROM:
     process.env.SMTP_FROM || 'JIT Inventory System <noreply@jitims.com>',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
 };

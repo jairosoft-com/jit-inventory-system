@@ -101,11 +101,10 @@ export const authLoginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: createStore('auth-login'),
-  keyGenerator: (req) => {
+  keyGenerator: (req: Request) => {
+    const body = req.body as Record<string, unknown> | undefined;
     const email =
-      typeof req.body?.email === 'string'
-        ? req.body.email.trim().toLowerCase()
-        : '';
+      typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
     const ipKey = req.ip ?? 'unknown';
     return email ? `${ipKey}:${email}` : ipKey;
   },

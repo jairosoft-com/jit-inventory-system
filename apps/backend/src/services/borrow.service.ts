@@ -239,6 +239,20 @@ export class BorrowService {
         tx,
       );
 
+      // Auto-reject competing PENDING requests for the same equipment
+      await tx.borrowRecord.updateMany({
+        where: {
+          equipmentId: existing.equipmentId,
+          status: BorrowStatus.PENDING,
+          id: { not: id },
+        },
+        data: {
+          status: BorrowStatus.REJECTED,
+          approvedById: approverId,
+          notes: 'Automatically rejected — equipment was approved for another request.',
+        },
+      });
+
       return updated;
     });
   }

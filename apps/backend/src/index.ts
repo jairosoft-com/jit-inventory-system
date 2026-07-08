@@ -54,6 +54,9 @@ import {
 app.use(cookieParser());
 
 // ── Tiered Rate Limiting ────────────────────────
+// Intentionally registered BEFORE express.json() body parser below.
+// This ensures oversized or malicious payloads are rejected by the rate
+// limiter before Node.js spends CPU/memory parsing the JSON body.
 app.use('/api', globalLimiter); // Bucket 1: 600 req/15min
 app.use('/api/auth', authLimiter); // Bucket 3: 15 req/15min
 app.use('/api/dashboard', heavyLimiter); // Bucket 4: 30 req/15min

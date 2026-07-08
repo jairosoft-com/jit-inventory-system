@@ -38,7 +38,7 @@ router.post(
 
       res.cookie('jit_refresh_token', refreshToken, {
         httpOnly: true,
-        secure: env.NODE_ENV === 'production',
+        secure: env.COOKIE_SECURE,
         sameSite: 'lax',
         path: '/api/auth',
         maxAge: getRefreshTokenMaxAge(),
@@ -79,7 +79,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
 
     res.cookie('jit_refresh_token', newRefreshToken, {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
+      secure: env.COOKIE_SECURE,
       sameSite: 'lax',
       path: '/api/auth',
       maxAge: getRefreshTokenMaxAge(),
@@ -112,7 +112,7 @@ router.post('/logout', async (req: Request, res: Response): Promise<void> => {
 
     res.clearCookie('jit_refresh_token', {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
+      secure: env.COOKIE_SECURE,
       sameSite: 'lax',
       path: '/api/auth',
     });

@@ -39,4 +39,9 @@ export const env = {
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '1025', 10),
   SMTP_FROM:
     process.env.SMTP_FROM || 'JIT Inventory System <noreply@jitims.com>',
+  COOKIE_SECURE: process.env.COOKIE_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
 };
+

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { cacheGet } from '../lib/redis.js';
 
 export function authorize(...requiredPermissions: string[]): RequestHandler {
   return async (
@@ -21,13 +22,18 @@ export function authorize(...requiredPermissions: string[]): RequestHandler {
         return;
       }
 
-      // Resolve permissions from DB on every request to prevent privilege escalation
-      const rolePermissions = await prisma.rolePermission.findMany({
-        where: { roleId: user.roleId },
-        include: { permission: true },
-      });
-
-      const userPermissions = rolePermissions.map((rp) => rp.permission.name);
+      // Resolve permissions from cache/DB on every request to prevent privilege escalation
+      const userPermissions = await cacheGet<string[]>(
+        `perms:role:${user.roleId}`,
+        300, // 5-minute TTL
+        async () => {
+          const rolePermissions = await prisma.rolePermission.findMany({
+            where: { roleId: user.roleId },
+            include: { permission: true },
+          });
+          return rolePermissions.map((rp) => rp.permission.name);
+        },
+      );
       const hasAllPermissions = requiredPermissions.every((perm) =>
         userPermissions.includes(perm),
       );

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../lib/env.js';
 import { prisma } from '../lib/prisma.js';
+import { cacheGet } from '../lib/redis.js';
 
 interface JwtPayload {
   sub?: string | number;
@@ -43,13 +44,24 @@ export async function authenticate(
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        id: Number(userId),
-        isActive: true,
-        deletedAt: null,
+    const user = await cacheGet(
+      `user:active:${userId}`,
+      60, // 60-second TTL
+      async () => {
+        return prisma.user.findFirst({
+          where: {
+            id: Number(userId),
+            isActive: true,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            email: true,
+            roleId: true,
+          },
+        });
       },
-    });
+    );
 
     if (!user) {
       res

@@ -401,7 +401,9 @@ export class ProcurementService {
           }
 
           if (userRole?.name === 'MANAGER' && existing.createdById !== userId) {
-            throw new Error('Managers can only submit for approval their own purchase orders');
+            throw new Error(
+              'Managers can only submit for approval their own purchase orders',
+            );
           }
 
           const currentStatus = existing.status;

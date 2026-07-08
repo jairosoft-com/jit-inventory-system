@@ -249,7 +249,8 @@ export class BorrowService {
         data: {
           status: BorrowStatus.REJECTED,
           approvedById: approverId,
-          notes: 'Automatically rejected — equipment was approved for another request.',
+          notes:
+            'Automatically rejected — equipment was approved for another request.',
         },
       });
 

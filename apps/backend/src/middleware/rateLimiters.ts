@@ -12,7 +12,11 @@ const windowMs = 15 * 60 * 1000; // 15 minutes
  * process when there is no Redis instance (e.g. local dev without Docker).
  */
 function createStore(prefix: string): RedisStore | undefined {
-  if (!redisReady && redis.status !== 'connecting' && redis.status !== 'connect') {
+  if (
+    !redisReady &&
+    redis.status !== 'connecting' &&
+    redis.status !== 'connect'
+  ) {
     console.warn(
       `[RateLimit] Redis unavailable — falling back to MemoryStore for prefix "${prefix}"`,
     );

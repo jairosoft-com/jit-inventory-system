@@ -1,20 +1,19 @@
 import nodemailer from 'nodemailer';
 import { env } from './env.js';
 
-const transportOptions: any = {
+export const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_SECURE,
-};
-
-if (env.SMTP_USER && env.SMTP_PASS) {
-  transportOptions.auth = {
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASS,
-  };
-}
-
-export const transporter = nodemailer.createTransport(transportOptions);
+  ...(env.SMTP_USER && env.SMTP_PASS
+    ? {
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        },
+      }
+    : {}),
+});
 
 interface SendMailInput {
   to: string;

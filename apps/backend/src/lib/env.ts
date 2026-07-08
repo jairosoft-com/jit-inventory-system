@@ -44,4 +44,3 @@ export const env = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   SMTP_SECURE: process.env.SMTP_SECURE === 'true',
 };
-

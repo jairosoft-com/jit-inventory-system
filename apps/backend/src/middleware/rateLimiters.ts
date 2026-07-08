@@ -2,8 +2,30 @@ import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { redis, redisReady } from '../lib/redis.js';
 import { env } from '../lib/env.js';
+import jwt from 'jsonwebtoken';
 
 const windowMs = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Generates a rate limit key.
+ * Uses the authenticated user's ID from the JWT token if present;
+ * falls back to the client IP address.
+ */
+function getRateLimitKey(req: any): string {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as { sub?: string | number };
+      if (decoded?.sub) {
+        return `user:${decoded.sub}`;
+      }
+    } catch {
+      // Expired or malformed token: fall back to IP rate limiting
+    }
+  }
+  return req.ip;
+}
 
 /**
  * Returns a RedisStore for the given prefix when Redis is up, otherwise
@@ -38,6 +60,7 @@ export const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: createStore('global'),
+  keyGenerator: getRateLimitKey,
 });
 
 // Bucket 2: Mutative / Transaction — POST/PATCH/DELETE on data routes
@@ -50,6 +73,7 @@ export const mutativeLimiter = rateLimit({
   store: createStore('mutative'),
   // Only count mutative HTTP methods
   skip: (req) => req.method === 'GET' || req.method === 'HEAD',
+  keyGenerator: getRateLimitKey,
 });
 
 // Bucket 3: Authentication — brute-force protection
@@ -70,4 +94,5 @@ export const heavyLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: createStore('heavy'),
+  keyGenerator: getRateLimitKey,
 });

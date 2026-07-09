@@ -72,15 +72,7 @@ cd jit-inventory-system
 npm install
 ```
 
-### 3. Start Infrastructure
-
-Start the local development PostgreSQL, MinIO, MailDev, and Redis services using Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-### 4. Configure Environment
+### 3. Configure Environment
 
 ```bash
 cp .env.example .env
@@ -95,39 +87,65 @@ Edit `.env` with your actual values:
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` — SMTP mail server configuration (defaults to local MailDev)
 - `REDIS_URL` — Redis connection string (defaults to `redis://localhost:6379`)
 
-### 5. Setup Database
+### 4. Running the Application
 
-```bash
-# Generate Prisma client
-npm run db:generate
+You can run the system in two different modes: **Local Development** (apps run locally, support services in Docker) or **Production Deployment** (everything containerized under Nginx).
 
-# Run migrations and seed RBAC data (roles, permissions, default admin user)
-npm run db:migrate
+#### Mode A: Local Development
 
-# (Optional) Seed additional test features / suppliers for QA verification
-npx tsx scripts/qa-seed-features.ts
-npx tsx scripts/qa-seed-suppliers-206417.ts
-```
+1. **Start Support Infrastructure**:
+   Start PostgreSQL, MinIO, MailDev, and Redis services:
+   ```bash
+   docker compose up postgres minio maildev redis -d
+   ```
+2. **Setup Database**:
 
-### 6. Start Development
+   ```bash
+   # Generate Prisma client
+   npm run db:generate
 
-```bash
-# Start both frontend and backend concurrently
-npm run dev
-```
+   # Run migrations and seed RBAC data
+   npm run db:migrate
 
-- **Frontend**: [http://localhost:3000](http://localhost:3000)
-- **Backend API**: [http://localhost:3001/api](http://localhost:3001/api)
+   # (Optional) Seed additional test features / suppliers for QA verification
+   npx tsx scripts/qa-seed-features.ts
+   npx tsx scripts/qa-seed-suppliers-206417.ts
+   ```
 
-### Individual Apps
+3. **Start Applications Concurrently**:
 
-```bash
-# Frontend only
-npm run dev --workspace=apps/frontend
+   ```bash
+   npm run dev
+   ```
 
-# Backend only
-npm run dev --workspace=apps/backend
-```
+   - **Frontend**: [http://localhost:3000](http://localhost:3000)
+   - **Backend API**: [http://localhost:3001/api](http://localhost:3001/api)
+
+4. **Running Individual Apps**:
+
+   ```bash
+   # Frontend only
+   npm run dev --workspace=apps/frontend
+
+   # Backend only
+   npm run dev --workspace=apps/backend
+   ```
+
+#### Mode B: Production Deployment (Full Docker Compose)
+
+This mode runs all services (including the frontend served by Nginx on port 80 and the backend API) inside Docker containers.
+
+1. **Build and Run All Services**:
+   ```bash
+   docker compose up --build -d
+   ```
+2. **Run Database Migrations & Seeding inside the Backend Container**:
+   ```bash
+   docker compose exec backend npm run db:migrate
+   ```
+3. **Access the System**:
+   - **Application**: Open `http://localhost` (port 80) in your browser.
+   - **MailDev GUI**: Access `http://localhost:1080` to view captured SMTP emails.
 
 ## Available Scripts
 

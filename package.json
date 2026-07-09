@@ -22,11 +22,10 @@
     "db:studio": "npx prisma studio --schema=prisma/schema.prisma",
     "db:validate": "npx prisma validate --schema=prisma/schema.prisma",
     "prepare": "echo 'Ready'"
-    
   },
   "prisma": {
-  "seed": "tsx prisma/seed.ts"
-},
+    "seed": "tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@types/node-cron": "^3.0.11",
     "@typescript-eslint/eslint-plugin": "^8.0.0",

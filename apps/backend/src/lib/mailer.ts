@@ -1,13 +1,18 @@
 import nodemailer from 'nodemailer';
 import { env } from './env.js';
 
-// MailDev is a local dev SMTP catcher — no auth, no TLS.
-// SMTP_HOST/SMTP_PORT route everything here in development so no real
-// emails are ever sent outside of production.
 export const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
-  secure: false,
+  secure: env.SMTP_SECURE,
+  ...(env.SMTP_USER && env.SMTP_PASS
+    ? {
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        },
+      }
+    : {}),
 });
 
 interface SendMailInput {

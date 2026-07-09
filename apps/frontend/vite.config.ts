@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: 'localhost',
+    host: true,
     port: 3000,
     strictPort: true,
     proxy: {

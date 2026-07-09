@@ -78,6 +78,8 @@ chore(ci): add type-check step to GitHub Actions pipeline
 - [ ] Commits follow conventional commits format
 - [ ] Code compiles without errors (`npm run build`)
 - [ ] Linting passes (`npm run lint`)
+- [ ] Type-checking passes (`npm run type-check`)
+- [ ] Backend unit tests pass (`npm run test` or `npm run test --workspace=apps/backend`)
 - [ ] No `console.log` statements (use `console.warn` or `console.error` if needed)
 - [ ] Prisma schema changes include a migration
 - [ ] New API endpoints are documented
@@ -88,6 +90,7 @@ chore(ci): add type-check step to GitHub Actions pipeline
 - **TypeScript strict mode** is enabled — fix all type errors
 - **Prettier** handles formatting — run `npm run format` before committing
 - **ESLint** catches code issues — run `npm run lint` to check
+- **Tailwind CSS v4** is used for styling. Define custom styling variables or theme values inside `apps/frontend/src/index.css` rather than using inline custom values, keeping styles consistent with the design system.
 - Use **camelCase** for TypeScript variables and functions
 - Use **snake_case** for database columns (Prisma `@map` handles the conversion)
 - Use **PascalCase** for classes, interfaces, and enums

@@ -1,11 +1,8 @@
 // ============================================
 // JIT IMS — QA Feature Seed
-// Seeds: suppliers, categories, inventory
-//        (consumables + equipment), purchase
-//        orders, borrow requests
-//
-// Run once:  npx tsx scripts/qa-seed-features.ts
-// Safe to re-run: skips existing records
+// ⚠️ WARNING: FOR LOCAL QA TESTING ONLY ⚠️
+// This script creates users with hardcoded passwords (password123).
+// NEVER run this on a production/LAN-deployed instance.
 // ============================================
 
 import {
@@ -22,6 +19,11 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ Refusing to run QA seed in production mode.');
+    process.exit(1);
+  }
+
   console.log('🌱 QA Feature Seed starting...\n');
 
   // ── 1. Ensure test users exist ─────────────────────────────────────────────

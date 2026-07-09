@@ -27,6 +27,20 @@ import auditLogsRouter from './routes/audit-logs.routes.js';
 
 const app = express();
 
+// Trust the reverse proxy (if any) so req.ip / req.secure reflect the real
+// client instead of the proxy. Without this, every request behind a proxy
+// looks like it comes from the same IP, which collapses all users into one
+// rate-limit bucket. See TRUST_PROXY in .env.example.
+if (env.TRUST_PROXY) {
+  const trustProxyValue =
+    env.TRUST_PROXY === 'true'
+      ? true
+      : Number.isNaN(Number(env.TRUST_PROXY))
+        ? env.TRUST_PROXY
+        : Number(env.TRUST_PROXY);
+  app.set('trust proxy', trustProxyValue);
+}
+
 // Security Headers
 app.use(helmet());
 
@@ -50,7 +64,7 @@ app.use(cookieParser());
 
 // ── Tiered Rate Limiting ────────────────────────
 app.use('/api', globalLimiter); // Bucket 1: 600 req/15min
-app.use('/api/auth', authLimiter); // Bucket 3: 15 req/15min
+app.use('/api/auth', authLimiter); // Bucket 3a: namespace-wide ceiling (see RATE_LIMIT_AUTH); real brute-force protection lives on POST /auth/login itself
 app.use('/api/dashboard', heavyLimiter); // Bucket 4: 30 req/15min
 app.use('/api/inventory', mutativeLimiter); // Bucket 2: 120 write/15min
 app.use('/api/items', mutativeLimiter); // Bucket 2

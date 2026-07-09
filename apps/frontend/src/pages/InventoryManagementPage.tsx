@@ -18,8 +18,6 @@ import { PaginationBar } from '../components/PaginationBar';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-
-
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All Statuses' },
   { value: 'IN_STOCK', label: 'In Stock' },
@@ -423,9 +421,9 @@ export default function InventoryManagementPage() {
       setEditingItem((currentItem) =>
         currentItem
           ? {
-            ...currentItem,
-            images: currentItem.images.filter((image) => image.id !== imageId),
-          }
+              ...currentItem,
+              images: currentItem.images.filter((image) => image.id !== imageId),
+            }
           : currentItem,
       );
     } catch {
@@ -564,7 +562,8 @@ export default function InventoryManagementPage() {
         <div>
           <h1 className="dash-page-title">Items</h1>
           <p className="dash-page-desc">
-            Track, deploy, and manage company assets and their physical conditions.          </p>
+            Track, deploy, and manage company assets and their physical conditions.{' '}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -624,10 +623,11 @@ export default function InventoryManagementPage() {
                 key={tab}
                 type="button"
                 onClick={() => setSubTab(tab)}
-                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${subTab === tab
-                  ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                className={`relative px-4 py-2.5 text-sm font-medium capitalize transition ${
+                  subTab === tab
+                    ? 'text-[var(--accent)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--accent)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
               >
                 {tab === 'active' ? 'Active Items' : 'Archived'}
 
@@ -646,7 +646,8 @@ export default function InventoryManagementPage() {
             ))}
           </div>
           <div className="text-xs text-[var(--text-tertiary)] font-medium pb-2 sm:pb-0">
-            Showing {subTab === 'active' ? items.length : archivedItems.length} of {subTab === 'active' ? meta.total : archivedMeta.total} records
+            Showing {subTab === 'active' ? items.length : archivedItems.length} of{' '}
+            {subTab === 'active' ? meta.total : archivedMeta.total} records
           </div>
         </div>
 
@@ -886,8 +887,6 @@ export default function InventoryManagementPage() {
                   </div>
                 )}
 
-
-
                 <PaginationBar
                   page={safeActivePage}
                   totalPages={activeTotalPages}
@@ -994,8 +993,6 @@ export default function InventoryManagementPage() {
                   </div>
                 )}
 
-
-
                 <PaginationBar
                   page={safeArchivedPage}
                   totalPages={archivedTotalPages}
@@ -1011,281 +1008,286 @@ export default function InventoryManagementPage() {
       </section>
 
       {/* ── Add / Edit Modal ──────────────────────────────────────────────────── */}
-      {isFormOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <div>
-                <h2 className="text-lg font-semibold">{editingItem ? 'Edit Item' : 'Add Item'}</h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {editingItem
-                    ? `Editing "${editingItem.itemName}"`
-                    : 'Register a new inventory item.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeForm}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-              >
-                ✕
-              </button>
-            </div>
-
-            {formError && (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
-              {/* Image Upload */}
-              <div className="rounded-xl border border-[var(--surface-border)] p-4">
-                <label className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]">
-                  Images
-                </label>
-
-                {/* Existing images (edit mode) */}
-                {editingItem && (editingItem.images?.length ?? 0) > 0 && (
-                  <div className="mb-3">
-                    <p className="mb-2 text-xs text-[var(--text-tertiary)]">Current Images</p>
-                    <div className="flex flex-wrap gap-2">
-                      {editingItem.images.map((image) => (
-                        <div key={image.id} className="group relative">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImageUrl(image.url)}
-                            className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--surface-border)]"
-                          >
-                            <img
-                              src={image.url}
-                              alt={image.label || 'Item image'}
-                              className="h-full w-full object-cover"
-                            />
-                          </button>
-                          {image.isPrimary && (
-                            <span className="absolute bottom-0 left-0 rounded-tr bg-[var(--accent)] px-1.5 py-0.5 text-[9px] text-white">
-                              Primary
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteExistingImage(editingItem.id, image.id)}
-                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white opacity-0 shadow transition group-hover:opacity-100"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pending images */}
-                {pendingImages.length > 0 && (
-                  <div className="mb-3">
-                    <p className="mb-2 text-xs text-[var(--text-tertiary)]">
-                      {editingItem ? 'New images to add' : 'Images to upload'}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {pendingImages.map((image, index) => (
-                        <div key={`${image.label}-${index}`} className="group relative">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImageUrl(image.url)}
-                            className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--surface-border)]"
-                          >
-                            <img
-                              src={image.url}
-                              alt={image.label}
-                              className="h-full w-full object-cover"
-                            />
-                          </button>
-                          {image.isPrimary && (
-                            <span className="absolute bottom-0 left-0 rounded-tr bg-[var(--accent)] px-1.5 py-0.5 text-[9px] text-white">
-                              Primary
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePendingImage(index)}
-                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white opacity-0 shadow transition group-hover:opacity-100"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* File input */}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  onChange={handleImageChange}
-                  className="block w-full cursor-pointer rounded-lg border border-dashed border-[var(--surface-border)] p-2 text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--background-tertiary)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--text-primary)]"
-                />
-
-                {imageError && (
-                  <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                    {imageError}
-                    <button
-                      type="button"
-                      onClick={() => setImageError(null)}
-                      className="ml-2 font-bold text-red-800 hover:text-red-950"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Max size: 5 MB. Formats: JPG, JPEG, PNG
-                </p>
-              </div>
-
-              {/* Common fields */}
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Item Name *
-                  </label>
-                  <input
-                    name="itemName"
-                    required
-                    defaultValue={editingItem?.itemName ?? ''}
-                    placeholder="e.g. USB-C Cable"
-                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-
+      {isFormOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Category *
-                  </label>
-                  <select
-                    name="categoryId"
-                    required
-                    defaultValue={editingItem?.categoryId ?? ''}
-                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                  >
-                    <option value="">Select category</option>
-                    {consumableCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <h2 className="text-lg font-semibold">
+                    {editingItem ? 'Edit Item' : 'Add Item'}
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {editingItem
+                      ? `Editing "${editingItem.itemName}"`
+                      : 'Register a new inventory item.'}
+                  </p>
                 </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Item Code
-                  </label>
-                  <input
-                    readOnly
-                    value={editingItem?.barcode ?? generatedCode}
-                    className="w-full cursor-not-allowed rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-2.5 font-mono text-sm text-[var(--text-secondary)] outline-none"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    rows={2}
-                    defaultValue={editingItem?.description ?? ''}
-                    placeholder="Optional"
-                    className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-              </div>
-
-              {/* Stock fields */}
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Unit *
-                  </label>
-                  <input
-                    name="unit"
-                    required
-                    list="unit-options"
-                    defaultValue={editingItem?.consumableProfile?.unit ?? ''}
-                    placeholder="pcs, kg, box…"
-                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                  />
-                  <datalist id="unit-options">
-                    {[
-                      'pcs',
-                      'box',
-                      'pack',
-                      'ream',
-                      'roll',
-                      'kg',
-                      'g',
-                      'lbs',
-                      'L',
-                      'mL',
-                      'm',
-                      'cm',
-                      'bottle',
-                      'can',
-                      'pair',
-                      'set',
-                      'sheet',
-                      'bag',
-                      'tube',
-                      'carton',
-                    ].map((unit) => (
-                      <option key={unit} value={unit} />
-                    ))}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
-                    Reorder Level
-                  </label>
-                  <input
-                    name="reorderPoint"
-                    type="number"
-                    min="0"
-                    defaultValue={editingItem?.consumableProfile?.reorderPoint ?? 0}
-                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-              </div>
-
-              {editingItem && (
-                <p className="rounded-lg bg-[var(--background-tertiary)] px-3 py-2 text-xs text-[var(--text-tertiary)]">
-                  ℹ️ Quantity can only be adjusted through the Stock In / Stock Out process.
-                </p>
-              )}
-
-              <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-                >
-                  {isSaving ? 'Saving…' : editingItem ? 'Save Changes' : 'Create Item'}
-                </button>
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="rounded-xl border border-[var(--surface-border)] px-5 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)]"
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
                 >
-                  Cancel
+                  ✕
                 </button>
               </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
+
+              {formError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+                {/* Image Upload */}
+                <div className="rounded-xl border border-[var(--surface-border)] p-4">
+                  <label className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]">
+                    Images
+                  </label>
+
+                  {/* Existing images (edit mode) */}
+                  {editingItem && (editingItem.images?.length ?? 0) > 0 && (
+                    <div className="mb-3">
+                      <p className="mb-2 text-xs text-[var(--text-tertiary)]">Current Images</p>
+                      <div className="flex flex-wrap gap-2">
+                        {editingItem.images.map((image) => (
+                          <div key={image.id} className="group relative">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageUrl(image.url)}
+                              className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--surface-border)]"
+                            >
+                              <img
+                                src={image.url}
+                                alt={image.label || 'Item image'}
+                                className="h-full w-full object-cover"
+                              />
+                            </button>
+                            {image.isPrimary && (
+                              <span className="absolute bottom-0 left-0 rounded-tr bg-[var(--accent)] px-1.5 py-0.5 text-[9px] text-white">
+                                Primary
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleDeleteExistingImage(editingItem.id, image.id)
+                              }
+                              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white opacity-0 shadow transition group-hover:opacity-100"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending images */}
+                  {pendingImages.length > 0 && (
+                    <div className="mb-3">
+                      <p className="mb-2 text-xs text-[var(--text-tertiary)]">
+                        {editingItem ? 'New images to add' : 'Images to upload'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {pendingImages.map((image, index) => (
+                          <div key={`${image.label}-${index}`} className="group relative">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageUrl(image.url)}
+                              className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--surface-border)]"
+                            >
+                              <img
+                                src={image.url}
+                                alt={image.label}
+                                className="h-full w-full object-cover"
+                              />
+                            </button>
+                            {image.isPrimary && (
+                              <span className="absolute bottom-0 left-0 rounded-tr bg-[var(--accent)] px-1.5 py-0.5 text-[9px] text-white">
+                                Primary
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePendingImage(index)}
+                              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white opacity-0 shadow transition group-hover:opacity-100"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* File input */}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    onChange={handleImageChange}
+                    className="block w-full cursor-pointer rounded-lg border border-dashed border-[var(--surface-border)] p-2 text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--background-tertiary)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--text-primary)]"
+                  />
+
+                  {imageError && (
+                    <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      {imageError}
+                      <button
+                        type="button"
+                        onClick={() => setImageError(null)}
+                        className="ml-2 font-bold text-red-800 hover:text-red-950"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-[var(--text-tertiary)]">
+                    Max size: 5 MB. Formats: JPG, JPEG, PNG
+                  </p>
+                </div>
+
+                {/* Common fields */}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                      Item Name *
+                    </label>
+                    <input
+                      name="itemName"
+                      required
+                      defaultValue={editingItem?.itemName ?? ''}
+                      placeholder="e.g. USB-C Cable"
+                      className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                      Category *
+                    </label>
+                    <select
+                      name="categoryId"
+                      required
+                      defaultValue={editingItem?.categoryId ?? ''}
+                      className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                    >
+                      <option value="">Select category</option>
+                      {consumableCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                      Item Code
+                    </label>
+                    <input
+                      readOnly
+                      value={editingItem?.barcode ?? generatedCode}
+                      className="w-full cursor-not-allowed rounded-xl border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-4 py-2.5 font-mono text-sm text-[var(--text-secondary)] outline-none"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                      Description
+                    </label>
+                    <textarea
+                      name="description"
+                      rows={2}
+                      defaultValue={editingItem?.description ?? ''}
+                      placeholder="Optional"
+                      className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+                </div>
+
+                {/* Stock fields */}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                      Unit *
+                    </label>
+                    <input
+                      name="unit"
+                      required
+                      list="unit-options"
+                      defaultValue={editingItem?.consumableProfile?.unit ?? ''}
+                      placeholder="pcs, kg, box…"
+                      className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                    />
+                    <datalist id="unit-options">
+                      {[
+                        'pcs',
+                        'box',
+                        'pack',
+                        'ream',
+                        'roll',
+                        'kg',
+                        'g',
+                        'lbs',
+                        'L',
+                        'mL',
+                        'm',
+                        'cm',
+                        'bottle',
+                        'can',
+                        'pair',
+                        'set',
+                        'sheet',
+                        'bag',
+                        'tube',
+                        'carton',
+                      ].map((unit) => (
+                        <option key={unit} value={unit} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]">
+                      Reorder Level
+                    </label>
+                    <input
+                      name="reorderPoint"
+                      type="number"
+                      min="0"
+                      defaultValue={editingItem?.consumableProfile?.reorderPoint ?? 0}
+                      className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+                </div>
+
+                {editingItem && (
+                  <p className="rounded-lg bg-[var(--background-tertiary)] px-3 py-2 text-xs text-[var(--text-tertiary)]">
+                    ℹ️ Quantity can only be adjusted through the Stock In / Stock Out process.
+                  </p>
+                )}
+
+                <div className="mt-2 flex gap-3 border-t border-[var(--surface-border)] pt-4">
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                  >
+                    {isSaving ? 'Saving…' : editingItem ? 'Save Changes' : 'Create Item'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    className="rounded-xl border border-[var(--surface-border)] px-5 py-2 text-sm font-semibold transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Stock Movement Modal ───────────────────────────────────────────────── */}
       {stockItem && (
@@ -1300,37 +1302,38 @@ export default function InventoryManagementPage() {
       )}
 
       {/* ── Lightbox ──────────────────────────────────────────────────────────── */}
-      {previewImageUrl && createPortal(
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
-          onClick={() => setPreviewImageUrl(null)}
-        >
-          <div className="relative flex max-h-[90vh] max-w-4xl flex-col items-center">
-            <button
-              type="button"
-              onClick={() => setPreviewImageUrl(null)}
-              className="absolute -top-12 right-0 cursor-pointer rounded-full bg-gray-800/50 p-2 text-white transition hover:bg-gray-800 hover:text-gray-300 focus:outline-none"
-            >
-              <span className="sr-only">Close Preview</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            <img
-              src={previewImageUrl}
-              alt="Full-size preview"
-              className="max-h-[80vh] max-w-full rounded-lg border border-gray-700 bg-gray-900 object-contain shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+      {previewImageUrl &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <div className="relative flex max-h-[90vh] max-w-4xl flex-col items-center">
+              <button
+                type="button"
+                onClick={() => setPreviewImageUrl(null)}
+                className="absolute -top-12 right-0 cursor-pointer rounded-full bg-gray-800/50 p-2 text-white transition hover:bg-gray-800 hover:text-gray-300 focus:outline-none"
+              >
+                <span className="sr-only">Close Preview</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+              <img
+                src={previewImageUrl}
+                alt="Full-size preview"
+                className="max-h-[80vh] max-w-full rounded-lg border border-gray-700 bg-gray-900 object-contain shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

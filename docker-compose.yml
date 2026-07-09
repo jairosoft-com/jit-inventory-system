@@ -1,9 +1,15 @@
+# Place this file at the REPO ROOT (next to package.json, prisma/, apps/).
+# backend.Dockerfile, frontend.Dockerfile, and docker/nginx.conf are all
+# referenced with paths relative to this location.
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: jit-postgres
+    # Bound to localhost only — the backend reaches this over the internal
+    # Docker network by service name, so it doesn't need LAN exposure.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-jit_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jit_password}
@@ -20,9 +26,12 @@ services:
   minio:
     image: minio/minio:latest
     container_name: jit-minio
+    # NOTE: nothing in apps/backend/src currently reads the S3_* env vars —
+    # this container isn't wired into the app yet. Keeping it here since it
+    # was in your original infra file, but it's inert for now.
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-changeme}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-changeme}
@@ -39,8 +48,8 @@ services:
     image: maildev/maildev:latest
     container_name: jit-maildev
     ports:
-      - "1025:1025"
-      - "1080:1080"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:1080:1080"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:1080"]
       interval: 5s
@@ -51,7 +60,7 @@ services:
     image: redis:7-alpine
     container_name: jit-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -60,8 +69,61 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: jit-backend
+    # Not exposed to the host — nginx proxies to it over the internal network.
+    # Uncomment to hit it directly for debugging:
+    # ports:
+    #   - "127.0.0.1:3001:3001"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jit_user}:${POSTGRES_PASSWORD:-jit_password}@postgres:5432/${POSTGRES_DB:-jit_db}?connection_limit=20
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set a real secret in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set a real secret in .env}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-15m}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-7d}
+      BACKEND_PORT: 3001
+      NODE_ENV: production
+      # Browser only ever talks to nginx (port 80), so cross-origin requests
+      # to the backend shouldn't happen in normal use — but set this to your
+      # actual LAN URL as a safety net.
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      RATE_LIMIT_GLOBAL: ${RATE_LIMIT_GLOBAL:-600}
+      RATE_LIMIT_MUTATIVE: ${RATE_LIMIT_MUTATIVE:-120}
+      RATE_LIMIT_AUTH: ${RATE_LIMIT_AUTH:-15}
+      RATE_LIMIT_HEAVY: ${RATE_LIMIT_HEAVY:-200}
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: maildev
+      SMTP_PORT: 1025
+      SMTP_FROM: ${SMTP_FROM:-JIT Inventory System <noreply@jitims.com>}
+      # These were missing before — without them explicitly listed here,
+      # Docker Compose never passes SEED_ADMIN_EMAIL/PASSWORD from .env
+      # into the container, even though they're set in .env.
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: jit-frontend
+    ports:
+      # The ONE port other devices on the network will use.
+      - "0.0.0.0:80:80"
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
   miniodata:
   redisdata:
-

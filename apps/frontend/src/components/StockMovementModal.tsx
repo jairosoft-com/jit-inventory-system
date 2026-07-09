@@ -452,6 +452,6 @@ export default function StockMovementModal({ item, onClose, onSuccess }: Props) 
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

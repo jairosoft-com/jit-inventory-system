@@ -1045,7 +1045,8 @@ export default function EquipmentPage() {
         <div>
           <h1 className="dash-page-title">Equipment</h1>
           <p className="dash-page-desc">
-            Manage and track all physical equipment and hardware assets.          </p>
+            Manage and track all physical equipment and hardware assets.{' '}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -1184,7 +1185,9 @@ export default function EquipmentPage() {
                 </thead>
                 <tbody className="divide-y divide-[var(--surface-border)]">
                   {equipment
-                    .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
+                    .filter(
+                      (eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')),
+                    )
                     .map((eq) => {
                       const primaryImg = getPrimaryImage(eq);
                       return (
@@ -1260,9 +1263,7 @@ export default function EquipmentPage() {
                               {eq.warrantyEnd ? (
                                 <>
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[var(--text-tertiary)]">
-                                      Warranty:{' '}
-                                    </span>
+                                    <span className="text-[var(--text-tertiary)]">Warranty: </span>
                                     {new Date(eq.warrantyEnd).toLocaleDateString()}
                                     <WarrantyBadge warrantyEnd={eq.warrantyEnd} />
                                   </div>
@@ -1302,10 +1303,11 @@ export default function EquipmentPage() {
                                         <button
                                           type="button"
                                           onClick={() => handleOpenReplacementNeeded(eq)}
-                                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${eq.replacementNeeded
-                                            ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                            : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                                            }`}
+                                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                            eq.replacementNeeded
+                                              ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                              : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                          }`}
                                         >
                                           {eq.replacementNeeded
                                             ? 'Clear Planning Tag'
@@ -1374,7 +1376,9 @@ export default function EquipmentPage() {
             {/* Mobile Cards */}
             <div className="mt-6 grid gap-4 md:hidden">
               {equipment
-                .filter((eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')))
+                .filter(
+                  (eq) => !(isStaff && (eq.status === 'DAMAGED' || eq.condition === 'DAMAGED')),
+                )
                 .map((eq) => {
                   const primaryImg = getPrimaryImage(eq);
                   return (
@@ -1440,10 +1444,11 @@ export default function EquipmentPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleOpenReplacementNeeded(eq)}
-                                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${eq.replacementNeeded
-                                      ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                      : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                                      }`}
+                                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                      eq.replacementNeeded
+                                        ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                        : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                                    }`}
                                   >
                                     {eq.replacementNeeded
                                       ? 'Clear Planning Tag'
@@ -1546,227 +1551,256 @@ export default function EquipmentPage() {
       </section>
 
       {/* ── Modal Form ──────────────────────────────────────────────────── */}
-      {isFormOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up max-h-[95vh] flex flex-col overflow-hidden">
-            {/* Modal Header — sticky, never scrolls */}
-            <div className="flex-shrink-0 flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  {editingEquipment ? 'Edit Equipment' : 'Register New Equipment'}
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {editingEquipment
-                    ? `Editing ${editingEquipment.item.itemName} (${editingEquipment.assetId})`
-                    : 'Add a new equipment asset to the inventory system.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseForm}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              {/* Form Error */}
-              {formError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {formError}
+      {isFormOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up max-h-[95vh] flex flex-col overflow-hidden">
+              {/* Modal Header — sticky, never scrolls */}
+              <div className="flex-shrink-0 flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    {editingEquipment ? 'Edit Equipment' : 'Register New Equipment'}
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {editingEquipment
+                      ? `Editing ${editingEquipment.item.itemName} (${editingEquipment.assetId})`
+                      : 'Add a new equipment asset to the inventory system.'}
+                  </p>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={handleCloseForm}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                {/* Form Error */}
+                {formError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {formError}
+                  </div>
+                )}
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                {/* ── Images ─────────────────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Images
-                  </legend>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                  {/* ── Images ─────────────────────────────────────────────── */}
+                  <fieldset>
+                    <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                      Images
+                    </legend>
 
-                  {/* Existing images (edit mode) */}
-                  {editingEquipment && editingEquipment.images.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-xs text-[var(--text-secondary)] mb-2">Current Images</p>
-                      <div className="flex flex-wrap gap-3">
-                        {editingEquipment.images.map((img) => (
-                          <div key={img.id} className="relative group">
-                            <img
-                              src={img.url}
-                              alt={img.label || 'Equipment image'}
-                              className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                              onClick={() => setPreviewImageUrl(img.url)}
-                            />
-                            {img.isPrimary && (
-                              <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                                Primary
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteExistingImage(editingEquipment.id, img.id)}
-                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Pending images (both create and edit modes) */}
-                  {pendingImages.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-xs text-[var(--text-secondary)] mb-2">
-                        {editingEquipment ? 'New images to add' : 'Images to upload'}
-                      </p>
-                      <div className="flex flex-wrap gap-3">
-                        {pendingImages.map((img, i) => (
-                          <div key={i} className="relative group">
-                            <img
-                              src={img.url}
-                              alt={img.label}
-                              className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
-                              onClick={() => setPreviewImageUrl(img.url)}
-                            />
-                            {img.isPrimary && (
-                              <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
-                                Primary
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePendingImage(i)}
-                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add image input */}
-                  <div className="flex flex-col gap-2 w-full">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png"
-                      onChange={handleImageChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                    />
-                    {imageError && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
-                        <span>{imageError}</span>
-                        <button
-                          type="button"
-                          onClick={() => setImageError(null)}
-                          className="font-bold text-red-800 hover:text-red-950"
-                        >
-                          ×
-                        </button>
+                    {/* Existing images (edit mode) */}
+                    {editingEquipment && editingEquipment.images.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs text-[var(--text-secondary)] mb-2">Current Images</p>
+                        <div className="flex flex-wrap gap-3">
+                          {editingEquipment.images.map((img) => (
+                            <div key={img.id} className="relative group">
+                              <img
+                                src={img.url}
+                                alt={img.label || 'Equipment image'}
+                                className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                                onClick={() => setPreviewImageUrl(img.url)}
+                              />
+                              {img.isPrimary && (
+                                <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                                  Primary
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteExistingImage(editingEquipment.id, img.id)
+                                }
+                                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
-                    <p className="text-xs text-[var(--text-tertiary)]">
-                      Max size: 5MB. Formats: JPG, JPEG, PNG
-                    </p>
-                  </div>
-                </fieldset>
 
-                {/* ── Basic Information ───────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Basic Information
-                  </legend>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <FormField
-                      label="Item Name"
-                      required
-                      name="itemName"
-                      value={formData.itemName}
-                      onChange={handleInputChange}
-                      placeholder="e.g. Dell XPS 15 Laptop"
-                    />
-                    {/* Asset ID — manual entry */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Asset ID <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="text"
-                        name="assetId"
-                        value={formData.assetId}
-                        onChange={handleInputChange}
-                        readOnly={!!editingEquipment && !isAdmin}
-                        placeholder="e.g. EQ-001"
-                        className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono outline-none transition ${editingEquipment && !isAdmin
-                          ? 'cursor-not-allowed border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)]'
-                          : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
-                          }`}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Category <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        required
-                        name="categoryId"
-                        value={formData.categoryId}
-                        onChange={handleInputChange}
-                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                      >
-                        <option value="">Select category...</option>
-                        {equipmentCategories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                      {equipmentCategories.length === 0 && (
-                        <p className="text-xs text-[var(--text-disabled)]">
-                          No equipment categories found. Create one first.
+                    {/* Pending images (both create and edit modes) */}
+                    {pendingImages.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs text-[var(--text-secondary)] mb-2">
+                          {editingEquipment ? 'New images to add' : 'Images to upload'}
                         </p>
+                        <div className="flex flex-wrap gap-3">
+                          {pendingImages.map((img, i) => (
+                            <div key={i} className="relative group">
+                              <img
+                                src={img.url}
+                                alt={img.label}
+                                className="h-20 w-20 rounded-lg object-cover border border-[var(--surface-border)] cursor-pointer"
+                                onClick={() => setPreviewImageUrl(img.url)}
+                              />
+                              {img.isPrimary && (
+                                <span className="absolute top-0.5 left-0.5 bg-[var(--accent)] text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">
+                                  Primary
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePendingImage(i)}
+                                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add image input */}
+                    <div className="flex flex-col gap-2 w-full">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        onChange={handleImageChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                      />
+                      {imageError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 font-medium flex items-center justify-between gap-2">
+                          <span>{imageError}</span>
+                          <button
+                            type="button"
+                            onClick={() => setImageError(null)}
+                            className="font-bold text-red-800 hover:text-red-950"
+                          >
+                            ×
+                          </button>
+                        </div>
                       )}
+                      <p className="text-xs text-[var(--text-tertiary)]">
+                        Max size: 5MB. Formats: JPG, JPEG, PNG
+                      </p>
                     </div>
-                    <FormField
-                      label="Serial Number"
-                      name="serialNumber"
-                      value={formData.serialNumber}
-                      onChange={handleInputChange}
-                      placeholder="e.g. SN-987654321"
-                    />
-                    <FormField
-                      label="Brand"
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleInputChange}
-                      placeholder="e.g. Dell"
-                    />
-                    <FormField
-                      label="Model"
-                      name="model"
-                      value={formData.model}
-                      onChange={handleInputChange}
-                      placeholder="e.g. XPS 15 9520"
-                    />
-                    {/* Location dropdown with ability to add new options */}
-                    <div className="flex flex-col gap-1.5 sm:col-span-2">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Location
-                      </label>
-                      {showLocationInput ? (
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newLocationValue}
-                            onChange={(e) => setNewLocationValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
+                  </fieldset>
+
+                  {/* ── Basic Information ───────────────────────────────────── */}
+                  <fieldset>
+                    <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                      Basic Information
+                    </legend>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <FormField
+                        label="Item Name"
+                        required
+                        name="itemName"
+                        value={formData.itemName}
+                        onChange={handleInputChange}
+                        placeholder="e.g. Dell XPS 15 Laptop"
+                      />
+                      {/* Asset ID — manual entry */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                          Asset ID <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          required
+                          type="text"
+                          name="assetId"
+                          value={formData.assetId}
+                          onChange={handleInputChange}
+                          readOnly={!!editingEquipment && !isAdmin}
+                          placeholder="e.g. EQ-001"
+                          className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono outline-none transition ${
+                            editingEquipment && !isAdmin
+                              ? 'cursor-not-allowed border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)]'
+                              : 'border-[var(--input-border)] bg-[var(--input-bg)] focus:border-[var(--input-border-focus)]'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                          Category <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          required
+                          name="categoryId"
+                          value={formData.categoryId}
+                          onChange={handleInputChange}
+                          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                        >
+                          <option value="">Select category...</option>
+                          {equipmentCategories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                        {equipmentCategories.length === 0 && (
+                          <p className="text-xs text-[var(--text-disabled)]">
+                            No equipment categories found. Create one first.
+                          </p>
+                        )}
+                      </div>
+                      <FormField
+                        label="Serial Number"
+                        name="serialNumber"
+                        value={formData.serialNumber}
+                        onChange={handleInputChange}
+                        placeholder="e.g. SN-987654321"
+                      />
+                      <FormField
+                        label="Brand"
+                        name="brand"
+                        value={formData.brand}
+                        onChange={handleInputChange}
+                        placeholder="e.g. Dell"
+                      />
+                      <FormField
+                        label="Model"
+                        name="model"
+                        value={formData.model}
+                        onChange={handleInputChange}
+                        placeholder="e.g. XPS 15 9520"
+                      />
+                      {/* Location dropdown with ability to add new options */}
+                      <div className="flex flex-col gap-1.5 sm:col-span-2">
+                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                          Location
+                        </label>
+                        {showLocationInput ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newLocationValue}
+                              onChange={(e) => setNewLocationValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const trimmed = newLocationValue.trim();
+                                  if (trimmed && !locationOptions.includes(trimmed)) {
+                                    setLocationOptions((prev) => [...prev, trimmed]);
+                                  }
+                                  if (trimmed) {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      location: trimmed,
+                                    }));
+                                  }
+                                  setNewLocationValue('');
+                                  setShowLocationInput(false);
+                                }
+                                if (e.key === 'Escape') {
+                                  setShowLocationInput(false);
+                                  setNewLocationValue('');
+                                }
+                              }}
+                              placeholder="Enter new location..."
+                              autoFocus
+                              className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
                                 const trimmed = newLocationValue.trim();
                                 if (trimmed && !locationOptions.includes(trimmed)) {
                                   setLocationOptions((prev) => [...prev, trimmed]);
@@ -1779,529 +1813,515 @@ export default function EquipmentPage() {
                                 }
                                 setNewLocationValue('');
                                 setShowLocationInput(false);
-                              }
-                              if (e.key === 'Escape') {
+                              }}
+                              className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition"
+                            >
+                              Add
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
                                 setShowLocationInput(false);
                                 setNewLocationValue('');
-                              }
-                            }}
-                            placeholder="Enter new location..."
-                            autoFocus
-                            className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const trimmed = newLocationValue.trim();
-                              if (trimmed && !locationOptions.includes(trimmed)) {
-                                setLocationOptions((prev) => [...prev, trimmed]);
-                              }
-                              if (trimmed) {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  location: trimmed,
-                                }));
-                              }
-                              setNewLocationValue('');
-                              setShowLocationInput(false);
-                            }}
-                            className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] transition"
-                          >
-                            Add
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowLocationInput(false);
-                              setNewLocationValue('');
-                            }}
-                            className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <select
-                            name="location"
-                            value={formData.location}
-                            onChange={handleInputChange}
-                            className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                          >
-                            <option value="">Select location...</option>
-                            {locationOptions.map((loc) => (
-                              <option key={loc} value={loc}>
-                                {loc}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => setShowLocationInput(true)}
-                            title="Add new location"
-                            className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition"
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Description
-                    </label>
-                    <textarea
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      placeholder="Optional description..."
-                      rows={2}
-                      className="mt-1.5 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                    />
-                  </div>
-                </fieldset>
-
-                {/* ── Status & Condition ──────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Status &amp; Condition
-                  </legend>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Status
-                      </label>
-                      <select
-                        name="status"
-                        value={formData.status}
-                        onChange={handleInputChange}
-                        className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                      >
-                        {!MANUALLY_SELECTABLE_EQUIPMENT_STATUSES.includes(formData.status) && (
-                          <option value={formData.status} disabled>
-                            {formData.status.replace(/_/g, ' ')} (workflow status)
-                          </option>
-                        )}
-                        {MANUALLY_SELECTABLE_EQUIPMENT_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s.replace(/_/g, ' ')}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Condition
-                      </label>
-                      {isConditionUnavailableStatus(formData.status) ? (
-                        <>
-                          <div className="rounded-xl border border-[var(--input-border)] bg-[var(--background-tertiary)] px-4 py-2.5 text-sm text-[var(--text-tertiary)]">
-                            Unavailable
+                              }}
+                              className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
+                            >
+                              Cancel
+                            </button>
                           </div>
-                          <p className="text-xs text-[var(--text-tertiary)]">
-                            Condition is unavailable while equipment is{' '}
-                            {formData.status.replace(/_/g, ' ').toLowerCase()}.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <select
-                            name="condition"
-                            value={normalizeConditionForStatus(formData.status, formData.condition)}
-                            onChange={handleInputChange}
-                            disabled={isConditionLockedToDamagedStatus(formData.status)}
-                            className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] disabled:cursor-not-allowed disabled:bg-[var(--background-tertiary)] disabled:text-[var(--text-tertiary)]"
-                          >
-                            {getSelectableConditionStatuses(formData.status).map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                          {isConditionLockedToDamagedStatus(formData.status) && (
-                            <p className="text-xs text-[var(--text-tertiary)]">
-                              Condition is automatically set to DAMAGED when status is damaged.
-                            </p>
-                          )}
-                        </>
-                      )}
+                        ) : (
+                          <div className="flex gap-2">
+                            <select
+                              name="location"
+                              value={formData.location}
+                              onChange={handleInputChange}
+                              className="flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                            >
+                              <option value="">Select location...</option>
+                              {locationOptions.map((loc) => (
+                                <option key={loc} value={loc}>
+                                  {loc}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setShowLocationInput(true)}
+                              title="Add new location"
+                              className="rounded-xl border border-[var(--surface-border)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </fieldset>
+                    <div className="mt-3">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Description
+                      </label>
+                      <textarea
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        placeholder="Optional description..."
+                        rows={2}
+                        className="mt-1.5 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                      />
+                    </div>
+                  </fieldset>
 
-                {/* ── Warranty & Purchase ─────────────────────────────────── */}
-                <fieldset>
-                  <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
-                    Warranty &amp; Purchase
-                  </legend>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <FormField
-                      label="Warranty Start"
-                      name="warrantyStart"
-                      type="date"
-                      value={formData.warrantyStart}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="Warranty End"
-                      name="warrantyEnd"
-                      type="date"
-                      value={formData.warrantyEnd}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="Warranty Provider"
-                      name="warrantyProvider"
-                      value={formData.warrantyProvider}
-                      onChange={handleInputChange}
-                      placeholder="e.g. Dell Technologies"
-                    />
-                    <FormField
-                      label="Purchase Price"
-                      name="purchasePrice"
-                      type="number"
-                      value={formData.purchasePrice}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                    />
-                    <FormField
-                      label="Acquisition Date"
-                      name="acquisitionDate"
-                      type="date"
-                      value={formData.acquisitionDate}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </fieldset>
+                  {/* ── Status & Condition ──────────────────────────────────── */}
+                  <fieldset>
+                    <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                      Status &amp; Condition
+                    </legend>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                          Status
+                        </label>
+                        <select
+                          name="status"
+                          value={formData.status}
+                          onChange={handleInputChange}
+                          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                        >
+                          {!MANUALLY_SELECTABLE_EQUIPMENT_STATUSES.includes(formData.status) && (
+                            <option value={formData.status} disabled>
+                              {formData.status.replace(/_/g, ' ')} (workflow status)
+                            </option>
+                          )}
+                          {MANUALLY_SELECTABLE_EQUIPMENT_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {s.replace(/_/g, ' ')}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                          Condition
+                        </label>
+                        {isConditionUnavailableStatus(formData.status) ? (
+                          <>
+                            <div className="rounded-xl border border-[var(--input-border)] bg-[var(--background-tertiary)] px-4 py-2.5 text-sm text-[var(--text-tertiary)]">
+                              Unavailable
+                            </div>
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              Condition is unavailable while equipment is{' '}
+                              {formData.status.replace(/_/g, ' ').toLowerCase()}.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <select
+                              name="condition"
+                              value={normalizeConditionForStatus(
+                                formData.status,
+                                formData.condition,
+                              )}
+                              onChange={handleInputChange}
+                              disabled={isConditionLockedToDamagedStatus(formData.status)}
+                              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] disabled:cursor-not-allowed disabled:bg-[var(--background-tertiary)] disabled:text-[var(--text-tertiary)]"
+                            >
+                              {getSelectableConditionStatuses(formData.status).map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                            {isConditionLockedToDamagedStatus(formData.status) && (
+                              <p className="text-xs text-[var(--text-tertiary)]">
+                                Condition is automatically set to DAMAGED when status is damaged.
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </fieldset>
 
-                {/* ── Form Actions ────────────────────────────────────────── */}
-                <div className="mt-2 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseForm}
-                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isSubmitting && (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    )}
-                    {editingEquipment ? 'Save Changes' : 'Register Equipment'}
-                  </button>
-                </div>
-              </form>
-            </div>
-            {/* end scrollable body */}
-          </section>
-        </div>,
-        document.body
-      )}
+                  {/* ── Warranty & Purchase ─────────────────────────────────── */}
+                  <fieldset>
+                    <legend className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-3">
+                      Warranty &amp; Purchase
+                    </legend>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <FormField
+                        label="Warranty Start"
+                        name="warrantyStart"
+                        type="date"
+                        value={formData.warrantyStart}
+                        onChange={handleInputChange}
+                      />
+                      <FormField
+                        label="Warranty End"
+                        name="warrantyEnd"
+                        type="date"
+                        value={formData.warrantyEnd}
+                        onChange={handleInputChange}
+                      />
+                      <FormField
+                        label="Warranty Provider"
+                        name="warrantyProvider"
+                        value={formData.warrantyProvider}
+                        onChange={handleInputChange}
+                        placeholder="e.g. Dell Technologies"
+                      />
+                      <FormField
+                        label="Purchase Price"
+                        name="purchasePrice"
+                        type="number"
+                        value={formData.purchasePrice}
+                        onChange={handleInputChange}
+                        placeholder="0.00"
+                      />
+                      <FormField
+                        label="Acquisition Date"
+                        name="acquisitionDate"
+                        type="date"
+                        value={formData.acquisitionDate}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </fieldset>
+
+                  {/* ── Form Actions ────────────────────────────────────────── */}
+                  <div className="mt-2 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                    <button
+                      type="button"
+                      onClick={handleCloseForm}
+                      className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isSubmitting && (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      )}
+                      {editingEquipment ? 'Save Changes' : 'Register Equipment'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              {/* end scrollable body */}
+            </section>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Replacement Needed Confirmation Modal ─────────────────────── */}
-      {replacementEquipment && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  {replacementEquipment.replacementNeeded
-                    ? 'Clear Replacement Needed Tag'
-                    : 'Mark Replacement Needed'}
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {replacementEquipment.item.itemName} · {replacementEquipment.assetId}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseReplacementNeeded}
-                disabled={isMarkingReplacement}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="px-6 py-5">
-              {replacementError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {replacementError}
+      {replacementEquipment &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    {replacementEquipment.replacementNeeded
+                      ? 'Clear Replacement Needed Tag'
+                      : 'Mark Replacement Needed'}
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {replacementEquipment.item.itemName} · {replacementEquipment.assetId}
+                  </p>
                 </div>
-              )}
-
-              <div
-                className={`mb-4 rounded-xl border px-4 py-3 text-sm ${replacementEquipment.replacementNeeded
-                  ? 'border-slate-200 bg-slate-50 text-slate-700'
-                  : 'border-purple-200 bg-purple-50 text-purple-800'
-                  }`}
-              >
-                {replacementEquipment.replacementNeeded ? (
-                  <>
-                    This will remove the manual{' '}
-                    <span className="font-semibold">Replacement Needed </span>
-                    planning tag. The equipment may still appear in replacement planning if its
-                    condition, status, or lifecycle qualifies.
-                  </>
-                ) : (
-                  <>
-                    This will tag the equipment as{' '}
-                    <span className="font-semibold">Replacement Needed </span>
-                    for procurement planning only. It will not change the equipment status or submit
-                    a retirement request.
-                  </>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-                <p className="font-semibold text-[var(--text-primary)]">
-                  {replacementEquipment.item.itemName}
-                </p>
-                <p className="mt-1 font-mono text-xs text-[var(--text-tertiary)]">
-                  {replacementEquipment.assetId}
-                </p>
-                <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                  <div>
-                    <span className="text-[var(--text-tertiary)]">Status: </span>
-                    <span className="font-semibold">
-                      {replacementEquipment.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-tertiary)]">Condition: </span>
-                    <EquipmentConditionBadge equipment={replacementEquipment} />
-                  </div>
-                </div>
-              </div>
-
-              <p className="mt-4 text-xs text-[var(--text-tertiary)]">
-                This action does not change equipment status and does not automatically trigger
-                retirement or disposal.
-              </p>
-
-              <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
                 <button
                   type="button"
                   onClick={handleCloseReplacementNeeded}
                   disabled={isMarkingReplacement}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleConfirmReplacementNeeded()}
-                  disabled={isMarkingReplacement}
-                  className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2 ${replacementEquipment.replacementNeeded
-                    ? 'bg-slate-700 hover:bg-slate-800'
-                    : 'bg-purple-600 hover:bg-purple-700'
-                    }`}
-                >
-                  {isMarkingReplacement && (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  )}
-                  {replacementEquipment.replacementNeeded ? 'Clear Tag' : 'Confirm Tag'}
+                  ✕
                 </button>
               </div>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
+
+              <div className="px-6 py-5">
+                {replacementError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {replacementError}
+                  </div>
+                )}
+
+                <div
+                  className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+                    replacementEquipment.replacementNeeded
+                      ? 'border-slate-200 bg-slate-50 text-slate-700'
+                      : 'border-purple-200 bg-purple-50 text-purple-800'
+                  }`}
+                >
+                  {replacementEquipment.replacementNeeded ? (
+                    <>
+                      This will remove the manual{' '}
+                      <span className="font-semibold">Replacement Needed </span>
+                      planning tag. The equipment may still appear in replacement planning if its
+                      condition, status, or lifecycle qualifies.
+                    </>
+                  ) : (
+                    <>
+                      This will tag the equipment as{' '}
+                      <span className="font-semibold">Replacement Needed </span>
+                      for procurement planning only. It will not change the equipment status or
+                      submit a retirement request.
+                    </>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                  <p className="font-semibold text-[var(--text-primary)]">
+                    {replacementEquipment.item.itemName}
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-[var(--text-tertiary)]">
+                    {replacementEquipment.assetId}
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                    <div>
+                      <span className="text-[var(--text-tertiary)]">Status: </span>
+                      <span className="font-semibold">
+                        {replacementEquipment.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[var(--text-tertiary)]">Condition: </span>
+                      <EquipmentConditionBadge equipment={replacementEquipment} />
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-xs text-[var(--text-tertiary)]">
+                  This action does not change equipment status and does not automatically trigger
+                  retirement or disposal.
+                </p>
+
+                <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseReplacementNeeded}
+                    disabled={isMarkingReplacement}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleConfirmReplacementNeeded()}
+                    disabled={isMarkingReplacement}
+                    className={`rounded-xl px-5 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2 ${
+                      replacementEquipment.replacementNeeded
+                        ? 'bg-slate-700 hover:bg-slate-800'
+                        : 'bg-purple-600 hover:bg-purple-700'
+                    }`}
+                  >
+                    {isMarkingReplacement && (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    )}
+                    {replacementEquipment.replacementNeeded ? 'Clear Tag' : 'Confirm Tag'}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Disposal History Modal ──────────────────────────────────────── */}
-      {isDisposalHistoryOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-5xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  Disposal History
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Review equipment disposal records and complete or reject pending requests.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseDisposalHistory}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-              {disposalHistoryError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {disposalHistoryError}
-                </div>
-              )}
-
-              {isDisposalHistoryLoading ? (
-                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
-                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-                  <h3 className="mt-3 font-medium text-[var(--text-primary)]">
-                    Loading disposal history...
-                  </h3>
-                </div>
-              ) : disposalHistory.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
-                  <h3 className="font-semibold text-[var(--text-primary)]">No Disposal History</h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Disposal requests and completed or rejected records will appear here.
+      {isDisposalHistoryOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-5xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    Disposal History
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Review equipment disposal records and complete or reject pending requests.
                   </p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Equipment</th>
-                        <th className="px-4 py-3 font-semibold">Reason</th>
-                        <th className="px-4 py-3 font-semibold">User</th>
-                        <th className="px-4 py-3 font-semibold">Date</th>
-                        <th className="px-4 py-3 font-semibold">Approval Status</th>
-                        <th className="px-4 py-3 font-semibold">Notes</th>
-                        <th className="px-4 py-3 font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--surface-border)]">
-                      {disposalHistory.map((record) => (
-                        <tr key={record.id}>
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-[var(--text-primary)]">
-                              {record.equipment.item.itemName}
-                            </div>
-                            <div className="text-xs font-mono text-[var(--text-tertiary)]">
-                              {record.equipment.assetId}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-[var(--text-secondary)]">
-                            {DISPOSAL_REASON_LABELS[record.reason]}
-                          </td>
-                          <td className="px-4 py-3 text-[var(--text-secondary)]">
-                            <div>
-                              {record.approvedBy.firstName} {record.approvedBy.lastName}
-                            </div>
-                            <div className="text-xs text-[var(--text-tertiary)]">
-                              {record.approvedBy.email}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-[var(--text-secondary)]">
-                            {formatDisplayDate(record.disposalDate)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${record.approvalStatus === 'COMPLETED'
-                                ? 'border border-green-200 bg-green-50 text-green-700'
-                                : record.approvalStatus === 'PENDING'
-                                  ? 'border border-yellow-200 bg-yellow-50 text-yellow-700'
-                                  : 'border border-red-200 bg-red-50 text-red-700'
-                                }`}
-                            >
-                              {DISPOSAL_APPROVAL_STATUS_LABELS[record.approvalStatus]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-[var(--text-secondary)]">
-                            {record.notes || '—'}
-                          </td>
-                          <td className="px-4 py-3">
-                            {record.approvalStatus === 'PENDING' ? (
-                              canUpdate ? (
-                                <div className="flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void handleUpdateDisposalApproval(record.id, 'COMPLETED')
-                                    }
-                                    disabled={disposalActionId === record.id}
-                                    className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {disposalActionId === record.id ? 'Updating...' : 'Complete'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      void handleUpdateDisposalApproval(record.id, 'REJECTED')
-                                    }
-                                    disabled={disposalActionId === record.id}
-                                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {disposalActionId === record.id ? 'Updating...' : 'Reject'}
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-[var(--text-tertiary)]">
-                                  Pending review
-                                </span>
-                              )
-                            ) : (
-                              <span className="text-xs text-[var(--text-tertiary)]"></span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Retired Equipment Archive Modal ───────────────────────────── */}
-      {isRetiredArchiveOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-6xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  Retired Equipment Archive
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Read-only archive of completed disposals for retired equipment.
-                </p>
+                <button
+                  type="button"
+                  onClick={handleCloseDisposalHistory}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleCloseRetiredArchive}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
-              {retiredArchiveError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {retiredArchiveError}
-                </div>
-              )}
+              <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+                {disposalHistoryError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {disposalHistoryError}
+                  </div>
+                )}
 
-              <div className="mb-4 rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Archive search and filters
-                    </p>
-                    <p className="text-xs text-[var(--text-secondary)]">
-                      Search by equipment name or asset ID and filter completed retired records.
+                {isDisposalHistoryLoading ? (
+                  <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                    <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                    <h3 className="mt-3 font-medium text-[var(--text-primary)]">
+                      Loading disposal history...
+                    </h3>
+                  </div>
+                ) : disposalHistory.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                    <h3 className="font-semibold text-[var(--text-primary)]">
+                      No Disposal History
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                      Disposal requests and completed or rejected records will appear here.
                     </p>
                   </div>
-                  {(retiredArchiveSearchInput ||
-                    retiredArchiveAppliedSearch ||
-                    retiredArchiveCategoryFilter ||
-                    retiredArchiveReasonFilter ||
-                    retiredArchiveDateFrom ||
-                    retiredArchiveDateTo) && (
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Equipment</th>
+                          <th className="px-4 py-3 font-semibold">Reason</th>
+                          <th className="px-4 py-3 font-semibold">User</th>
+                          <th className="px-4 py-3 font-semibold">Date</th>
+                          <th className="px-4 py-3 font-semibold">Approval Status</th>
+                          <th className="px-4 py-3 font-semibold">Notes</th>
+                          <th className="px-4 py-3 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--surface-border)]">
+                        {disposalHistory.map((record) => (
+                          <tr key={record.id}>
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-[var(--text-primary)]">
+                                {record.equipment.item.itemName}
+                              </div>
+                              <div className="text-xs font-mono text-[var(--text-tertiary)]">
+                                {record.equipment.assetId}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {DISPOSAL_REASON_LABELS[record.reason]}
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              <div>
+                                {record.approvedBy.firstName} {record.approvedBy.lastName}
+                              </div>
+                              <div className="text-xs text-[var(--text-tertiary)]">
+                                {record.approvedBy.email}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {formatDisplayDate(record.disposalDate)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                  record.approvalStatus === 'COMPLETED'
+                                    ? 'border border-green-200 bg-green-50 text-green-700'
+                                    : record.approvalStatus === 'PENDING'
+                                      ? 'border border-yellow-200 bg-yellow-50 text-yellow-700'
+                                      : 'border border-red-200 bg-red-50 text-red-700'
+                                }`}
+                              >
+                                {DISPOSAL_APPROVAL_STATUS_LABELS[record.approvalStatus]}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-[var(--text-secondary)]">
+                              {record.notes || '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              {record.approvalStatus === 'PENDING' ? (
+                                canUpdate ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleUpdateDisposalApproval(record.id, 'COMPLETED')
+                                      }
+                                      disabled={disposalActionId === record.id}
+                                      className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {disposalActionId === record.id ? 'Updating...' : 'Complete'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleUpdateDisposalApproval(record.id, 'REJECTED')
+                                      }
+                                      disabled={disposalActionId === record.id}
+                                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {disposalActionId === record.id ? 'Updating...' : 'Reject'}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-[var(--text-tertiary)]">
+                                    Pending review
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-xs text-[var(--text-tertiary)]"></span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Retired Equipment Archive Modal ───────────────────────────── */}
+      {isRetiredArchiveOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-6xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    Retired Equipment Archive
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Read-only archive of completed disposals for retired equipment.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseRetiredArchive}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="max-h-[75vh] overflow-y-auto px-6 py-5">
+                {retiredArchiveError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {retiredArchiveError}
+                  </div>
+                )}
+
+                <div className="mb-4 rounded-xl border border-[var(--surface-border)] bg-[var(--background-secondary)] px-4 py-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        Archive search and filters
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        Search by equipment name or asset ID and filter completed retired records.
+                      </p>
+                    </div>
+                    {(retiredArchiveSearchInput ||
+                      retiredArchiveAppliedSearch ||
+                      retiredArchiveCategoryFilter ||
+                      retiredArchiveReasonFilter ||
+                      retiredArchiveDateFrom ||
+                      retiredArchiveDateTo) && (
                       <button
                         type="button"
                         onClick={() => void handleClearRetiredArchiveFilters()}
@@ -2310,344 +2330,347 @@ export default function EquipmentPage() {
                         Clear Filters
                       </button>
                     )}
-                </div>
-
-                <div className="grid gap-3 lg:grid-cols-[1.2fr_180px_180px_150px_150px_auto]">
-                  <input
-                    value={retiredArchiveSearchInput}
-                    onChange={(e) => setRetiredArchiveSearchInput(e.target.value)}
-                    onKeyDown={handleRetiredArchiveSearchKeyDown}
-                    placeholder="Search name or asset ID..."
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  />
-
-                  <select
-                    value={retiredArchiveCategoryFilter}
-                    onChange={(e) => {
-                      const categoryFilter = e.target.value;
-                      void handleRetiredArchiveFilterChange({ categoryFilter }, () =>
-                        setRetiredArchiveCategoryFilter(categoryFilter),
-                      );
-                    }}
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  >
-                    <option value="">All Categories</option>
-                    {equipmentCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={retiredArchiveReasonFilter}
-                    onChange={(e) => {
-                      const reasonFilter = e.target.value as DisposalReason | '';
-                      void handleRetiredArchiveFilterChange({ reasonFilter }, () =>
-                        setRetiredArchiveReasonFilter(reasonFilter),
-                      );
-                    }}
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  >
-                    <option value="">All Reasons</option>
-                    {DISPOSAL_REASONS.map((reason) => (
-                      <option key={reason} value={reason}>
-                        {DISPOSAL_REASON_LABELS[reason]}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="date"
-                    value={retiredArchiveDateFrom}
-                    onChange={(e) => {
-                      const dateFrom = e.target.value;
-                      void handleRetiredArchiveFilterChange({ dateFrom }, () =>
-                        setRetiredArchiveDateFrom(dateFrom),
-                      );
-                    }}
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                    aria-label="Retirement date from"
-                  />
-
-                  <input
-                    type="date"
-                    value={retiredArchiveDateTo}
-                    onChange={(e) => {
-                      const dateTo = e.target.value;
-                      void handleRetiredArchiveFilterChange({ dateTo }, () =>
-                        setRetiredArchiveDateTo(dateTo),
-                      );
-                    }}
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                    aria-label="Retirement date to"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => void handleRetiredArchiveSearch()}
-                    className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
-                  >
-                    Search
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-3 text-xs font-medium text-[var(--text-tertiary)]">
-                Showing {retiredArchive.length} of {retiredArchiveMeta.total} retired records
-                {retiredArchiveMeta.totalPages > 1 &&
-                  ` · Page ${retiredArchiveMeta.page} of ${retiredArchiveMeta.totalPages}`}
-              </div>
-
-              {isRetiredArchiveLoading ? (
-                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
-                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-                  <h3 className="mt-3 font-medium text-[var(--text-primary)]">
-                    Loading retired equipment archive...
-                  </h3>
-                </div>
-              ) : retiredArchive.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
-                  <h3 className="font-semibold text-[var(--text-primary)]">
-                    No Retired Equipment Found
-                  </h3>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Completed retired equipment records will appear here after disposal is
-                    completed.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
-                    <table className="w-full border-collapse text-left text-sm">
-                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">Equipment Name</th>
-                          <th className="px-4 py-3 font-semibold">Asset ID</th>
-                          <th className="px-4 py-3 font-semibold">Category</th>
-                          <th className="px-4 py-3 font-semibold">Disposal Reason</th>
-                          <th className="px-4 py-3 font-semibold">Retirement Date</th>
-                          <th className="px-4 py-3 font-semibold">Final Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--surface-border)]">
-                        {retiredArchive.map((record) => (
-                          <tr key={record.id}>
-                            <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
-                              {record.equipment.item.itemName}
-                            </td>
-                            <td className="px-4 py-3 font-mono text-xs text-[var(--text-tertiary)]">
-                              {record.equipment.assetId}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {record.equipment.item.category.name}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {DISPOSAL_REASON_LABELS[record.reason]}
-                            </td>
-                            <td className="px-4 py-3 text-[var(--text-secondary)]">
-                              {formatDisplayDate(record.disposalDate)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <StatusBadge status="RETIRED" />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
 
-                  {retiredArchiveMeta.total > 0 && (
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-border)] pt-4">
-                      <RowsPerPageSelect
-                        value={retiredArchivePageSize}
-                        onChange={(size) => void handleRetiredArchivePageSizeChange(size)}
-                      />
-                      {retiredArchiveMeta.totalPages > 1 && (
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleRetiredArchivePageChange(
-                                Math.max(1, retiredArchivePage - 1),
-                              )
-                            }
-                            disabled={retiredArchivePage <= 1}
-                            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Previous
-                          </button>
-                          <span className="text-xs text-[var(--text-tertiary)]">
-                            Page {retiredArchiveMeta.page} of {retiredArchiveMeta.totalPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleRetiredArchivePageChange(
-                                Math.min(retiredArchiveMeta.totalPages, retiredArchivePage + 1),
-                              )
-                            }
-                            disabled={retiredArchivePage >= retiredArchiveMeta.totalPages}
-                            className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      )}
-                    </div>                  )}
-                </>
-              )}
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
+                  <div className="grid gap-3 lg:grid-cols-[1.2fr_180px_180px_150px_150px_auto]">
+                    <input
+                      value={retiredArchiveSearchInput}
+                      onChange={(e) => setRetiredArchiveSearchInput(e.target.value)}
+                      onKeyDown={handleRetiredArchiveSearchKeyDown}
+                      placeholder="Search name or asset ID..."
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    />
+
+                    <select
+                      value={retiredArchiveCategoryFilter}
+                      onChange={(e) => {
+                        const categoryFilter = e.target.value;
+                        void handleRetiredArchiveFilterChange({ categoryFilter }, () =>
+                          setRetiredArchiveCategoryFilter(categoryFilter),
+                        );
+                      }}
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    >
+                      <option value="">All Categories</option>
+                      {equipmentCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={retiredArchiveReasonFilter}
+                      onChange={(e) => {
+                        const reasonFilter = e.target.value as DisposalReason | '';
+                        void handleRetiredArchiveFilterChange({ reasonFilter }, () =>
+                          setRetiredArchiveReasonFilter(reasonFilter),
+                        );
+                      }}
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    >
+                      <option value="">All Reasons</option>
+                      {DISPOSAL_REASONS.map((reason) => (
+                        <option key={reason} value={reason}>
+                          {DISPOSAL_REASON_LABELS[reason]}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="date"
+                      value={retiredArchiveDateFrom}
+                      onChange={(e) => {
+                        const dateFrom = e.target.value;
+                        void handleRetiredArchiveFilterChange({ dateFrom }, () =>
+                          setRetiredArchiveDateFrom(dateFrom),
+                        );
+                      }}
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                      aria-label="Retirement date from"
+                    />
+
+                    <input
+                      type="date"
+                      value={retiredArchiveDateTo}
+                      onChange={(e) => {
+                        const dateTo = e.target.value;
+                        void handleRetiredArchiveFilterChange({ dateTo }, () =>
+                          setRetiredArchiveDateTo(dateTo),
+                        );
+                      }}
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                      aria-label="Retirement date to"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => void handleRetiredArchiveSearch()}
+                      className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-3 text-xs font-medium text-[var(--text-tertiary)]">
+                  Showing {retiredArchive.length} of {retiredArchiveMeta.total} retired records
+                  {retiredArchiveMeta.totalPages > 1 &&
+                    ` · Page ${retiredArchiveMeta.page} of ${retiredArchiveMeta.totalPages}`}
+                </div>
+
+                {isRetiredArchiveLoading ? (
+                  <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                    <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                    <h3 className="mt-3 font-medium text-[var(--text-primary)]">
+                      Loading retired equipment archive...
+                    </h3>
+                  </div>
+                ) : retiredArchive.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[var(--surface-border)] p-10 text-center">
+                    <h3 className="font-semibold text-[var(--text-primary)]">
+                      No Retired Equipment Found
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                      Completed retired equipment records will appear here after disposal is
+                      completed.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                      <table className="w-full border-collapse text-left text-sm">
+                        <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold">Equipment Name</th>
+                            <th className="px-4 py-3 font-semibold">Asset ID</th>
+                            <th className="px-4 py-3 font-semibold">Category</th>
+                            <th className="px-4 py-3 font-semibold">Disposal Reason</th>
+                            <th className="px-4 py-3 font-semibold">Retirement Date</th>
+                            <th className="px-4 py-3 font-semibold">Final Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--surface-border)]">
+                          {retiredArchive.map((record) => (
+                            <tr key={record.id}>
+                              <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                                {record.equipment.item.itemName}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs text-[var(--text-tertiary)]">
+                                {record.equipment.assetId}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {record.equipment.item.category.name}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {DISPOSAL_REASON_LABELS[record.reason]}
+                              </td>
+                              <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                {formatDisplayDate(record.disposalDate)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge status="RETIRED" />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {retiredArchiveMeta.total > 0 && (
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-border)] pt-4">
+                        <RowsPerPageSelect
+                          value={retiredArchivePageSize}
+                          onChange={(size) => void handleRetiredArchivePageSizeChange(size)}
+                        />
+                        {retiredArchiveMeta.totalPages > 1 && (
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleRetiredArchivePageChange(
+                                  Math.max(1, retiredArchivePage - 1),
+                                )
+                              }
+                              disabled={retiredArchivePage <= 1}
+                              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Previous
+                            </button>
+                            <span className="text-xs text-[var(--text-tertiary)]">
+                              Page {retiredArchiveMeta.page} of {retiredArchiveMeta.totalPages}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleRetiredArchivePageChange(
+                                  Math.min(retiredArchiveMeta.totalPages, retiredArchivePage + 1),
+                                )
+                              }
+                              disabled={retiredArchivePage >= retiredArchiveMeta.totalPages}
+                              className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Retirement Request Modal ────────────────────────────────────── */}
-      {retiringEquipment && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  Submit Retirement Request
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {retiringEquipment.item.itemName} · {retiringEquipment.assetId}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseRetirementRequest}
-                disabled={isRetiring}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitRetirementRequest} className="px-6 py-5">
-              {retirementError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {retirementError}
+      {retiringEquipment &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    Submit Retirement Request
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {retiringEquipment.item.itemName} · {retiringEquipment.assetId}
+                  </p>
                 </div>
-              )}
-
-              <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
-                This will create a disposal record and change the equipment status to
-                <span className="font-semibold"> RETIREMENT PENDING</span>.
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Disposal Reason <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required
-                    name="reason"
-                    value={retirementForm.reason}
-                    onChange={handleRetirementInputChange}
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  >
-                    {DISPOSAL_REASONS.map((reason) => (
-                      <option key={reason} value={reason}>
-                        {DISPOSAL_REASON_LABELS[reason]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Disposal Method <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    name="method"
-                    value={retirementForm.method}
-                    onChange={handleRetirementInputChange}
-                    maxLength={100}
-                    placeholder="e.g. For disposal review"
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={retirementForm.notes}
-                    onChange={handleRetirementInputChange}
-                    maxLength={1000}
-                    rows={4}
-                    placeholder="Optional retirement/disposal notes..."
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
                 <button
                   type="button"
                   onClick={handleCloseRetirementRequest}
                   disabled={isRetiring}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isRetiring}
-                  className="rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
-                >
-                  {isRetiring && (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  )}
-                  Submit Request
+                  ✕
                 </button>
               </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
+
+              <form onSubmit={handleSubmitRetirementRequest} className="px-6 py-5">
+                {retirementError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {retirementError}
+                  </div>
+                )}
+
+                <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                  This will create a disposal record and change the equipment status to
+                  <span className="font-semibold"> RETIREMENT PENDING</span>.
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Disposal Reason <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      name="reason"
+                      value={retirementForm.reason}
+                      onChange={handleRetirementInputChange}
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    >
+                      {DISPOSAL_REASONS.map((reason) => (
+                        <option key={reason} value={reason}>
+                          {DISPOSAL_REASON_LABELS[reason]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Disposal Method <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      name="method"
+                      value={retirementForm.method}
+                      onChange={handleRetirementInputChange}
+                      maxLength={100}
+                      placeholder="e.g. For disposal review"
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Notes
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={retirementForm.notes}
+                      onChange={handleRetirementInputChange}
+                      maxLength={1000}
+                      rows={4}
+                      placeholder="Optional retirement/disposal notes..."
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseRetirementRequest}
+                    disabled={isRetiring}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isRetiring}
+                    className="rounded-xl bg-orange-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {isRetiring && (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    )}
+                    Submit Request
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Lightbox ────────────────────────────────────────────────────── */}
-      {previewImageUrl && createPortal(
-        <div
-          className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
-          onClick={() => setPreviewImageUrl(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
-            <button
-              type="button"
-              onClick={() => setPreviewImageUrl(null)}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none transition p-2 bg-gray-800/50 hover:bg-gray-800 rounded-full cursor-pointer"
-            >
-              <span className="sr-only">Close Preview</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-            <img
-              src={previewImageUrl}
-              alt="Full-size preview"
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-gray-700 bg-gray-900"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+      {previewImageUrl &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 transition-all duration-300 ease-out"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+              <button
+                type="button"
+                onClick={() => setPreviewImageUrl(null)}
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none transition p-2 bg-gray-800/50 hover:bg-gray-800 rounded-full cursor-pointer"
+              >
+                <span className="sr-only">Close Preview</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+              <img
+                src={previewImageUrl}
+                alt="Full-size preview"
+                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-gray-700 bg-gray-900"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -2709,20 +2732,21 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-500'}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${status === 'AVAILABLE'
-          ? 'bg-[var(--success)]'
-          : status === 'IN_USE'
-            ? 'bg-[var(--info)]'
-            : status === 'UNDER_MAINTENANCE'
-              ? 'bg-[var(--warning)]'
-              : status === 'DAMAGED' || status === 'LOST'
-                ? 'bg-red-600'
-                : status === 'BORROWED'
-                  ? 'bg-purple-600'
-                  : status === 'RETIREMENT_PENDING'
-                    ? 'bg-orange-600'
-                    : 'bg-gray-400'
-          }`}
+        className={`h-1.5 w-1.5 rounded-full ${
+          status === 'AVAILABLE'
+            ? 'bg-[var(--success)]'
+            : status === 'IN_USE'
+              ? 'bg-[var(--info)]'
+              : status === 'UNDER_MAINTENANCE'
+                ? 'bg-[var(--warning)]'
+                : status === 'DAMAGED' || status === 'LOST'
+                  ? 'bg-red-600'
+                  : status === 'BORROWED'
+                    ? 'bg-purple-600'
+                    : status === 'RETIREMENT_PENDING'
+                      ? 'bg-orange-600'
+                      : 'bg-gray-400'
+        }`}
       />
       {status.replace(/_/g, ' ')}
     </span>
@@ -2760,7 +2784,7 @@ const WARRANTY_EXPIRING_SOON_DAYS = 30;
 function WarrantyBadge({ warrantyEnd }: { warrantyEnd: string }) {
   const daysRemaining = Math.ceil(
     (new Date(warrantyEnd).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) /
-    (24 * 60 * 60 * 1000),
+      (24 * 60 * 60 * 1000),
   );
 
   if (daysRemaining < 0) {

@@ -89,8 +89,6 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function PurchaseOrderPage() {
@@ -148,7 +146,7 @@ export default function PurchaseOrderPage() {
           );
         }
       })
-      .catch(() => { });
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -314,14 +312,14 @@ export default function PurchaseOrderPage() {
       prev.map((li, i) =>
         i === index
           ? {
-            ...li,
-            [field]:
-              field === 'selectedType'
-                ? value
-                : typeof value === 'string'
-                  ? Number(value) || 0
-                  : value,
-          }
+              ...li,
+              [field]:
+                field === 'selectedType'
+                  ? value
+                  : typeof value === 'string'
+                    ? Number(value) || 0
+                    : value,
+            }
           : li,
       ),
     );
@@ -488,7 +486,9 @@ export default function PurchaseOrderPage() {
 
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(`Invalid file type "${ext}". Only Images (JPG, JPEG, PNG), PDF, and Word (DOC, DOCX) files are allowed.`);
+      alert(
+        `Invalid file type "${ext}". Only Images (JPG, JPEG, PNG), PDF, and Word (DOC, DOCX) files are allowed.`,
+      );
       return;
     }
 
@@ -595,9 +595,7 @@ export default function PurchaseOrderPage() {
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Purchase Orders</h1>
-          <p className="dash-page-desc">
-            Create and track purchase orders and supplier orders
-          </p>
+          <p className="dash-page-desc">Create and track purchase orders and supplier orders</p>
         </div>
 
         {/* Action buttons */}
@@ -655,10 +653,11 @@ export default function PurchaseOrderPage() {
                 setFilterTab('active');
                 setStatusFilter('');
               }}
-              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'active'
+              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
+                filterTab === 'active'
                   ? 'border-[var(--accent)] text-[var(--accent)]'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              }`}
             >
               Active
             </button>
@@ -668,10 +667,11 @@ export default function PurchaseOrderPage() {
                 setFilterTab('archived');
                 setStatusFilter('');
               }}
-              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${filterTab === 'archived'
+              className={`border-b-2 px-4 py-2 text-sm font-semibold transition ${
+                filterTab === 'archived'
                   ? 'border-[var(--accent)] text-[var(--accent)]'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              }`}
             >
               Archived
             </button>
@@ -807,15 +807,17 @@ export default function PurchaseOrderPage() {
                           >
                             View
                           </button>
-                          {canUpdate && po.status === 'DRAFT' && (roleName === 'ADMIN' || po.createdById === user?.id) && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(po)}
-                              className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                            >
-                              Edit
-                            </button>
-                          )}
+                          {canUpdate &&
+                            po.status === 'DRAFT' &&
+                            (roleName === 'ADMIN' || po.createdById === user?.id) && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(po)}
+                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                              >
+                                Edit
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>
@@ -895,870 +897,884 @@ export default function PurchaseOrderPage() {
       </section>
 
       {/* ── Create / Edit Modal ──────────────────────────────────────────── */}
-      {isFormOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b border-[var(--surface-border)] p-6 pb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  {editingPO ? 'Edit Purchase Order' : 'New Purchase Order'}
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {editingPO
-                    ? 'Modify the purchase order details below.'
-                    : 'Fill in the details to create a new purchase order.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFormOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 pt-4">
-              {formError && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {formError}
-                </div>
-              )}
-
-              <form id="po-form" onSubmit={handleFormSubmit} className="flex flex-col gap-5">
-                {/* Supplier */}
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="po-supplier"
-                    className="text-xs font-semibold text-[var(--text-secondary)]"
-                  >
-                    Supplier <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="po-supplier"
-                    required
-                    value={formData.supplierId}
-                    onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
-                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  >
-                    <option value="">Select a supplier...</option>
-                    {activeSuppliers.map((sup) => (
-                      <option key={sup.id} value={sup.id}>
-                        {sup.supplierName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Line Items */}
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                      Line Items <span className="text-red-500">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleAddLineItem}
-                      className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition"
-                    >
-                      + Add Item
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {lineItems.map((li, index) => (
-                      <div
-                        key={index}
-                        className="grid gap-2 items-end"
-                        style={{ gridTemplateColumns: '130px 1fr 80px 100px 100px 32px' }}
-                      >
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {index === 0 && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
-                              Type
-                            </span>
-                          )}
-                          <div className="flex rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-0.5 text-xs w-full">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleLineItemChange(index, 'selectedType', 'CONSUMABLE');
-                                handleLineItemChange(index, 'itemId', 0);
-                              }}
-                              className={`flex-1 rounded-md py-1.5 font-medium transition cursor-pointer text-center ${(li.selectedType || 'CONSUMABLE') === 'CONSUMABLE' ? 'bg-[var(--accent)] text-white shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-                            >
-                              Cons.
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleLineItemChange(index, 'selectedType', 'EQUIPMENT');
-                                handleLineItemChange(index, 'itemId', 0);
-                              }}
-                              className={`flex-1 rounded-md py-1.5 font-medium transition cursor-pointer text-center ${li.selectedType === 'EQUIPMENT' ? 'bg-[var(--accent)] text-white shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-                            >
-                              Equip.
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {index === 0 && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
-                              Item
-                            </span>
-                          )}
-                          <SearchableItemSelect
-                            value={li.itemId || null}
-                            onChange={(val) => handleLineItemChange(index, 'itemId', val)}
-                            items={availableItems.filter(
-                              (item) =>
-                                item.itemType === (li.selectedType || 'CONSUMABLE') &&
-                                (item.id === li.itemId ||
-                                  !lineItems.some((otherLi) => otherLi.itemId === item.id)),
-                            )}
-                            placeholder="Select item..."
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {index === 0 && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
-                              Qty
-                            </span>
-                          )}
-                          <input
-                            type="number"
-                            min="1"
-                            value={li.quantity || ''}
-                            onChange={(e) =>
-                              handleLineItemChange(index, 'quantity', e.target.value)
-                            }
-                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {index === 0 && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
-                              Unit Cost
-                            </span>
-                          )}
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={li.unitCost || ''}
-                            onChange={(e) =>
-                              handleLineItemChange(index, 'unitCost', e.target.value)
-                            }
-                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {index === 0 && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
-                              Subtotal
-                            </span>
-                          )}
-                          <div className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end">
-                            ₱
-                            {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
-                              minimumFractionDigits: 2,
-                            })}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLineItem(index)}
-                          disabled={lineItems.length <= 1}
-                          className="rounded-lg border border-[var(--surface-border)] p-2 text-red-500 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Total */}
-                  <div className="flex items-center justify-end gap-2 border-t border-[var(--surface-border)] pt-3">
-                    <span className="text-sm font-medium text-[var(--text-secondary)]">Total:</span>
-                    <span className="text-lg font-bold text-[var(--text-primary)]">
-                      ₱
-                      {computeTotal().toLocaleString('en-PH', {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] p-6 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsFormOpen(false)}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="po-form"
-                disabled={isSubmitting}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isSubmitting && (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                )}
-                {editingPO ? 'Save Changes' : 'Create Purchase Order'}
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Detail Modal ─────────────────────────────────────────────────── */}
-      {isDetailOpen && detailPO && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[var(--surface-border)] p-6 pb-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-[var(--text-primary)] font-mono">
-                    PO-{String(detailPO.id).padStart(5, '0')}
+      {isFormOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up flex flex-col max-h-[90vh]">
+              <div className="flex items-center justify-between border-b border-[var(--surface-border)] p-6 pb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    {editingPO ? 'Edit Purchase Order' : 'New Purchase Order'}
                   </h2>
-                  <StatusBadge status={detailPO.status} />
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {editingPO
+                      ? 'Modify the purchase order details below.'
+                      : 'Fill in the details to create a new purchase order.'}
+                  </p>
                 </div>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Supplier:{' '}
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {detailPO.supplier.supplierName}
-                  </span>
-                  {detailPO.invoiceNumber && (
-                    <>
-                      {' '}
-                      · Invoice: <span className="font-medium">{detailPO.invoiceNumber}</span>
-                    </>
-                  )}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDetailOpen(false);
-                  setDetailPO(null);
-                }}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Info Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 py-4 bg-[var(--background-tertiary)] border-b border-[var(--surface-border)]">
-              <div>
-                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  Total Amount
-                </span>
-                <p className="mt-0.5 text-lg font-bold text-[var(--text-primary)]">
-                  ₱
-                  {parseFloat(detailPO.totalAmount).toLocaleString('en-PH', {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  Line Items
-                </span>
-                <p className="mt-0.5 text-lg font-bold text-[var(--text-primary)]">
-                  {detailPO.lineItems.length}
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  Created By
-                </span>
-                <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-                  {detailPO.createdBy.firstName} {detailPO.createdBy.lastName}
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  Order Date
-                </span>
-                <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-                  {new Date(detailPO.orderDate).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 px-6 pt-3 border-b border-[var(--surface-border)]">
-              {(
-                ['items', 'history', 'attachments'] as Array<'items' | 'history' | 'attachments'>
-              ).map((tab) => (
                 <button
-                  key={tab}
                   type="button"
-                  onClick={() => setDetailTab(tab)}
-                  className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition capitalize ${detailTab === tab
-                      ? 'border-[var(--accent)] text-[var(--accent)]'
-                      : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                  onClick={() => setIsFormOpen(false)}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
                 >
-                  {tab === 'items'
-                    ? `Items (${detailPO.lineItems.length})`
-                    : tab === 'history'
-                      ? `History (${detailPO.history.length})`
-                      : `Attachments (${detailPO.attachments.length})`}
+                  ✕
                 </button>
-              ))}
-            </div>
+              </div>
 
-            {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {detailTab === 'items' && (
-                <>
-                  <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
-                    <table className="w-full border-collapse text-left text-sm">
-                      <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">Item</th>
-                          <th className="px-4 py-3 font-semibold text-right">Qty</th>
-                          <th className="px-4 py-3 font-semibold text-right">Unit Cost</th>
-                          <th className="px-4 py-3 font-semibold text-right">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--surface-border)]">
-                        {detailPO.lineItems.map((li) => {
-                          const subtotal = li.quantity * parseFloat(li.unitCost);
-                          return (
-                            <tr key={li.id}>
-                              <td className="px-4 py-3">
-                                <div className="font-medium text-[var(--text-primary)]">
-                                  {li.item.itemName}
-                                </div>
-                                {li.item.barcode && (
-                                  <div className="text-xs text-[var(--text-tertiary)] font-mono">
-                                    {li.item.barcode}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right font-medium">{li.quantity}</td>
-                              <td className="px-4 py-3 text-right">
-                                ₱
-                                {parseFloat(li.unitCost).toLocaleString('en-PH', {
-                                  minimumFractionDigits: 2,
-                                })}
-                              </td>
-                              <td className="px-4 py-3 text-right font-semibold">
-                                ₱
-                                {subtotal.toLocaleString('en-PH', {
-                                  minimumFractionDigits: 2,
-                                })}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-[var(--background-tertiary)]">
-                          <td
-                            colSpan={3}
-                            className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]"
-                          >
-                            Total
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)] text-base">
-                            ₱
-                            {parseFloat(detailPO.totalAmount).toLocaleString('en-PH', {
-                              minimumFractionDigits: 2,
-                            })}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+              <div className="flex-1 overflow-y-auto p-6 pt-4">
+                {formError && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {formError}
+                  </div>
+                )}
+
+                <form id="po-form" onSubmit={handleFormSubmit} className="flex flex-col gap-5">
+                  {/* Supplier */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="po-supplier"
+                      className="text-xs font-semibold text-[var(--text-secondary)]"
+                    >
+                      Supplier <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="po-supplier"
+                      required
+                      value={formData.supplierId}
+                      onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    >
+                      <option value="">Select a supplier...</option>
+                      {activeSuppliers.map((sup) => (
+                        <option key={sup.id} value={sup.id}>
+                          {sup.supplierName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Equipment Assets Status Checklist */}
-                  {detailPO.lineItems.some((li) => li.item.itemType === 'EQUIPMENT') && (
-                    <div className="mt-8 border-t border-[var(--surface-border)] pt-6">
-                      <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
-                        Equipment Registration Progress
-                      </h3>
-                      <p className="text-xs text-[var(--text-secondary)] mb-4">
-                        All physical equipment units purchased under this order must be cataloged
-                        and serialized.
-                      </p>
-
-                      {poEquipment.length === 0 ? (
-                        <div className="flex items-center justify-center p-6 border rounded-xl border-dashed border-[var(--surface-border)]">
-                          <span className="text-xs text-[var(--text-tertiary)] italic animate-pulse">
-                            Loading equipment records...
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] bg-[var(--background-tertiary)] px-4 py-2 rounded-lg">
-                            <span>Registration Progress</span>
-                            <span className="font-mono">
-                              {poEquipment.filter((u) => u.deletedAt === null).length} /{' '}
-                              {poEquipment.length} Registered
-                            </span>
-                          </div>
-                          <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)] bg-[var(--surface)]">
-                            <table className="w-full border-collapse text-left text-xs">
-                              <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
-                                <tr>
-                                  <th className="px-4 py-2 font-semibold">Asset ID</th>
-                                  <th className="px-4 py-2 font-semibold">Item Model</th>
-                                  <th className="px-4 py-2 font-semibold font-mono">
-                                    Serial Number
-                                  </th>
-                                  <th className="px-4 py-2 font-semibold">Location</th>
-                                  <th className="px-4 py-2 font-semibold">Condition</th>
-                                  <th className="px-4 py-2 font-semibold text-center">Action</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[var(--surface-border)]">
-                                {poEquipment.map((unit) => {
-                                  const isRegistered = unit.deletedAt === null;
-                                  return (
-                                    <tr
-                                      key={unit.id}
-                                      className="hover:bg-[var(--surface-hover)] transition"
-                                    >
-                                      <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">
-                                        {unit.assetId}
-                                      </td>
-                                      <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
-                                        {unit.item.itemName}
-                                      </td>
-                                      <td className="px-4 py-3 font-mono">
-                                        {isRegistered ? (
-                                          <span className="text-[var(--text-primary)] font-semibold">
-                                            {unit.serialNumber}
-                                          </span>
-                                        ) : (
-                                          <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700 font-semibold border border-yellow-200">
-                                            Unserialized
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="px-4 py-3 text-[var(--text-secondary)]">
-                                        {unit.location || '—'}
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <span
-                                          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${unit.condition === 'NEW'
-                                              ? 'bg-green-50 text-green-700 border border-green-200'
-                                              : unit.condition === 'GOOD'
-                                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                                : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                                            }`}
-                                        >
-                                          {unit.condition}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-3 text-center">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleOpenRegister(unit)}
-                                          className="rounded bg-[var(--background-tertiary)] hover:bg-[var(--surface-border)] px-2 py-1 font-semibold text-[var(--text-primary)] border border-[var(--surface-border)] cursor-pointer transition text-[10px]"
-                                        >
-                                          {isRegistered ? 'Edit Details' : 'Register Unit'}
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {detailTab === 'history' && (
-                <div className="relative border-l border-[var(--surface-border)] ml-3 pl-6 space-y-6">
-                  {detailPO.history.length === 0 ? (
-                    <p className="text-sm text-[var(--text-secondary)] italic py-8 text-center">
-                      No history records found.
-                    </p>
-                  ) : (
-                    detailPO.history.map((entry) => (
-                      <div key={entry.id} className="relative">
-                        <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--surface)] border-2 border-[var(--accent)]" />
-                        <div className="flex flex-col gap-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <StatusBadge status={entry.oldStatus} />
-                            <span className="text-xs text-[var(--text-tertiary)]">→</span>
-                            <StatusBadge status={entry.newStatus} />
-                            <span className="text-xs text-[var(--text-secondary)] font-medium">
-                              by {entry.changedBy.firstName} {entry.changedBy.lastName}
-                            </span>
-                          </div>
-                          <span className="text-xs text-[var(--text-tertiary)]">
-                            {new Date(entry.createdAt).toLocaleString()}
-                          </span>
-                          {entry.notes && (
-                            <p className="text-xs text-[var(--text-secondary)] mt-1 bg-[var(--background-tertiary)] rounded-lg px-3 py-2 border border-[var(--surface-border)]">
-                              {entry.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {detailTab === 'attachments' && (
-                <div className="space-y-4">
-                  {canUpdate && (
-                    <div className="flex items-center gap-3">
-                      <label className="rounded-xl border border-dashed border-[var(--surface-border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition cursor-pointer flex items-center gap-2">
-                        <span>📎</span> Upload File (Images, PDF, Word — Max 10MB)
-                        <input
-                          type="file"
-                          accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
-                          className="hidden"
-                          onChange={handleFileUpload}
-                        />
+                  {/* Line Items */}
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                        Line Items <span className="text-red-500">*</span>
                       </label>
+                      <button
+                        type="button"
+                        onClick={handleAddLineItem}
+                        className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition"
+                      >
+                        + Add Item
+                      </button>
                     </div>
-                  )}
 
-                  {detailPO.attachments.length === 0 ? (
-                    <p className="text-sm text-[var(--text-secondary)] italic py-8 text-center">
-                      No attachments uploaded yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {detailPO.attachments.map((att) => (
+                    <div className="space-y-3">
+                      {lineItems.map((li, index) => (
                         <div
-                          key={att.id}
-                          className="flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-4 py-3"
+                          key={index}
+                          className="grid gap-2 items-end"
+                          style={{ gridTemplateColumns: '130px 1fr 80px 100px 100px 32px' }}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="text-lg">📄</span>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                                {att.fileName}
-                              </p>
-                              <p className="text-xs text-[var(--text-tertiary)]">
-                                {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : ''} ·{' '}
-                                {new Date(att.uploadedAt).toLocaleDateString()}
-                              </p>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {index === 0 && (
+                              <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
+                                Type
+                              </span>
+                            )}
+                            <div className="flex rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-0.5 text-xs w-full">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleLineItemChange(index, 'selectedType', 'CONSUMABLE');
+                                  handleLineItemChange(index, 'itemId', 0);
+                                }}
+                                className={`flex-1 rounded-md py-1.5 font-medium transition cursor-pointer text-center ${(li.selectedType || 'CONSUMABLE') === 'CONSUMABLE' ? 'bg-[var(--accent)] text-white shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                              >
+                                Cons.
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleLineItemChange(index, 'selectedType', 'EQUIPMENT');
+                                  handleLineItemChange(index, 'itemId', 0);
+                                }}
+                                className={`flex-1 rounded-md py-1.5 font-medium transition cursor-pointer text-center ${li.selectedType === 'EQUIPMENT' ? 'bg-[var(--accent)] text-white shadow-[var(--shadow-sm)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                              >
+                                Equip.
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {att.fileUrl.startsWith('data:image') && (
-                              <button
-                                type="button"
-                                onClick={() => setPreviewImageUrl(att.fileUrl)}
-                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                              >
-                                Preview
-                              </button>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {index === 0 && (
+                              <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
+                                Item
+                              </span>
                             )}
-                            <a
-                              href={att.fileUrl}
-                              download={att.fileName}
-                              className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                            >
-                              Download
-                            </a>
-                            {canUpdate && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteAttachment(att.id)}
-                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
-                              >
-                                Remove
-                              </button>
-                            )}
+                            <SearchableItemSelect
+                              value={li.itemId || null}
+                              onChange={(val) => handleLineItemChange(index, 'itemId', val)}
+                              items={availableItems.filter(
+                                (item) =>
+                                  item.itemType === (li.selectedType || 'CONSUMABLE') &&
+                                  (item.id === li.itemId ||
+                                    !lineItems.some((otherLi) => otherLi.itemId === item.id)),
+                              )}
+                              placeholder="Select item..."
+                            />
                           </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {index === 0 && (
+                              <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
+                                Qty
+                              </span>
+                            )}
+                            <input
+                              type="number"
+                              min="1"
+                              value={li.quantity || ''}
+                              onChange={(e) =>
+                                handleLineItemChange(index, 'quantity', e.target.value)
+                              }
+                              className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {index === 0 && (
+                              <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
+                                Unit Cost
+                              </span>
+                            )}
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={li.unitCost || ''}
+                              onChange={(e) =>
+                                handleLineItemChange(index, 'unitCost', e.target.value)
+                              }
+                              className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {index === 0 && (
+                              <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
+                                Subtotal
+                              </span>
+                            )}
+                            <div className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end">
+                              ₱
+                              {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLineItem(index)}
+                            disabled={lineItems.length <= 1}
+                            className="rounded-lg border border-[var(--surface-border)] p-2 text-red-500 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            ✕
+                          </button>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
 
-            {/* Actions Footer */}
-            <div className="flex items-center justify-between border-t border-[var(--surface-border)] p-6 pt-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                {canUpdate &&
-                  getAvailableActions(detailPO).map((action) => (
-                    <button
-                      key={action.status}
-                      type="button"
-                      onClick={() => handleOpenStatusDialog(action.status)}
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${action.variant === 'primary'
-                          ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
-                          : action.variant === 'success'
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : action.variant === 'danger'
-                              ? 'bg-red-600 text-white hover:bg-red-700'
-                              : 'border border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                        }`}
-                    >
-                      {action.label}
-                    </button>
-                  ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDetailOpen(false);
-                  setDetailPO(null);
-                }}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-              >
-                Close
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Image Preview Modal ────────────────────────────────────────────── */}
-      {previewImageUrl && createPortal(
-        <div 
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in cursor-pointer"
-          onClick={() => setPreviewImageUrl(null)}
-        >
-          <div 
-            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col items-center justify-center animate-fade-in-up cursor-default" 
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setPreviewImageUrl(null)}
-              className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
-              aria-label="Close Preview"
-            >
-              ✕
-            </button>
-            <img 
-              src={previewImageUrl} 
-              alt="Attachment Preview" 
-              className="max-w-full max-h-[80vh] object-contain rounded-xl"
-            />
-            <div className="mt-2 text-xs text-[var(--text-secondary)] py-1 font-semibold">
-              Click outside or press ✕ to close
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Status Change Confirmation Dialog ─────────────────────────────── */}
-      {isStatusDialogOpen && statusAction && detailPO && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--background-tertiary)] text-2xl">
-                {statusAction === 'APPROVED'
-                  ? '✅'
-                  : statusAction === 'REJECTED'
-                    ? '❌'
-                    : statusAction === 'COMPLETED'
-                      ? '🎉'
-                      : statusAction === 'CANCELLED'
-                        ? '🚫'
-                        : statusAction === 'ARCHIVED'
-                          ? '📁'
-                          : '📤'}
-              </div>
-              <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
-                Confirm Status Change
-              </h2>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Change PO-{String(detailPO.id).padStart(5, '0')} from{' '}
-                <strong>{STATUS_CONFIG[detailPO.status].label}</strong> to{' '}
-                <strong>{STATUS_CONFIG[statusAction].label}</strong>?
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-1.5 mb-4">
-              <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                Notes (optional)
-              </label>
-              <textarea
-                value={statusNotes}
-                onChange={(e) => setStatusNotes(e.target.value)}
-                placeholder="Add a note about this status change..."
-                rows={3}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
-              <button
-                type="button"
-                onClick={() => setIsStatusDialogOpen(false)}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmStatusChange}
-                disabled={isSubmitting}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 ${statusAction === 'REJECTED' || statusAction === 'CANCELLED'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
-                  }`}
-              >
-                {isSubmitting && (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                )}
-                Confirm
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Equipment Unit Registration Modal ─────────────────────────────── */}
-      {registeringUnit && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-1">
-              Register Equipment Details
-            </h2>
-            <p className="text-xs text-[var(--text-secondary)] mb-4">
-              Asset ID:{' '}
-              <strong className="font-mono text-[var(--text-primary)]">
-                {registeringUnit.assetId}
-              </strong>{' '}
-              ({registeringUnit.item.itemName})
-            </p>
-
-            <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-4">
-              {/* Serial Number */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Serial Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={regForm.serialNumber}
-                  onChange={(e) => setRegForm({ ...regForm, serialNumber: e.target.value })}
-                  placeholder="Enter manufacturer serial number..."
-                  className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
+                    {/* Total */}
+                    <div className="flex items-center justify-end gap-2 border-t border-[var(--surface-border)] pt-3">
+                      <span className="text-sm font-medium text-[var(--text-secondary)]">
+                        Total:
+                      </span>
+                      <span className="text-lg font-bold text-[var(--text-primary)]">
+                        ₱
+                        {computeTotal().toLocaleString('en-PH', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </form>
               </div>
 
-              {/* Location */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  value={regForm.location}
-                  onChange={(e) => setRegForm({ ...regForm, location: e.target.value })}
-                  placeholder="e.g. IT Office, Library, Room 402..."
-                  className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Brand */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Brand
-                  </label>
-                  <input
-                    type="text"
-                    value={regForm.brand}
-                    onChange={(e) => setRegForm({ ...regForm, brand: e.target.value })}
-                    placeholder="e.g. Dell, Logitech..."
-                    className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-
-                {/* Model */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Model
-                  </label>
-                  <input
-                    type="text"
-                    value={regForm.model}
-                    onChange={(e) => setRegForm({ ...regForm, model: e.target.value })}
-                    placeholder="e.g. Latitude 5520..."
-                    className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Condition */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Condition
-                  </label>
-                  <select
-                    value={regForm.condition}
-                    onChange={(e) => setRegForm({ ...regForm, condition: e.target.value })}
-                    className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  >
-                    <option value="NEW">New</option>
-                    <option value="GOOD">Good</option>
-                    <option value="FAIR">Fair</option>
-                    <option value="POOR">Poor</option>
-                    <option value="BROKEN">Broken</option>
-                  </select>
-                </div>
-
-                {/* Warranty End */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
-                    Warranty End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={regForm.warrantyEnd}
-                    onChange={(e) => setRegForm({ ...regForm, warrantyEnd: e.target.value })}
-                    className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                  />
-                </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] p-6 pt-4">
                 <button
                   type="button"
-                  onClick={() => setRegisteringUnit(null)}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--background-tertiary)] transition cursor-pointer"
+                  onClick={() => setIsFormOpen(false)}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition cursor-pointer"
+                  form="po-form"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  Save Registration
+                  {isSubmitting && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  )}
+                  {editingPO ? 'Save Changes' : 'Create Purchase Order'}
                 </button>
               </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Detail Modal ─────────────────────────────────────────────────── */}
+      {isDetailOpen &&
+        detailPO &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-3xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl animate-fade-in-up flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-[var(--surface-border)] p-6 pb-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)] font-mono">
+                      PO-{String(detailPO.id).padStart(5, '0')}
+                    </h2>
+                    <StatusBadge status={detailPO.status} />
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Supplier:{' '}
+                    <span className="font-semibold text-[var(--text-primary)]">
+                      {detailPO.supplier.supplierName}
+                    </span>
+                    {detailPO.invoiceNumber && (
+                      <>
+                        {' '}
+                        · Invoice: <span className="font-medium">{detailPO.invoiceNumber}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDetailOpen(false);
+                    setDetailPO(null);
+                  }}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Info Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 py-4 bg-[var(--background-tertiary)] border-b border-[var(--surface-border)]">
+                <div>
+                  <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                    Total Amount
+                  </span>
+                  <p className="mt-0.5 text-lg font-bold text-[var(--text-primary)]">
+                    ₱
+                    {parseFloat(detailPO.totalAmount).toLocaleString('en-PH', {
+                      minimumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                    Line Items
+                  </span>
+                  <p className="mt-0.5 text-lg font-bold text-[var(--text-primary)]">
+                    {detailPO.lineItems.length}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                    Created By
+                  </span>
+                  <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+                    {detailPO.createdBy.firstName} {detailPO.createdBy.lastName}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+                    Order Date
+                  </span>
+                  <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+                    {new Date(detailPO.orderDate).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-1 px-6 pt-3 border-b border-[var(--surface-border)]">
+                {(
+                  ['items', 'history', 'attachments'] as Array<'items' | 'history' | 'attachments'>
+                ).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setDetailTab(tab)}
+                    className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition capitalize ${
+                      detailTab === tab
+                        ? 'border-[var(--accent)] text-[var(--accent)]'
+                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {tab === 'items'
+                      ? `Items (${detailPO.lineItems.length})`
+                      : tab === 'history'
+                        ? `History (${detailPO.history.length})`
+                        : `Attachments (${detailPO.attachments.length})`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {detailTab === 'items' && (
+                  <>
+                    <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)]">
+                      <table className="w-full border-collapse text-left text-sm">
+                        <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold">Item</th>
+                            <th className="px-4 py-3 font-semibold text-right">Qty</th>
+                            <th className="px-4 py-3 font-semibold text-right">Unit Cost</th>
+                            <th className="px-4 py-3 font-semibold text-right">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--surface-border)]">
+                          {detailPO.lineItems.map((li) => {
+                            const subtotal = li.quantity * parseFloat(li.unitCost);
+                            return (
+                              <tr key={li.id}>
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-[var(--text-primary)]">
+                                    {li.item.itemName}
+                                  </div>
+                                  {li.item.barcode && (
+                                    <div className="text-xs text-[var(--text-tertiary)] font-mono">
+                                      {li.item.barcode}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-right font-medium">{li.quantity}</td>
+                                <td className="px-4 py-3 text-right">
+                                  ₱
+                                  {parseFloat(li.unitCost).toLocaleString('en-PH', {
+                                    minimumFractionDigits: 2,
+                                  })}
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold">
+                                  ₱
+                                  {subtotal.toLocaleString('en-PH', {
+                                    minimumFractionDigits: 2,
+                                  })}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-[var(--background-tertiary)]">
+                            <td
+                              colSpan={3}
+                              className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]"
+                            >
+                              Total
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-[var(--text-primary)] text-base">
+                              ₱
+                              {parseFloat(detailPO.totalAmount).toLocaleString('en-PH', {
+                                minimumFractionDigits: 2,
+                              })}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    {/* Equipment Assets Status Checklist */}
+                    {detailPO.lineItems.some((li) => li.item.itemType === 'EQUIPMENT') && (
+                      <div className="mt-8 border-t border-[var(--surface-border)] pt-6">
+                        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
+                          Equipment Registration Progress
+                        </h3>
+                        <p className="text-xs text-[var(--text-secondary)] mb-4">
+                          All physical equipment units purchased under this order must be cataloged
+                          and serialized.
+                        </p>
+
+                        {poEquipment.length === 0 ? (
+                          <div className="flex items-center justify-center p-6 border rounded-xl border-dashed border-[var(--surface-border)]">
+                            <span className="text-xs text-[var(--text-tertiary)] italic animate-pulse">
+                              Loading equipment records...
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between text-xs font-semibold text-[var(--text-secondary)] bg-[var(--background-tertiary)] px-4 py-2 rounded-lg">
+                              <span>Registration Progress</span>
+                              <span className="font-mono">
+                                {poEquipment.filter((u) => u.deletedAt === null).length} /{' '}
+                                {poEquipment.length} Registered
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto rounded-xl border border-[var(--surface-border)] bg-[var(--surface)]">
+                              <table className="w-full border-collapse text-left text-xs">
+                                <thead className="bg-[var(--background-tertiary)] text-[var(--text-secondary)]">
+                                  <tr>
+                                    <th className="px-4 py-2 font-semibold">Asset ID</th>
+                                    <th className="px-4 py-2 font-semibold">Item Model</th>
+                                    <th className="px-4 py-2 font-semibold font-mono">
+                                      Serial Number
+                                    </th>
+                                    <th className="px-4 py-2 font-semibold">Location</th>
+                                    <th className="px-4 py-2 font-semibold">Condition</th>
+                                    <th className="px-4 py-2 font-semibold text-center">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--surface-border)]">
+                                  {poEquipment.map((unit) => {
+                                    const isRegistered = unit.deletedAt === null;
+                                    return (
+                                      <tr
+                                        key={unit.id}
+                                        className="hover:bg-[var(--surface-hover)] transition"
+                                      >
+                                        <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                                          {unit.assetId}
+                                        </td>
+                                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                                          {unit.item.itemName}
+                                        </td>
+                                        <td className="px-4 py-3 font-mono">
+                                          {isRegistered ? (
+                                            <span className="text-[var(--text-primary)] font-semibold">
+                                              {unit.serialNumber}
+                                            </span>
+                                          ) : (
+                                            <span className="rounded bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700 font-semibold border border-yellow-200">
+                                              Unserialized
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                                          {unit.location || '—'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <span
+                                            className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                              unit.condition === 'NEW'
+                                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                                : unit.condition === 'GOOD'
+                                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                  : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                            }`}
+                                          >
+                                            {unit.condition}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenRegister(unit)}
+                                            className="rounded bg-[var(--background-tertiary)] hover:bg-[var(--surface-border)] px-2 py-1 font-semibold text-[var(--text-primary)] border border-[var(--surface-border)] cursor-pointer transition text-[10px]"
+                                          >
+                                            {isRegistered ? 'Edit Details' : 'Register Unit'}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {detailTab === 'history' && (
+                  <div className="relative border-l border-[var(--surface-border)] ml-3 pl-6 space-y-6">
+                    {detailPO.history.length === 0 ? (
+                      <p className="text-sm text-[var(--text-secondary)] italic py-8 text-center">
+                        No history records found.
+                      </p>
+                    ) : (
+                      detailPO.history.map((entry) => (
+                        <div key={entry.id} className="relative">
+                          <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--surface)] border-2 border-[var(--accent)]" />
+                          <div className="flex flex-col gap-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <StatusBadge status={entry.oldStatus} />
+                              <span className="text-xs text-[var(--text-tertiary)]">→</span>
+                              <StatusBadge status={entry.newStatus} />
+                              <span className="text-xs text-[var(--text-secondary)] font-medium">
+                                by {entry.changedBy.firstName} {entry.changedBy.lastName}
+                              </span>
+                            </div>
+                            <span className="text-xs text-[var(--text-tertiary)]">
+                              {new Date(entry.createdAt).toLocaleString()}
+                            </span>
+                            {entry.notes && (
+                              <p className="text-xs text-[var(--text-secondary)] mt-1 bg-[var(--background-tertiary)] rounded-lg px-3 py-2 border border-[var(--surface-border)]">
+                                {entry.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {detailTab === 'attachments' && (
+                  <div className="space-y-4">
+                    {canUpdate && (
+                      <div className="flex items-center gap-3">
+                        <label className="rounded-xl border border-dashed border-[var(--surface-border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition cursor-pointer flex items-center gap-2">
+                          <span>📎</span> Upload File (Images, PDF, Word — Max 10MB)
+                          <input
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    {detailPO.attachments.length === 0 ? (
+                      <p className="text-sm text-[var(--text-secondary)] italic py-8 text-center">
+                        No attachments uploaded yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {detailPO.attachments.map((att) => (
+                          <div
+                            key={att.id}
+                            className="flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-4 py-3"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-lg">📄</span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                                  {att.fileName}
+                                </p>
+                                <p className="text-xs text-[var(--text-tertiary)]">
+                                  {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : ''} ·{' '}
+                                  {new Date(att.uploadedAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {att.fileUrl.startsWith('data:image') && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImageUrl(att.fileUrl)}
+                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                                >
+                                  Preview
+                                </button>
+                              )}
+                              <a
+                                href={att.fileUrl}
+                                download={att.fileName}
+                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                              >
+                                Download
+                              </a>
+                              {canUpdate && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAttachment(att.id)}
+                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-200"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex items-center justify-between border-t border-[var(--surface-border)] p-6 pt-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {canUpdate &&
+                    getAvailableActions(detailPO).map((action) => (
+                      <button
+                        key={action.status}
+                        type="button"
+                        onClick={() => handleOpenStatusDialog(action.status)}
+                        className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                          action.variant === 'primary'
+                            ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
+                            : action.variant === 'success'
+                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              : action.variant === 'danger'
+                                ? 'bg-red-600 text-white hover:bg-red-700'
+                                : 'border border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                        }`}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDetailOpen(false);
+                    setDetailPO(null);
+                  }}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                >
+                  Close
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Image Preview Modal ────────────────────────────────────────────── */}
+      {previewImageUrl &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in cursor-pointer"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <div
+              className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col items-center justify-center animate-fade-in-up cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewImageUrl(null)}
+                className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+                aria-label="Close Preview"
+              >
+                ✕
+              </button>
+              <img
+                src={previewImageUrl}
+                alt="Attachment Preview"
+                className="max-w-full max-h-[80vh] object-contain rounded-xl"
+              />
+              <div className="mt-2 text-xs text-[var(--text-secondary)] py-1 font-semibold">
+                Click outside or press ✕ to close
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Status Change Confirmation Dialog ─────────────────────────────── */}
+      {isStatusDialogOpen &&
+        statusAction &&
+        detailPO &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-4 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--background-tertiary)] text-2xl">
+                  {statusAction === 'APPROVED'
+                    ? '✅'
+                    : statusAction === 'REJECTED'
+                      ? '❌'
+                      : statusAction === 'COMPLETED'
+                        ? '🎉'
+                        : statusAction === 'CANCELLED'
+                          ? '🚫'
+                          : statusAction === 'ARCHIVED'
+                            ? '📁'
+                            : '📤'}
+                </div>
+                <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
+                  Confirm Status Change
+                </h2>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Change PO-{String(detailPO.id).padStart(5, '0')} from{' '}
+                  <strong>{STATUS_CONFIG[detailPO.status].label}</strong> to{' '}
+                  <strong>{STATUS_CONFIG[statusAction].label}</strong>?
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5 mb-4">
+                <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                  placeholder="Add a note about this status change..."
+                  rows={3}
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsStatusDialogOpen(false)}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmStatusChange}
+                  disabled={isSubmitting}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 ${
+                    statusAction === 'REJECTED' || statusAction === 'CANCELLED'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)]'
+                  }`}
+                >
+                  {isSubmitting && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  )}
+                  Confirm
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Equipment Unit Registration Modal ─────────────────────────────── */}
+      {registeringUnit &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <h2 className="text-lg font-bold text-[var(--text-primary)] mb-1">
+                Register Equipment Details
+              </h2>
+              <p className="text-xs text-[var(--text-secondary)] mb-4">
+                Asset ID:{' '}
+                <strong className="font-mono text-[var(--text-primary)]">
+                  {registeringUnit.assetId}
+                </strong>{' '}
+                ({registeringUnit.item.itemName})
+              </p>
+
+              <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-4">
+                {/* Serial Number */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                    Serial Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={regForm.serialNumber}
+                    onChange={(e) => setRegForm({ ...regForm, serialNumber: e.target.value })}
+                    placeholder="Enter manufacturer serial number..."
+                    className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                {/* Location */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={regForm.location}
+                    onChange={(e) => setRegForm({ ...regForm, location: e.target.value })}
+                    placeholder="e.g. IT Office, Library, Room 402..."
+                    className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Brand */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Brand
+                    </label>
+                    <input
+                      type="text"
+                      value={regForm.brand}
+                      onChange={(e) => setRegForm({ ...regForm, brand: e.target.value })}
+                      placeholder="e.g. Dell, Logitech..."
+                      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+
+                  {/* Model */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Model
+                    </label>
+                    <input
+                      type="text"
+                      value={regForm.model}
+                      onChange={(e) => setRegForm({ ...regForm, model: e.target.value })}
+                      placeholder="e.g. Latitude 5520..."
+                      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Condition */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Condition
+                    </label>
+                    <select
+                      value={regForm.condition}
+                      onChange={(e) => setRegForm({ ...regForm, condition: e.target.value })}
+                      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    >
+                      <option value="NEW">New</option>
+                      <option value="GOOD">Good</option>
+                      <option value="FAIR">Fair</option>
+                      <option value="POOR">Poor</option>
+                      <option value="BROKEN">Broken</option>
+                    </select>
+                  </div>
+
+                  {/* Warranty End */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                      Warranty End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={regForm.warrantyEnd}
+                      onChange={(e) => setRegForm({ ...regForm, warrantyEnd: e.target.value })}
+                      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+                </div>
+
+                {/* Actions Footer */}
+                <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setRegisteringUnit(null)}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--background-tertiary)] transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition cursor-pointer"
+                  >
+                    Save Registration
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1865,7 +1881,7 @@ function SearchableItemSelect({
         window.removeEventListener('scroll', handleScroll, { capture: true });
       };
     }
-    return () => { };
+    return () => {};
   }, [isOpen]);
 
   // Reset search when opening/closing
@@ -1957,8 +1973,9 @@ function SearchableItemSelect({
                       onChange(item.id);
                       setIsOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] cursor-pointer ${item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
-                      }`}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] cursor-pointer ${
+                      item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
+                    }`}
                   >
                     <span className="truncate text-[var(--text-primary)]">{item.itemName}</span>
                     {item.barcode && (
@@ -1975,4 +1992,4 @@ function SearchableItemSelect({
         )}
     </div>
   );
-} 
+}

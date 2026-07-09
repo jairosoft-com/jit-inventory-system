@@ -42,14 +42,9 @@ interface ProcurementAlertState {
   reset: () => void;
 }
 
-const PROCUREMENT_ALERT_TYPES: ProcurementAlertType[] = [
-  'PENDING_APPROVAL',
-  'STATUS_UPDATED',
-];
+const PROCUREMENT_ALERT_TYPES: ProcurementAlertType[] = ['PENDING_APPROVAL', 'STATUS_UPDATED'];
 
-function getProcurementAlertType(
-  category?: AlertCategoryFilter,
-): ProcurementAlertType | undefined {
+function getProcurementAlertType(category?: AlertCategoryFilter): ProcurementAlertType | undefined {
   return PROCUREMENT_ALERT_TYPES.includes(category as ProcurementAlertType)
     ? (category as ProcurementAlertType)
     : undefined;

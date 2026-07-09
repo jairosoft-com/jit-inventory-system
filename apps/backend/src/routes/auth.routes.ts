@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth.service.js';
 import { loginSchema } from '../schemas/auth.schema.js';
 import { validate } from '../middleware/validate.js';
 import { authenticate } from '../middleware/authenticate.js';
+import { authLoginLimiter } from '../middleware/rateLimiters.js';
 import { env } from '../lib/env.js';
 import { prisma } from '../lib/prisma.js';
 
@@ -25,6 +26,7 @@ const getRefreshTokenMaxAge = (): number => {
 // POST /auth/login
 router.post(
   '/login',
+  authLoginLimiter,
   validate(loginSchema),
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -38,7 +40,7 @@ router.post(
 
       res.cookie('jit_refresh_token', refreshToken, {
         httpOnly: true,
-        secure: env.NODE_ENV === 'production',
+        secure: env.COOKIE_SECURE,
         sameSite: 'lax',
         path: '/api/auth',
         maxAge: getRefreshTokenMaxAge(),
@@ -79,7 +81,7 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
 
     res.cookie('jit_refresh_token', newRefreshToken, {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
+      secure: env.COOKIE_SECURE,
       sameSite: 'lax',
       path: '/api/auth',
       maxAge: getRefreshTokenMaxAge(),
@@ -112,7 +114,7 @@ router.post('/logout', async (req: Request, res: Response): Promise<void> => {
 
     res.clearCookie('jit_refresh_token', {
       httpOnly: true,
-      secure: env.NODE_ENV === 'production',
+      secure: env.COOKIE_SECURE,
       sameSite: 'lax',
       path: '/api/auth',
     });

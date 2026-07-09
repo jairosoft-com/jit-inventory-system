@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import api from '../lib/api';
 
-export type AlertType = 'LOW_STOCK' | 'OUT_OF_STOCK' | 'WARRANTY_EXPIRING' | 'REPLACEMENT_NEEDED' | 'MAINTENANCE_DUE' | 'OVERDUE_EQUIPMENT' | 'BORROW_RETURNED';
+export type AlertType =
+  | 'LOW_STOCK'
+  | 'OUT_OF_STOCK'
+  | 'WARRANTY_EXPIRING'
+  | 'REPLACEMENT_NEEDED'
+  | 'MAINTENANCE_DUE'
+  | 'OVERDUE_EQUIPMENT'
+  | 'BORROW_RETURNED';
 export type ProcurementAlertCategory = 'PENDING_APPROVAL' | 'STATUS_UPDATED';
 export type AlertPriority = 'WARNING' | 'CRITICAL';
 export type AlertCategoryFilter = 'ALL' | AlertType | ProcurementAlertCategory;
@@ -101,7 +108,12 @@ interface AlertState {
 // runWarrantyScan() updates the same alert row in place rather than
 // recreating it, so createdAt does not reflect how current the alert is.
 const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const PERSISTENT_ALERT_TYPES: AlertType[] = ['WARRANTY_EXPIRING', 'REPLACEMENT_NEEDED', 'OVERDUE_EQUIPMENT', 'BORROW_RETURNED'];
+const PERSISTENT_ALERT_TYPES: AlertType[] = [
+  'WARRANTY_EXPIRING',
+  'REPLACEMENT_NEEDED',
+  'OVERDUE_EQUIPMENT',
+  'BORROW_RETURNED',
+];
 
 function filterFreshAlerts(alerts: UnifiedAlert[]): UnifiedAlert[] {
   const cutoff = Date.now() - ALERT_MAX_AGE_MS;
@@ -163,9 +175,7 @@ const STOCK_ALERT_TYPES: Exclude<AlertType, 'MAINTENANCE_DUE'>[] = [
 function getStockAlertType(
   category: AlertCategoryFilter,
 ): Exclude<AlertType, 'MAINTENANCE_DUE'> | undefined {
-  return STOCK_ALERT_TYPES.includes(
-    category as Exclude<AlertType, 'MAINTENANCE_DUE'>,
-  )
+  return STOCK_ALERT_TYPES.includes(category as Exclude<AlertType, 'MAINTENANCE_DUE'>)
     ? (category as Exclude<AlertType, 'MAINTENANCE_DUE'>)
     : undefined;
 }
@@ -272,7 +282,6 @@ export const useAlertStore = create<AlertState>((set, get) => ({
       set({ historyError: 'Failed to load notification history.', isHistoryLoading: false });
     }
   },
-
 
   scanAlerts: async () => {
     try {

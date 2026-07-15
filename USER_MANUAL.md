@@ -1,250 +1,259 @@
-# JIT Inventory & Equipment Management System — User Manual
+# JIT Inventory & Equipment Management System — Developer User Manual
 
-Welcome to the **JIT Inventory & Equipment Management System** user manual. This guide is designed to help Staff, Managers, and Admins navigate and utilize the system to manage the full lifecycle of physical equipment, consumable items, software licenses, borrowing requests, maintenance logs, and procurement purchase orders.
+Welcome to the **Developer User Manual**. This guide documents our core internal development processes, code commit guidelines, pull request protocols, and the ticket lifecycle workflow in Azure DevOps. All developers onboarding or working on the JIT Inventory System must adhere strictly to these rules to maintain project quality and team alignment.
 
 ---
 
 ## Table of Contents
 
-1. [System Overview & Architecture](#1-system-overview--architecture)
-2. [User Roles & Permissions Matrix](#2-user-roles--permissions-matrix)
-3. [Getting Started & Authentication](#3-getting-started--authentication)
-4. [Dashboard & Alerts Quick Guide](#4-dashboard--alerts-quick-guide)
-5. [Inventory & Category Management](#5-inventory--category-management)
-6. [Equipment Borrowing Lifecycle](#6-equipment-borrowing-lifecycle)
-7. [Equipment Maintenance & Repairs](#7-equipment-maintenance--repairs)
-8. [Equipment Disposal](#8-equipment-disposal)
-9. [Procurement & Purchase Orders (PO)](#9-procurement--purchase-orders-po)
-10. [Reports & System Audit Trail](#10-reports--system-audit-trail)
-11. [Troubleshooting & FAQ](#11-troubleshooting--faq)
+1. [Local Development Processes](#1-local-development-processes)
+2. [Commit Guidelines & Code Quality Checklist](#2-commit-guidelines--code-quality-checklist)
+   - [2.1 Commit Message Format (Conventional Commits)](#21-commit-message-format-conventional-commits)
+3. [Pull Request (PR) Protocols](#3-pull-request-pr-protocols)
+   - [3.1 Branch Naming Convention](#31-branch-naming-convention)
+   - [3.2 Target Integration Branch](#32-target-integration-branch)
+   - [3.3 Pull Request Template Requirement](#33-pull-request-template-requirement)
+4. [Azure DevOps Ticket Management Workflow](#4-azure-devops-ticket-management-workflow)
+5. [Database Change Process](#5-database-change-process)
 
 ---
 
-## 1. System Overview & Architecture
+## 1. Local Development Processes
 
-The JIT Inventory & Equipment Management System is designed to centralize and automate asset lifecycle operations, replacing manual tracking spreadsheets. The codebase is organized into frontend interfaces and backend services:
+The JIT Inventory System is managed as a monorepo using **Turborepo**. Follow these steps to set up and run the codebase locally.
 
-- **Frontend App**: Built with React 19 and Tailwind CSS v4, containing client-side pages in the `apps/frontend/src/pages/` directory.
-- **Backend API**: An Express application using Prisma ORM to interact with PostgreSQL, containing routes in `apps/backend/src/routes/` and business logic services in `apps/backend/src/services/`.
+### Environment Setup
 
----
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/jairosoft-com/jit-inventory-system.git
+    cd jit-inventory-system
+    ```
+2.  **Install Monorepo Dependencies**:
+    ```bash
+    npm install
+    ```
+3.  **Configure Local Environment Settings**:
+    - Duplicate the template file: `cp .env.example .env`
+    - Adjust configurations (e.g., `DATABASE_URL`, `JWT_ACCESS_SECRET`, `REDIS_URL`, etc.). Refer to the `TECHNICAL_MANUAL.md` for details on each parameter.
 
-## 2. User Roles & Permissions Matrix
+### Infrastructure & Database Setup
 
-The system enforces database-driven Role-Based Access Control (RBAC) with three pre-defined roles.
+1.  **Boot Core Support Services**:
+    Spin up PostgreSQL, MinIO, Redis, and MailDev containers in the background:
+    ```bash
+    docker compose up postgres minio maildev redis -d
+    ```
+2.  **Initialize Relational Database Schema**:
+    Generate the Prisma client, apply migrations, and seed default roles and users:
 
-| Feature / Action              | Admin | Manager | Staff | Primary File Reference                                                                                                               |
-| :---------------------------- | :---: | :-----: | :---: | :----------------------------------------------------------------------------------------------------------------------------------- |
-| View Dashboard & KPIs         |  Yes  |   Yes   |  Yes  | [DashboardPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/DashboardPage.tsx)                   |
-| Request Equipment Borrowing   |  Yes  |   Yes   |  Yes  | [BorrowHistoryPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowHistoryPage.tsx)           |
-| Review & Approve Borrowing    |  Yes  |   Yes   |  No   | [BorrowRequestPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowRequestPage.tsx)           |
-| Trigger Overdue Status Checks |  Yes  |   Yes   |  No   | [BorrowRequestPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowRequestPage.tsx)           |
-| Manage Categories & Suppliers |  Yes  |   Yes   |  No   | [CategoryManagementPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/CategoryManagementPage.tsx) |
-| Log & Process Purchase Orders |  Yes  |   Yes   |  No   | [PurchaseOrderPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/PurchaseOrderPage.tsx)           |
-| Manage Equipment Maintenance  |  Yes  |   Yes   |  No   | [MaintenancePage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/MaintenancePage.tsx)               |
-| Approve Equipment Disposals   |  Yes  |   No    |  No   | [EquipmentPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/EquipmentPage.tsx)                   |
-| View System Audit Logs        |  Yes  |   No    |  No   | [AuditLogsPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/AuditLogsPage.tsx)                   |
-| User Account Administration   |  Yes  |   No    |  No   | [UserManagementPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/UserManagementPage.tsx)         |
+    ```bash
+    # Generate schema clients
+    npm run db:generate
 
----
+    # Run PostgreSQL migrations and seed RBAC/initial data
+    npm run db:migrate
+    ```
 
-## 3. Getting Started & Authentication
+### Launching Applications
 
-### Logging In
+- **Run All Applications Concurrently**:
+  Start the frontend and backend live reload dev servers together:
+  ```bash
+  npm run dev
+  ```
 
-1. Open the application in your browser:
-   - **Production Deployment**: Open `http://localhost` (or the server's LAN IP address `http://<server-ip>`).
-   - **Local Development**: Open `http://localhost:3000`.
-2. The login screen ([LoginPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/LoginPage.tsx)) will appear.
-3. Enter your corporate email and password.
-4. Click **Sign In**.
+  - **Frontend Web App**: Access at `http://localhost:3000`
+  - **Backend API Service**: Running at `http://localhost:3001`
+- **Run Applications Individually**:
 
-> [!NOTE]
-> The system uses a secure two-token JWT authentication strategy. Your access token is stored safely in temporary memory (Zustand), and the refresh token is kept in an HTTP-only cookie.
->
-> - In a local environment running on plain HTTP, the cookie is dynamic (`COOKIE_SECURE=false`).
-> - In standard production deployments, `COOKIE_SECURE` should be set to `true` with HTTPS enabled to prevent session hijacking over corporate WiFi.
+  ```bash
+  # Run Frontend Only
+  npm run dev --workspace=apps/frontend
 
----
-
-## 4. Dashboard & Alerts Quick Guide
-
-The Dashboard ([DashboardPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/DashboardPage.tsx)) serves as the system landing page.
-
-- **KPI Cards**: Displays counts for Total Assets, Available Equipment, Low-Stock items, and Overdue Borrows.
-- **Notification Bell**: Displays live, unread notifications for low-stock triggers, upcoming warranty expiries, and overdue borrow status updates.
-- **System Warning Banners**:
-  - **Low Stock Alerts**: Displays bulk consumable items that have dropped below their defined reorder point.
-  - **Overdue Equipment Alerts**: Critical alerts showing equipment currently unreturned past their due date, complete with the borrower's name and contact details.
-
----
-
-## 5. Inventory & Category Management
-
-### Categories
-
-Before registering items, categories must be configured in [CategoryManagementPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/CategoryManagementPage.tsx):
-
-1. Click **Categories** in the navigation bar.
-2. Click **+ Add Category**.
-3. Provide a Name, Description, and select the **Item Type**:
-   - `EQUIPMENT`: Serialized physical devices (e.g., Laptop, Keyboard, Monitor).
-   - `CONSUMABLE`: Bulk items tracked by quantity (e.g., RJ45 Connectors, Batteries, HDMI Cables).
-   - `DIGITAL_ASSET`: Licenses and software keys (e.g., Adobe CC subscription, domain registrations).
-4. Save the Category.
-
-### Registering Items & Bulk Management
-
-Manage catalog items in [InventoryManagementPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/InventoryManagementPage.tsx):
-
-- **Create Item**: Click **+ Add Item**, assign it to a category, write a description, upload a picture, and save.
-- **Consumables Stocking**: Consumables are logged with their stock unit (e.g., Pieces, Boxes) and a **Reorder Point**.
-  - Use **Stock In / Stock Out** actions to manually adjust counts, which registers a record in the stock movements ledger.
-- **Equipment Specific Profile**: Saving an item classified under the `EQUIPMENT` category generates an entry in the equipment ledger ([EquipmentPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/EquipmentPage.tsx)) where individual Serial Numbers, Brand, Model, Condition (New, Good, Fair, Poor), and Location must be added.
+  # Run Backend Only
+  npm run dev --workspace=apps/backend
+  ```
 
 ---
 
-## 6. Equipment Borrowing Lifecycle
+## 2. Commit Guidelines & Code Quality Checklist
 
-Equipment borrowing follows a strict request-review-return flow:
+Before committing any code to version control, verify that your changes adhere to the following checklist. Doing so ensures clean code review cycles and prevents broken pipelines.
 
-```mermaid
-graph TD
-    A[Staff requests item in BorrowHistoryPage] --> B(Status: PENDING)
-    B --> C{Manager/Admin action in BorrowRequestPage}
-    C -->|Approve| D(Status: APPROVED / BORROWED)
-    C -->|Reject| E(Status: REJECTED)
-    D --> F{Is due date exceeded?}
-    F -->|Yes| G[Status: OVERDUE - Alarm on Dashboard]
-    F -->|No / Return Triggered| H[Staff returns item]
-    G --> H
-    H --> I[Manager processes return & assesses condition]
-    I --> J(Status: RETURNED - Equipment Available)
+- **No Secrets or Credentials**: Never commit `.env` files, API keys, private certificates, or local configurations to Git.
+- **Targeted Commits**: Do not include unrelated edits or layout format sweeps alongside your functional task code.
+- **Linting & Code Formatting**: Run code checks to ensure conformity to the project style:
+
+  ```bash
+  # Lint files
+  npm run lint
+
+  # Format files using Prettier
+  npm run format
+  ```
+
+- **Local Testing Verification**: Ensure unit and integration tests compile and pass before pushing:
+  ```bash
+  npm run test --workspace=apps/backend
+  ```
+- **Error Handling**: Wrap network requests, DB transactions, and unsafe parses in robust error handlers, returning clear message states rather than allowing the process to crash.
+- **Documentation updates**: Keep the `TECHNICAL_MANUAL.md` updated if you modify schemas, configurations, or introduce new modules.
+
+### 2.1 Commit Message Format (Conventional Commits)
+
+We enforce the **Conventional Commits** format for all commit messages:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
 ```
 
-### Step 1: Submitting a Borrow Request (Staff)
+#### Valid Types
 
-1. Navigate to **My Borrow History** ([BorrowHistoryPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowHistoryPage.tsx)).
-2. Click **+ Request Equipment**.
-3. Select the equipment item from the available listing, choose the target **Expected Return Date**, and write purpose notes.
-4. Click **Submit Request**. The request is logged as `PENDING`.
+| Type       | Description                                                  |
+| :--------- | :----------------------------------------------------------- |
+| `feat`     | A new user-facing feature                                    |
+| `fix`      | A bug fix                                                    |
+| `docs`     | Documentation changes only                                   |
+| `style`    | Code style/formatting changes (whitespace, semicolons, etc.) |
+| `refactor` | Code refactoring without behavior change                     |
+| `test`     | Adding or updating tests                                     |
+| `chore`    | Build process, CI/CD pipelines, or developer tool changes    |
+| `perf`     | Performance improvements                                     |
 
-### Step 2: Approving or Rejecting Requests (Manager/Admin)
+#### Valid Scopes
 
-1. Go to **Borrow Requests** ([BorrowRequestPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowRequestPage.tsx)).
-2. Locate the pending request.
-3. Review notes and return date, then click **Approve** or **Reject** (requiring rejection reasons).
-4. On approval, the equipment's status atomically updates to `BORROWED`, locking it from other requests.
+Specify the app, module, or database package being modified, such as: `frontend`, `backend`, `prisma`, `shared`, `auth`, `inventory`, `equipment`, `borrow`, etc.
 
-### Step 3: Returning Equipment
+#### Examples
 
-1. When the staff member returns the physical item, a Manager or Admin must locate the active record in [BorrowRequestPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowRequestPage.tsx).
-2. Click **Process Return**.
-3. Select the item's return condition (Good, Fair, Poor).
-4. Save the entry. The item status transitions back to `AVAILABLE`.
-
-### Step 4: Overdue Checks
-
-1. Managers can click the **Run Overdue Check** button in [BorrowRequestPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowRequestPage.tsx) to scan all records.
-2. Any items past their return date are updated to `OVERDUE`, triggering dashboard warnings and email alerts.
+- `feat(backend): implement JWT refresh token rotation`
+- `fix(inventory): prevent stock quantity from going below zero`
+- `docs(readme): add environment variable documentation`
+- `chore(ci): add type-check step to GitHub Actions pipeline`
 
 ---
 
-## 7. Equipment Maintenance & Repairs
+## 3. Pull Request (PR) Protocols
 
-Equipment that is broken or requires checkups should be routed to Maintenance ([MaintenancePage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/MaintenancePage.tsx)):
+To integrate features or fixes, developers must follow the structured pull request pipeline.
 
-1. Navigate to **Maintenance**.
-2. Click **+ Log Maintenance**.
-3. Select the target asset. Eligible items must be in `Good`, `Fair`, or `Poor` condition and not currently borrowed.
-4. Enter the maintenance details, set status to `UNDER_MAINTENANCE` (or `SCHEDULED` for future checkups), and select the performer.
-5. While maintenance is active, the equipment's availability remains locked.
-6. Once repairs are completed, update the maintenance log status to `COMPLETED`, specify the resolution details, and assign the new condition status. The equipment will automatically return to service as `AVAILABLE`.
+### 3.1 Branch Naming Convention
 
----
+All branches created in the repository must follow our standard prefixing conventions to easily identify the type of work they contain:
 
-## 8. Equipment Disposal
+| Prefix      | Purpose                                  | Example                                |
+| :---------- | :--------------------------------------- | :------------------------------------- |
+| `feature/`  | New features or functionality            | `feature/borrow-workflow`              |
+| `bugfix/`   | Bug fixes                                | `bugfix/stock-quantity-race-condition` |
+| `hotfix/`   | Critical production fixes                | `hotfix/auth-token-refresh`            |
+| `chore/`    | Non-code updates (CI/CD, docs, configs)  | `chore/update-ci-pipeline`             |
+| `refactor/` | Code refactoring without behavior change | `refactor/prisma-service-cleanup`      |
 
-When an equipment asset becomes obsolete, gets lost, or is damaged beyond repair, it must be officially decommissioned using the Disposal workflow in [EquipmentPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/EquipmentPage.tsx):
+#### Branch Flow Hierarchy
 
-1. Find the asset in the **Equipment** table.
-2. Select **Dispose Asset** from the actions menu.
-3. Select a reason: `DAMAGED`, `OBSOLETE`, or `SOLD`.
-4. Provide purchase price details and disposal notes.
-5. Click **Submit**.
+Branches flow sequentially from features up to production:
 
-> [!IMPORTANT]
-> To prevent unauthorized asset decommissions, disposals must be reviewed and approved by an **Admin**. Once approved, the item's status transitions to `DISPOSED` and it is soft-deleted from active listings but preserved in historical logs.
+```
+main ← develop ← feature/your-feature
+```
 
----
+- **`main`**: Production-ready code. This is a protected branch.
+- **`develop`**: Central integration branch.
 
-## 9. Procurement & Purchase Orders (PO)
+### 3.2 Target Integration Branch
 
-Managers and Admins can coordinate inventory replenishment through the Purchase Orders workflow ([PurchaseOrderPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/PurchaseOrderPage.tsx)):
+All work branches (e.g., `feature/ticket-101`, `bugfix/alert-overflow`) must be created off the latest state of the `develop` branch.
 
-### Step 1: Manage Suppliers
+- **All Pull Requests must target the `develop` branch.** Pushing directly to `main` or `release/*` is restricted.
 
-1. Navigate to **Suppliers** ([SupplierManagementPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/SupplierManagementPage.tsx)).
-2. Add suppliers, capturing contact names, phone numbers, email addresses, and locations.
+### 3.3 Pull Request Template Requirement
 
-### Step 2: Create a PO
+Every pull request must utilize and fully fill out the [pull_request_template.md](file:///c:/Users/Admin/Desktop/jit-inventory-system/pull_request_template.md). This template forces standardized review documentation:
 
-1. Go to **Purchase Orders** ([PurchaseOrderPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/PurchaseOrderPage.tsx)).
-2. Click **+ Create Purchase Order**.
-3. Select the supplier.
-4. Add items from the catalog, specify quantities, and set costs. The total PO cost is calculated automatically.
-5. Click **Save as Draft** or **Submit for Approval**.
-
-### Step 3: PO Lifecycle Processing
-
-POs progress through the following statuses:
-
-- `DRAFT` — Order is being compiled.
-- `PENDING_APPROVAL` — Sent to managers/admins.
-- `APPROVED` — Authorized to place order.
-- `ORDERED` — Placed with supplier.
-- `RECEIVED` — Inventory delivered. Receiving a PO automatically prompts you to log item intakes:
-  - For consumables, stock quantities automatically increase.
-  - For equipment, users are prompted to generate individual Asset IDs and serial numbers.
-- `CANCELLED` — Voided order.
+1.  **Ticket / Task**: Specify the ticket ID (e.g., `#1054`) or the exact task name from Azure DevOps.
+2.  **Summary**: Provide a high-level explanation of the target goal and changes.
+3.  **Changes Made**: Provide a bulleted list of modified directories, schema alterations, or store state additions.
+4.  **How to Test**: Document exact step-by-step instructions for peer testers to verify execution.
+5.  **Screenshots / Recording**: If the changes involve UI adjustments, drag and drop visual proof (images, video logs) directly into the PR description.
+6.  **Checklist**:
+    - [ ] Created from latest `develop` branch
+    - [ ] Tested locally
+    - [ ] Did not commit `.env` or secret keys
+    - [ ] Did not include unrelated changes
+    - [ ] Added error handling where needed
+    - [ ] Updated documentation if needed
+7.  **Notes**: Document any known issues, external blockers, or specific warnings reviewers must keep in mind.
 
 ---
 
-## 10. Reports & System Audit Trail
+## 4. Azure DevOps Ticket Management Workflow
 
-### Generating Reports
+We use Azure DevOps to coordinate agile tasks and sprints. Every ticket's board column represents the physical state of the development task. Developers are responsible for maintaining exact columns for their tickets:
 
-Navigate to the Reports module ([ReportsPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/ReportsPage.tsx)):
+```mermaid
+stateDiagram-v2
+    [*] --> Grooming_Estimation : 1. P.O creates ticket & assigns
+    Grooming_Estimation --> Ready_For_Dev : 2. Refinement & Tasks Created
+    Ready_For_Dev --> Active : 3. Dev starts working
+    Active --> Peer_Testing : 4. Dev submits PR
 
-1. Choose report type: **Current Inventory Summary** or **Audit Ledger Summary**.
-2. Select target filters (e.g., date ranges, categories, or transaction types).
-3. Click **Export to Excel** (`.xlsx` file) or **Export to PDF** (`.pdf` document).
+    state QA_Gate <<choice>>
+    Peer_Testing --> QA_Gate : 5. Peer review results
+    QA_Gate --> Ready_For_QA : Approved
+    QA_Gate --> Back_To_Dev : Refinement Needed
 
-### System Audit Trail
+    Back_To_Dev --> Active : Dev fixes issues
+    Ready_For_QA --> [*] : QA Completed
 
-Admins can navigate to **Audit Logs** ([AuditLogsPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/AuditLogsPage.tsx)) to view a read-only list of every single action performed in the system:
+    state Exceptions {
+        On_Hold : PO Decision Needed
+        Blocked : External Blocker
+    }
+```
 
-- Shows who performed the action, which table was modified, when it occurred, and provides a raw JSON representation of the "before" and "after" state.
+### Steps & State Transitions
+
+1.  **Ticket Creation**: The Product Owner (P.O) creates the necessary ticket outlining the requirements for feature development, bug fixes, or system refinement, placing it on the backlog.
+2.  **Refinement & Tasks**: Once a ticket is assigned, the developer moves the ticket to the **Grooming** or **Estimation** column. During this phase, the developer refines requirements and breaks the ticket down into individual sub-tasks.
+3.  **Ready for Dev**: Once all sub-tasks are created and estimated, the developer moves the ticket to the **Ready for Dev** column, indicating it is queued for active coding.
+4.  **Active Work**: When the developer begins coding, writing tests, or configuring features, they move the ticket to the **Active** column. No ticket should sit in "Active" unless work is currently ongoing.
+5.  **Peer Testing (Code Review)**: When the developer completes all tasks, passes local tests, fills out the `pull_request_template.md`, and submits a pull request to the `develop` branch, they move the ticket to the **Peer Testing** column.
+6.  **Code Approval / QA Gate**:
+    - **Approved**: If the peer reviewer tests the branch according to the "How to Test" guidelines and approves the PR, the peer tester moves the ticket to the **Ready for QA** column.
+    - **Rejected / Issues Found**: If the peer reviewer discovers code flaws or testing bugs, the peer tester moves the ticket to the **Back to Dev** column. The developer must address these and move it back through Active -> Peer Testing.
+7.  **On Hold & Blocked Columns**:
+    - **On Hold**: If a ticket's requirements change or need critical clarification from the Product Owner, the developer moves it to **On Hold**.
+    - **Blocked**: If the developer faces an external blocker (e.g., API server offline, missing credentials from vendor) that prevents work, the developer moves the ticket to **Blocked** until resolved.
 
 ---
 
-## 11. Troubleshooting & FAQ
+## 5. Database Change Process
 
-#### Q: Why is my borrow request still shown as "Pending"?
+When modifying the database schema or seed data, follow this strict 7-step process to ensure database schemas remain synchronized across all team members and the shared environment:
 
-**A**: Borrow requests must be approved by a Manager or Admin. If they haven't reviewed it, the request remains pending. Reach out to an inventory administrator.
-
-#### Q: How are "Low Stock Alerts" triggered?
-
-**A**: Consumable profiles specify a **Reorder Point** value. When stock counts drop to or below this point, a warning is raised in the notifications dropdown and on the dashboard.
-
-#### Q: What is an Asset ID vs a Serial Number?
-
-**A**:
-
-- **Asset ID** is a unique, human-readable identifier generated by the system (e.g., `JIT-EQ-0105`) for internal tracking and barcoding.
-- **Serial Number** is the manufacturer's serial code stamped on the hardware (e.g., `S/N: 82FX291X04`).
-
-#### Q: An item was returned but is still flagged as "Borrowed".
-
-**A**: The staff member cannot close a borrow record themselves. A Manager or Admin must process the return in [BorrowRequestPage.tsx](file:///c:/Users/Admin/Desktop/jit-inventory-system/apps/frontend/src/pages/BorrowRequestPage.tsx) to officially check the item back in.
+1.  **Edit Schema**: Make changes to the database structure in [schema.prisma](file:///c:/Users/Admin/Desktop/jit-inventory-system/prisma/schema.prisma).
+2.  **Generate Local Migration**: Run the migration script to apply the changes to your local PostgreSQL instance and generate the migration files:
+    ```bash
+    npm run db:migrate
+    ```
+    This script generates SQL files inside the `prisma/migrations/` directory.
+3.  **Update Seeds**: If your changes introduce new tables, roles, permissions, or system metadata, add the corresponding records to [seed.ts](file:///c:/Users/Admin/Desktop/jit-inventory-system/prisma/seed.ts).
+4.  **Commit Code & Migrations**: Commit both your schema updates and the generated migration SQL files together.
+5.  **Declare Migrations in PR**: In your PR description, **explicitly state that this PR contains database migrations** to alert other team members.
+6.  **Deploy to Shared Database**: Once the PR is approved and merged into the `develop` branch, **the author of the PR is responsible for executing the migration against the shared database instance** using Prisma deploy commands:
+    ```bash
+    npx prisma migrate deploy
+    ```
+7.  **Sync Local Environments**: When pulling updates from the `develop` branch, teammates must run migrations locally to stay in sync:
+    ```bash
+    npx prisma migrate deploy
+    ```
+    If new seed data is present, run:
+    ```bash
+    npx prisma db seed
+    ```

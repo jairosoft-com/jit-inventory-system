@@ -261,8 +261,11 @@ export class ProcurementService {
       throw new Error('Only purchase orders in DRAFT status can be edited');
     }
 
-    if (roleName === 'MANAGER' && existing.createdById !== userId) {
-      throw new Error('Managers can only edit their own purchase orders');
+    // Editing is restricted to the purchase order's own creator, regardless
+    // of role — an Admin cannot edit another Admin's or a Manager's PO, a
+    // Manager cannot edit another Manager's or an Admin's PO, and so on.
+    if (existing.createdById !== userId) {
+      throw new Error('You can only edit purchase orders you created');
     }
 
     // If changing supplier, validate it
@@ -723,7 +726,11 @@ export class ProcurementService {
     userId?: number,
     roleName?: string,
   ) {
-    await this.findOne(id, userId, roleName);
+    const po = await this.findOne(id, userId, roleName);
+
+    if (userId !== undefined && po.createdById !== userId) {
+      throw new Error('You can only manage attachments on purchase orders you created');
+    }
 
     return prisma.purchaseOrderAttachment.create({
       data: {
@@ -735,13 +742,54 @@ export class ProcurementService {
     });
   }
 
+  // Replaces one specific attachment with a newly uploaded file, keeping any
+  // other attachments on the PO untouched (Scenario 4).
+  static async replaceAttachment(
+    poId: number,
+    attachmentId: number,
+    data: AddAttachmentInput,
+    userId?: number,
+    roleName?: string,
+  ) {
+    const po = await this.findOne(poId, userId, roleName);
+
+    if (userId !== undefined && po.createdById !== userId) {
+      throw new Error('You can only manage attachments on purchase orders you created');
+    }
+
+    const existing = await prisma.purchaseOrderAttachment.findFirst({
+      where: { id: attachmentId, purchaseOrderId: poId },
+    });
+
+    if (!existing) {
+      throw new Error('Attachment not found');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      await tx.purchaseOrderAttachment.delete({ where: { id: attachmentId } });
+
+      return tx.purchaseOrderAttachment.create({
+        data: {
+          purchaseOrderId: poId,
+          fileUrl: data.fileUrl,
+          fileName: data.fileName,
+          fileSize: data.fileSize ?? null,
+        },
+      });
+    });
+  }
+
   static async deleteAttachment(
     poId: number,
     attachmentId: number,
     userId?: number,
     roleName?: string,
   ) {
-    await this.findOne(poId, userId, roleName);
+    const po = await this.findOne(poId, userId, roleName);
+
+    if (userId !== undefined && po.createdById !== userId) {
+      throw new Error('You can only manage attachments on purchase orders you created');
+    }
 
     const attachment = await prisma.purchaseOrderAttachment.findFirst({
       where: { id: attachmentId, purchaseOrderId: poId },

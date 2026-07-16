@@ -87,21 +87,18 @@ export const addAttachmentSchema = z.object({
     .refine(
       (val) => {
         const allowedTypes = [
-          'data:image/jpeg',
-          'data:image/jpg',
-          'data:image/png',
           'data:application/pdf',
           'data:application/msword',
           'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         ];
         return (
           allowedTypes.some((type) => val.startsWith(type)) ||
-          /\.(jpg|jpeg|png|pdf|doc|docx)$/i.test(val)
+          /\.(pdf|doc|docx)$/i.test(val)
         );
       },
       {
         message:
-          'Unsupported file type. Only JPG, JPEG, PNG, PDF, DOC, and DOCX files are allowed.',
+          'Unsupported file type. Only PDF, DOC, and DOCX files are allowed.',
       },
     )
     .refine(

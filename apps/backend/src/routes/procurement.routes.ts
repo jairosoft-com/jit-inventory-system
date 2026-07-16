@@ -132,6 +132,10 @@ router.put(
         res.status(404).json({ message });
         return;
       }
+      if (message.includes('you created')) {
+        res.status(403).json({ message });
+        return;
+      }
       if (message.includes('DRAFT')) {
         res.status(409).json({ message });
         return;
@@ -243,6 +247,51 @@ router.post(
         res.status(404).json({ message });
         return;
       }
+      if (message.includes('you created')) {
+        res.status(403).json({ message });
+        return;
+      }
+      res.status(400).json({ message });
+    }
+  },
+);
+
+// ── PUT /procurement/:id/attachments/:attachmentId ───────────────────────────
+router.put(
+  '/:id/attachments/:attachmentId',
+  authorize('purchase_orders:update'),
+  validate(addAttachmentSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const attachmentId = parseInt(req.params.attachmentId as string, 10);
+      if (isNaN(id) || isNaN(attachmentId)) {
+        res
+          .status(400)
+          .json({ message: 'Invalid purchase order or attachment ID' });
+        return;
+      }
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
+      const attachment = await ProcurementService.replaceAttachment(
+        id,
+        attachmentId,
+        req.body as AddAttachmentInput,
+        req.user!.id,
+        role?.name,
+      );
+      res.status(200).json(attachment);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bad request';
+      if (message.includes('not found')) {
+        res.status(404).json({ message });
+        return;
+      }
+      if (message.includes('you created')) {
+        res.status(403).json({ message });
+        return;
+      }
       res.status(400).json({ message });
     }
   },
@@ -277,6 +326,10 @@ router.delete(
         error instanceof Error ? error.message : 'Internal server error';
       if (message.includes('not found')) {
         res.status(404).json({ message });
+        return;
+      }
+      if (message.includes('you created')) {
+        res.status(403).json({ message });
         return;
       }
       res.status(500).json({ message });

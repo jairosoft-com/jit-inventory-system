@@ -17,6 +17,19 @@ import {
   type ListPurchaseOrdersQuery,
   type AddAttachmentInput,
 } from '../schemas/procurement.schema.js';
+import { AppError } from '../lib/errors.js';
+
+// Maps a caught error to an HTTP response. Typed AppErrors (NotFoundError,
+// ForbiddenError, etc.) carry their own statusCode, so this never has to
+// guess based on error message text. Anything else is an unexpected error.
+function respondWithError(res: Response, error: unknown): void {
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json({ message: error.message });
+    return;
+  }
+  const message = error instanceof Error ? error.message : 'Bad request';
+  res.status(400).json({ message });
+}
 
 const router = Router();
 
@@ -93,13 +106,7 @@ router.get(
       const po = await ProcurementService.findOne(id, req.user!.id, role?.name);
       res.status(200).json(po);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
-        return;
-      }
-      res.status(500).json({ message });
+      respondWithError(res, error);
     }
   },
 );
@@ -127,13 +134,13 @@ router.put(
       );
       res.status(200).json(po);
     } catch (error) {
+      if (error instanceof AppError) {
+        respondWithError(res, error);
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Bad request';
       if (message.includes('not found') || message.includes('inactive')) {
         res.status(404).json({ message });
-        return;
-      }
-      if (message.includes('you created')) {
-        res.status(403).json({ message });
         return;
       }
       if (message.includes('DRAFT')) {
@@ -242,16 +249,7 @@ router.post(
       );
       res.status(201).json(attachment);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Bad request';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
-        return;
-      }
-      if (message.includes('you created')) {
-        res.status(403).json({ message });
-        return;
-      }
-      res.status(400).json({ message });
+      respondWithError(res, error);
     }
   },
 );
@@ -283,16 +281,7 @@ router.put(
       );
       res.status(200).json(attachment);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Bad request';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
-        return;
-      }
-      if (message.includes('you created')) {
-        res.status(403).json({ message });
-        return;
-      }
-      res.status(400).json({ message });
+      respondWithError(res, error);
     }
   },
 );
@@ -322,17 +311,7 @@ router.delete(
       );
       res.status(200).json(result);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
-        return;
-      }
-      if (message.includes('you created')) {
-        res.status(403).json({ message });
-        return;
-      }
-      res.status(500).json({ message });
+      respondWithError(res, error);
     }
   },
 );

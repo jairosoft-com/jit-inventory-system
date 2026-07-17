@@ -18,6 +18,7 @@ import reportsRouter from './routes/reports.routes.js';
 import procurementRouter from './routes/procurement.routes.js';
 import alertsRouter from './routes/alerts.routes.js';
 import { MaintenanceReminderService } from './services/maintenance-reminder.service.js';
+import { errorHandler } from './middleware/errorHandler.js';
 import maintenanceLogsRouter from './routes/maintenance-logs.routes.js';
 import maintenanceAlertsRouter from './routes/maintenance-alerts.routes.js';
 import { AlertService } from './services/alert.service.js';
@@ -80,6 +81,12 @@ app.use('/api/procurement-alerts', globalLimiter); // Bucket 1: lightweight poll
 app.use('/api/maintenance-alerts', globalLimiter); // Bucket 1: lightweight polling
 
 // Body Parser
+// Attachments are sent as base64 data URLs, which inflate the raw file size
+// by ~37%. A flat 10mb JSON limit would silently reject legitimate files
+// well under the documented 10MB cap. Give /api/procurement a limit sized
+// for a true 10MB file (10MB * 4/3 ≈ 13.3MB, +headroom for JSON overhead),
+// applied ahead of the general parser so it takes effect for this path only.
+app.use('/api/procurement', express.json({ limit: '15mb' }));
 app.use(express.json({ limit: '10mb' }));
 
 // API Routes
@@ -104,6 +111,9 @@ app.use('/api/audit-logs', auditLogsRouter);
 app.get('/api/healthz', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Global error handler — must be registered after all routes/middleware.
+app.use(errorHandler);
 
 // Start Server
 const port = env.BACKEND_PORT || 3001;

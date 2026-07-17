@@ -86,7 +86,7 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
   },
 };
 
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -102,6 +102,7 @@ export default function PurchaseOrderPage() {
     updatePurchaseOrder,
     updatePurchaseOrderStatus,
     addAttachment,
+    replaceAttachment,
     deleteAttachment,
     clearError,
   } = useProcurementStore();
@@ -168,7 +169,12 @@ export default function PurchaseOrderPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusAction, setStatusAction] = useState<POStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string;
+    fileName: string;
+  } | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
+  const [replaceTargetId, setReplaceTargetId] = useState<number | null>(null);
 
   // Equipment Integration States
   const [poEquipment, setPoEquipment] = useState<any[]>([]);
@@ -276,6 +282,7 @@ export default function PurchaseOrderPage() {
 
   const handleOpenEdit = (po: PurchaseOrder) => {
     if (po.status !== 'DRAFT') return;
+    if (po.createdById !== user?.id) return;
     setEditingPO(po);
     setFormData({
       supplierId: String(po.supplierId),
@@ -478,25 +485,30 @@ export default function PurchaseOrderPage() {
   };
 
   // ── Attachments ──────────────────────────────────────────────────────────
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!detailPO) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-
+  const validateAttachmentFile = (file: File): boolean => {
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       alert(
-        `Invalid file type "${ext}". Only Images (JPG, JPEG, PNG), PDF, and Word (DOC, DOCX) files are allowed.`,
+        `Invalid file type "${ext}". Only PDF and Word (DOC, DOCX) files are allowed.`,
       );
-      return;
+      return false;
     }
-
     if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
       alert(`File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`);
-      return;
+      return false;
     }
+    return true;
+  };
+
+  // Uploads an additional document onto the PO (does not touch existing ones).
+  const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!detailPO) return;
+    if (detailPO.createdById !== user?.id) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (!validateAttachmentFile(file)) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -508,10 +520,41 @@ export default function PurchaseOrderPage() {
           fileName: file.name,
           fileSize: file.size,
         });
-        setSuccessMessage('Attachment uploaded successfully');
+        setSuccessMessage('Document uploaded successfully');
         setTimeout(() => setSuccessMessage(null), 4000);
       } catch (err: unknown) {
-        alert(err instanceof Error ? err.message : 'Failed to upload attachment');
+        alert(err instanceof Error ? err.message : 'Failed to upload document');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Replaces one specific existing attachment with a newly selected file.
+  const handleReplaceAttachment = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    attachmentId: number,
+  ) => {
+    if (!detailPO) return;
+    if (detailPO.createdById !== user?.id) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (!validateAttachmentFile(file)) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const url = event.target?.result as string;
+      if (!url) return;
+      try {
+        await replaceAttachment(detailPO.id, attachmentId, {
+          fileUrl: url,
+          fileName: file.name,
+          fileSize: file.size,
+        });
+        setSuccessMessage('Document replaced successfully');
+        setTimeout(() => setSuccessMessage(null), 4000);
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : 'Failed to replace document');
       }
     };
     reader.readAsDataURL(file);
@@ -519,6 +562,7 @@ export default function PurchaseOrderPage() {
 
   const handleDeleteAttachment = async (attachmentId: number) => {
     if (!detailPO) return;
+    if (detailPO.createdById !== user?.id) return;
     if (!window.confirm('Are you sure you want to remove this attachment?')) return;
     try {
       await deleteAttachment(detailPO.id, attachmentId);
@@ -809,7 +853,7 @@ export default function PurchaseOrderPage() {
                           </button>
                           {canUpdate &&
                             po.status === 'DRAFT' &&
-                            (roleName === 'ADMIN' || po.createdById === user?.id) && (
+                            po.createdById === user?.id && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(po)}
@@ -1429,19 +1473,32 @@ export default function PurchaseOrderPage() {
 
                 {detailTab === 'attachments' && (
                   <div className="space-y-4">
-                    {canUpdate && (
+                    {canUpdate && detailPO.createdById === user?.id && (
                       <div className="flex items-center gap-3">
                         <label className="rounded-xl border border-dashed border-[var(--surface-border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition cursor-pointer flex items-center gap-2">
-                          <span>📎</span> Upload File (Images, PDF, Word — Max 10MB)
+                          <span>📎</span> Upload Another Document (PDF, Word — Max 10MB)
                           <input
                             type="file"
-                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                            accept=".pdf,.doc,.docx"
                             className="hidden"
-                            onChange={handleFileUpload}
+                            onChange={handleAddAttachment}
                           />
                         </label>
                       </div>
                     )}
+
+                    {/* Shared hidden input used by each row's Replace button */}
+                    <input
+                      ref={replaceFileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (replaceTargetId != null) {
+                          handleReplaceAttachment(e, replaceTargetId);
+                        }
+                      }}
+                    />
 
                     {detailPO.attachments.length === 0 ? (
                       <p className="text-sm text-[var(--text-secondary)] italic py-8 text-center">
@@ -1467,15 +1524,15 @@ export default function PurchaseOrderPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              {att.fileUrl.startsWith('data:image') && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewImageUrl(att.fileUrl)}
-                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                                >
-                                  Preview
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewAttachment({ url: att.fileUrl, fileName: att.fileName })
+                                }
+                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                              >
+                                Open
+                              </button>
                               <a
                                 href={att.fileUrl}
                                 download={att.fileName}
@@ -1483,7 +1540,21 @@ export default function PurchaseOrderPage() {
                               >
                                 Download
                               </a>
-                              {canUpdate && (
+                              {canUpdate && detailPO.createdById === user?.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplaceTargetId(att.id);
+                                    // Defer click until state is set, then reset the input so
+                                    // selecting the same file twice still fires onChange.
+                                    requestAnimationFrame(() => replaceFileInputRef.current?.click());
+                                  }}
+                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                                >
+                                  Replace
+                                </button>
+                              )}
+                              {canUpdate && detailPO.createdById === user?.id && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteAttachment(att.id)}
@@ -1540,37 +1611,56 @@ export default function PurchaseOrderPage() {
           document.body,
         )}
 
-      {/* ── Image Preview Modal ────────────────────────────────────────────── */}
-      {previewImageUrl &&
+      {/* ── Document Preview Modal ─────────────────────────────────────────── */}
+      {previewAttachment &&
         createPortal(
           <div
             className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in cursor-pointer"
-            onClick={() => setPreviewImageUrl(null)}
+            onClick={() => setPreviewAttachment(null)}
           >
             <div
-              className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col items-center justify-center animate-fade-in-up cursor-default"
+              className="relative w-full max-w-4xl h-[85vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col animate-fade-in-up cursor-default"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => setPreviewImageUrl(null)}
-                className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
-                aria-label="Close Preview"
-              >
-                ✕
-              </button>
-              <img
-                src={previewImageUrl}
-                alt="Attachment Preview"
-                className="max-w-full max-h-[80vh] object-contain rounded-xl"
-              />
-              <div className="mt-2 text-xs text-[var(--text-secondary)] py-1 font-semibold">
-                Click outside or press ✕ to close
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="text-sm font-medium text-[var(--text-primary)] truncate pr-4">
+                  {previewAttachment.fileName}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPreviewAttachment(null)}
+                  className="rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+                  aria-label="Close Preview"
+                >
+                  ✕
+                </button>
               </div>
+              {previewAttachment.fileName.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewAttachment.url}
+                  title={previewAttachment.fileName}
+                  className="flex-1 w-full rounded-xl border border-[var(--surface-border)]"
+                />
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+                  <span className="text-4xl">📄</span>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Word documents can't be previewed in the browser. Download it to view the contents.
+                  </p>
+                  <a
+                    href={previewAttachment.url}
+                    download={previewAttachment.fileName}
+                    className="rounded-xl bg-[var(--accent)] text-white px-4 py-2 text-sm font-semibold hover:bg-[var(--accent-hover)] transition"
+                  >
+                    Download {previewAttachment.fileName}
+                  </a>
+                </div>
+              )}
             </div>
           </div>,
           document.body,
         )}
+
 
       {/* ── Status Change Confirmation Dialog ─────────────────────────────── */}
       {isStatusDialogOpen &&

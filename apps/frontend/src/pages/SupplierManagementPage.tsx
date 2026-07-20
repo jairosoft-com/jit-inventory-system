@@ -7,8 +7,6 @@ import type { Supplier, SupplierHistory, SupplierStatusFilter } from '../store/s
 import './DashboardPage.css';
 import { PaginationBar } from '../components/PaginationBar';
 
-
-
 const STATUS_FILTER_OPTIONS: { value: SupplierStatusFilter; label: string }[] = [
   { value: 'active', label: 'Active Suppliers' },
   { value: 'inactive', label: 'Inactive Suppliers' },
@@ -390,9 +388,7 @@ export default function SupplierManagementPage() {
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Suppliers</h1>
-          <p className="dash-page-desc">
-            Manage supplier information and contact details
-          </p>
+          <p className="dash-page-desc">Manage supplier information and contact details</p>
         </div>
 
         {/* Action buttons */}
@@ -634,9 +630,7 @@ export default function SupplierManagementPage() {
                   className="rounded-xl border border-[var(--surface-border)] p-4 hover:shadow-[var(--shadow-sm)] transition"
                 >
                   <div className="flex flex-col gap-1">
-                    <h3 className="font-semibold text-[var(--text-primary)]">
-                      {sup.supplierName}
-                    </h3>
+                    <h3 className="font-semibold text-[var(--text-primary)]">{sup.supplierName}</h3>
                     {sup.contactPerson && (
                       <p className="text-xs text-[var(--text-secondary)]">
                         Contact:{' '}
@@ -648,17 +642,13 @@ export default function SupplierManagementPage() {
                     {sup.email && (
                       <p className="text-xs text-[var(--text-secondary)] truncate">
                         Email:{' '}
-                        <span className="font-medium text-[var(--text-primary)]">
-                          {sup.email}
-                        </span>
+                        <span className="font-medium text-[var(--text-primary)]">{sup.email}</span>
                       </p>
                     )}
                     {sup.phone && (
                       <p className="text-xs text-[var(--text-secondary)]">
                         Phone:{' '}
-                        <span className="font-medium text-[var(--text-primary)]">
-                          {sup.phone}
-                        </span>
+                        <span className="font-medium text-[var(--text-primary)]">{sup.phone}</span>
                       </p>
                     )}
                     <p className="mt-2 text-xs text-[var(--text-tertiary)] font-medium">
@@ -764,353 +754,360 @@ export default function SupplierManagementPage() {
       </section>
 
       {/* Creation & Editing Modal */}
-      {isFormOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  {editingSupplier ? 'Edit Supplier' : 'Register Supplier'}
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {editingSupplier
-                    ? 'Modify supplier properties and details below.'
-                    : 'Provide the required and optional fields to register a new supplier.'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFormOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            {formError && (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
-              {/* Supplier Name */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sup-name"
-                  className="text-xs font-semibold text-[var(--text-secondary)]"
-                >
-                  Supplier Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sup-name"
-                  required
-                  value={formData.supplierName}
-                  onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-                  placeholder="e.g. Globex Corporation, Acme Labs"
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              {/* Contact Person */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sup-contact"
-                  className="text-xs font-semibold text-[var(--text-secondary)]"
-                >
-                  Contact Person <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sup-contact"
-                  required
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  placeholder="e.g. John Doe, Sales Manager"
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              {/* Email */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sup-email"
-                  className="text-xs font-semibold text-[var(--text-secondary)]"
-                >
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sup-email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="e.g. sales@globex.com"
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              {/* Phone */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sup-phone"
-                  className="text-xs font-semibold text-[var(--text-secondary)]"
-                >
-                  Phone Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sup-phone"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="e.g. +1 (555) 019-2834"
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              {/* Address */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sup-address"
-                  className="text-xs font-semibold text-[var(--text-secondary)]"
-                >
-                  Business Address <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  id="sup-address"
-                  required
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Street, City, State, ZIP..."
-                  rows={2}
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                />
-              </div>
-
-              <div className="mt-4 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+      {isFormOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    {editingSupplier ? 'Edit Supplier' : 'Register Supplier'}
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {editingSupplier
+                      ? 'Modify supplier properties and details below.'
+                      : 'Provide the required and optional fields to register a new supplier.'}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {formError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+                {/* Supplier Name */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sup-name"
+                    className="text-xs font-semibold text-[var(--text-secondary)]"
+                  >
+                    Supplier Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="sup-name"
+                    required
+                    value={formData.supplierName}
+                    onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
+                    placeholder="e.g. Globex Corporation, Acme Labs"
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                {/* Contact Person */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sup-contact"
+                    className="text-xs font-semibold text-[var(--text-secondary)]"
+                  >
+                    Contact Person <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="sup-contact"
+                    required
+                    value={formData.contactPerson}
+                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                    placeholder="e.g. John Doe, Sales Manager"
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sup-email"
+                    className="text-xs font-semibold text-[var(--text-secondary)]"
+                  >
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="sup-email"
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="e.g. sales@globex.com"
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sup-phone"
+                    className="text-xs font-semibold text-[var(--text-secondary)]"
+                  >
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="sup-phone"
+                    required
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. +1 (555) 019-2834"
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                {/* Address */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sup-address"
+                    className="text-xs font-semibold text-[var(--text-secondary)]"
+                  >
+                    Business Address <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="sup-address"
+                    required
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Street, City, State, ZIP..."
+                    rows={2}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                  />
+                </div>
+
+                <div className="mt-4 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSubmitting && (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    )}
+                    {editingSupplier ? 'Save Changes' : 'Register Supplier'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* Profile History Timeline Modal */}
+      {isHistoryOpen &&
+        historySupplier &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl flex flex-col max-h-[85vh] animate-fade-in-up">
+              <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                    Supplier Profile History
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Chronological activity trail for{' '}
+                    <span className="font-semibold text-[var(--text-primary)]">
+                      {historySupplier.supplierName}
+                    </span>
+                    .
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsHistoryOpen(false);
+                    setHistorySupplier(null);
+                  }}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2">
+                {isLoading ? (
+                  <div className="py-12 text-center animate-pulse">
+                    <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                    <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                      Fetching history records...
+                    </p>
+                  </div>
+                ) : supplierHistory.length === 0 ? (
+                  <div className="py-12 text-center text-[var(--text-secondary)] italic">
+                    No activity history records found for this supplier.
+                  </div>
+                ) : (
+                  <div className="relative border-l border-[var(--surface-border)] ml-3 pl-6 space-y-6">
+                    {supplierHistory.map((log) => (
+                      <div key={log.id} className="relative">
+                        {/* Timeline indicator node */}
+                        <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--surface)] border-2 border-[var(--accent)]" />
+
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {getActionBadge(log)}
+                            <span className="text-xs text-[var(--text-secondary)] font-medium">
+                              by {log.performedBy}
+                            </span>
+                            <span className="text-xs text-[var(--text-tertiary)]">
+                              • {new Date(log.performedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          {renderLogChanges(log)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 border-t border-[var(--surface-border)] pt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsHistoryOpen(false);
+                    setHistorySupplier(null);
+                  }}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                >
+                  Close History
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* Archive Confirmation Dialog */}
+      {isArchiveConfirmOpen &&
+        archiveTargetSupplier &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-4 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-2xl text-red-600">
+                  ⚠️
+                </div>
+                <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
+                  Archive Supplier Record
+                </h2>
+              </div>
+
+              <div className="space-y-3 text-sm text-[var(--text-secondary)]">
+                <p>
+                  Are you sure you want to archive the supplier{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    "{archiveTargetSupplier.supplierName}"
+                  </span>
+                  ?
+                </p>
+                <p>
+                  This will move them to the Archived list. They will be marked as inactive and
+                  omitted from active selections.
+                </p>
+
+                <div className="rounded-xl bg-[var(--background-tertiary)] p-3 border border-[var(--surface-border)] text-xs space-y-1">
+                  <p className="font-semibold text-[var(--text-primary)]">
+                    System Integrity Summary:
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    <li>
+                      Linked Purchase Orders:{' '}
+                      <span className="font-semibold text-red-600">
+                        {archiveTargetSupplier._count?.purchaseOrders ?? 0}
+                      </span>
+                    </li>
+                    <li>Historical purchase orders remain fully linked.</li>
+                    <li>No database cascade deletions will occur.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsArchiveConfirmOpen(false);
+                    setArchiveTargetSupplier(null);
+                  }}
                   className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  type="button"
+                  onClick={handleArchiveConfirm}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                 >
-                  {isSubmitting && (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  )}
-                  {editingSupplier ? 'Save Changes' : 'Register Supplier'}
+                  Archive Supplier
                 </button>
               </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* Profile History Timeline Modal */}
-      {isHistoryOpen && historySupplier && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-2xl rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl flex flex-col max-h-[85vh] animate-fade-in-up">
-            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  Supplier Profile History
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Chronological activity trail for{' '}
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {historySupplier.supplierName}
-                  </span>
-                  .
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsHistoryOpen(false);
-                  setHistorySupplier(null);
-                }}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-2">
-              {isLoading ? (
-                <div className="py-12 text-center animate-pulse">
-                  <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-                  <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                    Fetching history records...
-                  </p>
-                </div>
-              ) : supplierHistory.length === 0 ? (
-                <div className="py-12 text-center text-[var(--text-secondary)] italic">
-                  No activity history records found for this supplier.
-                </div>
-              ) : (
-                <div className="relative border-l border-[var(--surface-border)] ml-3 pl-6 space-y-6">
-                  {supplierHistory.map((log) => (
-                    <div key={log.id} className="relative">
-                      {/* Timeline indicator node */}
-                      <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--surface)] border-2 border-[var(--accent)]" />
-
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {getActionBadge(log)}
-                          <span className="text-xs text-[var(--text-secondary)] font-medium">
-                            by {log.performedBy}
-                          </span>
-                          <span className="text-xs text-[var(--text-tertiary)]">
-                            • {new Date(log.performedAt).toLocaleString()}
-                          </span>
-                        </div>
-                        {renderLogChanges(log)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 border-t border-[var(--surface-border)] pt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsHistoryOpen(false);
-                  setHistorySupplier(null);
-                }}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-              >
-                Close History
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* Archive Confirmation Dialog */}
-      {isArchiveConfirmOpen && archiveTargetSupplier && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-2xl text-red-600">
-                ⚠️
-              </div>
-              <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
-                Archive Supplier Record
-              </h2>
-            </div>
-
-            <div className="space-y-3 text-sm text-[var(--text-secondary)]">
-              <p>
-                Are you sure you want to archive the supplier{' '}
-                <span className="font-semibold text-[var(--text-primary)]">
-                  "{archiveTargetSupplier.supplierName}"
-                </span>
-                ?
-              </p>
-              <p>
-                This will move them to the Archived list. They will be marked as inactive and
-                omitted from active selections.
-              </p>
-
-              <div className="rounded-xl bg-[var(--background-tertiary)] p-3 border border-[var(--surface-border)] text-xs space-y-1">
-                <p className="font-semibold text-[var(--text-primary)]">
-                  System Integrity Summary:
-                </p>
-                <ul className="list-disc pl-4 space-y-0.5">
-                  <li>
-                    Linked Purchase Orders:{' '}
-                    <span className="font-semibold text-red-600">
-                      {archiveTargetSupplier._count?.purchaseOrders ?? 0}
-                    </span>
-                  </li>
-                  <li>Historical purchase orders remain fully linked.</li>
-                  <li>No database cascade deletions will occur.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsArchiveConfirmOpen(false);
-                  setArchiveTargetSupplier(null);
-                }}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleArchiveConfirm}
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-              >
-                Archive Supplier
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
+            </section>
+          </div>,
+          document.body,
+        )}
 
       {/* Restore Confirmation Dialog */}
-      {isRestoreConfirmOpen && restoreTargetSupplier && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-2xl text-[var(--accent)]">
-                🔄
+      {isRestoreConfirmOpen &&
+        restoreTargetSupplier &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-4 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-2xl text-[var(--accent)]">
+                  🔄
+                </div>
+                <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
+                  Restore Supplier Record
+                </h2>
               </div>
-              <h2 className="mt-4 text-lg font-bold text-[var(--text-primary)]">
-                Restore Supplier Record
-              </h2>
-            </div>
 
-            <div className="space-y-3 text-sm text-[var(--text-secondary)]">
-              <p>
-                Are you sure you want to restore the supplier{' '}
-                <span className="font-semibold text-[var(--text-primary)]">
-                  "{restoreTargetSupplier.supplierName}"
-                </span>
-                ?
-              </p>
-              <p>
-                This will reactivate their profile, moving them back to the Active list and making
-                them available for procurement operations.
-              </p>
-            </div>
+              <div className="space-y-3 text-sm text-[var(--text-secondary)]">
+                <p>
+                  Are you sure you want to restore the supplier{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    "{restoreTargetSupplier.supplierName}"
+                  </span>
+                  ?
+                </p>
+                <p>
+                  This will reactivate their profile, moving them back to the Active list and making
+                  them available for procurement operations.
+                </p>
+              </div>
 
-            <div className="mt-6 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRestoreConfirmOpen(false);
-                  setRestoreTargetSupplier(null);
-                }}
-                className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleRestoreConfirm}
-                className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
-              >
-                Restore Supplier
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRestoreConfirmOpen(false);
+                    setRestoreTargetSupplier(null);
+                  }}
+                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreConfirm}
+                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+                >
+                  Restore Supplier
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

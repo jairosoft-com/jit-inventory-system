@@ -48,7 +48,14 @@ function formatColumnHeader(key: string): string {
 
 function IconReport() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
       <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
     </svg>
@@ -57,7 +64,14 @@ function IconReport() {
 
 function IconDownload() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
     </svg>
   );
@@ -71,7 +85,14 @@ function IconSpinner() {
 
 function IconAlert() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -228,13 +249,46 @@ function FilterBar({
 // ── Columns to show in preview table per report type ──────────────────────────
 
 const PREVIEW_COLUMNS: Record<string, string[]> = {
-  inventory: ['itemName', 'itemType', 'category', 'quantity', 'unit', 'stockStatus', 'equipmentStatus', 'condition'],
+  inventory: [
+    'itemName',
+    'itemType',
+    'category',
+    'quantity',
+    'unit',
+    'stockStatus',
+    'equipmentStatus',
+    'condition',
+  ],
   procurement: ['invoiceNumber', 'status', 'totalAmount', 'orderDate', 'supplier', 'itemCount'],
-  borrowing: ['equipmentName', 'assetId', 'borrowedBy', 'status', 'borrowDate', 'expectedReturn', 'actualReturn'],
+  borrowing: [
+    'equipmentName',
+    'assetId',
+    'borrowedBy',
+    'status',
+    'borrowDate',
+    'expectedReturn',
+    'actualReturn',
+  ],
   maintenance: ['equipmentName', 'description', 'status', 'scheduledDate', 'completedDate', 'cost'],
   disposal: ['equipmentName', 'assetId', 'reason', 'method', 'disposalDate', 'approvedBy'],
-  employee_equipment: ['itemName', 'category', 'assetId', 'condition', 'status', 'assignedTo', 'assignedToEmail'],
-  low_stock: ['itemName', 'category', 'currentQuantity', 'reorderPoint', 'unit', 'deficit', 'stockStatus'],
+  employee_equipment: [
+    'itemName',
+    'category',
+    'assetId',
+    'condition',
+    'status',
+    'assignedTo',
+    'assignedToEmail',
+  ],
+  low_stock: [
+    'itemName',
+    'category',
+    'currentQuantity',
+    'reorderPoint',
+    'unit',
+    'deficit',
+    'stockStatus',
+  ],
 };
 
 function DataTable({ data, type }: { data: Record<string, unknown>[]; type: string }) {
@@ -283,7 +337,10 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
                 }`}
               >
                 {columns.map((col) => (
-                  <td key={col} className="whitespace-nowrap px-4 py-3 text-[12.5px] text-[var(--text-primary)]">
+                  <td
+                    key={col}
+                    className="whitespace-nowrap px-4 py-3 text-[12.5px] text-[var(--text-primary)]"
+                  >
                     {formatCellValue(row[col])}
                   </td>
                 ))}
@@ -296,7 +353,8 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
       {totalPages > 1 && (
         <div className="-mx-5 -mb-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5 mt-5">
           <span className="text-xs text-[var(--text-tertiary)]">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of {data.length} records
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of{' '}
+            {data.length} records
           </span>
           <div className="flex gap-2">
             <button
@@ -433,10 +491,11 @@ export default function ReportsPage() {
 
       {/* Main Layout Grid */}
       <div className="flex flex-col gap-6 md:flex-row items-start">
-        
         {/* Left panel: report type selector */}
         <aside className="flex w-full shrink-0 flex-col gap-3 md:w-64">
-          <p className="text-xs font-bold tracking-wider text-[var(--text-tertiary)]">SELECT REPORT TYPE</p>
+          <p className="text-xs font-bold tracking-wider text-[var(--text-tertiary)]">
+            SELECT REPORT TYPE
+          </p>
           {isLoadingTypes ? (
             <div className="flex items-center gap-2 py-4 text-sm text-[var(--text-secondary)]">
               <IconSpinner /> Loading…
@@ -460,8 +519,12 @@ export default function ReportsPage() {
         <section className="flex w-full flex-1 flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
           {!selectedType ? (
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
-              <div className="scale-150 opacity-50 mb-2"><IconReport /></div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Choose a Report Type</h3>
+              <div className="scale-150 opacity-50 mb-2">
+                <IconReport />
+              </div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                Choose a Report Type
+              </h3>
               <p className="text-xs text-[var(--text-secondary)] max-w-xs">
                 Select a report from the left panel to generate a preview and export options.
               </p>
@@ -494,7 +557,7 @@ export default function ReportsPage() {
                     </span>
                   )}
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -503,7 +566,9 @@ export default function ReportsPage() {
                     disabled={isLoadingPreview}
                   >
                     {isLoadingPreview ? (
-                      <><IconSpinner /> Generating…</>
+                      <>
+                        <IconSpinner /> Generating…
+                      </>
                     ) : (
                       'Generate Preview'
                     )}
@@ -548,7 +613,8 @@ export default function ReportsPage() {
                 {!isLoadingPreview && !preview && (
                   <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
                     <p className="m-0 text-sm">
-                      Click <strong className="text-[var(--text-primary)]">Generate Preview</strong> to load data for this report.
+                      Click <strong className="text-[var(--text-primary)]">Generate Preview</strong>{' '}
+                      to load data for this report.
                     </p>
                   </div>
                 )}

@@ -517,9 +517,7 @@ export default function DashboardPage() {
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Dashboard</h1>
-          <p className="dash-page-desc">
-            Manage and Track Company Assets and Equipments
-          </p>
+          <p className="dash-page-desc">Manage and Track Company Assets and Equipments</p>
         </div>
       </div>
 
@@ -1085,15 +1083,26 @@ export default function DashboardPage() {
                         <span className="dash-alert-itemName">
                           {alert.itemName} ({alert.assetId})
                           {alert.isDueToday && (
-                            <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 600, color: '#d97706', background: 'rgba(217,119,6,0.1)', borderRadius: '4px', padding: '1px 6px' }}>DUE TODAY</span>
+                            <span
+                              style={{
+                                marginLeft: '6px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: '#d97706',
+                                background: 'rgba(217,119,6,0.1)',
+                                borderRadius: '4px',
+                                padding: '1px 6px',
+                              }}
+                            >
+                              DUE TODAY
+                            </span>
                           )}
                         </span>
                         <span className="dash-alert-detail">
                           Borrowed by <strong>{alert.borrowerName}</strong>
                           {alert.isDueToday
                             ? ' · Due back today'
-                            : ` · Due back on ${formatDate(alert.expectedReturn)} (${alert.daysOverdue} day${alert.daysOverdue === 1 ? '' : 's'} overdue)`
-                          }
+                            : ` · Due back on ${formatDate(alert.expectedReturn)} (${alert.daysOverdue} day${alert.daysOverdue === 1 ? '' : 's'} overdue)`}
                         </span>
                       </div>
                     </div>

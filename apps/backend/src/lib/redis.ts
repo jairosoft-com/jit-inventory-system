@@ -16,7 +16,7 @@ export const redis = new Redis(env.REDIS_URL, {
    * gracefully so the server stays up when Redis is unavailable.
    */
   maxRetriesPerRequest: 0,
-  lazyConnect: true,
+  lazyConnect: false,
   /**
    * Stop ioredis from auto-reconnecting forever in local dev when there is no
    * Redis instance running. After 10 attempts the error handler keeps logging

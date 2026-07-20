@@ -17,6 +17,7 @@ import type {
 } from '../schemas/procurement.schema.js';
 import { ProcurementAlertService } from './procurement-alert.service.js';
 import { ProcurementAlertType } from '@prisma/client';
+import { NotFoundError, ForbiddenError } from '../lib/errors.js';
 
 // ── Allowed status transitions (state machine) ──────────────────────────────
 const ALLOWED_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> =
@@ -205,6 +206,8 @@ export class ProcurementService {
   static async findAll(
     statusFilter?: PurchaseOrderStatus,
     includeArchived: boolean | string = false,
+    userId?: number,
+    roleName?: string,
   ) {
     const shouldInclude =
       includeArchived === true || includeArchived === 'true';
@@ -217,6 +220,10 @@ export class ProcurementService {
       where.status = { notIn: ['ARCHIVED', 'REJECTED', 'CANCELLED'] };
     }
 
+    if (roleName === 'STAFF' && userId) {
+      where.createdById = userId;
+    }
+
     return prisma.purchaseOrder.findMany({
       where,
       include: PO_INCLUDE,
@@ -225,14 +232,18 @@ export class ProcurementService {
   }
 
   // ── Find One ─────────────────────────────────────────────────────────────
-  static async findOne(id: number) {
+  static async findOne(id: number, userId?: number, roleName?: string) {
     const po = await prisma.purchaseOrder.findUnique({
       where: { id },
       include: PO_INCLUDE,
     });
 
     if (!po) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order not found');
+    }
+
+    if (roleName === 'STAFF' && userId && po.createdById !== userId) {
+      throw new NotFoundError('Purchase order not found');
     }
 
     return po;
@@ -243,11 +254,19 @@ export class ProcurementService {
     id: number,
     data: UpdatePurchaseOrderInput,
     userId: number,
+    roleName?: string,
   ) {
-    const existing = await this.findOne(id);
+    const existing = await this.findOne(id, userId, roleName);
 
     if (existing.status !== 'DRAFT') {
       throw new Error('Only purchase orders in DRAFT status can be edited');
+    }
+
+    // Editing is restricted to the purchase order's own creator, regardless
+    // of role — an Admin cannot edit another Admin's or a Manager's PO, a
+    // Manager cannot edit another Manager's or an Admin's PO, and so on.
+    if (existing.createdById !== userId) {
+      throw new ForbiddenError('You can only edit purchase orders you created');
     }
 
     // If changing supplier, validate it
@@ -375,6 +394,20 @@ export class ProcurementService {
 
           if (!existing) {
             throw new Error('Purchase order not found');
+          }
+
+          const userRole = await tx.role.findUnique({
+            where: { id: userRoleId },
+          });
+
+          if (userRole?.name === 'STAFF' && existing.createdById !== userId) {
+            throw new Error('Purchase order not found');
+          }
+
+          if (userRole?.name === 'MANAGER' && existing.createdById !== userId) {
+            throw new Error(
+              'Managers can only submit for approval their own purchase orders',
+            );
           }
 
           const currentStatus = existing.status;
@@ -669,8 +702,8 @@ export class ProcurementService {
   }
 
   // ── History ──────────────────────────────────────────────────────────────
-  static async getHistory(id: number) {
-    await this.findOne(id);
+  static async getHistory(id: number, userId?: number, roleName?: string) {
+    await this.findOne(id, userId, roleName);
 
     return prisma.purchaseOrderHistory.findMany({
       where: { purchaseOrderId: id },
@@ -688,8 +721,19 @@ export class ProcurementService {
   }
 
   // ── Attachments ──────────────────────────────────────────────────────────
-  static async addAttachment(id: number, data: AddAttachmentInput) {
-    await this.findOne(id);
+  static async addAttachment(
+    id: number,
+    data: AddAttachmentInput,
+    userId?: number,
+    roleName?: string,
+  ) {
+    const po = await this.findOne(id, userId, roleName);
+
+    if (userId !== undefined && po.createdById !== userId) {
+      throw new ForbiddenError(
+        'You can only manage attachments on purchase orders you created',
+      );
+    }
 
     return prisma.purchaseOrderAttachment.create({
       data: {
@@ -701,24 +745,79 @@ export class ProcurementService {
     });
   }
 
-  static async deleteAttachment(poId: number, attachmentId: number) {
-    const attachment = await prisma.purchaseOrderAttachment.findFirst({
+  // Replaces one specific attachment with a newly uploaded file, keeping any
+  // other attachments on the PO untouched (Scenario 4). Uses a single atomic
+  // UPDATE rather than delete+create: this preserves the attachment's id
+  // (no orphaned references, no gap where the row briefly doesn't exist)
+  // and the WHERE clause on both id and purchaseOrderId means the DB row
+  // lock during the UPDATE itself prevents lost updates from concurrent
+  // replace/delete requests on the same attachment.
+  static async replaceAttachment(
+    poId: number,
+    attachmentId: number,
+    data: AddAttachmentInput,
+    userId?: number,
+    roleName?: string,
+  ) {
+    const po = await this.findOne(poId, userId, roleName);
+
+    if (userId !== undefined && po.createdById !== userId) {
+      throw new ForbiddenError(
+        'You can only manage attachments on purchase orders you created',
+      );
+    }
+
+    const result = await prisma.purchaseOrderAttachment.updateMany({
+      where: { id: attachmentId, purchaseOrderId: poId },
+      data: {
+        fileUrl: data.fileUrl,
+        fileName: data.fileName,
+        fileSize: data.fileSize ?? null,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundError('Attachment not found');
+    }
+
+    return prisma.purchaseOrderAttachment.findUniqueOrThrow({
+      where: { id: attachmentId },
+    });
+  }
+
+  static async deleteAttachment(
+    poId: number,
+    attachmentId: number,
+    userId?: number,
+    roleName?: string,
+  ) {
+    const po = await this.findOne(poId, userId, roleName);
+
+    if (userId !== undefined && po.createdById !== userId) {
+      throw new ForbiddenError(
+        'You can only manage attachments on purchase orders you created',
+      );
+    }
+
+    const result = await prisma.purchaseOrderAttachment.deleteMany({
       where: { id: attachmentId, purchaseOrderId: poId },
     });
 
-    if (!attachment) {
-      throw new Error('Attachment not found');
+    if (result.count === 0) {
+      throw new NotFoundError('Attachment not found');
     }
-
-    await prisma.purchaseOrderAttachment.delete({
-      where: { id: attachmentId },
-    });
 
     return { message: 'Attachment deleted successfully' };
   }
 
   // ── Equipment Integration ──────────────────────────────────────────────────
-  static async getEquipmentByPO(purchaseOrderId: number) {
+  static async getEquipmentByPO(
+    purchaseOrderId: number,
+    userId?: number,
+    roleName?: string,
+  ) {
+    await this.findOne(purchaseOrderId, userId, roleName);
+
     return prisma.equipment.findMany({
       where: {
         purchaseOrderId,
@@ -752,7 +851,10 @@ export class ProcurementService {
       warrantyEnd?: string | null;
     },
     userId: number,
+    roleName?: string,
   ) {
+    await this.findOne(purchaseOrderId, userId, roleName);
+
     const equipment = await prisma.equipment.findFirst({
       where: {
         id: equipmentId,

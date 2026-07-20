@@ -51,25 +51,33 @@ function formatEntityType(entityType: string) {
 
 // ── Action badge config ───────────────────────────────────────────────────────
 
-const ACTION_CONFIG: Record<
-  AuditAction,
-  { label: string; bg: string; dot: string; text: string }
-> = {
-  CREATED:               { label: 'Created',              bg: '#eff6ff', dot: '#3b82f6', text: '#1e40af' },
-  APPROVED:              { label: 'Approved',             bg: '#f0fdf4', dot: '#22c55e', text: '#15803d' },
-  RETURNED:              { label: 'Returned',             bg: '#f0fdf4', dot: '#10b981', text: '#065f46' },
-  REJECTED:              { label: 'Rejected',             bg: '#fff1f2', dot: '#ef4444', text: '#991b1b' },
-  DELETED:               { label: 'Deleted',              bg: '#fff1f2', dot: '#dc2626', text: '#7f1d1d' },
-  UPDATED:               { label: 'Updated',              bg: '#fffbeb', dot: '#f59e0b', text: '#92400e' },
-  BORROWED:              { label: 'Borrowed',             bg: '#f5f3ff', dot: '#8b5cf6', text: '#4c1d95' },
-  DISPOSED:              { label: 'Disposed',             bg: '#fdf2f8', dot: '#ec4899', text: '#831843' },
-  TRANSFERRED:           { label: 'Transferred',          bg: '#ecfeff', dot: '#06b6d4', text: '#164e63' },
-  MAINTENANCE_STARTED:   { label: 'Maint. Started',      bg: '#fefce8', dot: '#eab308', text: '#713f12' },
-  MAINTENANCE_COMPLETED: { label: 'Maint. Completed',    bg: '#f0fdf4', dot: '#84cc16', text: '#365314' },
-  RENEWED:               { label: 'Renewed',              bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
-  LOGIN:                 { label: 'Login',                bg: '#f0f9ff', dot: '#0284c7', text: '#0c4a6e' },
-  LOGOUT:                { label: 'Logout',               bg: '#f9fafb', dot: '#6b7280', text: '#374151' },
-};
+const ACTION_CONFIG: Record<AuditAction, { label: string; bg: string; dot: string; text: string }> =
+  {
+    CREATED: { label: 'Created', bg: '#eff6ff', dot: '#3b82f6', text: '#1e40af' },
+    APPROVED: { label: 'Approved', bg: '#f0fdf4', dot: '#22c55e', text: '#15803d' },
+    RETURNED: { label: 'Returned', bg: '#f0fdf4', dot: '#10b981', text: '#065f46' },
+    REJECTED: { label: 'Rejected', bg: '#fff1f2', dot: '#ef4444', text: '#991b1b' },
+    DELETED: { label: 'Deleted', bg: '#fff1f2', dot: '#dc2626', text: '#7f1d1d' },
+    UPDATED: { label: 'Updated', bg: '#fffbeb', dot: '#f59e0b', text: '#92400e' },
+    BORROWED: { label: 'Borrowed', bg: '#f5f3ff', dot: '#8b5cf6', text: '#4c1d95' },
+    DISPOSED: { label: 'Disposed', bg: '#fdf2f8', dot: '#ec4899', text: '#831843' },
+    TRANSFERRED: { label: 'Transferred', bg: '#ecfeff', dot: '#06b6d4', text: '#164e63' },
+    MAINTENANCE_STARTED: {
+      label: 'Maint. Started',
+      bg: '#fefce8',
+      dot: '#eab308',
+      text: '#713f12',
+    },
+    MAINTENANCE_COMPLETED: {
+      label: 'Maint. Completed',
+      bg: '#f0fdf4',
+      dot: '#84cc16',
+      text: '#365314',
+    },
+    RENEWED: { label: 'Renewed', bg: '#ecfeff', dot: '#0ea5e9', text: '#0c4a6e' },
+    LOGIN: { label: 'Login', bg: '#f0f9ff', dot: '#0284c7', text: '#0c4a6e' },
+    LOGOUT: { label: 'Logout', bg: '#f9fafb', dot: '#6b7280', text: '#374151' },
+  };
 
 function ActionBadge({ action }: { action: AuditAction }) {
   const cfg = ACTION_CONFIG[action] ?? {
@@ -240,7 +248,7 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -433,17 +441,18 @@ export default function AuditLogsPage() {
     filters.entityId
   );
 
-return (
+  return (
     <div className="dash-page animate-fade-in flex flex-col gap-6">
-      
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Audit Logs</h1>
           <p className="dash-page-desc">
-Verify Employee actions,  asset write-off justifications, and system configuration logs.          </p>
+            Verify Employee actions, asset write-off justifications, and system configuration
+            logs.{' '}
+          </p>
         </div>
-        
+
         {/* Immutability badge */}
         <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-400">
           <IconLock />
@@ -463,14 +472,16 @@ Verify Employee actions,  asset write-off justifications, and system configurati
 
       {/* ── Main Section Frame ──────────────────────────────────────────── */}
       <section className="flex flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-        
         {/* Immutability info banner */}
         <div className="flex items-center gap-3 rounded-xl border border-blue-200/60 bg-blue-50/50 px-4 py-3 text-[13px] text-[var(--text-secondary)]">
           <span className="shrink-0 text-blue-500">
             <IconShield />
           </span>
           <span>
-            Audit logs are <strong className="text-[var(--text-primary)]">permanently stored and immutable</strong>. No user or administrator can modify or delete entries — every action is preserved exactly as it occurred.
+            Audit logs are{' '}
+            <strong className="text-[var(--text-primary)]">permanently stored and immutable</strong>
+            . No user or administrator can modify or delete entries — every action is preserved
+            exactly as it occurred.
           </span>
         </div>
 
@@ -482,7 +493,9 @@ Verify Employee actions,  asset write-off justifications, and system configurati
             className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
           >
             {ACTION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
 
@@ -492,12 +505,16 @@ Verify Employee actions,  asset write-off justifications, and system configurati
             className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
           >
             {ENTITY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
 
           <div className="flex items-center gap-2">
-            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">From</label>
+            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">
+              From
+            </label>
             <input
               type="date"
               value={filters.startDate ?? ''}
@@ -507,7 +524,9 @@ Verify Employee actions,  asset write-off justifications, and system configurati
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">To</label>
+            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">
+              To
+            </label>
             <input
               type="date"
               value={filters.endDate ?? ''}
@@ -538,12 +557,26 @@ Verify Employee actions,  asset write-off justifications, and system configurati
           </div>
         ) : logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="opacity-40">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              className="opacity-40"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
             </svg>
             <p className="m-0 text-sm font-semibold">No audit logs found</p>
             <p className="m-0 text-xs">
-              {hasFilters ? 'Try adjusting or clearing your filters.' : 'Actions will appear here as they occur.'}
+              {hasFilters
+                ? 'Try adjusting or clearing your filters.'
+                : 'Actions will appear here as they occur.'}
             </p>
           </div>
         ) : (
@@ -551,11 +584,16 @@ Verify Employee actions,  asset write-off justifications, and system configurati
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b border-[var(--surface-border)] bg-[var(--background-tertiary)]">
-                  {['#', 'Action', 'Entity', 'Entity ID', 'Performed By', 'Timestamp', ''].map((col) => (
-                    <th key={col} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] whitespace-nowrap">
-                      {col}
-                    </th>
-                  ))}
+                  {['#', 'Action', 'Entity', 'Entity ID', 'Performed By', 'Timestamp', ''].map(
+                    (col) => (
+                      <th
+                        key={col}
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] whitespace-nowrap"
+                      >
+                        {col}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -567,17 +605,33 @@ Verify Employee actions,  asset write-off justifications, and system configurati
                       idx < logs.length - 1 ? 'border-b border-[var(--surface-border)]' : ''
                     }`}
                   >
-                    <td className="px-4 py-3 font-mono text-[11.5px] text-[var(--text-disabled)]">#{log.id}</td>
-                    <td className="px-4 py-3"><ActionBadge action={log.action} /></td>
-                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">{formatEntityType(log.entityType)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">{log.entityId}</td>
+                    <td className="px-4 py-3 font-mono text-[11.5px] text-[var(--text-disabled)]">
+                      #{log.id}
+                    </td>
                     <td className="px-4 py-3">
-                      <p className="m-0 font-semibold text-[var(--text-primary)]">{log.user.firstName} {log.user.lastName}</p>
-                      <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-secondary)]">{log.user.email}</p>
+                      <ActionBadge action={log.action} />
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">
+                      {formatEntityType(log.entityType)}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">
+                      {log.entityId}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="m-0 font-semibold text-[var(--text-primary)]">
+                        {log.user.firstName} {log.user.lastName}
+                      </p>
+                      <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-secondary)]">
+                        {log.user.email}
+                      </p>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <p className="m-0 text-[12.5px] text-[var(--text-primary)]">{formatDateTime(log.performedAt)}</p>
-                      <p className="m-0 mt-0.5 text-[11px] text-[var(--text-tertiary)]">{formatRelative(log.performedAt)}</p>
+                      <p className="m-0 text-[12.5px] text-[var(--text-primary)]">
+                        {formatDateTime(log.performedAt)}
+                      </p>
+                      <p className="m-0 mt-0.5 text-[11px] text-[var(--text-tertiary)]">
+                        {formatRelative(log.performedAt)}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -597,10 +651,9 @@ Verify Employee actions,  asset write-off justifications, and system configurati
           </div>
         )}
 
-{/* Pagination */}
+        {/* Pagination */}
         {meta.totalPages > 1 && !isLoading && (
           <div className="-mb-5 -mx-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5">
-            
             {/* Rows Selector & Page Text */}
             <div className="flex items-center gap-4">
               <select
@@ -612,12 +665,12 @@ Verify Employee actions,  asset write-off justifications, and system configurati
                 <option value={10}>10 rows</option>
                 <option value={15}>15 rows</option>
               </select>
-              
+
               <span className="text-xs text-[var(--text-tertiary)]">
                 Page {page} of {meta.totalPages} · {meta.total.toLocaleString()} total
               </span>
             </div>
-            
+
             {/* Next / Prev Buttons */}
             <div className="flex gap-2">
               <button

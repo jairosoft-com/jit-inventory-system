@@ -117,6 +117,11 @@ interface ProcurementState {
     id: number,
     data: { fileUrl: string; fileName: string; fileSize?: number },
   ) => Promise<void>;
+  replaceAttachment: (
+    poId: number,
+    attachmentId: number,
+    data: { fileUrl: string; fileName: string; fileSize?: number },
+  ) => Promise<void>;
   deleteAttachment: (poId: number, attachmentId: number) => Promise<void>;
   clearError: () => void;
 }
@@ -233,6 +238,28 @@ export const useProcurementStore = create<ProcurementState>((set) => ({
         message?: string;
       };
       const errMsg = err.response?.data?.message || err.message || 'Failed to add attachment';
+      set({ error: errMsg, isLoading: false });
+      throw new Error(errMsg);
+    }
+  },
+
+  replaceAttachment: async (poId, attachmentId, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/procurement/${poId}/attachments/${attachmentId}`, data);
+      // Re-fetch the PO to reflect the replaced attachment
+      const response = await api.get<PurchaseOrder>(`/procurement/${poId}`);
+      const updated = response.data;
+      set((state) => ({
+        purchaseOrders: state.purchaseOrders.map((po) => (po.id === poId ? updated : po)),
+        isLoading: false,
+      }));
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errMsg = err.response?.data?.message || err.message || 'Failed to replace attachment';
       set({ error: errMsg, isLoading: false });
       throw new Error(errMsg);
     }

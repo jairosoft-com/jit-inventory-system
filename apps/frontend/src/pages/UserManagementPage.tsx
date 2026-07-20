@@ -8,9 +8,6 @@ import { PaginationBar } from '../components/PaginationBar';
 
 const USER_DIRECTORY_PAGE_SIZE = 1000;
 
-
-
-
 /** Protected superadmin — matches the backend SUPERADMIN_EMAIL env value. */
 const SUPERADMIN_EMAIL = 'sam@jitims.com';
 
@@ -487,7 +484,8 @@ export default function UserManagementPage() {
         <div>
           <h1 className="dash-page-title">Users & Roles</h1>
           <p className="dash-page-desc">
-            Manage team members and their access to company inventory          </p>
+            Manage team members and their access to company inventory{' '}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -523,278 +521,281 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {isAddUserOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <div>
-                <h2 className="text-lg font-semibold">Add User</h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Add a new user account and save it to the backend database.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={cancelAddUser}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddUser} className="grid gap-3 md:grid-cols-2">
-              <input
-                required
-                value={newUser.firstName}
-                onChange={(event) =>
-                  setNewUser((currentUser) => ({
-                    ...currentUser,
-                    firstName: event.target.value,
-                  }))
-                }
-                placeholder="First name"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              />
-
-              <input
-                required
-                value={newUser.lastName}
-                onChange={(event) =>
-                  setNewUser((currentUser) => ({
-                    ...currentUser,
-                    lastName: event.target.value,
-                  }))
-                }
-                placeholder="Last name"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              />
-
-              <input
-                required
-                type="email"
-                value={newUser.email}
-                onChange={(event) =>
-                  setNewUser((currentUser) => ({
-                    ...currentUser,
-                    email: event.target.value,
-                  }))
-                }
-                placeholder="Email address"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              />
-
-              <div className="relative">
-                <input
-                  required
-                  minLength={8}
-                  type={showPassword ? 'text' : 'password'}
-                  value={newUser.password}
-                  onChange={(event) =>
-                    setNewUser((currentUser) => ({
-                      ...currentUser,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder="Temporary password"
-                  className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 pr-10 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-
-              <select
-                required
-                value={newUser.roleId}
-                onChange={(event) =>
-                  setNewUser((currentUser) => ({
-                    ...currentUser,
-                    roleId: event.target.value,
-                  }))
-                }
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              >
-                <option value="" disabled>
-                  Select role
-                </option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={newUser.isActive ? 'active' : 'inactive'}
-                onChange={(event) =>
-                  setNewUser((currentUser) => ({
-                    ...currentUser,
-                    isActive: event.target.value === 'active',
-                  }))
-                }
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-
-              <div className="flex flex-wrap gap-3 md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={isSaving || roles.length === 0}
-                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? 'Saving...' : 'Save User'}
-                </button>
-
+      {isAddUserOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Add User</h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Add a new user account and save it to the backend database.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={cancelAddUser}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
                 >
-                  Cancel
+                  ✕
                 </button>
               </div>
-            </form>
 
-            {roles.length === 0 && (
-              <p className="mt-3 text-sm text-[var(--text-secondary)]">
-                No roles found. Add roles to the database before creating users.
-              </p>
-            )}
-          </section>
-        </div>,
-        document.body
-      )}
+              <form onSubmit={handleAddUser} className="grid gap-3 md:grid-cols-2">
+                <input
+                  required
+                  value={newUser.firstName}
+                  onChange={(event) =>
+                    setNewUser((currentUser) => ({
+                      ...currentUser,
+                      firstName: event.target.value,
+                    }))
+                  }
+                  placeholder="First name"
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                />
 
-      {editingUser && canManageUserAccess && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <div>
-                <h2 className="text-lg font-semibold">Edit User</h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Update details for {getUserFullName(editingUser)}.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeEditAccess}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
+                <input
+                  required
+                  value={newUser.lastName}
+                  onChange={(event) =>
+                    setNewUser((currentUser) => ({
+                      ...currentUser,
+                      lastName: event.target.value,
+                    }))
+                  }
+                  placeholder="Last name"
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                />
 
-            <form onSubmit={handleUpdateAccess} className="grid gap-3 md:grid-cols-2">
-              <input
-                required
-                value={editFirstName}
-                onChange={(event) => setEditFirstName(event.target.value)}
-                placeholder="First name"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              />
+                <input
+                  required
+                  type="email"
+                  value={newUser.email}
+                  onChange={(event) =>
+                    setNewUser((currentUser) => ({
+                      ...currentUser,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="Email address"
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                />
 
-              <input
-                required
-                value={editLastName}
-                onChange={(event) => setEditLastName(event.target.value)}
-                placeholder="Last name"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              />
+                <div className="relative">
+                  <input
+                    required
+                    minLength={8}
+                    type={showPassword ? 'text' : 'password'}
+                    value={newUser.password}
+                    onChange={(event) =>
+                      setNewUser((currentUser) => ({
+                        ...currentUser,
+                        password: event.target.value,
+                      }))
+                    }
+                    placeholder="Temporary password"
+                    className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 pr-10 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
 
-              <input
-                required
-                type="email"
-                value={editEmail}
-                onChange={(event) => setEditEmail(event.target.value)}
-                placeholder="Email address"
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)] md:col-span-2"
-              />
-
-              <select
-                required
-                value={editRoleId}
-                onChange={(event) => setEditRoleId(event.target.value)}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              >
-                <option value="" disabled>
-                  Select role
-                </option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
+                <select
+                  required
+                  value={newUser.roleId}
+                  onChange={(event) =>
+                    setNewUser((currentUser) => ({
+                      ...currentUser,
+                      roleId: event.target.value,
+                    }))
+                  }
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                >
+                  <option value="" disabled>
+                    Select role
                   </option>
-                ))}
-              </select>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
 
-              <select
-                value={editIsActive ? 'active' : 'inactive'}
-                onChange={(event) => setEditIsActive(event.target.value === 'active')}
-                className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-
-              <div className="flex flex-wrap gap-3 md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={isUpdatingAccess || roles.length === 0}
-                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                <select
+                  value={newUser.isActive ? 'active' : 'inactive'}
+                  onChange={(event) =>
+                    setNewUser((currentUser) => ({
+                      ...currentUser,
+                      isActive: event.target.value === 'active',
+                    }))
+                  }
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
                 >
-                  {isUpdatingAccess ? 'Saving...' : 'Save Changes'}
-                </button>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
 
+                <div className="flex flex-wrap gap-3 md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={isSaving || roles.length === 0}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? 'Saving...' : 'Save User'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={cancelAddUser}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+
+              {roles.length === 0 && (
+                <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                  No roles found. Add roles to the database before creating users.
+                </p>
+              )}
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {editingUser &&
+        canManageUserAccess &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-lg rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-5 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Edit User</h2>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Update details for {getUserFullName(editingUser)}.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={closeEditAccess}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
                 >
-                  Cancel
+                  ✕
                 </button>
               </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
+
+              <form onSubmit={handleUpdateAccess} className="grid gap-3 md:grid-cols-2">
+                <input
+                  required
+                  value={editFirstName}
+                  onChange={(event) => setEditFirstName(event.target.value)}
+                  placeholder="First name"
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                />
+
+                <input
+                  required
+                  value={editLastName}
+                  onChange={(event) => setEditLastName(event.target.value)}
+                  placeholder="Last name"
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                />
+
+                <input
+                  required
+                  type="email"
+                  value={editEmail}
+                  onChange={(event) => setEditEmail(event.target.value)}
+                  placeholder="Email address"
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)] md:col-span-2"
+                />
+
+                <select
+                  required
+                  value={editRoleId}
+                  onChange={(event) => setEditRoleId(event.target.value)}
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                >
+                  <option value="" disabled>
+                    Select role
+                  </option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={editIsActive ? 'active' : 'inactive'}
+                  onChange={(event) => setEditIsActive(event.target.value === 'active')}
+                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+
+                <div className="flex flex-wrap gap-3 md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={isUpdatingAccess || roles.length === 0}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isUpdatingAccess ? 'Saving...' : 'Save Changes'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closeEditAccess}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard title="Total Users" value={summary.totalUsers} />

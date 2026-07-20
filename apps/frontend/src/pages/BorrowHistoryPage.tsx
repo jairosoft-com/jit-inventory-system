@@ -43,7 +43,13 @@ function isTodayUtc(dateStr: string): boolean {
   );
 }
 
-function BorrowStatusBadge({ status, expectedReturn }: { status: BorrowStatus; expectedReturn?: string }) {
+function BorrowStatusBadge({
+  status,
+  expectedReturn,
+}: {
+  status: BorrowStatus;
+  expectedReturn?: string;
+}) {
   if (status === 'OVERDUE' && expectedReturn && isTodayUtc(expectedReturn)) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-amber-50 text-amber-700">
@@ -665,7 +671,10 @@ function AdminPanel() {
                         {formatDate(rec.expectedReturn)}
                       </td>
                       <td className="px-4 py-3">
-                        <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
+                        <BorrowStatusBadge
+                          status={rec.status}
+                          expectedReturn={rec.expectedReturn}
+                        />
                         {isStale && rowError?.id !== rec.id && (
                           <p className="mt-1 max-w-[200px] text-xs font-medium text-amber-700">
                             Equipment no longer available — another request claimed it
@@ -1011,43 +1020,41 @@ export default function BorrowRequestPage() {
 
   return (
     <div className="dash-page animate-fade-in">
-        {/* Page header */}
-        <div className="dash-page-header">
-          <div>
-            <h1 className="dash-page-title">Borrow History</h1>
-            <p className="dash-page-desc">
-              View historical borrow records and equipment loan logs
-            </p>
-          </div>
-        </div>
-
-        {/* Tabs + content */}
-        <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
-          {/* Tab bar */}
-          <div className="flex border-b border-[var(--surface-border)] px-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`-mb-px border-b-2 py-3.5 pr-6 text-sm font-medium transition ${
-                  activeTab === tab.id
-                    ? 'border-[var(--accent)] text-[var(--accent)]'
-                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="p-6">
-            {activeTab === 'request' && <BorrowForm onSuccess={() => setActiveTab('history')} />}
-            {activeTab === 'history' && <HistoryPanel />}
-            {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
-          </div>
+      {/* Page header */}
+      <div className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Borrow History</h1>
+          <p className="dash-page-desc">View historical borrow records and equipment loan logs</p>
         </div>
       </div>
+
+      {/* Tabs + content */}
+      <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
+        {/* Tab bar */}
+        <div className="flex border-b border-[var(--surface-border)] px-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px border-b-2 py-3.5 pr-6 text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="p-6">
+          {activeTab === 'request' && <BorrowForm onSuccess={() => setActiveTab('history')} />}
+          {activeTab === 'history' && <HistoryPanel />}
+          {activeTab === 'admin' && isAdminOrManager && <AdminPanel />}
+        </div>
+      </div>
+    </div>
   );
 }

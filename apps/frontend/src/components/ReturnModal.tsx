@@ -261,6 +261,6 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

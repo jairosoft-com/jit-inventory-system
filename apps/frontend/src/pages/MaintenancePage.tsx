@@ -379,14 +379,14 @@ export default function MaintenancePage() {
       await createMaintenanceLog(Number(equipmentId), description.trim());
       setSuccessMessage('Maintenance slot initialized successfully');
       setIsCreateModalOpen(false);
-      
+
       // Redirect to 'All Records' tab with all filters cleared/reset
       setActiveTab('all');
       setStatusFilter('all');
       setSearchTerm('');
       setAppliedSearchTerm('');
       setCurrentPage(1);
-      
+
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       setFormError(err.message || 'An error occurred');
@@ -463,9 +463,7 @@ export default function MaintenancePage() {
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Maintenance</h1>
-          <p className="dash-page-desc">
-            Schedule and track equipment maintenance and repairs
-          </p>
+          <p className="dash-page-desc">Schedule and track equipment maintenance and repairs</p>
         </div>
 
         {/* Action buttons */}
@@ -566,10 +564,11 @@ export default function MaintenancePage() {
                 setActiveTab('upcoming');
                 setCurrentPage(1);
               }}
-              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'upcoming'
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
+                activeTab === 'upcoming'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
             >
               Upcoming Maintenance
             </button>
@@ -579,10 +578,11 @@ export default function MaintenancePage() {
                 setActiveTab('history');
                 setCurrentPage(1);
               }}
-              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'history'
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
+                activeTab === 'history'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
             >
               Maintenance History
             </button>
@@ -592,10 +592,11 @@ export default function MaintenancePage() {
                 setActiveTab('all');
                 setCurrentPage(1);
               }}
-              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${activeTab === 'all'
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              className={`px-5 py-3 text-sm font-semibold -mb-px border-b-2 transition duration-200 ${
+                activeTab === 'all'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
             >
               All Records
             </button>
@@ -705,15 +706,15 @@ export default function MaintenancePage() {
                     <td className="px-4 py-4 text-[var(--text-secondary)]">
                       {log.scheduledDate
                         ? new Date(log.scheduledDate).toLocaleDateString(undefined, {
-                          timeZone: 'UTC',
-                        })
+                            timeZone: 'UTC',
+                          })
                         : '—'}
                     </td>
                     <td className="px-4 py-4 text-[var(--text-secondary)]">
                       {log.completedDate
                         ? new Date(log.completedDate).toLocaleDateString(undefined, {
-                          timeZone: 'UTC',
-                        })
+                            timeZone: 'UTC',
+                          })
                         : '—'}
                     </td>
                     <td className="px-4 py-4 text-[var(--text-secondary)]">
@@ -798,422 +799,431 @@ export default function MaintenancePage() {
       </section>
 
       {/* Schedule Maintenance Modal */}
-      {isScheduleModalOpen && selectedLog && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                {selectedLog.scheduledDate ? 'Reschedule Maintenance' : 'Schedule Maintenance'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsScheduleModalOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleScheduleSubmit} className="space-y-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
-                  Equipment Asset
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={`${selectedLog.equipment.item.itemName} (${selectedLog.equipment.assetId})`}
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--background-secondary)] px-4 py-2.5 text-sm cursor-not-allowed"
-                />
-              </div>
-
-              {selectedLog.equipment.borrowRecords?.[0] && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col gap-1">
-                  <span className="font-semibold">⚠️ Borrow Notice</span>
-                  <span>
-                    This equipment is currently physically borrowed. It is expected to return on{' '}
-                    {new Date(
-                      selectedLog.equipment.borrowRecords[0].expectedReturn,
-                    ).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      timeZone: 'UTC',
-                    })}
-                    .
-                  </span>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sch-desc"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+      {isScheduleModalOpen &&
+        selectedLog &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                  {selectedLog.scheduledDate ? 'Reschedule Maintenance' : 'Schedule Maintenance'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsScheduleModalOpen(false)}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
                 >
-                  Maintenance Type / Description <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sch-desc"
-                  type="text"
-                  required
-                  value={scheduleData.description}
-                  onChange={(e) =>
-                    setScheduleData({ ...scheduleData, description: e.target.value })
-                  }
-                  placeholder="e.g. Annual calibration, Repair broken screen..."
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
+                  ✕
+                </button>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sch-date"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Scheduled Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sch-date"
-                  type="date"
-                  required
-                  min={getMinDate()}
-                  value={scheduleData.scheduledDate}
-                  onChange={(e) =>
-                    setScheduleData({ ...scheduleData, scheduledDate: e.target.value })
-                  }
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
-                  Assignee Type
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-                    <input
-                      type="radio"
-                      name="assigneeType"
-                      checked={scheduleData.assigneeType === 'internal'}
-                      onChange={() =>
-                        setScheduleData({ ...scheduleData, assigneeType: 'internal' })
-                      }
-                    />
-                    Internal Technician
+              <form onSubmit={handleScheduleSubmit} className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                    Equipment Asset
                   </label>
-                  <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-                    <input
-                      type="radio"
-                      name="assigneeType"
-                      checked={scheduleData.assigneeType === 'vendor'}
-                      onChange={() => setScheduleData({ ...scheduleData, assigneeType: 'vendor' })}
-                    />
-                    External Vendor
-                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    value={`${selectedLog.equipment.item.itemName} (${selectedLog.equipment.assetId})`}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--background-secondary)] px-4 py-2.5 text-sm cursor-not-allowed"
+                  />
                 </div>
-              </div>
 
-              {scheduleData.assigneeType === 'internal' ? (
+                {selectedLog.equipment.borrowRecords?.[0] && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col gap-1">
+                    <span className="font-semibold">⚠️ Borrow Notice</span>
+                    <span>
+                      This equipment is currently physically borrowed. It is expected to return on{' '}
+                      {new Date(
+                        selectedLog.equipment.borrowRecords[0].expectedReturn,
+                      ).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                      })}
+                      .
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-1.5">
                   <label
-                    htmlFor="sch-tech"
+                    htmlFor="sch-desc"
                     className="text-xs font-bold text-[var(--text-secondary)] uppercase"
                   >
-                    Assign Technician <span className="text-red-500">*</span>
+                    Maintenance Type / Description <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="sch-desc"
+                    type="text"
+                    required
+                    value={scheduleData.description}
+                    onChange={(e) =>
+                      setScheduleData({ ...scheduleData, description: e.target.value })
+                    }
+                    placeholder="e.g. Annual calibration, Repair broken screen..."
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sch-date"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Scheduled Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="sch-date"
+                    type="date"
+                    required
+                    min={getMinDate()}
+                    value={scheduleData.scheduledDate}
+                    onChange={(e) =>
+                      setScheduleData({ ...scheduleData, scheduledDate: e.target.value })
+                    }
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                    Assignee Type
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="assigneeType"
+                        checked={scheduleData.assigneeType === 'internal'}
+                        onChange={() =>
+                          setScheduleData({ ...scheduleData, assigneeType: 'internal' })
+                        }
+                      />
+                      Internal Technician
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="assigneeType"
+                        checked={scheduleData.assigneeType === 'vendor'}
+                        onChange={() =>
+                          setScheduleData({ ...scheduleData, assigneeType: 'vendor' })
+                        }
+                      />
+                      External Vendor
+                    </label>
+                  </div>
+                </div>
+
+                {scheduleData.assigneeType === 'internal' ? (
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="sch-tech"
+                      className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                    >
+                      Assign Technician <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="sch-tech"
+                      required={scheduleData.assigneeType === 'internal'}
+                      value={scheduleData.performedById}
+                      onChange={(e) =>
+                        setScheduleData({ ...scheduleData, performedById: e.target.value })
+                      }
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                    >
+                      <option value="">Select Technician...</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.firstName} {u.lastName} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="sch-vendor"
+                      className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                    >
+                      Service Provider / Vendor <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="sch-vendor"
+                      type="text"
+                      required={scheduleData.assigneeType === 'vendor'}
+                      value={scheduleData.performedByVendor}
+                      onChange={(e) =>
+                        setScheduleData({ ...scheduleData, performedByVendor: e.target.value })
+                      }
+                      placeholder="e.g. Tektronix Inc., Acer Support..."
+                      className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="sch-notes"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Notes
+                  </label>
+                  <textarea
+                    id="sch-notes"
+                    rows={2}
+                    value={scheduleData.notes}
+                    onChange={(e) => setScheduleData({ ...scheduleData, notes: e.target.value })}
+                    placeholder="Optional technician guidelines..."
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                  />
+                </div>
+
+                {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
+
+                <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduleModalOpen(false)}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                  >
+                    {isSubmitting ? 'Saving...' : 'Save Schedule'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* Complete Maintenance Modal */}
+      {isCompleteModalOpen &&
+        selectedLog &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                  Complete Maintenance
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsCompleteModalOpen(false)}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleCompleteSubmit} className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
+                    Equipment Asset
+                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    value={`${selectedLog.equipment.item.itemName} (${selectedLog.equipment.assetId})`}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--background-secondary)] px-4 py-2.5 text-sm cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="cpl-cost"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Maintenance Cost ($)
+                  </label>
+                  <input
+                    id="cpl-cost"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={completeData.cost}
+                    onChange={(e) => setCompleteData({ ...completeData, cost: e.target.value })}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="cpl-date"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Completion Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="cpl-date"
+                    type="date"
+                    required
+                    value={completeData.completedDate}
+                    onChange={(e) =>
+                      setCompleteData({ ...completeData, completedDate: e.target.value })
+                    }
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="cpl-condition"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Equipment Condition Status <span className="text-red-500">*</span>
                   </label>
                   <select
-                    id="sch-tech"
-                    required={scheduleData.assigneeType === 'internal'}
-                    value={scheduleData.performedById}
+                    id="cpl-condition"
+                    required
+                    value={completeData.postMaintenanceCondition}
                     onChange={(e) =>
-                      setScheduleData({ ...scheduleData, performedById: e.target.value })
+                      setCompleteData({ ...completeData, postMaintenanceCondition: e.target.value })
                     }
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
                   >
-                    <option value="">Select Technician...</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.firstName} {u.lastName} ({u.email})
+                    <option value="NEW">New</option>
+                    <option value="GOOD">Good</option>
+                    <option value="FAIR">Fair</option>
+                    <option value="POOR">Poor</option>
+                    <option value="DAMAGED">Damaged</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="cpl-notes"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Technician Notes
+                  </label>
+                  <textarea
+                    id="cpl-notes"
+                    rows={3}
+                    value={completeData.notes}
+                    onChange={(e) => setCompleteData({ ...completeData, notes: e.target.value })}
+                    placeholder="Describe maintenance work done, parts replaced..."
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
+                  />
+                </div>
+
+                {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
+
+                <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCompleteModalOpen(false)}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {isSubmitting ? 'Saving...' : 'Complete Work'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
+
+      {/* Log Maintenance (Create) Modal */}
+      {isCreateModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+            <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
+              <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                  Initialize Maintenance Log
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateSubmit} className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="cre-eq"
+                    className="text-xs font-bold text-[var(--text-secondary)] uppercase"
+                  >
+                    Select Equipment <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="cre-eq"
+                    required
+                    value={createData.equipmentId}
+                    onChange={(e) => setCreateData({ ...createData, equipmentId: e.target.value })}
+                    className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
+                  >
+                    <option value="">Choose asset...</option>
+                    {selectableEquipment.map((eq) => (
+                      <option key={eq.id} value={eq.id}>
+                        {eq.item.itemName} ({eq.assetId}) - {eq.status.replace('_', ' ')}
                       </option>
                     ))}
                   </select>
                 </div>
-              ) : (
+
                 <div className="flex flex-col gap-1.5">
                   <label
-                    htmlFor="sch-vendor"
+                    htmlFor="cre-desc"
                     className="text-xs font-bold text-[var(--text-secondary)] uppercase"
                   >
-                    Service Provider / Vendor <span className="text-red-500">*</span>
+                    Initial Description <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="sch-vendor"
+                    id="cre-desc"
                     type="text"
-                    required={scheduleData.assigneeType === 'vendor'}
-                    value={scheduleData.performedByVendor}
-                    onChange={(e) =>
-                      setScheduleData({ ...scheduleData, performedByVendor: e.target.value })
-                    }
-                    placeholder="e.g. Tektronix Inc., Acer Support..."
+                    required
+                    value={createData.description}
+                    onChange={(e) => setCreateData({ ...createData, description: e.target.value })}
+                    placeholder="e.g. Schedule for inspection..."
                     className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                   />
                 </div>
-              )}
 
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="sch-notes"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Notes
-                </label>
-                <textarea
-                  id="sch-notes"
-                  rows={2}
-                  value={scheduleData.notes}
-                  onChange={(e) => setScheduleData({ ...scheduleData, notes: e.target.value })}
-                  placeholder="Optional technician guidelines..."
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                />
-              </div>
+                {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
 
-              {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
-
-              <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsScheduleModalOpen(false)}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-                >
-                  {isSubmitting ? 'Saving...' : 'Save Schedule'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* Complete Maintenance Modal */}
-      {isCompleteModalOpen && selectedLog && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">Complete Maintenance</h2>
-              <button
-                type="button"
-                onClick={() => setIsCompleteModalOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCompleteSubmit} className="space-y-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[var(--text-secondary)] uppercase">
-                  Equipment Asset
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={`${selectedLog.equipment.item.itemName} (${selectedLog.equipment.assetId})`}
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--background-secondary)] px-4 py-2.5 text-sm cursor-not-allowed"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="cpl-cost"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Maintenance Cost ($)
-                </label>
-                <input
-                  id="cpl-cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={completeData.cost}
-                  onChange={(e) => setCompleteData({ ...completeData, cost: e.target.value })}
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="cpl-date"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Completion Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="cpl-date"
-                  type="date"
-                  required
-                  value={completeData.completedDate}
-                  onChange={(e) =>
-                    setCompleteData({ ...completeData, completedDate: e.target.value })
-                  }
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="cpl-condition"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Equipment Condition Status <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="cpl-condition"
-                  required
-                  value={completeData.postMaintenanceCondition}
-                  onChange={(e) =>
-                    setCompleteData({ ...completeData, postMaintenanceCondition: e.target.value })
-                  }
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                >
-                  <option value="NEW">New</option>
-                  <option value="GOOD">Good</option>
-                  <option value="FAIR">Fair</option>
-                  <option value="POOR">Poor</option>
-                  <option value="DAMAGED">Damaged</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="cpl-notes"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Technician Notes
-                </label>
-                <textarea
-                  id="cpl-notes"
-                  rows={3}
-                  value={completeData.notes}
-                  onChange={(e) => setCompleteData({ ...completeData, notes: e.target.value })}
-                  placeholder="Describe maintenance work done, parts replaced..."
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)] resize-none"
-                />
-              </div>
-
-              {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
-
-              <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCompleteModalOpen(false)}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-60"
-                >
-                  {isSubmitting ? 'Saving...' : 'Complete Work'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
-
-      {/* Log Maintenance (Create) Modal */}
-      {isCreateModalOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <section className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-xl animate-fade-in-up">
-            <div className="mb-4 flex items-center justify-between border-b border-[var(--surface-border)] pb-3">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                Initialize Maintenance Log
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)] transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="cre-eq"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Select Equipment <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="cre-eq"
-                  required
-                  value={createData.equipmentId}
-                  onChange={(e) => setCreateData({ ...createData, equipmentId: e.target.value })}
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none focus:border-[var(--input-border-focus)]"
-                >
-                  <option value="">Choose asset...</option>
-                  {selectableEquipment.map((eq) => (
-                    <option key={eq.id} value={eq.id}>
-                      {eq.item.itemName} ({eq.assetId}) - {eq.status.replace('_', ' ')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="cre-desc"
-                  className="text-xs font-bold text-[var(--text-secondary)] uppercase"
-                >
-                  Initial Description <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="cre-desc"
-                  type="text"
-                  required
-                  value={createData.description}
-                  onChange={(e) => setCreateData({ ...createData, description: e.target.value })}
-                  placeholder="e.g. Schedule for inspection..."
-                  className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
-                />
-              </div>
-
-              {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
-
-              <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-                >
-                  {isSubmitting ? 'Creating...' : 'Create Record'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>,
-        document.body
-      )}
+                <div className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)] pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateModalOpen(false)}
+                    className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                  >
+                    {isSubmitting ? 'Creating...' : 'Create Record'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

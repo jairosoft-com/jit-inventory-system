@@ -44,7 +44,13 @@ function isTodayUtc(dateStr: string): boolean {
   );
 }
 
-function BorrowStatusBadge({ status, expectedReturn }: { status: BorrowStatus; expectedReturn?: string }) {
+function BorrowStatusBadge({
+  status,
+  expectedReturn,
+}: {
+  status: BorrowStatus;
+  expectedReturn?: string;
+}) {
   // An OVERDUE record whose return date is today should show 'Due Today', not 'Overdue'
   if (status === 'OVERDUE' && expectedReturn && isTodayUtc(expectedReturn)) {
     return (
@@ -78,8 +84,9 @@ function EquipmentStatusDot({ status }: { status: string }) {
   const available = status === 'AVAILABLE';
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${available ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-gray-100 text-gray-500'
-        }`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+        available ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-gray-100 text-gray-500'
+      }`}
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${available ? 'bg-[var(--success)]' : 'bg-gray-400'}`}
@@ -128,10 +135,11 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full rounded-xl border ${error
+        className={`w-full rounded-xl border ${
+          error
             ? 'border-red-400 bg-red-50 focus:ring-red-300'
             : 'border-[var(--input-border)] bg-[var(--input-bg)]'
-          } px-4 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
+        } px-4 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
       >
         {selected ? (
           <div className="flex items-center justify-between gap-3">
@@ -205,8 +213,9 @@ function EquipmentPicker({ selected, onSelect, error }: EquipmentPickerProps) {
                   <button
                     type="button"
                     onClick={() => handleSelect(eq)}
-                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-[var(--surface-hover)] ${selected?.id === eq.id ? 'bg-[var(--accent-muted)]' : ''
-                      }`}
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-[var(--surface-hover)] ${
+                      selected?.id === eq.id ? 'bg-[var(--accent-muted)]' : ''
+                    }`}
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-[var(--text-primary)]">
@@ -407,13 +416,13 @@ function HistoryPanel() {
               {(rec.status === 'BORROWED' ||
                 rec.status === 'APPROVED' ||
                 rec.status === 'OVERDUE') && (
-                  <div className="mt-3 border-t border-[var(--surface-border)] pt-3">
-                    <p className="rounded-lg bg-[var(--accent-muted)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)]">
-                      Please return this item to the Inventory office. A manager or
-                      admin will verify its condition and update this record.
-                    </p>
-                  </div>
-                )}
+                <div className="mt-3 border-t border-[var(--surface-border)] pt-3">
+                  <p className="rounded-lg bg-[var(--accent-muted)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)]">
+                    Please return this item to the Inventory office. A manager or admin will verify
+                    its condition and update this record.
+                  </p>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -428,7 +437,6 @@ function HistoryPanel() {
         onPageSizeChange={handlePageSizeChange}
         totalCount={myMeta.total}
       />
-
     </div>
   );
 }
@@ -682,7 +690,10 @@ function AdminPanel() {
                         {formatDate(rec.expectedReturn)}
                       </td>
                       <td className="px-4 py-3">
-                        <BorrowStatusBadge status={rec.status} expectedReturn={rec.expectedReturn} />
+                        <BorrowStatusBadge
+                          status={rec.status}
+                          expectedReturn={rec.expectedReturn}
+                        />
                         {isStale && rowError?.id !== rec.id && (
                           <p className="mt-1 max-w-[200px] text-xs font-medium text-amber-700">
                             Equipment no longer available — another request claimed it
@@ -773,10 +784,11 @@ function AdminPanel() {
 
       {returnSuccess && (
         <div
-          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-medium ${returnSuccess.isLate
+          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-medium ${
+            returnSuccess.isLate
               ? 'border-amber-200 bg-amber-50 text-amber-800'
               : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-            }`}
+          }`}
         >
           {returnSuccess.isLate
             ? `Return for "${returnSuccess.name}" recorded. Equipment was returned late and flagged as OVERDUE in the audit trail.`
@@ -904,10 +916,11 @@ function BorrowForm({ onSuccess }: { onSuccess: () => void }) {
             setExpectedReturn(e.target.value);
             if (errors.expectedReturn) setErrors((err) => ({ ...err, expectedReturn: undefined }));
           }}
-          className={`w-full rounded-xl border ${errors.expectedReturn
+          className={`w-full rounded-xl border ${
+            errors.expectedReturn
               ? 'border-red-400 bg-red-50'
               : 'border-[var(--input-border)] bg-[var(--input-bg)]'
-            } px-4 py-2.5 text-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]`}
+          } px-4 py-2.5 text-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]`}
         />
         {errors.expectedReturn && (
           <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
@@ -1005,7 +1018,8 @@ export default function BorrowRequestPage() {
         <div>
           <h1 className="dash-page-title">Borrow Requests</h1>
           <p className="dash-page-desc">
-            Process Borrowing, Returning and Tacking Equipment, Item and Digital Assets            </p>
+            Process Borrowing, Returning and Tacking Equipment, Item and Digital Assets{' '}
+          </p>
         </div>
       </div>
 
@@ -1018,10 +1032,11 @@ export default function BorrowRequestPage() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`-mb-px border-b-2 py-3.5 pr-6 text-sm font-medium transition ${activeTab === tab.id
+              className={`-mb-px border-b-2 py-3.5 pr-6 text-sm font-medium transition ${
+                activeTab === tab.id
                   ? 'border-[var(--accent)] text-[var(--accent)]'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              }`}
             >
               {tab.label}
             </button>

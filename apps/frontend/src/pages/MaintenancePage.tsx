@@ -458,7 +458,7 @@ export default function MaintenancePage() {
   };
 
   return (
-    <div className="dash-page animate-fade-in flex flex-col gap-6">
+    <div className="dash-page animate-fade-in flex flex-col gap-6 min-w-0">
       {/* Header */}
       <div className="dash-page-header">
         <div>
@@ -554,7 +554,7 @@ export default function MaintenancePage() {
       </section>
 
       {/* Workspace Maintenance Logs Section */}
-      <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+      <section className="min-w-0 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
         {/* Horizontal Tabs */}
         <div className="flex flex-col justify-between gap-4 border-b border-[var(--surface-border)] mb-6 sm:flex-row sm:items-center">
           <div className="flex overflow-x-auto overflow-y-hidden whitespace-nowrap">

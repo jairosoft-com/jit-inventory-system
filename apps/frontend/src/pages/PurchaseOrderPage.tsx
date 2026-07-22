@@ -89,6 +89,39 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+// Returns a human-readable validation error, or null if the file is acceptable.
+// Shared by the create/edit form's attachment field and the detail view's
+// attachment tab so both enforce identical rules (Scenario 2).
+function getAttachmentFileError(file: File): string | null {
+  const hasExtension = file.name.includes('.');
+  const ext = hasExtension ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+  if (!hasExtension || !ALLOWED_EXTENSIONS.includes(ext)) {
+    const label = hasExtension ? `"${ext}"` : 'with no extension';
+    return `Invalid file type ${label}. Only PDF and Word (DOC, DOCX) files are allowed.`;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    return `File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`;
+  }
+  return null;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result;
+      if (typeof result === 'string') resolve(result);
+      else reject(new Error('Failed to read file: unexpected result type'));
+    };
+    reader.onerror = () => {
+      const detail = reader.error?.message;
+      reject(new Error(detail ? `Failed to read file: ${detail}` : 'Failed to read file'));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function PurchaseOrderPage() {
@@ -197,6 +230,9 @@ export default function PurchaseOrderPage() {
   ]);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentFileErrors, setAttachmentFileErrors] = useState<string[]>([]);
+  const [attachmentUploadWarning, setAttachmentUploadWarning] = useState<string | null>(null);
 
   // Active suppliers only
   const activeSuppliers = useMemo(() => suppliers.filter((s) => !s.deletedAt), [suppliers]);
@@ -277,6 +313,9 @@ export default function PurchaseOrderPage() {
     setFormData({ supplierId: '' });
     setLineItems([{ itemId: 0, quantity: 1, unitCost: 0 }]);
     setFormError(null);
+    setAttachmentFiles([]);
+    setAttachmentFileErrors([]);
+    setAttachmentUploadWarning(null);
     setIsFormOpen(true);
   };
 
@@ -296,6 +335,9 @@ export default function PurchaseOrderPage() {
       })),
     );
     setFormError(null);
+    setAttachmentFiles([]);
+    setAttachmentFileErrors([]);
+    setAttachmentUploadWarning(null);
     setIsFormOpen(true);
   };
 
@@ -334,6 +376,45 @@ export default function PurchaseOrderPage() {
 
   const computeTotal = () => lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
 
+  // Validates and stages one or more supporting documents selected in the
+  // create/edit form, so they can be attached in the same step as saving the
+  // PO (Scenario 1) instead of requiring a separate trip to the detail view
+  // afterward. Each time the picker is opened it hands us a fresh FileList
+  // (not additive), so we accumulate valid picks into state ourselves across
+  // multiple picker openings, letting the user build up a batch of files.
+  const handleFormAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (picked.length === 0) return;
+
+    const errors: string[] = [];
+    const validPicks: File[] = [];
+    for (const file of picked) {
+      const err = getAttachmentFileError(file);
+      if (err) {
+        errors.push(`${file.name} — ${err}`);
+      } else {
+        validPicks.push(file);
+      }
+    }
+
+    // Invalid files are reported but never remove files already staged.
+    setAttachmentFileErrors(errors);
+    if (validPicks.length > 0) {
+      setAttachmentFiles((prev) => {
+        const alreadyStaged = new Set(prev.map((f) => `${f.name}::${f.size}::${f.lastModified}`));
+        const deduped = validPicks.filter(
+          (f) => !alreadyStaged.has(`${f.name}::${f.size}::${f.lastModified}`),
+        );
+        return [...prev, ...deduped];
+      });
+    }
+  };
+
+  const handleRemoveStagedAttachment = (index: number) => {
+    setAttachmentFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
@@ -368,26 +449,93 @@ export default function PurchaseOrderPage() {
       return;
     }
 
+    const invalidStaged = attachmentFiles
+      .map((file) => getAttachmentFileError(file))
+      .filter((err): err is string => err !== null);
+    if (invalidStaged.length > 0) {
+      setAttachmentFileErrors(invalidStaged);
+      return;
+    }
+    // Clear any stale errors left over from a previous failed submit attempt
+    // now that every currently staged file passes validation.
+    setAttachmentFileErrors([]);
+
     setIsSubmitting(true);
     try {
-      if (editingPO) {
-        await updatePurchaseOrder(editingPO.id, {
-          supplierId: Number(formData.supplierId),
-          lineItems: validLineItems,
+      const savedPO = editingPO
+        ? await updatePurchaseOrder(editingPO.id, {
+            supplierId: Number(formData.supplierId),
+            lineItems: validLineItems,
+          })
+        : await createPurchaseOrder({
+            supplierId: Number(formData.supplierId),
+            lineItems: validLineItems,
+          });
+
+      const baseMessage = editingPO
+        ? 'Purchase order updated successfully'
+        : 'Purchase order created successfully';
+
+      if (attachmentFiles.length > 0) {
+        // Each staged file becomes its own attachment, added alongside any
+        // that already exist — never replacing what's already on the PO.
+        // Uploaded in parallel rather than sequentially so a batch of files
+        // doesn't wait on one another.
+        const results = await Promise.allSettled(
+          attachmentFiles.map(async (file) => {
+            const fileUrl = await readFileAsDataUrl(file);
+            await addAttachment(savedPO.id, {
+              fileUrl,
+              fileName: file.name,
+              fileSize: file.size,
+            });
+            return file.name;
+          }),
+        );
+
+        const failures: string[] = [];
+        let successCount = 0;
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            successCount += 1;
+          } else {
+            const attachErr = result.reason;
+            const attachMsg =
+              attachErr instanceof Error ? attachErr.message : 'Failed to attach document';
+            failures.push(`${attachmentFiles[i].name}: ${attachMsg}`);
+          }
         });
-        setSuccessMessage('Purchase order updated successfully');
+
+        if (failures.length > 0) {
+          setSuccessMessage(
+            successCount > 0
+              ? `${baseMessage} and ${successCount} document(s) attached`
+              : baseMessage,
+          );
+          setAttachmentUploadWarning(
+            `${failures.length} document(s) could not be attached: ${failures.join('; ')}`,
+          );
+        } else {
+          setSuccessMessage(
+            `${baseMessage} and ${successCount} document${successCount === 1 ? '' : 's'} attached`,
+          );
+        }
       } else {
-        await createPurchaseOrder({
-          supplierId: Number(formData.supplierId),
-          lineItems: validLineItems,
-        });
-        setSuccessMessage('Purchase order created successfully');
+        setSuccessMessage(baseMessage);
       }
+
       setIsFormOpen(false);
+      setAttachmentFiles([]);
+      setAttachmentFileErrors([]);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'An error occurred';
       setFormError(errMsg);
+      // Staged attachments and their errors reflect an in-progress attempt;
+      // clear them so the next retry starts from a clean slate rather than
+      // showing confusing leftover state from the failed submission.
+      setAttachmentFiles([]);
+      setAttachmentFileErrors([]);
     } finally {
       setIsSubmitting(false);
     }
@@ -486,16 +634,9 @@ export default function PurchaseOrderPage() {
 
   // ── Attachments ──────────────────────────────────────────────────────────
   const validateAttachmentFile = (file: File): boolean => {
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(
-        `Invalid file type "${ext}". Only PDF and Word (DOC, DOCX) files are allowed.`,
-      );
-      return false;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      alert(`File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`);
+    const err = getAttachmentFileError(file);
+    if (err) {
+      alert(err);
       return false;
     }
     return true;
@@ -675,6 +816,17 @@ export default function PurchaseOrderPage() {
       {successMessage && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
           {successMessage}
+        </div>
+      )}
+      {attachmentUploadWarning && (
+        <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 animate-fade-in">
+          <span>{attachmentUploadWarning}</span>
+          <button
+            onClick={() => setAttachmentUploadWarning(null)}
+            className="font-semibold text-amber-900 hover:text-amber-950"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -1136,6 +1288,66 @@ export default function PurchaseOrderPage() {
                         })}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Supporting Document(s) */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="po-attachment"
+                      className="text-xs font-semibold text-[var(--text-secondary)]"
+                    >
+                      Supporting Documents{' '}
+                      <span className="font-normal text-[var(--text-tertiary)]">(optional)</span>
+                    </label>
+                    <p className="text-[11px] text-[var(--text-tertiary)]">
+                      PDF, DOC, or DOCX — up to 10MB each. You can select multiple files, and add
+                      more across separate picks.
+                    </p>
+                    <input
+                      id="po-attachment"
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleFormAttachmentChange}
+                      className="text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white file:transition hover:file:bg-[var(--accent-hover)]"
+                    />
+                    {attachmentFileErrors.length > 0 && (
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-red-600">
+                        {attachmentFileErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {attachmentFiles.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        {attachmentFiles.map((file, i) => (
+                          <div
+                            key={`${file.name}-${file.size}-${file.lastModified}`}
+                            className="flex items-center gap-2 rounded-lg bg-[var(--background-tertiary)] px-3 py-1.5 text-xs text-[var(--text-primary)]"
+                          >
+                            <span className="truncate" title={file.name}>
+                              📎 {file.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveStagedAttachment(i)}
+                              className="ml-auto font-semibold text-red-500 hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {editingPO && editingPO.attachments.length > 0 && (
+                      <p className="text-[11px] text-[var(--text-tertiary)]">
+                        This PO already has {editingPO.attachments.length} attachment
+                        {editingPO.attachments.length === 1 ? '' : 's'}. Any files added here will
+                        be kept alongside {editingPO.attachments.length === 1 ? 'it' : 'them'} —
+                        use the Attachments tab in the PO details to replace or remove a specific
+                        file.
+                      </p>
+                    )}
                   </div>
                 </form>
               </div>

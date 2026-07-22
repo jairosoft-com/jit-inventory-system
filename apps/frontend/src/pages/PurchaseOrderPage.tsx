@@ -93,9 +93,11 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 // Shared by the create/edit form's attachment field and the detail view's
 // attachment tab so both enforce identical rules (Scenario 2).
 function getAttachmentFileError(file: File): string | null {
-  const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-  if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    return `Invalid file type "${ext}". Only PDF and Word (DOC, DOCX) files are allowed.`;
+  const hasExtension = file.name.includes('.');
+  const ext = hasExtension ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+  if (!hasExtension || !ALLOWED_EXTENSIONS.includes(ext)) {
+    const label = hasExtension ? `"${ext}"` : 'with no extension';
+    return `Invalid file type ${label}. Only PDF and Word (DOC, DOCX) files are allowed.`;
   }
   if (file.size > MAX_FILE_SIZE) {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
@@ -108,11 +110,14 @@ function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) resolve(result);
-      else reject(new Error('Failed to read file'));
+      const result = event.target?.result;
+      if (typeof result === 'string') resolve(result);
+      else reject(new Error('Failed to read file: unexpected result type'));
     };
-    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onerror = () => {
+      const detail = reader.error?.message;
+      reject(new Error(detail ? `Failed to read file: ${detail}` : 'Failed to read file'));
+    };
     reader.readAsDataURL(file);
   });
 }
@@ -227,6 +232,7 @@ export default function PurchaseOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [attachmentFileErrors, setAttachmentFileErrors] = useState<string[]>([]);
+  const [attachmentUploadWarning, setAttachmentUploadWarning] = useState<string | null>(null);
 
   // Active suppliers only
   const activeSuppliers = useMemo(() => suppliers.filter((s) => !s.deletedAt), [suppliers]);
@@ -309,6 +315,7 @@ export default function PurchaseOrderPage() {
     setFormError(null);
     setAttachmentFiles([]);
     setAttachmentFileErrors([]);
+    setAttachmentUploadWarning(null);
     setIsFormOpen(true);
   };
 
@@ -330,6 +337,7 @@ export default function PurchaseOrderPage() {
     setFormError(null);
     setAttachmentFiles([]);
     setAttachmentFileErrors([]);
+    setAttachmentUploadWarning(null);
     setIsFormOpen(true);
   };
 
@@ -394,8 +402,10 @@ export default function PurchaseOrderPage() {
     setAttachmentFileErrors(errors);
     if (validPicks.length > 0) {
       setAttachmentFiles((prev) => {
-        const alreadyStaged = new Set(prev.map((f) => `${f.name}::${f.size}`));
-        const deduped = validPicks.filter((f) => !alreadyStaged.has(`${f.name}::${f.size}`));
+        const alreadyStaged = new Set(prev.map((f) => `${f.name}::${f.size}::${f.lastModified}`));
+        const deduped = validPicks.filter(
+          (f) => !alreadyStaged.has(`${f.name}::${f.size}::${f.lastModified}`),
+        );
         return [...prev, ...deduped];
       });
     }
@@ -446,6 +456,9 @@ export default function PurchaseOrderPage() {
       setAttachmentFileErrors(invalidStaged);
       return;
     }
+    // Clear any stale errors left over from a previous failed submit attempt
+    // now that every currently staged file passes validation.
+    setAttachmentFileErrors([]);
 
     setIsSubmitting(true);
     try {
@@ -464,25 +477,34 @@ export default function PurchaseOrderPage() {
         : 'Purchase order created successfully';
 
       if (attachmentFiles.length > 0) {
-        const failures: string[] = [];
-        let successCount = 0;
         // Each staged file becomes its own attachment, added alongside any
         // that already exist — never replacing what's already on the PO.
-        for (const file of attachmentFiles) {
-          try {
+        // Uploaded in parallel rather than sequentially so a batch of files
+        // doesn't wait on one another.
+        const results = await Promise.allSettled(
+          attachmentFiles.map(async (file) => {
             const fileUrl = await readFileAsDataUrl(file);
             await addAttachment(savedPO.id, {
               fileUrl,
               fileName: file.name,
               fileSize: file.size,
             });
+            return file.name;
+          }),
+        );
+
+        const failures: string[] = [];
+        let successCount = 0;
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
             successCount += 1;
-          } catch (attachErr: unknown) {
+          } else {
+            const attachErr = result.reason;
             const attachMsg =
               attachErr instanceof Error ? attachErr.message : 'Failed to attach document';
-            failures.push(`${file.name}: ${attachMsg}`);
+            failures.push(`${attachmentFiles[i].name}: ${attachMsg}`);
           }
-        }
+        });
 
         if (failures.length > 0) {
           setSuccessMessage(
@@ -490,8 +512,8 @@ export default function PurchaseOrderPage() {
               ? `${baseMessage} and ${successCount} document(s) attached`
               : baseMessage,
           );
-          alert(
-            `${baseMessage}, but ${failures.length} document(s) could not be attached:\n${failures.join('\n')}`,
+          setAttachmentUploadWarning(
+            `${failures.length} document(s) could not be attached: ${failures.join('; ')}`,
           );
         } else {
           setSuccessMessage(
@@ -509,6 +531,11 @@ export default function PurchaseOrderPage() {
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'An error occurred';
       setFormError(errMsg);
+      // Staged attachments and their errors reflect an in-progress attempt;
+      // clear them so the next retry starts from a clean slate rather than
+      // showing confusing leftover state from the failed submission.
+      setAttachmentFiles([]);
+      setAttachmentFileErrors([]);
     } finally {
       setIsSubmitting(false);
     }
@@ -789,6 +816,17 @@ export default function PurchaseOrderPage() {
       {successMessage && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
           {successMessage}
+        </div>
+      )}
+      {attachmentUploadWarning && (
+        <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 animate-fade-in">
+          <span>{attachmentUploadWarning}</span>
+          <button
+            onClick={() => setAttachmentUploadWarning(null)}
+            className="font-semibold text-amber-900 hover:text-amber-950"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -1284,10 +1322,12 @@ export default function PurchaseOrderPage() {
                       <div className="flex flex-col gap-1.5">
                         {attachmentFiles.map((file, i) => (
                           <div
-                            key={`${file.name}-${file.size}-${i}`}
+                            key={`${file.name}-${file.size}-${file.lastModified}`}
                             className="flex items-center gap-2 rounded-lg bg-[var(--background-tertiary)] px-3 py-1.5 text-xs text-[var(--text-primary)]"
                           >
-                            <span className="truncate">📎 {file.name}</span>
+                            <span className="truncate" title={file.name}>
+                              📎 {file.name}
+                            </span>
                             <button
                               type="button"
                               onClick={() => handleRemoveStagedAttachment(i)}

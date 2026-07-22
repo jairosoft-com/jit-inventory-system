@@ -1169,7 +1169,9 @@ export default function PurchaseOrderPage() {
                         <div
                           key={index}
                           className="grid gap-2 items-end"
-                          style={{ gridTemplateColumns: '130px 1fr 80px 100px 100px 32px' }}
+                          style={{
+                            gridTemplateColumns: '110px 1fr 64px 130px minmax(130px, auto) 32px',
+                          }}
                         >
                           <div className="flex flex-col gap-1 min-w-0">
                             {index === 0 && (
@@ -1257,11 +1259,18 @@ export default function PurchaseOrderPage() {
                                 Subtotal
                               </span>
                             )}
-                            <div className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end">
-                              ₱
-                              {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
+                            <div
+                              className="w-full min-w-0 rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end overflow-hidden"
+                              title={`₱${((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
                                 minimumFractionDigits: 2,
-                              })}
+                              })}`}
+                            >
+                              <span className="truncate">
+                                ₱
+                                {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </span>
                             </div>
                           </div>
                           <button

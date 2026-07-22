@@ -1384,11 +1384,12 @@ export default function DashboardLayout() {
         /* ------ Main Content ------ */
 
         .dash-main {
-          flex: 1;
-          margin-left: var(--sidebar-width);
-          display: flex;
-          flex-direction: column;
-          transition: margin-left var(--transition-base);
+        flex: 1;
+        min-width: 0;
+        margin-left: var(--sidebar-width);
+        display: flex;
+        flex-direction: column;
+        transition: margin-left var(--transition-base);
         }
         .dash-sidebar--collapsed ~ .dash-main {
           margin-left: 76px;
@@ -1735,8 +1736,9 @@ export default function DashboardLayout() {
         /* ------ Page Content Area ------ */
 
         .dash-content {
-          flex: 1;
-          padding: 28px;
+        flex: 1;
+        min-width: 0;
+        padding: 28px;
         }
 
         /* ------ Account Modal ------ */

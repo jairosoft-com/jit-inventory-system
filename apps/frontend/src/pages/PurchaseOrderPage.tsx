@@ -488,9 +488,7 @@ export default function PurchaseOrderPage() {
   const validateAttachmentFile = (file: File): boolean => {
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(
-        `Invalid file type "${ext}". Only PDF and Word (DOC, DOCX) files are allowed.`,
-      );
+      alert(`Invalid file type "${ext}". Only PDF and Word (DOC, DOCX) files are allowed.`);
       return false;
     }
     if (file.size > MAX_FILE_SIZE) {
@@ -851,17 +849,15 @@ export default function PurchaseOrderPage() {
                           >
                             View
                           </button>
-                          {canUpdate &&
-                            po.status === 'DRAFT' &&
-                            po.createdById === user?.id && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(po)}
-                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                              >
-                                Edit
-                              </button>
-                            )}
+                          {canUpdate && po.status === 'DRAFT' && po.createdById === user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(po)}
+                              className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                            >
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1547,7 +1543,9 @@ export default function PurchaseOrderPage() {
                                     setReplaceTargetId(att.id);
                                     // Defer click until state is set, then reset the input so
                                     // selecting the same file twice still fires onChange.
-                                    requestAnimationFrame(() => replaceFileInputRef.current?.click());
+                                    requestAnimationFrame(() =>
+                                      replaceFileInputRef.current?.click(),
+                                    );
                                   }}
                                   className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                                 >
@@ -1645,7 +1643,8 @@ export default function PurchaseOrderPage() {
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
                   <span className="text-4xl">📄</span>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Word documents can't be previewed in the browser. Download it to view the contents.
+                    Word documents can't be previewed in the browser. Download it to view the
+                    contents.
                   </p>
                   <a
                     href={previewAttachment.url}
@@ -1660,7 +1659,6 @@ export default function PurchaseOrderPage() {
           </div>,
           document.body,
         )}
-
 
       {/* ── Status Change Confirmation Dialog ─────────────────────────────── */}
       {isStatusDialogOpen &&
@@ -2002,7 +2000,10 @@ function SearchableItemSelect({
         <span className="truncate">
           {selectedItem ? (
             <span className="flex items-center gap-2">
-              <span className="font-medium text-[var(--text-primary)]">
+              <span
+                className="font-medium text-[var(--text-primary)]"
+                title={selectedItem.itemName}
+              >
                 {selectedItem.itemName}
               </span>
               {selectedItem.barcode && (
@@ -2031,7 +2032,7 @@ function SearchableItemSelect({
               position: 'absolute',
               top: `${coords.top}px`,
               left: `${coords.left}px`,
-              width: `${coords.width}px`,
+              width: `${Math.max(coords.width, 260)}px`,
             }}
             className="z-[9999] mt-1 max-h-60 overflow-hidden rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg animate-fade-in flex flex-col"
           >
@@ -2067,7 +2068,9 @@ function SearchableItemSelect({
                       item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
                     }`}
                   >
-                    <span className="truncate text-[var(--text-primary)]">{item.itemName}</span>
+                    <span className="truncate text-[var(--text-primary)]" title={item.itemName}>
+                      {item.itemName}
+                    </span>
                     {item.barcode && (
                       <span className="ml-2 shrink-0 rounded bg-[var(--surface-border)]/50 px-1.5 py-0.5 text-[9px] text-[var(--text-secondary)] font-mono">
                         {item.barcode}

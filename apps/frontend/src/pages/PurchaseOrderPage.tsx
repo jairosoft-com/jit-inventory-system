@@ -31,6 +31,10 @@ interface LineItemRow {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
+const MAX_UNIT_COST = 99_999_999.99;
+const MAX_QUANTITY = 999_999;
+const MAX_PO_TOTAL = 999_999_999.99;
+
 const ALL_STATUSES: POStatus[] = [
   'DRAFT',
   'PENDING',
@@ -358,23 +362,47 @@ export default function PurchaseOrderPage() {
     value: string | number,
   ) => {
     setLineItems((prev) =>
-      prev.map((li, i) =>
-        i === index
-          ? {
-              ...li,
-              [field]:
-                field === 'selectedType'
-                  ? value
-                  : typeof value === 'string'
-                    ? Number(value) || 0
-                    : value,
-            }
-          : li,
-      ),
+      prev.map((li, i) => {
+        if (i !== index) return li;
+
+        if (field === 'selectedType') {
+          return { ...li, [field]: value } as LineItemRow;
+        }
+
+        let numericValue = typeof value === 'string' ? Number(value) || 0 : value;
+
+        if (field === 'quantity') {
+          numericValue = Math.min(numericValue, MAX_QUANTITY);
+        } else if (field === 'unitCost') {
+          numericValue = Math.min(numericValue, MAX_UNIT_COST);
+        }
+
+        return { ...li, [field]: numericValue } as LineItemRow;
+      }),
     );
   };
 
   const computeTotal = () => lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+
+  // Strips non-digit characters and hard-caps length so a user can't type
+  // more digits than MAX_QUANTITY (999,999) has, rather than only clamping
+  // after the fact on blur/submit.
+  const sanitizeQuantityInput = (raw: string) => raw.replace(/\D/g, '').slice(0, 6);
+
+  // Strips anything that isn't a digit or a single decimal point, and caps
+  // the integer portion to 8 digits and the decimal portion to 2 digits —
+  // matching MAX_UNIT_COST (99,999,999.99) — so the field itself prevents
+  // typing an out-of-range value instead of relying on post-hoc clamping.
+  const sanitizeUnitCostInput = (raw: string) => {
+    let cleaned = raw.replace(/[^\d.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot !== -1) {
+      cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+    }
+    const [intPart, decPart] = cleaned.split('.');
+    const truncatedInt = (intPart || '').slice(0, 8);
+    return decPart === undefined ? truncatedInt : `${truncatedInt}.${decPart.slice(0, 2)}`;
+  };
 
   // Validates and stages one or more supporting documents selected in the
   // create/edit form, so they can be attached in the same step as saving the
@@ -436,8 +464,20 @@ export default function PurchaseOrderPage() {
         setFormError('All line items must have a quantity of at least 1');
         return;
       }
+      if (li.quantity > MAX_QUANTITY) {
+        setFormError(`Quantity cannot exceed ${MAX_QUANTITY.toLocaleString('en-PH')}`);
+        return;
+      }
       if (li.unitCost <= 0) {
         setFormError('All line items must have a unit cost greater than 0');
+        return;
+      }
+      if (li.unitCost > MAX_UNIT_COST) {
+        setFormError(
+          `Unit cost cannot exceed ₱${MAX_UNIT_COST.toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+          })}`,
+        );
         return;
       }
     }
@@ -446,6 +486,16 @@ export default function PurchaseOrderPage() {
     const itemIds = validLineItems.map((li) => li.itemId);
     if (new Set(itemIds).size !== itemIds.length) {
       setFormError('Duplicate items are not allowed');
+      return;
+    }
+
+    const poTotal = validLineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+    if (poTotal > MAX_PO_TOTAL) {
+      setFormError(
+        `Purchase order total cannot exceed ₱${MAX_PO_TOTAL.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+        })}`,
+      );
       return;
     }
 
@@ -1003,17 +1053,15 @@ export default function PurchaseOrderPage() {
                           >
                             View
                           </button>
-                          {canUpdate &&
-                            po.status === 'DRAFT' &&
-                            po.createdById === user?.id && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(po)}
-                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                              >
-                                Edit
-                              </button>
-                            )}
+                          {canUpdate && po.status === 'DRAFT' && po.createdById === user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(po)}
+                              className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                            >
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1169,9 +1217,7 @@ export default function PurchaseOrderPage() {
                         <div
                           key={index}
                           className="grid gap-2 items-end"
-                          style={{
-                            gridTemplateColumns: '110px 1fr 64px 130px minmax(130px, auto) 32px',
-                          }}
+                          style={{ gridTemplateColumns: '130px 1fr 80px 100px 100px 32px' }}
                         >
                           <div className="flex flex-col gap-1 min-w-0">
                             {index === 0 && (
@@ -1227,11 +1273,16 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <input
-                              type="number"
-                              min="1"
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
                               value={li.quantity || ''}
                               onChange={(e) =>
-                                handleLineItemChange(index, 'quantity', e.target.value)
+                                handleLineItemChange(
+                                  index,
+                                  'quantity',
+                                  sanitizeQuantityInput(e.target.value),
+                                )
                               }
                               className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                             />
@@ -1243,12 +1294,16 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
+                              maxLength={11}
                               value={li.unitCost || ''}
                               onChange={(e) =>
-                                handleLineItemChange(index, 'unitCost', e.target.value)
+                                handleLineItemChange(
+                                  index,
+                                  'unitCost',
+                                  sanitizeUnitCostInput(e.target.value),
+                                )
                               }
                               className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                             />
@@ -1260,12 +1315,10 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <div
-                              className="w-full min-w-0 rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end overflow-hidden"
-                              title={`₱${((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
-                                minimumFractionDigits: 2,
-                              })}`}
+                              className="w-full min-w-0 rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end"
+                              title={`₱${((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
                             >
-                              <span className="truncate">
+                              <span className="min-w-0 truncate">
                                 ₱
                                 {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
                                   minimumFractionDigits: 2,
@@ -1290,7 +1343,10 @@ export default function PurchaseOrderPage() {
                       <span className="text-sm font-medium text-[var(--text-secondary)]">
                         Total:
                       </span>
-                      <span className="text-lg font-bold text-[var(--text-primary)]">
+                      <span
+                        className="text-lg font-bold text-[var(--text-primary)] min-w-0 truncate"
+                        title={`₱${computeTotal().toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                      >
                         ₱
                         {computeTotal().toLocaleString('en-PH', {
                           minimumFractionDigits: 2,
@@ -1768,7 +1824,9 @@ export default function PurchaseOrderPage() {
                                     setReplaceTargetId(att.id);
                                     // Defer click until state is set, then reset the input so
                                     // selecting the same file twice still fires onChange.
-                                    requestAnimationFrame(() => replaceFileInputRef.current?.click());
+                                    requestAnimationFrame(() =>
+                                      replaceFileInputRef.current?.click(),
+                                    );
                                   }}
                                   className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                                 >
@@ -1866,7 +1924,8 @@ export default function PurchaseOrderPage() {
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
                   <span className="text-4xl">📄</span>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Word documents can't be previewed in the browser. Download it to view the contents.
+                    Word documents can't be previewed in the browser. Download it to view the
+                    contents.
                   </p>
                   <a
                     href={previewAttachment.url}
@@ -1881,7 +1940,6 @@ export default function PurchaseOrderPage() {
           </div>,
           document.body,
         )}
-
 
       {/* ── Status Change Confirmation Dialog ─────────────────────────────── */}
       {isStatusDialogOpen &&
@@ -2223,7 +2281,10 @@ function SearchableItemSelect({
         <span className="truncate">
           {selectedItem ? (
             <span className="flex items-center gap-2">
-              <span className="font-medium text-[var(--text-primary)]">
+              <span
+                className="font-medium text-[var(--text-primary)]"
+                title={selectedItem.itemName}
+              >
                 {selectedItem.itemName}
               </span>
               {selectedItem.barcode && (
@@ -2252,7 +2313,7 @@ function SearchableItemSelect({
               position: 'absolute',
               top: `${coords.top}px`,
               left: `${coords.left}px`,
-              width: `${coords.width}px`,
+              width: `${Math.max(coords.width, 260)}px`,
             }}
             className="z-[9999] mt-1 max-h-60 overflow-hidden rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg animate-fade-in flex flex-col"
           >
@@ -2288,7 +2349,9 @@ function SearchableItemSelect({
                       item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
                     }`}
                   >
-                    <span className="truncate text-[var(--text-primary)]">{item.itemName}</span>
+                    <span className="truncate text-[var(--text-primary)]" title={item.itemName}>
+                      {item.itemName}
+                    </span>
                     {item.barcode && (
                       <span className="ml-2 shrink-0 rounded bg-[var(--surface-border)]/50 px-1.5 py-0.5 text-[9px] text-[var(--text-secondary)] font-mono">
                         {item.barcode}

@@ -36,6 +36,7 @@ let lastAuthCheckStartedAt = 0;
 const RATE_LIMIT_STATUS = 429;
 const BACKEND_RATE_LIMIT_FALLBACK_SECONDS = 15 * 60;
 const AUTH_USER_STORAGE_KEY = 'jit-auth-user';
+const AUTH_TOKEN_STORAGE_KEY = 'jit-auth-token';
 
 function loadCachedUser() {
   if (typeof window === 'undefined') {
@@ -66,6 +67,35 @@ function saveCachedUser(user: User | null) {
   }
 
   window.sessionStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+}
+
+function loadCachedToken() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedToken(token: string | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!token) {
+    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  } catch (error) {
+    console.warn('Failed to save token to localStorage:', error);
+  }
 }
 
 function normalizeHeaderValue(value: unknown) {
@@ -195,18 +225,21 @@ function getRetryAfterSeconds(error: unknown) {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  accessToken: null,
+  // Load token from localStorage on init
+  accessToken: loadCachedToken(),
   user: loadCachedUser(),
   isLoading: true,
   authCheckStatus: null,
   authRetryAfterSeconds: null,
 
   setAuth: (accessToken, user) => {
+    saveCachedToken(accessToken); // Persist token
     saveCachedUser(user);
     set({ accessToken, user, authCheckStatus: null, authRetryAfterSeconds: null });
   },
 
   setAccessToken: (accessToken) => {
+    saveCachedToken(accessToken);
     set({ accessToken });
   },
 
@@ -220,6 +253,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: User;
       };
 
+      saveCachedToken(accessToken); // Persist token
       saveCachedUser(user);
 
       set({
@@ -250,6 +284,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logoutStateOnly: () => {
+    saveCachedToken(null); // Clear token
     saveCachedUser(null);
     useAlertStore.getState().reset();
 
@@ -300,6 +335,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const status = err.response?.status ?? null;
 
       if (status === 401) {
+        saveCachedToken(null);
         saveCachedUser(null);
 
         set({

@@ -393,7 +393,10 @@ function HistoryPanel() {
               </div>
 
               {rec.notes && (
-                <p className="mt-2 border-l-2 border-[var(--surface-border)] pl-2 text-xs italic text-[var(--text-secondary)]">
+                <p
+                  className="mt-2 line-clamp-3 break-words border-l-2 border-[var(--surface-border)] pl-2 text-xs italic text-[var(--text-secondary)]"
+                  title={rec.notes}
+                >
                   {rec.notes}
                 </p>
               )}

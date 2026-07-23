@@ -31,6 +31,10 @@ interface LineItemRow {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
+const MAX_UNIT_COST = 99_999_999.99;
+const MAX_QUANTITY = 999_999;
+const MAX_PO_TOTAL = 999_999_999.99;
+
 const ALL_STATUSES: POStatus[] = [
   'DRAFT',
   'PENDING',
@@ -358,23 +362,47 @@ export default function PurchaseOrderPage() {
     value: string | number,
   ) => {
     setLineItems((prev) =>
-      prev.map((li, i) =>
-        i === index
-          ? {
-              ...li,
-              [field]:
-                field === 'selectedType'
-                  ? value
-                  : typeof value === 'string'
-                    ? Number(value) || 0
-                    : value,
-            }
-          : li,
-      ),
+      prev.map((li, i) => {
+        if (i !== index) return li;
+
+        if (field === 'selectedType') {
+          return { ...li, [field]: value } as LineItemRow;
+        }
+
+        let numericValue = typeof value === 'string' ? Number(value) || 0 : value;
+
+        if (field === 'quantity') {
+          numericValue = Math.min(numericValue, MAX_QUANTITY);
+        } else if (field === 'unitCost') {
+          numericValue = Math.min(numericValue, MAX_UNIT_COST);
+        }
+
+        return { ...li, [field]: numericValue } as LineItemRow;
+      }),
     );
   };
 
   const computeTotal = () => lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+
+  // Strips non-digit characters and hard-caps length so a user can't type
+  // more digits than MAX_QUANTITY (999,999) has, rather than only clamping
+  // after the fact on blur/submit.
+  const sanitizeQuantityInput = (raw: string) => raw.replace(/\D/g, '').slice(0, 6);
+
+  // Strips anything that isn't a digit or a single decimal point, and caps
+  // the integer portion to 8 digits and the decimal portion to 2 digits —
+  // matching MAX_UNIT_COST (99,999,999.99) — so the field itself prevents
+  // typing an out-of-range value instead of relying on post-hoc clamping.
+  const sanitizeUnitCostInput = (raw: string) => {
+    let cleaned = raw.replace(/[^\d.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot !== -1) {
+      cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+    }
+    const [intPart, decPart] = cleaned.split('.');
+    const truncatedInt = (intPart || '').slice(0, 8);
+    return decPart === undefined ? truncatedInt : `${truncatedInt}.${decPart.slice(0, 2)}`;
+  };
 
   // Validates and stages one or more supporting documents selected in the
   // create/edit form, so they can be attached in the same step as saving the
@@ -436,8 +464,20 @@ export default function PurchaseOrderPage() {
         setFormError('All line items must have a quantity of at least 1');
         return;
       }
+      if (li.quantity > MAX_QUANTITY) {
+        setFormError(`Quantity cannot exceed ${MAX_QUANTITY.toLocaleString('en-PH')}`);
+        return;
+      }
       if (li.unitCost <= 0) {
         setFormError('All line items must have a unit cost greater than 0');
+        return;
+      }
+      if (li.unitCost > MAX_UNIT_COST) {
+        setFormError(
+          `Unit cost cannot exceed ₱${MAX_UNIT_COST.toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+          })}`,
+        );
         return;
       }
     }
@@ -446,6 +486,16 @@ export default function PurchaseOrderPage() {
     const itemIds = validLineItems.map((li) => li.itemId);
     if (new Set(itemIds).size !== itemIds.length) {
       setFormError('Duplicate items are not allowed');
+      return;
+    }
+
+    const poTotal = validLineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+    if (poTotal > MAX_PO_TOTAL) {
+      setFormError(
+        `Purchase order total cannot exceed ₱${MAX_PO_TOTAL.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+        })}`,
+      );
       return;
     }
 
@@ -1223,11 +1273,16 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <input
-                              type="number"
-                              min="1"
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
                               value={li.quantity || ''}
                               onChange={(e) =>
-                                handleLineItemChange(index, 'quantity', e.target.value)
+                                handleLineItemChange(
+                                  index,
+                                  'quantity',
+                                  sanitizeQuantityInput(e.target.value),
+                                )
                               }
                               className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                             />
@@ -1239,12 +1294,16 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
+                              maxLength={11}
                               value={li.unitCost || ''}
                               onChange={(e) =>
-                                handleLineItemChange(index, 'unitCost', e.target.value)
+                                handleLineItemChange(
+                                  index,
+                                  'unitCost',
+                                  sanitizeUnitCostInput(e.target.value),
+                                )
                               }
                               className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                             />
@@ -1255,11 +1314,16 @@ export default function PurchaseOrderPage() {
                                 Subtotal
                               </span>
                             )}
-                            <div className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end">
-                              ₱
-                              {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
-                                minimumFractionDigits: 2,
-                              })}
+                            <div
+                              className="w-full min-w-0 rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end"
+                              title={`₱${((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                            >
+                              <span className="min-w-0 truncate">
+                                ₱
+                                {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </span>
                             </div>
                           </div>
                           <button
@@ -1279,7 +1343,10 @@ export default function PurchaseOrderPage() {
                       <span className="text-sm font-medium text-[var(--text-secondary)]">
                         Total:
                       </span>
-                      <span className="text-lg font-bold text-[var(--text-primary)]">
+                      <span
+                        className="text-lg font-bold text-[var(--text-primary)] min-w-0 truncate"
+                        title={`₱${computeTotal().toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                      >
                         ₱
                         {computeTotal().toLocaleString('en-PH', {
                           minimumFractionDigits: 2,

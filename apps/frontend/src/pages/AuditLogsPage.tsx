@@ -116,43 +116,123 @@ function ActionBadge({ action }: { action: AuditAction }) {
   );
 }
 
-// ── JSON diff viewer ──────────────────────────────────────────────────────────
+// ── Readable diff viewer ─────────────────────────────────────────────────────
 
-function JsonBlock({ data, label }: { data: unknown; label: string }) {
-  const isEmpty = data === null || data === undefined;
+/** Actions that carry no before/after data */
+const NO_DATA_ACTIONS = new Set(['LOGIN', 'LOGOUT']);
+
+/** Keys that are purely internal — never shown to end users */
+const HIDDEN_KEYS = new Set([
+  'id', 'createdAt', 'updatedAt', 'deletedAt', 'password', 'hash',
+  'performedBy', 'entityId', 'entityType',
+]);
+
+/** "itemName" → "Item Name", "stock_in" → "Stock In" */
+function toLabel(key: string): string {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Format a scalar value for display */
+function toDisplay(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+      try {
+        return new Intl.DateTimeFormat('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        }).format(new Date(value));
+      } catch { return value; }
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '(none)';
+    return value
+      .map((v) => {
+        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+          const obj = v as Record<string, unknown>;
+          // Pick the most meaningful human-readable field from the object
+          const display = obj['name'] ?? obj['label'] ?? obj['title'] ?? obj['description'];
+          if (display !== null && display !== undefined) return String(display);
+          // Fallback: join all non-hidden scalar values
+          return Object.entries(obj)
+            .filter(([k, val]) => !HIDDEN_KEYS.has(k) && val !== null && typeof val !== 'object')
+            .map(([, val]) => String(val))
+            .join(' ') || '—';
+        }
+        return toDisplay(v);
+      })
+      .join(', ');
+  }
+  return String(value);
+}
+
+/** Recursively flatten a nested object into [label, displayValue] pairs */
+function flattenData(obj: Record<string, unknown>, prefix = ''): Array<[string, string]> {
+  const rows: Array<[string, string]> = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (HIDDEN_KEYS.has(k)) continue;
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'string' && v.trim() === '') continue;
+    if (Array.isArray(v) && v.length === 0) continue;
+
+    const label = prefix ? `${prefix} · ${toLabel(k)}` : toLabel(k);
+
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      const nested = flattenData(v as Record<string, unknown>, label);
+      rows.push(...nested);
+    } else {
+      rows.push([label, toDisplay(v)]);
+    }
+  }
+  return rows;
+}
+
+function ReadableBlock({ data, label, accent }: {
+  data: Record<string, unknown> | null;
+  label: string;
+  accent: string;
+}) {
+  const rows = data ? flattenData(data) : [];
+
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      <p
-        style={{
-          margin: '0 0 6px',
-          fontSize: '10px',
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          color: 'var(--text-tertiary)',
-          textTransform: 'uppercase',
-        }}
-      >
-        {label}
-      </p>
-      <pre
-        style={{
-          margin: 0,
-          padding: '12px',
-          borderRadius: '10px',
-          background: 'var(--background)',
-          border: '1px solid var(--surface-border)',
-          fontSize: '11.5px',
-          lineHeight: 1.6,
-          color: isEmpty ? 'var(--text-disabled)' : 'var(--text-primary)',
-          overflowX: 'auto',
-          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-          minHeight: '60px',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
-      >
-        {isEmpty ? '—  (no data)' : JSON.stringify(data, null, 2)}
-      </pre>
+      {/* Label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+        <span style={{ display: 'inline-block', width: '3px', height: '14px', borderRadius: '2px', background: accent, flexShrink: 0 }} />
+        <p style={{ margin: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+          {label}
+        </p>
+      </div>
+
+      {/* Content */}
+      <div style={{ borderRadius: '10px', border: '1px solid var(--surface-border)', background: 'var(--background)', overflow: 'hidden', minHeight: '60px' }}>
+        {rows.length === 0 ? (
+          <p style={{ margin: 0, padding: '16px 14px', fontSize: '12px', color: 'var(--text-disabled)', fontStyle: 'italic' }}>
+            (no data)
+          </p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {rows.map(([rowLabel, rowValue], i) => (
+                <tr key={rowLabel} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--surface-border)' }}>
+                  <td style={{ padding: '8px 12px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', verticalAlign: 'top', width: '40%' }}>
+                    {rowLabel}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '11.5px', color: 'var(--text-primary)', wordBreak: 'break-word', verticalAlign: 'top' }}>
+                    {rowValue}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
@@ -160,6 +240,8 @@ function JsonBlock({ data, label }: { data: unknown; label: string }) {
 // ── Detail modal ──────────────────────────────────────────────────────────────
 
 function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
+  const isNoDataAction = NO_DATA_ACTIONS.has(log.action);
+
   return createPortal(
     <div
       style={{
@@ -189,7 +271,7 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
           padding: '28px',
         }}
       >
-        {/* Modal header */}
+        {/* Modal header — unchanged */}
         <div
           style={{
             display: 'flex',
@@ -241,11 +323,17 @@ function DetailModal({ log, onClose }: { log: AuditLog; onClose: () => void }) {
           </button>
         </div>
 
-        {/* JSON diff */}
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <JsonBlock data={log.oldData} label="Before" />
-          <JsonBlock data={log.newData} label="After" />
-        </div>
+        {/* Before / After */}
+        {isNoDataAction ? (
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', padding: '8px 0' }}>
+            No field changes are recorded for this action.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <ReadableBlock data={log.oldData} label="Before" accent="#f59e0b" />
+            <ReadableBlock data={log.newData} label="After" accent="#22c55e" />
+          </div>
+        )}
       </div>
     </div>,
     document.body,

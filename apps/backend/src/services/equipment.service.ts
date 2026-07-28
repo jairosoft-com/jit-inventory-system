@@ -660,41 +660,86 @@ export class EquipmentService {
 
     const nextStatus = equipmentFields.status ?? equipment.status;
     const nextCondition = equipmentFields.condition ?? equipment.condition;
+    const isEnteringMaintenance =
+      nextStatus === EquipmentStatus.UNDER_MAINTENANCE &&
+      equipment.status !== EquipmentStatus.UNDER_MAINTENANCE;
 
-    const updated = await prisma.equipment.update({
-      where: { id },
-      data: {
-        ...equipmentFields,
-        condition: normalizeConditionForEquipmentStatus(
-          nextStatus,
-          nextCondition,
-        ),
-        ...(purchasePrice !== undefined && {
-          purchasePrice:
-            purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
-        }),
-        ...(assignedTo !== undefined && {
-          assignedToUser:
-            assignedTo != null
-              ? { connect: { id: assignedTo } }
-              : { disconnect: true },
-        }),
-        ...(purchaseOrderId !== undefined && {
-          purchaseOrder:
-            purchaseOrderId != null
-              ? { connect: { id: purchaseOrderId } }
-              : { disconnect: true },
-        }),
-        item: {
-          update: {
-            ...(itemName !== undefined && { itemName }),
-            ...(description !== undefined && { description }),
-            ...(categoryId !== undefined && { categoryId }),
-            ...(barcode !== undefined && { barcode }),
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedEquipment = await tx.equipment.update({
+        where: { id },
+        data: {
+          ...equipmentFields,
+          condition: normalizeConditionForEquipmentStatus(
+            nextStatus,
+            nextCondition,
+          ),
+          ...(purchasePrice !== undefined && {
+            purchasePrice:
+              purchasePrice != null ? new Prisma.Decimal(purchasePrice) : null,
+          }),
+          ...(assignedTo !== undefined && {
+            assignedToUser:
+              assignedTo != null
+                ? { connect: { id: assignedTo } }
+                : { disconnect: true },
+          }),
+          ...(purchaseOrderId !== undefined && {
+            purchaseOrder:
+              purchaseOrderId != null
+                ? { connect: { id: purchaseOrderId } }
+                : { disconnect: true },
+          }),
+          item: {
+            update: {
+              ...(itemName !== undefined && { itemName }),
+              ...(description !== undefined && { description }),
+              ...(categoryId !== undefined && { categoryId }),
+              ...(barcode !== undefined && { barcode }),
+            },
           },
         },
-      },
-      include: equipmentInclude,
+        include: equipmentInclude,
+      });
+
+      // Keep the Maintenance page in sync when an equipment item is switched
+      // to Under Maintenance directly from the Equipment module (rather than
+      // via the maintenance workflow). Mirrors the reverse sync that happens
+      // when a maintenance log transitions to IN_PROGRESS.
+      if (isEnteringMaintenance) {
+        const activeLog = await tx.maintenanceLog.findFirst({
+          where: {
+            equipmentId: id,
+            status: {
+              in: [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS],
+            },
+          },
+        });
+
+        if (activeLog) {
+          if (activeLog.status !== MaintenanceStatus.IN_PROGRESS) {
+            await tx.maintenanceLog.update({
+              where: { id: activeLog.id },
+              data: { status: MaintenanceStatus.IN_PROGRESS },
+            });
+          }
+        } else {
+          await tx.maintenanceLog.create({
+            data: {
+              equipmentId: id,
+              description:
+                'Equipment marked as Under Maintenance from the Equipment module',
+              status: MaintenanceStatus.IN_PROGRESS,
+              scheduledDate: new Date(),
+              equipmentName: updatedEquipment.item?.itemName ?? null,
+              equipmentBrand: updatedEquipment.brand,
+              equipmentModel: updatedEquipment.model,
+              equipmentCondition: updatedEquipment.condition,
+            },
+          });
+        }
+      }
+
+      return updatedEquipment;
     });
 
     await AuditLogService.log(

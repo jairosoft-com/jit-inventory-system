@@ -193,6 +193,39 @@ function flattenData(obj: Record<string, unknown>, prefix = ''): Array<[string, 
   return rows;
 }
 
+/** Threshold — values longer than this get a Show more/less toggle */
+const LONG_TEXT_THRESHOLD = 120;
+
+function ValueDisplay({ value }: { value: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = value.length > LONG_TEXT_THRESHOLD;
+
+  if (!isLong) return <span>{value}</span>;
+
+  return (
+    <span>
+      {expanded ? value : `${value.slice(0, LONG_TEXT_THRESHOLD)}…`}
+      {' '}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+          fontSize: '11px',
+          fontWeight: 600,
+          color: 'var(--primary)',
+          textDecoration: 'underline',
+          textUnderlineOffset: '2px',
+        }}
+      >
+        {expanded ? 'Show less' : 'Show more'}
+      </button>
+    </span>
+  );
+}
+
 function ReadableBlock({ data, label, accent }: {
   data: Record<string, unknown> | null;
   label: string;
@@ -219,16 +252,30 @@ function ReadableBlock({ data, label, accent }: {
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
-              {rows.map(([rowLabel, rowValue], i) => (
-                <tr key={rowLabel} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--surface-border)' }}>
-                  <td style={{ padding: '8px 12px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', verticalAlign: 'top', width: '40%' }}>
-                    {rowLabel}
-                  </td>
-                  <td style={{ padding: '8px 12px', fontSize: '11.5px', color: 'var(--text-primary)', wordBreak: 'break-word', verticalAlign: 'top' }}>
-                    {rowValue}
-                  </td>
-                </tr>
-              ))}
+              {rows.map(([rowLabel, rowValue], i) => {
+                const isLong = rowValue.length > LONG_TEXT_THRESHOLD;
+                return isLong ? (
+                  // Long text: label on top, value below — full width
+                  <tr key={rowLabel} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--surface-border)' }}>
+                    <td colSpan={2} style={{ padding: '8px 12px', fontSize: '11.5px', color: 'var(--text-primary)', wordBreak: 'break-word', verticalAlign: 'top' }}>
+                      <span style={{ display: 'block', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '4px' }}>
+                        {rowLabel}
+                      </span>
+                      <ValueDisplay value={rowValue} />
+                    </td>
+                  </tr>
+                ) : (
+                  // Short text: label left, value right — normal layout
+                  <tr key={rowLabel} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--surface-border)' }}>
+                    <td style={{ padding: '8px 12px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', verticalAlign: 'top', width: '40%' }}>
+                      {rowLabel}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: '11.5px', color: 'var(--text-primary)', wordBreak: 'break-word', verticalAlign: 'top' }}>
+                      <ValueDisplay value={rowValue} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -16,6 +16,12 @@ export default function LoginPage() {
     checkAuth();
   }, [checkAuth]);
 
+  useEffect(() => {
+    if (!storeLoading && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [storeLoading, user, navigate]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');

@@ -31,6 +31,10 @@ interface LineItemRow {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
+const MAX_UNIT_COST = 99_999_999.99;
+const MAX_QUANTITY = 999_999;
+const MAX_PO_TOTAL = 999_999_999.99;
+
 const ALL_STATUSES: POStatus[] = [
   'DRAFT',
   'PENDING',
@@ -86,8 +90,41 @@ const STATUS_CONFIG: Record<POStatus, { label: string; color: string; bg: string
   },
 };
 
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Returns a human-readable validation error, or null if the file is acceptable.
+// Shared by the create/edit form's attachment field and the detail view's
+// attachment tab so both enforce identical rules (Scenario 2).
+function getAttachmentFileError(file: File): string | null {
+  const hasExtension = file.name.includes('.');
+  const ext = hasExtension ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+  if (!hasExtension || !ALLOWED_EXTENSIONS.includes(ext)) {
+    const label = hasExtension ? `"${ext}"` : 'with no extension';
+    return `Invalid file type ${label}. Only PDF and Word (DOC, DOCX) files are allowed.`;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    return `File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`;
+  }
+  return null;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result;
+      if (typeof result === 'string') resolve(result);
+      else reject(new Error('Failed to read file: unexpected result type'));
+    };
+    reader.onerror = () => {
+      const detail = reader.error?.message;
+      reject(new Error(detail ? `Failed to read file: ${detail}` : 'Failed to read file'));
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -102,6 +139,7 @@ export default function PurchaseOrderPage() {
     updatePurchaseOrder,
     updatePurchaseOrderStatus,
     addAttachment,
+    replaceAttachment,
     deleteAttachment,
     clearError,
   } = useProcurementStore();
@@ -168,7 +206,12 @@ export default function PurchaseOrderPage() {
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [statusAction, setStatusAction] = useState<POStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string;
+    fileName: string;
+  } | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
+  const [replaceTargetId, setReplaceTargetId] = useState<number | null>(null);
 
   // Equipment Integration States
   const [poEquipment, setPoEquipment] = useState<any[]>([]);
@@ -191,6 +234,9 @@ export default function PurchaseOrderPage() {
   ]);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentFileErrors, setAttachmentFileErrors] = useState<string[]>([]);
+  const [attachmentUploadWarning, setAttachmentUploadWarning] = useState<string | null>(null);
 
   // Active suppliers only
   const activeSuppliers = useMemo(() => suppliers.filter((s) => !s.deletedAt), [suppliers]);
@@ -271,11 +317,15 @@ export default function PurchaseOrderPage() {
     setFormData({ supplierId: '' });
     setLineItems([{ itemId: 0, quantity: 1, unitCost: 0 }]);
     setFormError(null);
+    setAttachmentFiles([]);
+    setAttachmentFileErrors([]);
+    setAttachmentUploadWarning(null);
     setIsFormOpen(true);
   };
 
   const handleOpenEdit = (po: PurchaseOrder) => {
     if (po.status !== 'DRAFT') return;
+    if (po.createdById !== user?.id) return;
     setEditingPO(po);
     setFormData({
       supplierId: String(po.supplierId),
@@ -289,6 +339,9 @@ export default function PurchaseOrderPage() {
       })),
     );
     setFormError(null);
+    setAttachmentFiles([]);
+    setAttachmentFileErrors([]);
+    setAttachmentUploadWarning(null);
     setIsFormOpen(true);
   };
 
@@ -309,23 +362,86 @@ export default function PurchaseOrderPage() {
     value: string | number,
   ) => {
     setLineItems((prev) =>
-      prev.map((li, i) =>
-        i === index
-          ? {
-              ...li,
-              [field]:
-                field === 'selectedType'
-                  ? value
-                  : typeof value === 'string'
-                    ? Number(value) || 0
-                    : value,
-            }
-          : li,
-      ),
+      prev.map((li, i) => {
+        if (i !== index) return li;
+
+        if (field === 'selectedType') {
+          return { ...li, [field]: value } as LineItemRow;
+        }
+
+        let numericValue = typeof value === 'string' ? Number(value) || 0 : value;
+
+        if (field === 'quantity') {
+          numericValue = Math.min(numericValue, MAX_QUANTITY);
+        } else if (field === 'unitCost') {
+          numericValue = Math.min(numericValue, MAX_UNIT_COST);
+        }
+
+        return { ...li, [field]: numericValue } as LineItemRow;
+      }),
     );
   };
 
   const computeTotal = () => lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+
+  // Strips non-digit characters and hard-caps length so a user can't type
+  // more digits than MAX_QUANTITY (999,999) has, rather than only clamping
+  // after the fact on blur/submit.
+  const sanitizeQuantityInput = (raw: string) => raw.replace(/\D/g, '').slice(0, 6);
+
+  // Strips anything that isn't a digit or a single decimal point, and caps
+  // the integer portion to 8 digits and the decimal portion to 2 digits —
+  // matching MAX_UNIT_COST (99,999,999.99) — so the field itself prevents
+  // typing an out-of-range value instead of relying on post-hoc clamping.
+  const sanitizeUnitCostInput = (raw: string) => {
+    let cleaned = raw.replace(/[^\d.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot !== -1) {
+      cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+    }
+    const [intPart, decPart] = cleaned.split('.');
+    const truncatedInt = (intPart || '').slice(0, 8);
+    return decPart === undefined ? truncatedInt : `${truncatedInt}.${decPart.slice(0, 2)}`;
+  };
+
+  // Validates and stages one or more supporting documents selected in the
+  // create/edit form, so they can be attached in the same step as saving the
+  // PO (Scenario 1) instead of requiring a separate trip to the detail view
+  // afterward. Each time the picker is opened it hands us a fresh FileList
+  // (not additive), so we accumulate valid picks into state ourselves across
+  // multiple picker openings, letting the user build up a batch of files.
+  const handleFormAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (picked.length === 0) return;
+
+    const errors: string[] = [];
+    const validPicks: File[] = [];
+    for (const file of picked) {
+      const err = getAttachmentFileError(file);
+      if (err) {
+        errors.push(`${file.name} — ${err}`);
+      } else {
+        validPicks.push(file);
+      }
+    }
+
+    // Invalid files are reported but never remove files already staged.
+    setAttachmentFileErrors(errors);
+    if (validPicks.length > 0) {
+      setAttachmentFiles((prev) => {
+        const alreadyStaged = new Set(prev.map((f) => `${f.name}::${f.size}::${f.lastModified}`));
+        const deduped = validPicks.filter(
+          (f) => !alreadyStaged.has(`${f.name}::${f.size}::${f.lastModified}`),
+        );
+        return [...prev, ...deduped];
+      });
+    }
+  };
+
+  const handleRemoveStagedAttachment = (index: number) => {
+    setAttachmentFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -348,8 +464,20 @@ export default function PurchaseOrderPage() {
         setFormError('All line items must have a quantity of at least 1');
         return;
       }
+      if (li.quantity > MAX_QUANTITY) {
+        setFormError(`Quantity cannot exceed ${MAX_QUANTITY.toLocaleString('en-PH')}`);
+        return;
+      }
       if (li.unitCost <= 0) {
         setFormError('All line items must have a unit cost greater than 0');
+        return;
+      }
+      if (li.unitCost > MAX_UNIT_COST) {
+        setFormError(
+          `Unit cost cannot exceed ₱${MAX_UNIT_COST.toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+          })}`,
+        );
         return;
       }
     }
@@ -361,26 +489,103 @@ export default function PurchaseOrderPage() {
       return;
     }
 
+    const poTotal = validLineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+    if (poTotal > MAX_PO_TOTAL) {
+      setFormError(
+        `Purchase order total cannot exceed ₱${MAX_PO_TOTAL.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+        })}`,
+      );
+      return;
+    }
+
+    const invalidStaged = attachmentFiles
+      .map((file) => getAttachmentFileError(file))
+      .filter((err): err is string => err !== null);
+    if (invalidStaged.length > 0) {
+      setAttachmentFileErrors(invalidStaged);
+      return;
+    }
+    // Clear any stale errors left over from a previous failed submit attempt
+    // now that every currently staged file passes validation.
+    setAttachmentFileErrors([]);
+
     setIsSubmitting(true);
     try {
-      if (editingPO) {
-        await updatePurchaseOrder(editingPO.id, {
-          supplierId: Number(formData.supplierId),
-          lineItems: validLineItems,
+      const savedPO = editingPO
+        ? await updatePurchaseOrder(editingPO.id, {
+            supplierId: Number(formData.supplierId),
+            lineItems: validLineItems,
+          })
+        : await createPurchaseOrder({
+            supplierId: Number(formData.supplierId),
+            lineItems: validLineItems,
+          });
+
+      const baseMessage = editingPO
+        ? 'Purchase order updated successfully'
+        : 'Purchase order created successfully';
+
+      if (attachmentFiles.length > 0) {
+        // Each staged file becomes its own attachment, added alongside any
+        // that already exist — never replacing what's already on the PO.
+        // Uploaded in parallel rather than sequentially so a batch of files
+        // doesn't wait on one another.
+        const results = await Promise.allSettled(
+          attachmentFiles.map(async (file) => {
+            const fileUrl = await readFileAsDataUrl(file);
+            await addAttachment(savedPO.id, {
+              fileUrl,
+              fileName: file.name,
+              fileSize: file.size,
+            });
+            return file.name;
+          }),
+        );
+
+        const failures: string[] = [];
+        let successCount = 0;
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            successCount += 1;
+          } else {
+            const attachErr = result.reason;
+            const attachMsg =
+              attachErr instanceof Error ? attachErr.message : 'Failed to attach document';
+            failures.push(`${attachmentFiles[i].name}: ${attachMsg}`);
+          }
         });
-        setSuccessMessage('Purchase order updated successfully');
+
+        if (failures.length > 0) {
+          setSuccessMessage(
+            successCount > 0
+              ? `${baseMessage} and ${successCount} document(s) attached`
+              : baseMessage,
+          );
+          setAttachmentUploadWarning(
+            `${failures.length} document(s) could not be attached: ${failures.join('; ')}`,
+          );
+        } else {
+          setSuccessMessage(
+            `${baseMessage} and ${successCount} document${successCount === 1 ? '' : 's'} attached`,
+          );
+        }
       } else {
-        await createPurchaseOrder({
-          supplierId: Number(formData.supplierId),
-          lineItems: validLineItems,
-        });
-        setSuccessMessage('Purchase order created successfully');
+        setSuccessMessage(baseMessage);
       }
+
       setIsFormOpen(false);
+      setAttachmentFiles([]);
+      setAttachmentFileErrors([]);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'An error occurred';
       setFormError(errMsg);
+      // Staged attachments and their errors reflect an in-progress attempt;
+      // clear them so the next retry starts from a clean slate rather than
+      // showing confusing leftover state from the failed submission.
+      setAttachmentFiles([]);
+      setAttachmentFileErrors([]);
     } finally {
       setIsSubmitting(false);
     }
@@ -478,25 +683,23 @@ export default function PurchaseOrderPage() {
   };
 
   // ── Attachments ──────────────────────────────────────────────────────────
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const validateAttachmentFile = (file: File): boolean => {
+    const err = getAttachmentFileError(file);
+    if (err) {
+      alert(err);
+      return false;
+    }
+    return true;
+  };
+
+  // Uploads an additional document onto the PO (does not touch existing ones).
+  const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!detailPO) return;
+    if (detailPO.createdById !== user?.id) return;
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(
-        `Invalid file type "${ext}". Only Images (JPG, JPEG, PNG), PDF, and Word (DOC, DOCX) files are allowed.`,
-      );
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      alert(`File is ${sizeMB} MB — exceeds the 10 MB limit. Please choose a smaller file.`);
-      return;
-    }
+    if (!validateAttachmentFile(file)) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -508,10 +711,41 @@ export default function PurchaseOrderPage() {
           fileName: file.name,
           fileSize: file.size,
         });
-        setSuccessMessage('Attachment uploaded successfully');
+        setSuccessMessage('Document uploaded successfully');
         setTimeout(() => setSuccessMessage(null), 4000);
       } catch (err: unknown) {
-        alert(err instanceof Error ? err.message : 'Failed to upload attachment');
+        alert(err instanceof Error ? err.message : 'Failed to upload document');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Replaces one specific existing attachment with a newly selected file.
+  const handleReplaceAttachment = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    attachmentId: number,
+  ) => {
+    if (!detailPO) return;
+    if (detailPO.createdById !== user?.id) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (!validateAttachmentFile(file)) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const url = event.target?.result as string;
+      if (!url) return;
+      try {
+        await replaceAttachment(detailPO.id, attachmentId, {
+          fileUrl: url,
+          fileName: file.name,
+          fileSize: file.size,
+        });
+        setSuccessMessage('Document replaced successfully');
+        setTimeout(() => setSuccessMessage(null), 4000);
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : 'Failed to replace document');
       }
     };
     reader.readAsDataURL(file);
@@ -519,6 +753,7 @@ export default function PurchaseOrderPage() {
 
   const handleDeleteAttachment = async (attachmentId: number) => {
     if (!detailPO) return;
+    if (detailPO.createdById !== user?.id) return;
     if (!window.confirm('Are you sure you want to remove this attachment?')) return;
     try {
       await deleteAttachment(detailPO.id, attachmentId);
@@ -631,6 +866,17 @@ export default function PurchaseOrderPage() {
       {successMessage && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 animate-fade-in">
           {successMessage}
+        </div>
+      )}
+      {attachmentUploadWarning && (
+        <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 animate-fade-in">
+          <span>{attachmentUploadWarning}</span>
+          <button
+            onClick={() => setAttachmentUploadWarning(null)}
+            className="font-semibold text-amber-900 hover:text-amber-950"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -807,17 +1053,15 @@ export default function PurchaseOrderPage() {
                           >
                             View
                           </button>
-                          {canUpdate &&
-                            po.status === 'DRAFT' &&
-                            (roleName === 'ADMIN' || po.createdById === user?.id) && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(po)}
-                                className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
-                              >
-                                Edit
-                              </button>
-                            )}
+                          {canUpdate && po.status === 'DRAFT' && po.createdById === user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(po)}
+                              className="rounded-lg border border-[var(--surface-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--background-tertiary)] hover:text-[var(--text-primary)]"
+                            >
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1029,11 +1273,16 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <input
-                              type="number"
-                              min="1"
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
                               value={li.quantity || ''}
                               onChange={(e) =>
-                                handleLineItemChange(index, 'quantity', e.target.value)
+                                handleLineItemChange(
+                                  index,
+                                  'quantity',
+                                  sanitizeQuantityInput(e.target.value),
+                                )
                               }
                               className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                             />
@@ -1045,12 +1294,16 @@ export default function PurchaseOrderPage() {
                               </span>
                             )}
                             <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
+                              maxLength={11}
                               value={li.unitCost || ''}
                               onChange={(e) =>
-                                handleLineItemChange(index, 'unitCost', e.target.value)
+                                handleLineItemChange(
+                                  index,
+                                  'unitCost',
+                                  sanitizeUnitCostInput(e.target.value),
+                                )
                               }
                               className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
                             />
@@ -1061,11 +1314,16 @@ export default function PurchaseOrderPage() {
                                 Subtotal
                               </span>
                             )}
-                            <div className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end">
-                              ₱
-                              {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
-                                minimumFractionDigits: 2,
-                              })}
+                            <div
+                              className="w-full min-w-0 rounded-lg border border-[var(--surface-border)] bg-[var(--background-tertiary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] text-right h-[38px] flex items-center justify-end"
+                              title={`₱${((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                            >
+                              <span className="min-w-0 truncate">
+                                ₱
+                                {((li.quantity || 0) * (li.unitCost || 0)).toLocaleString('en-PH', {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </span>
                             </div>
                           </div>
                           <button
@@ -1085,13 +1343,76 @@ export default function PurchaseOrderPage() {
                       <span className="text-sm font-medium text-[var(--text-secondary)]">
                         Total:
                       </span>
-                      <span className="text-lg font-bold text-[var(--text-primary)]">
+                      <span
+                        className="text-lg font-bold text-[var(--text-primary)] min-w-0 truncate"
+                        title={`₱${computeTotal().toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                      >
                         ₱
                         {computeTotal().toLocaleString('en-PH', {
                           minimumFractionDigits: 2,
                         })}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Supporting Document(s) */}
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor="po-attachment"
+                      className="text-xs font-semibold text-[var(--text-secondary)]"
+                    >
+                      Supporting Documents{' '}
+                      <span className="font-normal text-[var(--text-tertiary)]">(optional)</span>
+                    </label>
+                    <p className="text-[11px] text-[var(--text-tertiary)]">
+                      PDF, DOC, or DOCX — up to 10MB each. You can select multiple files, and add
+                      more across separate picks.
+                    </p>
+                    <input
+                      id="po-attachment"
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleFormAttachmentChange}
+                      className="text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white file:transition hover:file:bg-[var(--accent-hover)]"
+                    />
+                    {attachmentFileErrors.length > 0 && (
+                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-red-600">
+                        {attachmentFileErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {attachmentFiles.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        {attachmentFiles.map((file, i) => (
+                          <div
+                            key={`${file.name}-${file.size}-${file.lastModified}`}
+                            className="flex items-center gap-2 rounded-lg bg-[var(--background-tertiary)] px-3 py-1.5 text-xs text-[var(--text-primary)]"
+                          >
+                            <span className="truncate" title={file.name}>
+                              📎 {file.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveStagedAttachment(i)}
+                              className="ml-auto font-semibold text-red-500 hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {editingPO && editingPO.attachments.length > 0 && (
+                      <p className="text-[11px] text-[var(--text-tertiary)]">
+                        This PO already has {editingPO.attachments.length} attachment
+                        {editingPO.attachments.length === 1 ? '' : 's'}. Any files added here will
+                        be kept alongside {editingPO.attachments.length === 1 ? 'it' : 'them'} —
+                        use the Attachments tab in the PO details to replace or remove a specific
+                        file.
+                      </p>
+                    )}
                   </div>
                 </form>
               </div>
@@ -1429,19 +1750,32 @@ export default function PurchaseOrderPage() {
 
                 {detailTab === 'attachments' && (
                   <div className="space-y-4">
-                    {canUpdate && (
+                    {canUpdate && detailPO.createdById === user?.id && (
                       <div className="flex items-center gap-3">
                         <label className="rounded-xl border border-dashed border-[var(--surface-border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition cursor-pointer flex items-center gap-2">
-                          <span>📎</span> Upload File (Images, PDF, Word — Max 10MB)
+                          <span>📎</span> Upload Another Document (PDF, Word — Max 10MB)
                           <input
                             type="file"
-                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                            accept=".pdf,.doc,.docx"
                             className="hidden"
-                            onChange={handleFileUpload}
+                            onChange={handleAddAttachment}
                           />
                         </label>
                       </div>
                     )}
+
+                    {/* Shared hidden input used by each row's Replace button */}
+                    <input
+                      ref={replaceFileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (replaceTargetId != null) {
+                          handleReplaceAttachment(e, replaceTargetId);
+                        }
+                      }}
+                    />
 
                     {detailPO.attachments.length === 0 ? (
                       <p className="text-sm text-[var(--text-secondary)] italic py-8 text-center">
@@ -1467,15 +1801,15 @@ export default function PurchaseOrderPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              {att.fileUrl.startsWith('data:image') && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewImageUrl(att.fileUrl)}
-                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                                >
-                                  Preview
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewAttachment({ url: att.fileUrl, fileName: att.fileName })
+                                }
+                                className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                              >
+                                Open
+                              </button>
                               <a
                                 href={att.fileUrl}
                                 download={att.fileName}
@@ -1483,7 +1817,23 @@ export default function PurchaseOrderPage() {
                               >
                                 Download
                               </a>
-                              {canUpdate && (
+                              {canUpdate && detailPO.createdById === user?.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplaceTargetId(att.id);
+                                    // Defer click until state is set, then reset the input so
+                                    // selecting the same file twice still fires onChange.
+                                    requestAnimationFrame(() =>
+                                      replaceFileInputRef.current?.click(),
+                                    );
+                                  }}
+                                  className="rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                                >
+                                  Replace
+                                </button>
+                              )}
+                              {canUpdate && detailPO.createdById === user?.id && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteAttachment(att.id)}
@@ -1540,33 +1890,52 @@ export default function PurchaseOrderPage() {
           document.body,
         )}
 
-      {/* ── Image Preview Modal ────────────────────────────────────────────── */}
-      {previewImageUrl &&
+      {/* ── Document Preview Modal ─────────────────────────────────────────── */}
+      {previewAttachment &&
         createPortal(
           <div
             className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in cursor-pointer"
-            onClick={() => setPreviewImageUrl(null)}
+            onClick={() => setPreviewAttachment(null)}
           >
             <div
-              className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col items-center justify-center animate-fade-in-up cursor-default"
+              className="relative w-full max-w-4xl h-[85vh] overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-2xl flex flex-col animate-fade-in-up cursor-default"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => setPreviewImageUrl(null)}
-                className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
-                aria-label="Close Preview"
-              >
-                ✕
-              </button>
-              <img
-                src={previewImageUrl}
-                alt="Attachment Preview"
-                className="max-w-full max-h-[80vh] object-contain rounded-xl"
-              />
-              <div className="mt-2 text-xs text-[var(--text-secondary)] py-1 font-semibold">
-                Click outside or press ✕ to close
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="text-sm font-medium text-[var(--text-primary)] truncate pr-4">
+                  {previewAttachment.fileName}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPreviewAttachment(null)}
+                  className="rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition"
+                  aria-label="Close Preview"
+                >
+                  ✕
+                </button>
               </div>
+              {previewAttachment.fileName.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewAttachment.url}
+                  title={previewAttachment.fileName}
+                  className="flex-1 w-full rounded-xl border border-[var(--surface-border)]"
+                />
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+                  <span className="text-4xl">📄</span>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Word documents can't be previewed in the browser. Download it to view the
+                    contents.
+                  </p>
+                  <a
+                    href={previewAttachment.url}
+                    download={previewAttachment.fileName}
+                    className="rounded-xl bg-[var(--accent)] text-white px-4 py-2 text-sm font-semibold hover:bg-[var(--accent-hover)] transition"
+                  >
+                    Download {previewAttachment.fileName}
+                  </a>
+                </div>
+              )}
             </div>
           </div>,
           document.body,
@@ -1912,7 +2281,10 @@ function SearchableItemSelect({
         <span className="truncate">
           {selectedItem ? (
             <span className="flex items-center gap-2">
-              <span className="font-medium text-[var(--text-primary)]">
+              <span
+                className="font-medium text-[var(--text-primary)]"
+                title={selectedItem.itemName}
+              >
                 {selectedItem.itemName}
               </span>
               {selectedItem.barcode && (
@@ -1941,7 +2313,7 @@ function SearchableItemSelect({
               position: 'absolute',
               top: `${coords.top}px`,
               left: `${coords.left}px`,
-              width: `${coords.width}px`,
+              width: `${Math.max(coords.width, 260)}px`,
             }}
             className="z-[9999] mt-1 max-h-60 overflow-hidden rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg animate-fade-in flex flex-col"
           >
@@ -1977,7 +2349,9 @@ function SearchableItemSelect({
                       item.id === value ? 'bg-[var(--background-tertiary)] font-semibold' : ''
                     }`}
                   >
-                    <span className="truncate text-[var(--text-primary)]">{item.itemName}</span>
+                    <span className="truncate text-[var(--text-primary)]" title={item.itemName}>
+                      {item.itemName}
+                    </span>
                     {item.barcode && (
                       <span className="ml-2 shrink-0 rounded bg-[var(--surface-border)]/50 px-1.5 py-0.5 text-[9px] text-[var(--text-secondary)] font-mono">
                         {item.barcode}

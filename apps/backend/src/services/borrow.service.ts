@@ -330,6 +330,32 @@ export class BorrowService {
         throw new Error('Borrow record not found');
       }
 
+      // Condition rank — higher index = worse condition.
+      // An item's condition can only stay the same or worsen through
+      // the borrow/return cycle; improvement requires a maintenance record.
+      const CONDITION_RANK: Record<string, number> = {
+        NEW: 0,
+        GOOD: 1,
+        FAIR: 2,
+        POOR: 3,
+        DAMAGED: 4,
+      };
+
+      const currentEquipment = await tx.equipment.findUnique({
+        where: { id: existing.equipmentId },
+        select: { condition: true },
+      });
+
+      if (currentEquipment && data.returnCondition) {
+        const currentRank = CONDITION_RANK[currentEquipment.condition] ?? 0;
+        const returnRank = CONDITION_RANK[data.returnCondition] ?? 0;
+        if (returnRank < currentRank) {
+          throw new Error(
+            `Cannot return equipment with a better condition than its current recorded condition (${currentEquipment.condition}). Condition improvements require a maintenance record.`,
+          );
+        }
+      }
+
       if (
         existing.status !== BorrowStatus.BORROWED &&
         existing.status !== BorrowStatus.APPROVED &&

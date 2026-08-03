@@ -35,6 +35,15 @@ const CONDITION_COLORS: Record<ConditionStatus, string> = {
 const CONDITION_IDLE: string =
   'border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:bg-[var(--accent-muted)]';
 
+/** Higher index = worse condition. Staff can only select same or worse than current. */
+const CONDITION_RANK: Record<ConditionStatus, number> = {
+  NEW: 0,
+  GOOD: 1,
+  FAIR: 2,
+  POOR: 3,
+  DAMAGED: 4,
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
@@ -191,24 +200,47 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {CONDITION_OPTIONS.map((opt) => {
                 const isSelected = condition === opt.value;
+                const currentCondition = record.equipment.condition as ConditionStatus | undefined;
+                const currentRank = currentCondition ? CONDITION_RANK[currentCondition] : 0;
+                const isDisabled = CONDITION_RANK[opt.value] < currentRank;
                 return (
                   <button
                     key={opt.value}
                     type="button"
+                    disabled={isDisabled}
+                    title={
+                      isDisabled
+                        ? `Cannot select ${opt.label} — equipment is currently ${currentCondition}. Condition improvements require a maintenance record.`
+                        : undefined
+                    }
                     onClick={() => {
+                      if (isDisabled) return;
                       setCondition(opt.value);
                       if (error) setError('');
                     }}
                     className={`flex flex-col items-start rounded-xl border-2 px-4 py-3 text-left text-sm transition ${
-                      isSelected ? CONDITION_COLORS[opt.value] : CONDITION_IDLE
+                      isDisabled
+                        ? 'cursor-not-allowed opacity-35 border-[var(--surface-border)] bg-[var(--background-tertiary)] text-[var(--text-disabled)]'
+                        : isSelected
+                          ? CONDITION_COLORS[opt.value]
+                          : CONDITION_IDLE
                     }`}
                   >
                     <span className="font-semibold">{opt.label}</span>
                     <span className="mt-0.5 text-xs opacity-70">{opt.description}</span>
+                    {isDisabled && (
+                      <span className="mt-1 text-[10px] opacity-60">Requires maintenance</span>
+                    )}
                   </button>
                 );
               })}
             </div>
+            {record.equipment.condition && (
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                Current condition: <span className="font-semibold text-[var(--text-secondary)]">{record.equipment.condition}</span>
+                {' '}— only same or worse conditions can be selected on return.
+              </p>
+            )}
           </div>
 
           {/* ── Notes ── */}

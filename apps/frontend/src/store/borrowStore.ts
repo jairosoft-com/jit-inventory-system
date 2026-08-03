@@ -28,7 +28,7 @@ export interface BorrowRecord {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-  equipment: Pick<Equipment, 'id' | 'assetId' | 'status'> & {
+  equipment: Pick<Equipment, 'id' | 'assetId' | 'status' | 'condition'> & {
     item: { id: number; itemName: string; imageUrl: string | null };
     images: Array<{ url: string; isPrimary: boolean }>;
   };

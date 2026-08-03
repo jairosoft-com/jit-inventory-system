@@ -17,6 +17,19 @@ import {
   type ListPurchaseOrdersQuery,
   type AddAttachmentInput,
 } from '../schemas/procurement.schema.js';
+import { AppError } from '../lib/errors.js';
+
+// Maps a caught error to an HTTP response. Typed AppErrors (NotFoundError,
+// ForbiddenError, etc.) carry their own statusCode, so this never has to
+// guess based on error message text. Anything else is an unexpected error.
+function respondWithError(res: Response, error: unknown): void {
+  if (error instanceof AppError) {
+    res.status(error.statusCode).json({ message: error.message });
+    return;
+  }
+  const message = error instanceof Error ? error.message : 'Bad request';
+  res.status(400).json({ message });
+}
 
 const router = Router();
 
@@ -93,13 +106,7 @@ router.get(
       const po = await ProcurementService.findOne(id, req.user!.id, role?.name);
       res.status(200).json(po);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
-        return;
-      }
-      res.status(500).json({ message });
+      respondWithError(res, error);
     }
   },
 );
@@ -127,6 +134,10 @@ router.put(
       );
       res.status(200).json(po);
     } catch (error) {
+      if (error instanceof AppError) {
+        respondWithError(res, error);
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Bad request';
       if (message.includes('not found') || message.includes('inactive')) {
         res.status(404).json({ message });
@@ -238,12 +249,39 @@ router.post(
       );
       res.status(201).json(attachment);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Bad request';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
+      respondWithError(res, error);
+    }
+  },
+);
+
+// ── PUT /procurement/:id/attachments/:attachmentId ───────────────────────────
+router.put(
+  '/:id/attachments/:attachmentId',
+  authorize('purchase_orders:update'),
+  validate(addAttachmentSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const attachmentId = parseInt(req.params.attachmentId as string, 10);
+      if (isNaN(id) || isNaN(attachmentId)) {
+        res
+          .status(400)
+          .json({ message: 'Invalid purchase order or attachment ID' });
         return;
       }
-      res.status(400).json({ message });
+      const role = await prisma.role.findUnique({
+        where: { id: req.user!.roleId },
+      });
+      const attachment = await ProcurementService.replaceAttachment(
+        id,
+        attachmentId,
+        req.body as AddAttachmentInput,
+        req.user!.id,
+        role?.name,
+      );
+      res.status(200).json(attachment);
+    } catch (error) {
+      respondWithError(res, error);
     }
   },
 );
@@ -273,13 +311,7 @@ router.delete(
       );
       res.status(200).json(result);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Internal server error';
-      if (message.includes('not found')) {
-        res.status(404).json({ message });
-        return;
-      }
-      res.status(500).json({ message });
+      respondWithError(res, error);
     }
   },
 );

@@ -7,6 +7,8 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
+import { LogAction } from '@prisma/client';
+import { AuditLogService } from './audit-log.service.js';
 
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
@@ -536,10 +538,14 @@ export class DashboardService {
 
     const allowedTypes: string[] = [];
     if (access.canReadInventory) {
-      allowedTypes.push('ConsumableProfile', 'Item');
+      allowedTypes.push('ConsumableProfile', 'Item', 'Category');
     }
     if (access.canReadEquipment) {
-      allowedTypes.push('Equipment', 'BorrowRecord');
+      allowedTypes.push('Equipment', 'BorrowRecord', 'MaintenanceLog');
+    }
+    // Supplier, PurchaseOrder, and User activity is visible to Admin/Manager only
+    if (access.roleName === 'ADMIN' || access.roleName === 'MANAGER') {
+      allowedTypes.push('Supplier', 'PurchaseOrder', 'User');
     }
 
     if (allowedTypes.length === 0) {
@@ -626,6 +632,70 @@ export class DashboardService {
                 record.equipment.condition === ConditionStatus.DAMAGED)
             ) {
               isDamaged = true;
+            }
+          } else if (log.entityType === 'BorrowRecord') {
+            const record = await prisma.borrowRecord.findUnique({
+              where: { id: log.entityId },
+              include: {
+                equipment: {
+                  include: { item: { select: { itemName: true } } },
+                },
+              },
+            });
+            if (record?.equipment?.item) {
+              itemName = record.equipment.item.itemName;
+            }
+            if (
+              access.roleName === 'STAFF' &&
+              record?.equipment &&
+              (record.equipment.status === EquipmentStatus.DAMAGED ||
+                record.equipment.condition === ConditionStatus.DAMAGED)
+            ) {
+              isDamaged = true;
+            }
+          } else if (log.entityType === 'Category') {
+            const category = await prisma.category.findUnique({
+              where: { id: log.entityId },
+              select: { name: true },
+            });
+            if (category) {
+              itemName = category.name;
+            }
+          } else if (log.entityType === 'MaintenanceLog') {
+            const maintenanceLog = await prisma.maintenanceLog.findUnique({
+              where: { id: log.entityId },
+              include: {
+                equipment: { include: { item: { select: { itemName: true } } } },
+              },
+            });
+            if (maintenanceLog?.equipmentName) {
+              itemName = maintenanceLog.equipmentName;
+            } else if (maintenanceLog?.equipment?.item) {
+              itemName = maintenanceLog.equipment.item.itemName;
+            }
+          } else if (log.entityType === 'Supplier') {
+            const supplier = await prisma.supplier.findUnique({
+              where: { id: log.entityId },
+              select: { supplierName: true },
+            });
+            if (supplier) {
+              itemName = supplier.supplierName;
+            }
+          } else if (log.entityType === 'PurchaseOrder') {
+            const po = await prisma.purchaseOrder.findUnique({
+              where: { id: log.entityId },
+              select: { invoiceNumber: true },
+            });
+            if (po) {
+              itemName = po.invoiceNumber ? `PO ${po.invoiceNumber}` : `PO #${log.entityId}`;
+            }
+          } else if (log.entityType === 'User') {
+            const targetUser = await prisma.user.findUnique({
+              where: { id: log.entityId },
+              select: { firstName: true, lastName: true },
+            });
+            if (targetUser) {
+              itemName = `${targetUser.firstName} ${targetUser.lastName}`.trim();
             }
           }
         } catch {

@@ -26,6 +26,7 @@ router.post(
     try {
       const category = await CategoriesService.create(
         req.body as CreateCategoryInput,
+        req.user!.id,
       );
       res.status(201).json(category);
     } catch (error) {
@@ -97,6 +98,7 @@ router.patch(
       const category = await CategoriesService.update(
         id,
         req.body as UpdateCategoryInput,
+        req.user!.id,
       );
       res.status(200).json(category);
     } catch (error) {
@@ -125,7 +127,7 @@ router.delete(
         res.status(400).json({ message: 'Invalid category ID' });
         return;
       }
-      const result = await CategoriesService.archive(id);
+      const result = await CategoriesService.archive(id, req.user!.id);
       res.status(200).json(result);
     } catch (error) {
       const message =

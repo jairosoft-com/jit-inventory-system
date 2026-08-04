@@ -64,7 +64,7 @@ describe('Categories Service Unit Tests', () => {
     testItemId = item.id;
 
     // 3. Attempt to archive category -> should fail
-    await expect(CategoriesService.archive(category.id)).rejects.toThrow(
+    await expect(CategoriesService.archive(category.id, 1)).rejects.toThrow(
       'Cannot archive category with linked items',
     );
   });
@@ -77,7 +77,7 @@ describe('Categories Service Unit Tests', () => {
     });
 
     // 2. Attempt to archive category -> should succeed
-    const archivedCategory = await CategoriesService.archive(testCategoryId);
+    const archivedCategory = await CategoriesService.archive(testCategoryId, 1);
     expect(archivedCategory.deletedAt).not.toBeNull();
   });
 
@@ -108,7 +108,7 @@ describe('Categories Service Unit Tests', () => {
 
     // 3. Attempt to change category type -> should fail
     await expect(
-      CategoriesService.update(category.id, { type: 'EQUIPMENT' }),
+      CategoriesService.update(category.id, { type: 'EQUIPMENT' }, 1),
     ).rejects.toThrow(
       'Cannot change category type when active items are linked',
     );

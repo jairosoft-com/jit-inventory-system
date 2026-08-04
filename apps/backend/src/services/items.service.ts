@@ -304,7 +304,7 @@ export class ItemsService {
 
       await tx.inventoryLog.create({
         data: {
-          entityType: 'ITEM',
+          entityType: 'Item',
           entityId: createdItem.id,
           action: LogAction.CREATED,
           performedBy: registeredBy,
@@ -526,7 +526,7 @@ export class ItemsService {
       if (Object.keys(oldData).length > 0) {
         await tx.inventoryLog.create({
           data: {
-            entityType: 'ITEM',
+            entityType: 'Item',
             entityId: id,
             action: LogAction.UPDATED,
             performedBy,
@@ -558,7 +558,7 @@ export class ItemsService {
 
       await tx.inventoryLog.create({
         data: {
-          entityType: 'ITEM',
+          entityType: 'Item',
           entityId: id,
           action: LogAction.DELETED,
           performedBy,

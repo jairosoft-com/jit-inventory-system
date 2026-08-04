@@ -8,6 +8,7 @@ import {
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
 
+
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
 const EQUIPMENT_LIFECYCLE_YEARS = 5;
 const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -608,26 +609,6 @@ export class DashboardService {
               equipment &&
               (equipment.status === EquipmentStatus.DAMAGED ||
                 equipment.condition === ConditionStatus.DAMAGED)
-            ) {
-              isDamaged = true;
-            }
-          } else if (log.entityType === 'BorrowRecord') {
-            const record = await prisma.borrowRecord.findUnique({
-              where: { id: log.entityId },
-              include: {
-                equipment: {
-                  include: { item: { select: { itemName: true } } },
-                },
-              },
-            });
-            if (record?.equipment?.item) {
-              itemName = record.equipment.item.itemName;
-            }
-            if (
-              access.roleName === 'STAFF' &&
-              record?.equipment &&
-              (record.equipment.status === EquipmentStatus.DAMAGED ||
-                record.equipment.condition === ConditionStatus.DAMAGED)
             ) {
               isDamaged = true;
             }

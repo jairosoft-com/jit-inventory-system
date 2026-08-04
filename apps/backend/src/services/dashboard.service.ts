@@ -7,8 +7,6 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet } from '../lib/redis.js';
-import { LogAction } from '@prisma/client';
-import { AuditLogService } from './audit-log.service.js';
 
 const WARRANTY_EXPIRY_WINDOW_DAYS = 30;
 const EQUIPMENT_LIFECYCLE_YEARS = 5;

@@ -18,7 +18,7 @@ const CATEGORY_INCLUDE = {
 } as const;
 
 export class CategoriesService {
-  static async create(data: CreateCategoryInput, performedById: number) {
+  static async create(data: CreateCategoryInput, performedById?: number) {
     const existing = await prisma.category.findFirst({
       where: {
         name: {
@@ -41,14 +41,18 @@ export class CategoriesService {
       include: CATEGORY_INCLUDE,
     });
 
-    await AuditLogService.log(
-      'Category',
-      category.id,
-      LogAction.CREATED,
-      performedById,
-      null,
-      { name: category.name, type: category.type, description: category.description },
-    );
+    if (performedById) {
+      await AuditLogService.log(
+        'Category',
+        category.id,
+        LogAction.CREATED,
+        performedById,
+        null,
+        { name: category.name, type: category.type, description: category.description },
+      ).catch((err: unknown) => {
+        console.error('[AuditLog] Failed to log Category CREATED:', err);
+      });
+    }
 
     return category;
   }
@@ -81,7 +85,7 @@ export class CategoriesService {
     return category;
   }
 
-  static async update(id: number, data: UpdateCategoryInput, performedById: number) {
+  static async update(id: number, data: UpdateCategoryInput, performedById?: number) {
     // Ensures archived categories cannot be updated (will throw 'Category not found')
     const current = await this.findOne(id);
 
@@ -125,19 +129,23 @@ export class CategoriesService {
       include: CATEGORY_INCLUDE,
     });
 
-    await AuditLogService.log(
-      'Category',
-      id,
-      LogAction.UPDATED,
-      performedById,
-      { name: current.name, type: current.type, description: current.description },
-      { name: updated.name, type: updated.type, description: updated.description },
-    );
+    if (performedById) {
+      await AuditLogService.log(
+        'Category',
+        id,
+        LogAction.UPDATED,
+        performedById,
+        { name: current.name, type: current.type, description: current.description },
+        { name: updated.name, type: updated.type, description: updated.description },
+      ).catch((err: unknown) => {
+        console.error('[AuditLog] Failed to log Category UPDATED:', err);
+      });
+    }
 
     return updated;
   }
 
-  static async archive(id: number, performedById: number) {
+  static async archive(id: number, performedById?: number) {
     // Ensures category exists and isn't already archived before updating
     const current = await this.findOne(id);
 
@@ -158,14 +166,18 @@ export class CategoriesService {
       include: CATEGORY_INCLUDE,
     });
 
-    await AuditLogService.log(
-      'Category',
-      id,
-      LogAction.DELETED,
-      performedById,
-      { name: current.name, type: current.type },
-      null,
-    );
+    if (performedById) {
+      await AuditLogService.log(
+        'Category',
+        id,
+        LogAction.DELETED,
+        performedById,
+        { name: current.name, type: current.type },
+        null,
+      ).catch((err: unknown) => {
+        console.error('[AuditLog] Failed to log Category DELETED:', err);
+      });
+    }
 
     return archived;
   }

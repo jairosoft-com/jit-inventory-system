@@ -193,43 +193,22 @@ function getActivityDetails(action: string) {
       return {
         color: '#f59e0b',
         bg: 'rgba(245, 158, 11, 0.1)',
-        label: 'Maintenance Started',
+        label: 'Maint. Start',
       };
     case 'MAINTENANCE_COMPLETED':
       return {
         color: '#10b981',
         bg: 'rgba(16, 185, 129, 0.1)',
-        label: 'Maintenance Completed',
-      };
-    case 'TRANSFERRED':
-      return {
-        color: '#8b5cf6',
-        bg: 'rgba(139, 92, 246, 0.1)',
-        label: 'Transferred',
-      };
-    case 'RENEWED':
-      return {
-        color: '#0891b2',
-        bg: 'rgba(8, 145, 178, 0.1)',
-        label: 'Renewed',
-      };
-    case 'LOGIN':
-      return {
-        color: '#6b7280',
-        bg: 'rgba(107, 114, 128, 0.1)',
-        label: 'Logged In',
-      };
-    case 'LOGOUT':
-      return {
-        color: '#6b7280',
-        bg: 'rgba(107, 114, 128, 0.1)',
-        label: 'Logged Out',
+        label: 'Maint. End',
       };
     default:
       return {
         color: '#6b7280',
         bg: 'rgba(107, 114, 128, 0.1)',
-        label: action.charAt(0) + action.slice(1).toLowerCase(),
+        label: action
+          .split('_')
+          .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+          .join(' '),
       };
   }
 }

@@ -1,4 +1,4 @@
-import { LogAction, Prisma } from '@prisma/client';
+import { LogAction } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import {
   CreateCategoryInput,

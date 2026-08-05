@@ -1,9 +1,10 @@
+import { LogAction } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-// Updated to import the inferred types directly from your actual Zod schema file
 import {
   CreateCategoryInput,
   UpdateCategoryInput,
-} from '../schemas/categories.schema.js'; // Adjust this relative path if needed
+} from '../schemas/categories.schema.js';
+import { AuditLogService } from './audit-log.service.js';
 
 const CATEGORY_INCLUDE = {
   _count: {
@@ -15,8 +16,10 @@ const CATEGORY_INCLUDE = {
   },
 } as const;
 
+// Seed/CLI callers that have no HTTP user context pass undefined;
+// audit logging is skipped in that case (seed data is not user activity).
 export class CategoriesService {
-  static async create(data: CreateCategoryInput) {
+  static async create(data: CreateCategoryInput, performedById?: number) {
     const existing = await prisma.category.findFirst({
       where: {
         name: {
@@ -30,13 +33,29 @@ export class CategoriesService {
       throw new Error('Category already exists');
     }
 
-    return prisma.category.create({
-      data: {
-        name: data.name,
-        type: data.type,
-        description: data.description,
-      },
-      include: CATEGORY_INCLUDE,
+    return prisma.$transaction(async (tx) => {
+      const category = await tx.category.create({
+        data: {
+          name: data.name,
+          type: data.type,
+          description: data.description,
+        },
+        include: CATEGORY_INCLUDE,
+      });
+
+      if (performedById) {
+        await AuditLogService.log(
+          'Category',
+          category.id,
+          LogAction.CREATED,
+          performedById,
+          null,
+          { name: category.name, type: category.type, description: category.description },
+          tx,
+        );
+      }
+
+      return category;
     });
   }
 
@@ -52,7 +71,6 @@ export class CategoriesService {
   }
 
   static async findOne(id: number) {
-    // Fixed: Uses findFirst to filter out soft-deleted/archived categories
     const category = await prisma.category.findFirst({
       where: {
         id,
@@ -68,8 +86,7 @@ export class CategoriesService {
     return category;
   }
 
-  static async update(id: number, data: UpdateCategoryInput) {
-    // Ensures archived categories cannot be updated (will throw 'Category not found')
+  static async update(id: number, data: UpdateCategoryInput, performedById?: number) {
     const current = await this.findOne(id);
 
     if (data.name) {
@@ -102,20 +119,35 @@ export class CategoriesService {
       }
     }
 
-    return prisma.category.update({
-      where: { id },
-      data: {
-        name: data.name,
-        type: data.type,
-        description: data.description,
-      },
-      include: CATEGORY_INCLUDE,
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.category.update({
+        where: { id },
+        data: {
+          name: data.name,
+          type: data.type,
+          description: data.description,
+        },
+        include: CATEGORY_INCLUDE,
+      });
+
+      if (performedById) {
+        await AuditLogService.log(
+          'Category',
+          id,
+          LogAction.UPDATED,
+          performedById,
+          { name: current.name, type: current.type, description: current.description },
+          { name: updated.name, type: updated.type, description: updated.description },
+          tx,
+        );
+      }
+
+      return updated;
     });
   }
 
-  static async archive(id: number) {
-    // Ensures category exists and isn't already archived before updating
-    await this.findOne(id);
+  static async archive(id: number, performedById?: number) {
+    const current = await this.findOne(id);
 
     const activeItemsCount = await prisma.item.count({
       where: {
@@ -128,10 +160,26 @@ export class CategoriesService {
       throw new Error('Cannot archive category with linked items');
     }
 
-    return prisma.category.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-      include: CATEGORY_INCLUDE,
+    return prisma.$transaction(async (tx) => {
+      const archived = await tx.category.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+        include: CATEGORY_INCLUDE,
+      });
+
+      if (performedById) {
+        await AuditLogService.log(
+          'Category',
+          id,
+          LogAction.DELETED,
+          performedById,
+          { name: current.name, type: current.type },
+          null,
+          tx,
+        );
+      }
+
+      return archived;
     });
   }
 }

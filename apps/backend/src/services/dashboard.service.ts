@@ -541,7 +541,9 @@ export class DashboardService {
     if (access.canReadEquipment) {
       allowedTypes.push('Equipment', 'BorrowRecord', 'MaintenanceLog');
     }
-    // Supplier, PurchaseOrder, and User activity is visible to Admin/Manager only
+    // Policy: Supplier, PurchaseOrder, and User activity is restricted to
+    // ADMIN and MANAGER roles only. STAFF should not see procurement or
+    // user-management activity in the dashboard feed.
     if (access.roleName === 'ADMIN' || access.roleName === 'MANAGER') {
       allowedTypes.push('Supplier', 'PurchaseOrder', 'User');
     }
@@ -573,11 +575,16 @@ export class DashboardService {
       },
     });
 
-    // Batch fetch all names per entity type to avoid N+1 queries
+    // Batch fetch all names per entity type to avoid N+1 queries.
+    // IDs are deduplicated so the IN(...) clause stays small even with repeated entities.
     const idsByType: Record<string, number[]> = {};
     for (const log of logs) {
       if (!idsByType[log.entityType]) idsByType[log.entityType] = [];
       idsByType[log.entityType].push(log.entityId);
+    }
+    // Deduplicate each type's ID list
+    for (const type of Object.keys(idsByType)) {
+      idsByType[type] = [...new Set(idsByType[type])];
     }
 
     // Fetch all required records in one query per entity type

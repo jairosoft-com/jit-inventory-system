@@ -282,6 +282,11 @@ function IconChevronSmall({ open }: { open: boolean }) {
 
 /* ------ Navigation config ------ */
 
+/* Must match the `@media (max-width: 900px)` breakpoint in the <style> block
+   below, where the sidebar switches from an inline desktop layout to an
+   off-canvas mobile drawer. */
+const MOBILE_BREAKPOINT = 900;
+
 const INV_MGMT_ITEMS = [
   {
     name: 'Items',
@@ -380,6 +385,9 @@ export default function DashboardLayout() {
     useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT,
+  );
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const invMgmtChildActive = INV_MGMT_ITEMS.some((item) => pathname === item.href);
   const [invMgmtOpen, setInvMgmtOpen] = useState(invMgmtChildActive);
@@ -457,6 +465,23 @@ export default function DashboardLayout() {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
+
+  // Track whether we're at a mobile viewport so the sidebar's desktop
+  // "collapse to icon rail" mode never gets combined with the mobile
+  // off-canvas drawer (that combination is what produced the broken
+  // half-collapsed layout when the collapse button was tapped while the
+  // mobile drawer was open).
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // The icon-rail "collapsed" mode is a desktop-only concept. On mobile the
+  // sidebar is always full width and shown/hidden via the off-canvas drawer
+  // instead, so we ignore `collapsed` while isMobile is true.
+  const effectiveCollapsed = collapsed && !isMobile;
 
   useEffect(() => {
     if (!notifOpen || notifView !== 'history') {
@@ -779,11 +804,11 @@ export default function DashboardLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`dash-sidebar animate-fade-in ${collapsed ? 'dash-sidebar--collapsed' : ''} ${mobileNavOpen ? 'dash-sidebar--mobile-open' : ''}`}
+        className={`dash-sidebar ${effectiveCollapsed ? 'dash-sidebar--collapsed' : ''} ${mobileNavOpen ? 'dash-sidebar--mobile-open' : ''}`}
       >
         {/* Sidebar header */}
-        <div className={`dash-sidebar-header ${collapsed ? 'dash-sidebar-header--collapsed' : ''}`}>
-          {collapsed ? (
+        <div className={`dash-sidebar-header ${effectiveCollapsed ? 'dash-sidebar-header--collapsed' : ''}`}>
+          {effectiveCollapsed ? (
             /* Collapsed: solo logo acts as the expand button */
             <button
               className="dash-sidebar-solo-btn"
@@ -793,15 +818,17 @@ export default function DashboardLayout() {
               <img src="/logosolo.svg" alt="JIT Inventory" className="dash-sidebar-solo-logo" />
             </button>
           ) : (
-            /* Expanded: full logo + collapse toggle */
+            /* Expanded: full logo + collapse toggle.
+               On mobile, "collapse" has no icon-rail mode to collapse into,
+               so the same button just closes the off-canvas drawer instead. */
             <>
               <div className="dash-sidebar-brand">
                 <img className="dash-sidebar-logo" src="/logowhite.svg" alt="JIT Inventory logo" />
               </div>
               <button
                 className="dash-sidebar-toggle"
-                onClick={() => setCollapsed(true)}
-                aria-label="Collapse sidebar"
+                onClick={() => (isMobile ? setMobileNavOpen(false) : setCollapsed(true))}
+                aria-label={isMobile ? 'Close navigation menu' : 'Collapse sidebar'}
               >
                 <IconChevron collapsed={false} />
               </button>
@@ -817,10 +844,10 @@ export default function DashboardLayout() {
               <button
                 className={`dash-nav-item ${pathname === '/dashboard' ? 'dash-nav-item--active' : ''}`}
                 onClick={() => navigate('/dashboard')}
-                title={collapsed ? 'Dashboard' : undefined}
+                title={effectiveCollapsed ? 'Dashboard' : undefined}
               >
                 <IconDashboard />
-                {!collapsed && <span>Dashboard</span>}
+                {!effectiveCollapsed && <span>Dashboard</span>}
               </button>
             </li>
 
@@ -835,11 +862,11 @@ export default function DashboardLayout() {
                   <li>
                     <button
                       className={`dash-nav-item dash-nav-group-trigger ${invMgmtChildActive ? 'dash-nav-item--active' : ''}`}
-                      onClick={() => !collapsed && setInvMgmtOpen((o) => !o)}
-                      title={collapsed ? 'Inventory Management' : undefined}
+                      onClick={() => !effectiveCollapsed && setInvMgmtOpen((o) => !o)}
+                      title={effectiveCollapsed ? 'Inventory Management' : undefined}
                     >
                       <IconInventoryMgmt />
-                      {!collapsed && (
+                      {!effectiveCollapsed && (
                         <>
                           <span>Inventory Management</span>
                           <IconChevronSmall open={invMgmtOpen} />
@@ -847,7 +874,7 @@ export default function DashboardLayout() {
                       )}
                     </button>
                   </li>
-                  {!collapsed &&
+                  {!effectiveCollapsed &&
                     invMgmtOpen &&
                     visibleChildren.map((item) => {
                       const isActive = pathname === item.href;
@@ -875,10 +902,10 @@ export default function DashboardLayout() {
                   <button
                     className={`dash-nav-item ${isActive ? 'dash-nav-item--active' : ''}`}
                     onClick={() => navigate(item.href)}
-                    title={collapsed ? item.name : undefined}
+                    title={effectiveCollapsed ? item.name : undefined}
                   >
                     <item.icon />
-                    {!collapsed && <span>{item.name}</span>}
+                    {!effectiveCollapsed && <span>{item.name}</span>}
                   </button>
                 </li>
               );
@@ -889,12 +916,12 @@ export default function DashboardLayout() {
         {/* Sidebar footer */}
         <div className="dash-sidebar-footer">
           <button
-            className={`dash-user-btn ${collapsed ? 'dash-user-btn--collapsed' : ''}`}
+            className={`dash-user-btn ${effectiveCollapsed ? 'dash-user-btn--collapsed' : ''}`}
             onClick={() => setAccountModalOpen(true)}
-            title={collapsed ? `${user.firstName} ${user.lastName}` : undefined}
+            title={effectiveCollapsed ? `${user.firstName} ${user.lastName}` : undefined}
           >
             <div className="dash-avatar dash-avatar--circle">{getInitials()}</div>
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <div className="dash-user-meta">
                 <span className="dash-user-name">{`${user.firstName} ${user.lastName}`}</span>
                 <span className="dash-user-role">{formatRoleName(user.role?.name)}</span>
@@ -1175,6 +1202,13 @@ export default function DashboardLayout() {
           z-index: 40;
           transition: width var(--transition-base), transform var(--transition-base);
           box-shadow: 12px 0 40px rgba(6, 10, 28, 0.16);
+          /* The responsive collapse/off-canvas behavior relies entirely on the
+             transform property below. Any animation shorthand that also
+             touches transform (e.g. the shared .animate-fade-in utility)
+             will freeze its own end-state transform (fill-mode: both) and
+             permanently win over these rules, breaking the collapse/hide
+             behavior on smaller screens. Keep this element animation-free. */
+          animation: none;
         }
         .dash-sidebar--collapsed {
           width: 76px;

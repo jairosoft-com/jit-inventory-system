@@ -516,8 +516,7 @@ export default function ReportsPage() {
         </aside>
 
         {/* Right panel: Main frame */}
-        <section className="flex w-full flex-1 flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-          {!selectedType ? (
+      <section className="flex w-full min-w-0 flex-1 flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">          {!selectedType ? (
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
               <div className="scale-150 opacity-50 mb-2">
                 <IconReport />
@@ -558,7 +557,7 @@ export default function ReportsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"

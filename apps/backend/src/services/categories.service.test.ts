@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '../lib/prisma.js';
 import { CategoriesService } from './categories.service.js';
 
+const TEST_PERFORMER_ID = 1; // system/admin user assumed to exist in test DB
+
 describe('Categories Service Unit Tests', () => {
   let testCategoryId: number;
   let testItemId: number;
@@ -15,7 +17,7 @@ describe('Categories Service Unit Tests', () => {
     });
     await prisma.category.deleteMany({
       where: {
-        name: { in: ['Test Archiving Category', 'Test Type Change Category'] },
+        name: { in: ['Test Archiving Category', 'Test Type Change Category', 'Test Audit Category'] },
       },
     });
   });
@@ -33,6 +35,42 @@ describe('Categories Service Unit Tests', () => {
         where: { id: testCategoryId },
       })
       .catch(() => {});
+  });
+
+  it('should write a CREATED audit log entry when performedById is provided', async () => {
+    const before = await prisma.inventoryLog.count({
+      where: { entityType: 'Category', action: 'CREATED' },
+    });
+
+    const category = await CategoriesService.create(
+      { name: 'Test Audit Category', type: 'CONSUMABLE' },
+      TEST_PERFORMER_ID,
+    );
+
+    const after = await prisma.inventoryLog.count({
+      where: { entityType: 'Category', action: 'CREATED', entityId: category.id },
+    });
+
+    expect(after).toBe(before + 1);
+
+    // Cleanup
+    await prisma.category.delete({ where: { id: category.id } });
+  });
+
+  it('should NOT write an audit log entry when performedById is omitted', async () => {
+    const category = await CategoriesService.create({
+      name: 'Test Audit Category',
+      type: 'CONSUMABLE',
+    });
+
+    const logCount = await prisma.inventoryLog.count({
+      where: { entityType: 'Category', entityId: category.id },
+    });
+
+    expect(logCount).toBe(0);
+
+    // Cleanup
+    await prisma.category.delete({ where: { id: category.id } });
   });
 
   it('should prevent archiving a category that has linked active inventory items', async () => {
@@ -64,12 +102,18 @@ describe('Categories Service Unit Tests', () => {
     testItemId = item.id;
 
     // 3. Attempt to archive category -> should fail
-    await expect(CategoriesService.archive(category.id)).rejects.toThrow(
+    await expect(CategoriesService.archive(category.id, TEST_PERFORMER_ID)).rejects.toThrow(
       'Cannot archive category with linked items',
     );
+
+    // 4. No audit log should have been written on failure
+    const logCount = await prisma.inventoryLog.count({
+      where: { entityType: 'Category', entityId: category.id, action: 'DELETED' },
+    });
+    expect(logCount).toBe(0);
   });
 
-  it('should allow archiving a category when linked items are archived', async () => {
+  it('should allow archiving a category when linked items are archived and write audit log', async () => {
     // 1. Archive the item
     await prisma.item.update({
       where: { id: testItemId },
@@ -77,8 +121,14 @@ describe('Categories Service Unit Tests', () => {
     });
 
     // 2. Attempt to archive category -> should succeed
-    const archivedCategory = await CategoriesService.archive(testCategoryId);
+    const archivedCategory = await CategoriesService.archive(testCategoryId, TEST_PERFORMER_ID);
     expect(archivedCategory.deletedAt).not.toBeNull();
+
+    // 3. Assert audit log was written
+    const logCount = await prisma.inventoryLog.count({
+      where: { entityType: 'Category', entityId: testCategoryId, action: 'DELETED' },
+    });
+    expect(logCount).toBe(1);
   });
 
   it('should prevent changing category type when active items are linked', async () => {
@@ -108,12 +158,18 @@ describe('Categories Service Unit Tests', () => {
 
     // 3. Attempt to change category type -> should fail
     await expect(
-      CategoriesService.update(category.id, { type: 'EQUIPMENT' }),
+      CategoriesService.update(category.id, { type: 'EQUIPMENT' }, TEST_PERFORMER_ID),
     ).rejects.toThrow(
       'Cannot change category type when active items are linked',
     );
 
-    // 4. Cleanup
+    // 4. No audit log should have been written on failure
+    const logCount = await prisma.inventoryLog.count({
+      where: { entityType: 'Category', entityId: category.id, action: 'UPDATED' },
+    });
+    expect(logCount).toBe(0);
+
+    // 5. Cleanup
     await prisma.consumableProfile.deleteMany({
       where: { itemId: item.id },
     });

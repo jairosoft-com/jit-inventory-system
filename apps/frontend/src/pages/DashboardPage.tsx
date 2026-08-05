@@ -205,7 +205,10 @@ function getActivityDetails(action: string) {
       return {
         color: '#6b7280',
         bg: 'rgba(107, 114, 128, 0.1)',
-        label: action.toLowerCase(),
+        label: action
+          .split('_')
+          .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+          .join(' '),
       };
   }
 }

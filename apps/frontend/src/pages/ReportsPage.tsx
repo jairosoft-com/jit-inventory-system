@@ -261,7 +261,7 @@ const PREVIEW_COLUMNS: Record<string, string[]> = {
 
 function DataTable({ data, type }: { data: Record<string, unknown>[]; type: string }) {
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(10);
 
   if (data.length === 0) {
     return (
@@ -277,8 +277,18 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   const preferred = PREVIEW_COLUMNS[type] ?? allColumns;
   const columns = preferred.filter((c) => allColumns.includes(c));
 
-  const totalPages = Math.ceil(data.length / pageSize);
-  const pageData = data.slice((page - 1) * pageSize, page * pageSize);
+  // Always at least 1 page — guards against edge case where pageSize > data.length
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  // Clamp current page within valid range after any page size change
+  const safePage = Math.min(page, totalPages);
+  const pageData = data.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const handlePageSizeChange = (size: number) => {
+    // Batch both updates together to prevent stale render between the two setState calls
+    const newTotalPages = Math.max(1, Math.ceil(data.length / size));
+    setPageSize(size);
+    setPage((p) => Math.min(p, newTotalPages));
+  };
 
   return (
     <div className="flex flex-col">
@@ -318,33 +328,43 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="-mx-5 -mb-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5 mt-5">
+      <div className="-mx-5 -mb-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5 mt-5">
+        {/* Rows per page selector */}
+        <div className="flex items-center gap-4">
+          <select
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            className="cursor-pointer rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+          >
+            <option value={5}>5 rows</option>
+            <option value={10}>10 rows</option>
+            <option value={15}>15 rows</option>
+          </select>
           <span className="text-xs text-[var(--text-tertiary)]">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of{' '}
-            {data.length} records
+            Page {safePage} of {totalPages} · {data.length.toLocaleString()} total
           </span>
+        </div>
+
+        {/* Prev / Next buttons — hidden when all records fit on one page */}
+        {totalPages > 1 && (
           <div className="flex gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              disabled={safePage === 1}
               className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-secondary)] transition disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-[var(--surface-hover)]"
             >
               ← Previous
             </button>
-            <span className="flex items-center px-2 text-xs font-semibold text-[var(--text-secondary)]">
-              Page {page} of {totalPages}
-            </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              disabled={safePage === totalPages}
               className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-secondary)] transition disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-[var(--surface-hover)]"
             >
               Next →
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

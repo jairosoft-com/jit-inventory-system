@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
-import { CalendarIcon, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useReportStore, type ReportType } from '../store/reportStore';
 import { useAuthStore } from '../store/authStore';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -102,35 +97,6 @@ function IconAlert() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function ReportTypeCard({
-  value,
-  label,
-  isSelected,
-  onSelect,
-}: {
-  value: ReportType;
-  label: string;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-        isSelected
-          ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] shadow-sm'
-          : 'border-[var(--surface-border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:border-[var(--input-border-focus)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]'
-      }`}
-      onClick={onSelect}
-      type="button"
-    >
-      <div className="shrink-0">
-        <IconReport />
-      </div>
-      <span className="text-sm font-semibold">{label}</span>
-    </button>
-  );
-}
-
 // ── Filter Bar ────────────────────────────────────────────────────────────────
 
 interface Category {
@@ -139,83 +105,57 @@ interface Category {
 }
 
 interface FilterBarProps {
-  dateRange: DateRange | undefined;
-  onDateRangeChange: (range: DateRange | undefined) => void;
+  reportType: string;
+  onReportTypeChange: (type: string) => void;
+  availableTypes: { value: string; label: string }[];
+  isLoadingTypes: boolean;
   categoryId: string;
   onCategoryChange: (id: string) => void;
   categories: Category[];
   isLoadingCategories: boolean;
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (val: string) => void;
+  onEndDateChange: (val: string) => void;
   onClearFilters: () => void;
   hasActiveFilters: boolean;
   showDateFilter: boolean;
 }
 
 function FilterBar({
-  dateRange,
-  onDateRangeChange,
+  reportType,
+  onReportTypeChange,
+  availableTypes,
+  isLoadingTypes,
   categoryId,
   onCategoryChange,
   categories,
   isLoadingCategories,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
   onClearFilters,
   hasActiveFilters,
   showDateFilter,
 }: FilterBarProps) {
-  const [calendarOpen, setCalendarOpen] = useState(false);
-
-  const dateLabel =
-    dateRange?.from && dateRange?.to
-      ? `${format(dateRange.from, 'MMM d, yyyy')} – ${format(dateRange.to, 'MMM d, yyyy')}`
-      : dateRange?.from
-        ? `From ${format(dateRange.from, 'MMM d, yyyy')}`
-        : 'Pick date range';
-
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-[var(--surface-border)] pb-5">
       <span className="text-xs font-bold tracking-wider text-[var(--text-tertiary)]">FILTERS</span>
 
-      {/* Date Range Picker */}
-      {showDateFilter && (
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="flex h-9 items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-normal text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
-            >
-              <CalendarIcon size={14} className="text-[var(--text-tertiary)]" />
-              <span className={!dateRange?.from ? 'text-[var(--text-tertiary)]' : ''}>
-                {dateLabel}
-              </span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={(range) => {
-                onDateRangeChange(range);
-                if (range?.from && range?.to) setCalendarOpen(false);
-              }}
-              numberOfMonths={2}
-              disabled={{ after: new Date() }}
-            />
-            {dateRange?.from && (
-              <div className="border-t border-[var(--surface-border)] p-2">
-                <button
-                  type="button"
-                  className="w-full rounded-md px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-                  onClick={() => {
-                    onDateRangeChange(undefined);
-                    setCalendarOpen(false);
-                  }}
-                >
-                  Clear dates
-                </button>
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
-      )}
+      {/* Report Type Select */}
+      <Select value={reportType} onValueChange={onReportTypeChange} disabled={isLoadingTypes}>
+        <SelectTrigger className="h-9 w-[220px] rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm focus:border-[var(--input-border-focus)] focus:ring-0">
+          <SelectValue placeholder={isLoadingTypes ? 'Loading…' : 'Select report type'} />
+        </SelectTrigger>
+        <SelectContent>
+          {availableTypes.map((t) => (
+            <SelectItem key={t.value} value={t.value}>
+              {t.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Category Select */}
       <Select value={categoryId} onValueChange={onCategoryChange} disabled={isLoadingCategories}>
@@ -231,6 +171,34 @@ function FilterBar({
           ))}
         </SelectContent>
       </Select>
+
+      {/* Date inputs */}
+      {showDateFilter && (
+        <>
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">
+              From
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => onStartDateChange(e.target.value)}
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-xs font-medium text-[var(--text-tertiary)]">
+              To
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => onEndDateChange(e.target.value)}
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm outline-none transition focus:border-[var(--input-border-focus)]"
+            />
+          </div>
+        </>
+      )}
 
       {/* Clear all */}
       {hasActiveFilters && (
@@ -381,11 +349,6 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
   );
 }
 
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -425,27 +388,12 @@ export default function ReportsPage() {
     }
   }, [fetchTypes, fetchCategories, canExport]);
 
-  const handleSelectType = (type: ReportType) => {
-    clearPreview();
-    clearError();
-    selectType(type);
-  };
-
-  const dateRange: DateRange | undefined =
-    filters.startDate || filters.endDate
-      ? {
-          from: filters.startDate ? parseLocalDate(filters.startDate) : undefined,
-          to: filters.endDate ? parseLocalDate(filters.endDate) : undefined,
-        }
-      : undefined;
-
   const hasActiveFilters = !!(filters.startDate || filters.endDate || filters.categoryId);
 
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    setFilters({
-      startDate: range?.from ? format(range.from, 'yyyy-MM-dd') : undefined,
-      endDate: range?.to ? format(range.to, 'yyyy-MM-dd') : undefined,
-    });
+  const handleReportTypeChange = (type: string) => {
+    clearPreview();
+    clearError();
+    selectType(type as import('../store/reportStore').ReportType);
   };
 
   const handleCategoryChange = (value: string) => {
@@ -489,34 +437,30 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Main Layout Grid */}
-      <div className="flex flex-col gap-6 md:flex-row items-start">
-        {/* Left panel: report type selector */}
-        <aside className="flex w-full shrink-0 flex-col gap-3 md:w-64">
-          <p className="text-xs font-bold tracking-wider text-[var(--text-tertiary)]">
-            SELECT REPORT TYPE
-          </p>
-          {isLoadingTypes ? (
-            <div className="flex items-center gap-2 py-4 text-sm text-[var(--text-secondary)]">
-              <IconSpinner /> Loading…
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {availableTypes.map((t) => (
-                <ReportTypeCard
-                  key={t.value}
-                  value={t.value}
-                  label={t.label}
-                  isSelected={selectedType === t.value}
-                  onSelect={() => handleSelectType(t.value)}
-                />
-              ))}
-            </div>
-          )}
-        </aside>
+      {/* Main Layout */}
+      <div className="flex flex-col gap-6">
+        {/* Main frame */}
+        <section className="flex w-full min-w-0 flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
+          {/* Filter bar — always visible */}
+          <FilterBar
+            reportType={selectedType ?? ''}
+            onReportTypeChange={handleReportTypeChange}
+            availableTypes={availableTypes}
+            isLoadingTypes={isLoadingTypes}
+            categoryId={filters.categoryId ?? 'all'}
+            onCategoryChange={handleCategoryChange}
+            categories={categories}
+            isLoadingCategories={isLoadingCategories}
+            startDate={filters.startDate ?? ''}
+            endDate={filters.endDate ?? ''}
+            onStartDateChange={(val) => setFilters({ startDate: val || undefined })}
+            onEndDateChange={(val) => setFilters({ endDate: val || undefined })}
+            onClearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+            showDateFilter={selectedType !== 'low_stock'}
+          />
 
-        {/* Right panel: Main frame */}
-      <section className="flex w-full min-w-0 flex-1 flex-col gap-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">          {!selectedType ? (
+          {!selectedType ? (
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-[var(--text-disabled)]">
               <div className="scale-150 opacity-50 mb-2">
                 <IconReport />
@@ -525,23 +469,11 @@ export default function ReportsPage() {
                 Choose a Report Type
               </h3>
               <p className="text-xs text-[var(--text-secondary)] max-w-xs">
-                Select a report from the left panel to generate a preview and export options.
+                Select a report type from the filter above to generate a preview and export options.
               </p>
             </div>
           ) : (
             <>
-              {/* Filter bar */}
-              <FilterBar
-                dateRange={dateRange}
-                onDateRangeChange={handleDateRangeChange}
-                categoryId={filters.categoryId ?? 'all'}
-                onCategoryChange={handleCategoryChange}
-                categories={categories}
-                isLoadingCategories={isLoadingCategories}
-                onClearFilters={clearFilters}
-                hasActiveFilters={hasActiveFilters}
-                showDateFilter={selectedType !== 'low_stock'}
-              />
 
               {/* Report actions bar */}
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--surface-border)] pb-5">

@@ -102,7 +102,7 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl">
+      <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-xl" style={{ maxHeight: '90vh' }}>
         {/* ── Header ── */}
         <div className="flex items-start justify-between border-b border-[var(--surface-border)] px-6 py-4">
           <div>
@@ -126,7 +126,7 @@ export default function ReturnModal({ record, onClose, onSuccess }: Props) {
           </button>
         </div>
 
-        <div className="px-6 py-5 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
           {/* ── Overdue warning ── */}
           {overdue && (
             <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">

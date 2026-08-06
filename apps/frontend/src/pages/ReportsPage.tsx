@@ -261,7 +261,7 @@ const PREVIEW_COLUMNS: Record<string, string[]> = {
 
 function DataTable({ data, type }: { data: Record<string, unknown>[]; type: string }) {
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(10);
 
   if (data.length === 0) {
     return (
@@ -279,6 +279,11 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
 
   const totalPages = Math.ceil(data.length / pageSize);
   const pageData = data.slice((page - 1) * pageSize, page * pageSize);
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
 
   return (
     <div className="flex flex-col">
@@ -318,12 +323,25 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
         </table>
       </div>
 
-      {totalPages > 1 && (
+      {totalPages >= 1 && (
         <div className="-mx-5 -mb-5 flex items-center justify-between rounded-b-2xl border-t border-[var(--surface-border)] bg-[var(--background-tertiary)] px-5 py-3.5 mt-5">
-          <span className="text-xs text-[var(--text-tertiary)]">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.length)} of{' '}
-            {data.length} records
-          </span>
+          {/* Rows per page selector */}
+          <div className="flex items-center gap-4">
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="cursor-pointer rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)]"
+            >
+              <option value={5}>5 rows</option>
+              <option value={10}>10 rows</option>
+              <option value={15}>15 rows</option>
+            </select>
+            <span className="text-xs text-[var(--text-tertiary)]">
+              Page {page} of {totalPages} · {data.length.toLocaleString()} total
+            </span>
+          </div>
+
+          {/* Prev / Next buttons */}
           <div className="flex gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -332,9 +350,6 @@ function DataTable({ data, type }: { data: Record<string, unknown>[]; type: stri
             >
               ← Previous
             </button>
-            <span className="flex items-center px-2 text-xs font-semibold text-[var(--text-secondary)]">
-              Page {page} of {totalPages}
-            </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}

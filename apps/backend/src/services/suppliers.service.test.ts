@@ -165,6 +165,25 @@ describe('SuppliersService.getHistory (Defect 210001)', () => {
     expect(timestamps).toEqual(sorted);
   });
 
+  it('breaks performedAt ties deterministically using id descending', async () => {
+    const history = await SuppliersService.getHistory(supplierId);
+
+    // Group consecutive entries by identical performedAt timestamp and
+    // assert each group's ids are strictly descending — this is what makes
+    // ordering deterministic across repeated calls when logs share a
+    // timestamp (e.g. two logs written within the same request).
+    for (let i = 0; i < history.length - 1; i++) {
+      const current = history[i];
+      const next = history[i + 1];
+      if (
+        new Date(current.performedAt).getTime() ===
+        new Date(next.performedAt).getTime()
+      ) {
+        expect(current.id).toBeGreaterThan(next.id);
+      }
+    }
+  });
+
   it('does not include purchase order logs from a different supplier', async () => {
     const history = await SuppliersService.getHistory(supplierId);
     const entityIds = history

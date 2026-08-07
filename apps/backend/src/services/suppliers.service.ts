@@ -360,9 +360,7 @@ export class SuppliersService {
           },
         },
       },
-      orderBy: {
-        performedAt: 'desc',
-      },
+      orderBy: [{ performedAt: 'desc' }, { id: 'desc' }],
     });
 
     return logs.map((log) => ({

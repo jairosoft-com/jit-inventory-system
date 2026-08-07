@@ -22,7 +22,9 @@ export interface Supplier {
 
 export interface SupplierHistory {
   id: number;
-  action: 'CREATED' | 'UPDATED' | 'DELETED' | string;
+  entityType?: 'Supplier' | 'PurchaseOrder' | string;
+  entityId?: number;
+  action: 'CREATED' | 'UPDATED' | 'DELETED' | 'APPROVED' | string;
   performedBy: string;
   performedAt: string;
   oldData: unknown;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useSupplierStore } from '../store/supplierStore';
 import type { Supplier, SupplierHistory, SupplierStatusFilter } from '../store/supplierStore';
@@ -299,8 +300,17 @@ export default function SupplierManagementPage() {
 
   // Helper timeline items badges
   const getActionBadge = (log: SupplierHistory) => {
+    const isPO = log.entityType === 'PurchaseOrder';
+
     switch (log.action) {
       case 'CREATED':
+        if (isPO) {
+          return (
+            <span className="inline-flex rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+              Purchase Order Created
+            </span>
+          );
+        }
         if (log.oldData) {
           return (
             <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
@@ -313,7 +323,20 @@ export default function SupplierManagementPage() {
             Created
           </span>
         );
+      case 'APPROVED':
+        return (
+          <span className="inline-flex rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+            Purchase Order Approved
+          </span>
+        );
       case 'UPDATED':
+        if (isPO) {
+          return (
+            <span className="inline-flex rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+              Purchase Order Updated
+            </span>
+          );
+        }
         return (
           <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
             Updated
@@ -336,6 +359,41 @@ export default function SupplierManagementPage() {
 
   // Render log changes diff list
   const renderLogChanges = (log: SupplierHistory) => {
+    const isPO = log.entityType === 'PurchaseOrder';
+
+    if (isPO) {
+      const oldStatus = (log.oldData as Record<string, unknown> | null)?.status;
+      const newStatus = (log.newData as Record<string, unknown> | null)?.status;
+      const poRef = log.entityId ? (
+        <Link
+          to={`/dashboard/orders?poId=${log.entityId}`}
+          className="font-medium text-[var(--primary)] underline underline-offset-2 hover:opacity-80"
+        >
+          PO #{log.entityId}
+        </Link>
+      ) : (
+        'Purchase order'
+      );
+
+      if (log.action === 'CREATED') {
+        return (
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            {poRef} created for this supplier.
+          </p>
+        );
+      }
+      if (oldStatus && newStatus) {
+        return (
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            {poRef} status changed: "{String(oldStatus)}" → "{String(newStatus)}"
+          </p>
+        );
+      }
+      return (
+        <p className="text-xs text-[var(--text-secondary)] mt-1">{poRef} updated.</p>
+      );
+    }
+
     if (log.action === 'CREATED') {
       if (log.oldData) {
         return (

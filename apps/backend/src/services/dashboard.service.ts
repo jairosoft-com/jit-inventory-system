@@ -536,10 +536,16 @@ export class DashboardService {
 
     const allowedTypes: string[] = [];
     if (access.canReadInventory) {
-      allowedTypes.push('ConsumableProfile', 'Item');
+      allowedTypes.push('ConsumableProfile', 'Item', 'Category');
     }
     if (access.canReadEquipment) {
-      allowedTypes.push('Equipment', 'BorrowRecord');
+      allowedTypes.push('Equipment', 'BorrowRecord', 'MaintenanceLog');
+    }
+    // Policy: Supplier, PurchaseOrder, and User activity is restricted to
+    // ADMIN and MANAGER roles only. STAFF should not see procurement or
+    // user-management activity in the dashboard feed.
+    if (access.roleName === 'ADMIN' || access.roleName === 'MANAGER') {
+      allowedTypes.push('Supplier', 'PurchaseOrder', 'User');
     }
 
     if (allowedTypes.length === 0) {
@@ -569,72 +575,156 @@ export class DashboardService {
       },
     });
 
-    const mappedLogs = await Promise.all(
-      logs.map(async (log) => {
-        let itemName = `${log.entityType} #${log.entityId}`;
-        let isDamaged = false;
+    // Batch fetch all names per entity type to avoid N+1 queries.
+    // IDs are deduplicated so the IN(...) clause stays small even with repeated entities.
+    const idsByType: Record<string, number[]> = {};
+    for (const log of logs) {
+      if (!idsByType[log.entityType]) idsByType[log.entityType] = [];
+      idsByType[log.entityType].push(log.entityId);
+    }
+    // Deduplicate each type's ID list
+    for (const type of Object.keys(idsByType)) {
+      idsByType[type] = [...new Set(idsByType[type])];
+    }
 
-        try {
-          if (log.entityType === 'ConsumableProfile') {
-            const profile = await prisma.consumableProfile.findUnique({
-              where: { id: log.entityId },
-              include: { item: { select: { itemName: true } } },
-            });
-            if (profile?.item) {
-              itemName = profile.item.itemName;
-            }
-          } else if (log.entityType === 'Item') {
-            const item = await prisma.item.findUnique({
-              where: { id: log.entityId },
-              select: { itemName: true },
-            });
-            if (item) {
-              itemName = item.itemName;
-            }
-          } else if (log.entityType === 'Equipment') {
-            const equipment = await prisma.equipment.findUnique({
-              where: { id: log.entityId },
-              include: { item: { select: { itemName: true } } },
-            });
-            if (equipment?.item) {
-              itemName = equipment.item.itemName;
-            }
-            if (
-              access.roleName === 'STAFF' &&
-              equipment &&
-              (equipment.status === EquipmentStatus.DAMAGED ||
-                equipment.condition === ConditionStatus.DAMAGED)
-            ) {
-              isDamaged = true;
-            }
-          } else if (log.entityType === 'BorrowRecord') {
-            const record = await prisma.borrowRecord.findUnique({
-              where: { id: log.entityId },
-              include: {
-                equipment: {
-                  include: { item: { select: { itemName: true } } },
-                },
-              },
-            });
-            if (record?.equipment?.item) {
-              itemName = record.equipment.item.itemName;
-            }
-            if (
-              access.roleName === 'STAFF' &&
-              record?.equipment &&
-              (record.equipment.status === EquipmentStatus.DAMAGED ||
-                record.equipment.condition === ConditionStatus.DAMAGED)
-            ) {
-              isDamaged = true;
-            }
+    // Fetch all required records in one query per entity type
+    const nameMap: Record<string, Record<number, string>> = {};
+
+    if (idsByType['ConsumableProfile']?.length) {
+      const rows = await prisma.consumableProfile.findMany({
+        where: { id: { in: idsByType['ConsumableProfile'] } },
+        include: { item: { select: { itemName: true } } },
+      });
+      nameMap['ConsumableProfile'] = Object.fromEntries(
+        rows.map((r) => [r.id, r.item?.itemName ?? `ConsumableProfile #${r.id}`]),
+      );
+    }
+
+    if (idsByType['Item']?.length) {
+      const rows = await prisma.item.findMany({
+        where: { id: { in: idsByType['Item'] } },
+        select: { id: true, itemName: true },
+      });
+      nameMap['Item'] = Object.fromEntries(rows.map((r) => [r.id, r.itemName]));
+    }
+
+    if (idsByType['Category']?.length) {
+      const rows = await prisma.category.findMany({
+        where: { id: { in: idsByType['Category'] } },
+        select: { id: true, name: true },
+      });
+      nameMap['Category'] = Object.fromEntries(rows.map((r) => [r.id, r.name]));
+    }
+
+    if (idsByType['Equipment']?.length) {
+      const rows = await prisma.equipment.findMany({
+        where: { id: { in: idsByType['Equipment'] } },
+        include: { item: { select: { itemName: true } } },
+      });
+      nameMap['Equipment'] = Object.fromEntries(
+        rows.map((r) => [r.id, r.item?.itemName ?? `Equipment #${r.id}`]),
+      );
+    }
+
+    if (idsByType['BorrowRecord']?.length) {
+      const rows = await prisma.borrowRecord.findMany({
+        where: { id: { in: idsByType['BorrowRecord'] } },
+        include: {
+          equipment: { include: { item: { select: { itemName: true } } } },
+        },
+      });
+      nameMap['BorrowRecord'] = Object.fromEntries(
+        rows.map((r) => [r.id, r.equipment?.item?.itemName ?? `BorrowRecord #${r.id}`]),
+      );
+    }
+
+    if (idsByType['MaintenanceLog']?.length) {
+      const rows = await prisma.maintenanceLog.findMany({
+        where: { id: { in: idsByType['MaintenanceLog'] } },
+        include: {
+          equipment: { include: { item: { select: { itemName: true } } } },
+        },
+      });
+      nameMap['MaintenanceLog'] = Object.fromEntries(
+        rows.map((r) => [
+          r.id,
+          r.equipmentName ?? r.equipment?.item?.itemName ?? `MaintenanceLog #${r.id}`,
+        ]),
+      );
+    }
+
+    if (idsByType['Supplier']?.length) {
+      const rows = await prisma.supplier.findMany({
+        where: { id: { in: idsByType['Supplier'] } },
+        select: { id: true, supplierName: true },
+      });
+      nameMap['Supplier'] = Object.fromEntries(rows.map((r) => [r.id, r.supplierName]));
+    }
+
+    if (idsByType['PurchaseOrder']?.length) {
+      const rows = await prisma.purchaseOrder.findMany({
+        where: { id: { in: idsByType['PurchaseOrder'] } },
+        select: { id: true, invoiceNumber: true },
+      });
+      nameMap['PurchaseOrder'] = Object.fromEntries(
+        rows.map((r) => [r.id, r.invoiceNumber ? `PO ${r.invoiceNumber}` : `PO #${r.id}`]),
+      );
+    }
+
+    if (idsByType['User']?.length) {
+      const rows = await prisma.user.findMany({
+        where: { id: { in: idsByType['User'] } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      nameMap['User'] = Object.fromEntries(
+        rows.map((r) => [r.id, `${r.firstName} ${r.lastName}`.trim()]),
+      );
+    }
+
+    // Build damaged equipment set for STAFF filtering
+    const damagedEquipmentIds = new Set<number>();
+    const damagedBorrowIds = new Set<number>();
+    if (access.roleName === 'STAFF') {
+      if (idsByType['Equipment']?.length) {
+        const rows = await prisma.equipment.findMany({
+          where: {
+            id: { in: idsByType['Equipment'] },
+            OR: [
+              { status: EquipmentStatus.DAMAGED },
+              { condition: ConditionStatus.DAMAGED },
+            ],
+          },
+          select: { id: true },
+        });
+        rows.forEach((r) => damagedEquipmentIds.add(r.id));
+      }
+      if (idsByType['BorrowRecord']?.length) {
+        const rows = await prisma.borrowRecord.findMany({
+          where: { id: { in: idsByType['BorrowRecord'] } },
+          include: { equipment: { select: { id: true, status: true, condition: true } } },
+        });
+        rows.forEach((r) => {
+          if (
+            r.equipment &&
+            (r.equipment.status === EquipmentStatus.DAMAGED ||
+              r.equipment.condition === ConditionStatus.DAMAGED)
+          ) {
+            damagedBorrowIds.add(r.id);
           }
-        } catch {
-          // ignore database errors, fall back to default
-        }
+        });
+      }
+    }
 
-        if (isDamaged) {
-          return null;
-        }
+    const mappedLogs = logs
+      .map((log) => {
+        const isDamaged =
+          (log.entityType === 'Equipment' && damagedEquipmentIds.has(log.entityId)) ||
+          (log.entityType === 'BorrowRecord' && damagedBorrowIds.has(log.entityId));
+
+        if (isDamaged) return null;
+
+        const itemName =
+          nameMap[log.entityType]?.[log.entityId] ?? `${log.entityType} #${log.entityId}`;
 
         return {
           id: log.id,
@@ -648,12 +738,11 @@ export class DashboardService {
             lastName: log.user.lastName,
           },
         };
-      }),
-    );
-
-    return mappedLogs
+      })
       .filter((log): log is NonNullable<typeof log> => log !== null)
       .slice(0, limit);
+
+    return mappedLogs;
   }
 
   static async getEquipmentStatusBreakdown(roleName?: string) {

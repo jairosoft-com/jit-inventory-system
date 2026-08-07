@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStore } from '../store/dashboardStore';
 import { usePolling } from '../lib/usePolling';
@@ -205,7 +204,10 @@ function getActivityDetails(action: string) {
       return {
         color: '#6b7280',
         bg: 'rgba(107, 114, 128, 0.1)',
-        label: action.toLowerCase(),
+        label: action
+          .split('_')
+          .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+          .join(' '),
       };
   }
 }
@@ -245,15 +247,18 @@ export default function DashboardPage() {
     clearError,
   } = useDashboardStore();
 
-  usePolling(() => {
-    void fetchAll();
-  }, 30000);
   const userRole = user?.role?.name;
   const isAuthorizedForAnalytics = userRole === 'ADMIN' || userRole === 'MANAGER';
 
-  useEffect(() => {
+  // usePolling fires its callback immediately on mount/enable and on every
+  // subsequent tick, so it is the single source of truth for fetching
+  // dashboard data. It must always be called with the current analytics
+  // permission - otherwise polling silently drops analytics data (defaults
+  // to false) and overwrites previously-loaded charts with nulls, causing
+  // them to intermittently render empty until a manual page refresh.
+  usePolling(() => {
     void fetchAll(isAuthorizedForAnalytics);
-  }, [fetchAll, isAuthorizedForAnalytics]);
+  }, 30000);
 
   const totalEquipmentCount = equipmentBreakdown.reduce((sum, item) => sum + item.count, 0);
 

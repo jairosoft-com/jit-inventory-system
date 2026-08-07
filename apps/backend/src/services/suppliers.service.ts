@@ -326,10 +326,31 @@ export class SuppliersService {
   static async getHistory(id: number) {
     await this.findOne(id, true);
 
+    // Purchase orders linked to this supplier, so their audit logs can be
+    // pulled in alongside the supplier's own profile-change logs.
+    // Expected volume: a supplier typically has low tens of POs, so an
+    // IN-list on `entityId` is cheap here. If suppliers with very large PO
+    // counts (hundreds+) become common, switch this to a join/EXISTS
+    // subquery or paginate the history endpoint instead of listing ids.
+    const linkedPurchaseOrders = await prisma.purchaseOrder.findMany({
+      where: { supplierId: id },
+      select: { id: true },
+    });
+    const purchaseOrderIds = linkedPurchaseOrders.map((po) => po.id);
+
     const logs = await prisma.inventoryLog.findMany({
       where: {
-        entityType: 'Supplier',
-        entityId: id,
+        OR: [
+          { entityType: 'Supplier', entityId: id },
+          ...(purchaseOrderIds.length > 0
+            ? [
+                {
+                  entityType: 'PurchaseOrder',
+                  entityId: { in: purchaseOrderIds },
+                },
+              ]
+            : []),
+        ],
       },
       include: {
         user: {
@@ -339,13 +360,13 @@ export class SuppliersService {
           },
         },
       },
-      orderBy: {
-        performedAt: 'desc',
-      },
+      orderBy: [{ performedAt: 'desc' }, { id: 'desc' }],
     });
 
     return logs.map((log) => ({
       id: log.id,
+      entityType: log.entityType,
+      entityId: log.entityId,
       action: log.action,
       performedBy: `${log.user.firstName} ${log.user.lastName}`,
       performedAt: log.performedAt,

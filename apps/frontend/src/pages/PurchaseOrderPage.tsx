@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -130,6 +131,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export default function PurchaseOrderPage() {
   const { user } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     purchaseOrders,
     isLoading,
@@ -605,6 +607,24 @@ export default function PurchaseOrderPage() {
       if (updated) setDetailPO(updated);
     }
   }, [purchaseOrders]);
+
+  // Deep-link support: opening a URL like /dashboard/orders?poId=123 (e.g.
+  // from a Supplier Profile History entry) auto-opens that PO's detail
+  // modal once the list has loaded, then clears the param.
+  useEffect(() => {
+    const poIdParam = searchParams.get('poId');
+    if (!poIdParam || purchaseOrders.length === 0) return;
+
+    const targetId = Number(poIdParam);
+    const target = purchaseOrders.find((po) => po.id === targetId);
+    if (target) {
+      handleOpenDetail(target);
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('poId');
+    setSearchParams(next, { replace: true });
+  }, [purchaseOrders, searchParams]);
 
   // Fetch equipment units for selected Purchase Order if it has equipment lines
   const fetchPoEquipment = (poId: number) => {

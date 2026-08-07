@@ -328,6 +328,10 @@ export class SuppliersService {
 
     // Purchase orders linked to this supplier, so their audit logs can be
     // pulled in alongside the supplier's own profile-change logs.
+    // Expected volume: a supplier typically has low tens of POs, so an
+    // IN-list on `entityId` is cheap here. If suppliers with very large PO
+    // counts (hundreds+) become common, switch this to a join/EXISTS
+    // subquery or paginate the history endpoint instead of listing ids.
     const linkedPurchaseOrders = await prisma.purchaseOrder.findMany({
       where: { supplierId: id },
       select: { id: true },

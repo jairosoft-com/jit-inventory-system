@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useSupplierStore } from '../store/supplierStore';
 import type { Supplier, SupplierHistory, SupplierStatusFilter } from '../store/supplierStore';
@@ -363,7 +364,16 @@ export default function SupplierManagementPage() {
     if (isPO) {
       const oldStatus = (log.oldData as Record<string, unknown> | null)?.status;
       const newStatus = (log.newData as Record<string, unknown> | null)?.status;
-      const poRef = log.entityId ? `PO #${log.entityId}` : 'Purchase order';
+      const poRef = log.entityId ? (
+        <Link
+          to={`/dashboard/orders?poId=${log.entityId}`}
+          className="font-medium text-[var(--primary)] underline underline-offset-2 hover:opacity-80"
+        >
+          PO #{log.entityId}
+        </Link>
+      ) : (
+        'Purchase order'
+      );
 
       if (log.action === 'CREATED') {
         return (
